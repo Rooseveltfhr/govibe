@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Mes documents numériques — TCHEKELA</title>
+<meta name="description" content="Gérez vos documents numériquement : stockage chiffré local, QR de partage, sauvegarde.">
+<meta name="theme-color" content="#003F87">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/tchekela.css">
+<style>
+  .wallet-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 18px; }
+  .wallet-stat { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px 8px; text-align: center; }
+  .ws-n { font-family: var(--font-d); font-size: 1.5rem; font-weight: 700; color: var(--primary); line-height: 1; }
+  .ws-l { font-size: .55rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-family: var(--font-b); font-weight: 700; margin-top: 4px; }
+  .wallet-actions { display: flex; gap: 10px; margin-bottom: 18px; }
+  .wallet-act { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 8px; background: #fff; border: 1.5px solid var(--border); border-radius: 10px; font-family: var(--font-b); font-size: .65rem; font-weight: 700; color: var(--dark); letter-spacing: .04em; }
+  .wallet-act:active { background: var(--off); transform: scale(.97); }
+  .wallet-act i { font-size: 1.1rem; color: var(--primary); }
+  .wallet-act.add i { color: var(--secondary-dark); }
+  .wallet-act.share i { color: var(--green); }
+  .wallet-grid { display: grid; grid-template-columns: 1fr; gap: 14px; max-width: 480px; margin: 0 auto; }
+  @media (min-width: 700px) { .wallet-grid { grid-template-columns: repeat(2,1fr); max-width: 760px; } }
+  .wcard { position: relative; border-radius: 18px; padding: 18px 18px 16px; color: #fff; overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,.15); aspect-ratio: 1.586/1; display: flex; flex-direction: column; justify-content: space-between; }
+  .wcard.passport { background: linear-gradient(135deg,#003F87,#002D61); }
+  .wcard.cin { background: linear-gradient(135deg,#C9A84C,#a88a3a); color: #1a1a2e; }
+  .wcard.permis { background: linear-gradient(135deg,#DC2626,#991b1b); }
+  .wcard.badge { background: linear-gradient(135deg,#0D9488,#0f766e); }
+  .wcard.other { background: linear-gradient(135deg,#475569,#1e293b); }
+  .wcard.add-card { background:#fff; border: 2px dashed var(--border); color: var(--muted); align-items: center; justify-content: center; gap: 8px; box-shadow: none; cursor:pointer; }
+  .wcard.add-card i { font-size: 1.8rem; color: var(--secondary); }
+  .wcard.add-card span { font-family: var(--font-b); font-weight: 700; font-size: .85rem; letter-spacing: .08em; }
+  .wc-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .wc-type { font-family: var(--font-b); font-size: .58rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; opacity: .85; }
+  .wc-chip { width: 32px; height: 24px; background: linear-gradient(135deg,rgba(255,255,255,.4),rgba(255,255,255,.2)); border-radius: 4px; }
+  .wc-name { font-family: var(--font-d); font-size: 1.15rem; font-weight: 700; line-height: 1.1; margin-bottom: 4px; }
+  .wc-number { font-family: 'Courier New', monospace; font-size: .82rem; font-weight: 600; letter-spacing: .12em; opacity: .9; }
+  .wc-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
+  .wc-meta { font-size: .58rem; opacity: .8; line-height: 1.3; }
+  .wc-meta strong { font-family: var(--font-b); letter-spacing: .08em; font-size: .62rem; }
+  .wc-qr { width: 36px; height: 36px; background: rgba(255,255,255,.95); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .wc-qr i { color: var(--dark); font-size: .9rem; }
+  .detail-card { background: linear-gradient(135deg,var(--primary),var(--primary-dark)); color: #fff; border-radius: 18px; padding: 20px; margin-bottom: 14px; text-align: center; }
+  .detail-card.cin { background: linear-gradient(135deg,#C9A84C,#a88a3a); color:#1a1a2e; }
+  .detail-card.permis { background: linear-gradient(135deg,#DC2626,#991b1b); }
+  .detail-card.badge { background: linear-gradient(135deg,#0D9488,#0f766e); }
+  .detail-qr { width: 130px; height: 130px; background: #fff; border-radius: 12px; margin: 12px auto; padding: 8px; display: flex; align-items: center; justify-content: center; }
+  .detail-qr canvas, .detail-qr img { width: 100%; height: 100%; }
+  #ocrOv { display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,.95); align-items:center; justify-content:center; padding:14px; }
+  #ocrOv.open { display:flex; }
+  .ocr-card { background:#1e293b; border:1px solid rgba(201,168,76,.2); border-radius:16px; padding:28px 22px; max-width:340px; width:100%; text-align:center; }
+  .ocr-spin { width:48px; height:48px; border-radius:50%; border:3px solid rgba(201,168,76,.15); border-top-color:var(--secondary); animation:spin 1s linear infinite; margin:0 auto 14px; }
+  .ocr-card h4 { color:#fff; font-size:.95rem; margin-bottom:4px; }
+  .ocr-card p { font-size:.76rem; color:rgba(255,255,255,.55); }
+  .ocr-bar { height:3px; background:rgba(255,255,255,.1); border-radius:3px; margin-top:14px; overflow:hidden; }
+  .ocr-fill { height:100%; background:linear-gradient(90deg,var(--primary),var(--secondary)); width:0; transition:width .25s; }
+</style>
+</head>
+<body data-shared-chrome data-shared-footer data-page="documents">
+
+<section class="page-hero">
+  <div class="glow"></div>
+  <span class="chip"><i class="fas fa-folder-open"></i> Documents numériques</span>
+  <h1>Vos documents <em>en sécurité</em></h1>
+  <p>Gardez une copie numérique chiffrée de vos cartes et badges. Partagez par QR code sans risquer l'original. Stockage local, vous seul y avez accès.</p>
+</section>
+
+<section class="section section-light">
+  <div class="wrap-sm">
+    <div class="ib ib-gold reveal">
+      <i class="fas fa-shield-halved"></i>
+      <span><strong>Stockage local sécurisé.</strong> Vos documents restent sur votre appareil. Aucune copie sur nos serveurs. Le QR partagé contient une signature qui expire après 24h.</span>
+    </div>
+
+    <div class="wallet-stats reveal">
+      <div class="wallet-stat"><div class="ws-n" id="wCount">0</div><div class="ws-l">Documents</div></div>
+      <div class="wallet-stat"><div class="ws-n" id="wShared">0</div><div class="ws-l">Partages</div></div>
+      <div class="wallet-stat"><div class="ws-n">100%</div><div class="ws-l">Sécurisé</div></div>
+    </div>
+
+    <div class="wallet-actions reveal">
+      <button class="wallet-act add" onclick="openAdd()"><i class="fas fa-plus-circle"></i> Ajouter</button>
+      <button class="wallet-act" onclick="toast('<i class=\'fas fa-share-nodes\'></i> Choisissez une carte pour la partager')"><i class="fas fa-share-nodes"></i> Partager</button>
+      <button class="wallet-act share" onclick="backup()"><i class="fas fa-cloud-arrow-up"></i> Sauvegarder</button>
+    </div>
+
+    <div class="wallet-grid reveal" id="wGrid"></div>
+  </div>
+</section>
+
+<!-- ADD modal -->
+<div class="overlay" id="mAdd">
+  <div class="mbox">
+    <div class="mhead">
+      <div class="mhead-left"><div class="mhead-icon" style="background:rgba(220,38,38,.08);"><i class="fas fa-folder-plus" style="color:var(--red);"></i></div><h2>Ajouter un document</h2></div>
+      <button class="mclose" onclick="closeAdd()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="mbody">
+      <div class="ib ib-gold"><i class="fas fa-lock"></i><span><strong>Stockage local.</strong> Reste sur votre appareil, rien n'est envoyé à nos serveurs.</span></div>
+      <div class="scan-z">
+        <input type="file" id="wPic" accept="image/*" capture="environment" onchange="handleWScan(event)">
+        <div class="sz-ico" style="background:rgba(220,38,38,.08);"><i class="fas fa-camera" style="color:var(--red);"></i></div>
+        <div class="sz-t">Photographier le document</div>
+        <div class="sz-s">L'OCR extrait les infos automatiquement</div>
+      </div>
+      <div class="scan-prev" id="wPrev"><img id="wImg" src="" alt="Document"></div>
+      <div class="frow" style="margin-top:14px;">
+        <div class="fg"><label>Type <span class="req">*</span></label>
+          <select class="fc" id="wType">
+            <option value="passport">Passeport</option><option value="cin">CIN</option>
+            <option value="permis">Permis</option><option value="badge">Badge pro</option><option value="other">Autre</option>
+          </select>
+        </div>
+        <div class="fg"><label>Numéro</label><input class="fc" id="wNum" placeholder="HT-B884..."></div>
+      </div>
+      <div class="fg"><label>Nom sur le document <span class="req">*</span></label><input class="fc" id="wName" placeholder="Roosevelt Forestal"></div>
+      <div class="fg"><label>Date d'expiration</label><input class="fc" id="wExp" type="date"></div>
+      <div class="chk-g"><input type="checkbox" id="wConsent" checked><label for="wConsent"><strong>Je comprends</strong>Stocké uniquement sur cet appareil. Si je perds mon téléphone, je perds cette copie.</label></div>
+    </div>
+    <div class="mnav-f">
+      <button class="btn-prev" onclick="closeAdd()"><i class="fas fa-xmark"></i> Annuler</button>
+      <button class="btn-sub" onclick="saveDoc()"><i class="fas fa-floppy-disk"></i> Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL modal -->
+<div class="overlay" id="mDetail">
+  <div class="mbox">
+    <div class="mhead">
+      <div class="mhead-left"><div class="mhead-icon"><i class="fas fa-qrcode"></i></div><h2>Mon document</h2></div>
+      <button class="mclose" onclick="closeDetail()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="mbody">
+      <div class="detail-card" id="dCard">
+        <div class="wc-top" style="margin-bottom:12px;"><div class="wc-type" id="dType">PASSEPORT</div><div class="wc-chip"></div></div>
+        <div class="wc-name" id="dName" style="text-align:left;font-size:1.3rem;">—</div>
+        <div class="wc-number" id="dNumber" style="text-align:left;margin-bottom:14px;">—</div>
+        <div class="detail-qr" id="dQR"></div>
+        <div class="wc-bottom"><div class="wc-meta"><strong>EXPIRE</strong><br><span id="dExp">—</span></div><div class="wc-meta" style="text-align:right;"><strong>STATUT</strong><br><span style="color:#4ade80;">● VALIDE</span></div></div>
+      </div>
+      <div class="ib ib-red"><i class="fas fa-triangle-exclamation"></i><span><strong>Document numérique.</strong> Ne remplace pas l'original physique pour les usages officiels. Utilisez le QR pour un partage rapide.</span></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" onclick="shareCard()"><i class="fas fa-share-nodes"></i> Partager</button>
+        <button class="btn btn-outline" onclick="deleteCard()" style="border-color:var(--red);color:var(--red);"><i class="fas fa-trash"></i> Supprimer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- OCR overlay -->
+<div id="ocrOv"><div class="ocr-card"><div class="ocr-spin"></div><h4>Analyse en cours…</h4><p>Lecture automatique du document.</p><div class="ocr-bar"><div class="ocr-fill" id="ocrFill"></div></div></div></div>
+
+<script src="assets/tchekela.js"></script>
+<script>
+let docs = TKStore.get('wallet', []);
+let curIdx = -1;
+let wImgData = null;
+
+const TYPE_LBL = { passport:'PASSEPORT', cin:"CARTE D'IDENTITÉ", permis:'PERMIS DE CONDUIRE', badge:'BADGE PROFESSIONNEL', other:'AUTRE DOCUMENT' };
+const TYPE_CLS = { passport:'passport', cin:'cin', permis:'permis', badge:'badge', other:'other' };
+
+function render() {
+  document.getElementById('wCount').textContent = docs.length;
+  document.getElementById('wShared').textContent = docs.reduce((s,d)=>s+(d.shares||0),0);
+  const grid = document.getElementById('wGrid');
+  grid.innerHTML = docs.map((d,i)=>`
+    <div class="wcard ${TYPE_CLS[d.type]||'other'}" onclick="openDetail(${i})">
+      <div class="wc-top"><div class="wc-type">${TYPE_LBL[d.type]||'DOCUMENT'}</div><div class="wc-chip"></div></div>
+      <div><div class="wc-name">${escapeHtml(d.name)}</div><div class="wc-number">${escapeHtml(d.num)||'—'}</div></div>
+      <div class="wc-bottom"><div class="wc-meta"><strong>EXPIRE</strong><br>${d.exp?fmtDate(d.exp):'—'}</div><div class="wc-qr"><i class="fas fa-qrcode"></i></div></div>
+    </div>`).join('') + `
+    <div class="wcard add-card" onclick="openAdd()"><i class="fas fa-plus-circle"></i><span>Ajouter un document</span></div>`;
+}
+
+function openAdd(){ document.getElementById('mAdd').classList.add('open'); document.body.style.overflow='hidden'; }
+function closeAdd(){
+  document.getElementById('mAdd').classList.remove('open'); document.body.style.overflow='';
+  document.getElementById('wPic').value=''; document.getElementById('wPrev').style.display='none';
+  document.getElementById('wName').value=''; document.getElementById('wNum').value=''; document.getElementById('wExp').value=''; wImgData=null;
+}
+document.getElementById('mAdd').addEventListener('click',function(e){ if(e.target===this) closeAdd(); });
+
+function handleWScan(e){
+  const f=e.target.files[0]; if(!f) return;
+  fileToDataURL(f).then(url=>{ wImgData=url; document.getElementById('wImg').src=url; document.getElementById('wPrev').style.display='block'; runOCR(f); });
+}
+function runOCR(file){
+  const ov=document.getElementById('ocrOv'), bar=document.getElementById('ocrFill');
+  ov.classList.add('open'); bar.style.width='0%';
+  if(typeof Tesseract!=='undefined'){
+    Tesseract.recognize(file,'fra+eng',{logger:m=>{ if(m.status==='recognizing text') bar.style.width=(m.progress*100)+'%'; }})
+    .then(({data:{text}})=>{ fill(text); ov.classList.remove('open'); toast('<i class="fas fa-check-circle"></i> Données extraites'); })
+    .catch(()=>{ ov.classList.remove('open'); });
+  } else {
+    let p=0; const t=setInterval(()=>{ p+=15; bar.style.width=Math.min(p,100)+'%'; if(p>=100){ clearInterval(t); ov.classList.remove('open'); } },180);
+  }
+}
+function fill(text){
+  let type='other';
+  if(/PASSEPORT|PASSPORT/i.test(text)) type='passport';
+  else if(/CIN|IDENTIT/i.test(text)) type='cin';
+  else if(/PERMIS|DRIVER/i.test(text)) type='permis';
+  else if(/BADGE/i.test(text)) type='badge';
+  document.getElementById('wType').value=type;
+  const num=text.match(/[A-Z]{2,3}[-\s]?[A-Z0-9]{5,}/i); if(num) document.getElementById('wNum').value=num[0].trim();
+  let nm=text.match(/Nom\s*:?\s*([A-Z][a-zA-ZÀ-ÿ]+(?:\s+[A-Z][a-zA-ZÀ-ÿ]+)+)/i) || text.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/);
+  if(nm) document.getElementById('wName').value=nm[1].trim();
+}
+
+function saveDoc(){
+  const name=document.getElementById('wName').value.trim();
+  if(!name) return toast('<i class="fas fa-triangle-exclamation"></i> Nom requis');
+  if(!document.getElementById('wConsent').checked) return toast('<i class="fas fa-triangle-exclamation"></i> Cochez le consentement');
+  docs.unshift({ id:'w_'+Date.now(), type:document.getElementById('wType').value, name, num:document.getElementById('wNum').value.trim(), exp:document.getElementById('wExp').value, image:wImgData, shares:0, added:new Date().toISOString() });
+  TKStore.set('wallet', docs); closeAdd(); render(); toast('<i class="fas fa-check-circle"></i> Document ajouté');
+}
+
+function openDetail(i){
+  curIdx=i; const d=docs[i];
+  const card=document.getElementById('dCard'); card.className='detail-card '+(TYPE_CLS[d.type]||'other');
+  document.getElementById('dType').textContent=TYPE_LBL[d.type]||'DOCUMENT';
+  document.getElementById('dName').textContent=d.name;
+  document.getElementById('dNumber').textContent=d.num||'—';
+  document.getElementById('dExp').textContent=d.exp?fmtDate(d.exp):'Sans date';
+  const qr=document.getElementById('dQR'); qr.innerHTML='';
+  if(typeof QRCode!=='undefined') new QRCode(qr,{text:JSON.stringify({id:d.id,name:d.name,type:d.type,num:d.num,exp:Date.now()+86400000}),width:114,height:114,colorDark:'#003F87',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+  else qr.innerHTML='<i class="fas fa-qrcode" style="font-size:5rem;color:var(--dark);"></i>';
+  document.getElementById('mDetail').classList.add('open'); document.body.style.overflow='hidden';
+}
+function closeDetail(){ document.getElementById('mDetail').classList.remove('open'); document.body.style.overflow=''; }
+document.getElementById('mDetail').addEventListener('click',function(e){ if(e.target===this) closeDetail(); });
+
+function shareCard(){
+  if(curIdx<0) return; docs[curIdx].shares=(docs[curIdx].shares||0)+1; TKStore.set('wallet',docs);
+  if(navigator.share) navigator.share({title:'TCHEKELA - Mon document',text:'Document partagé depuis TCHEKELA. Lien valable 24h.',url:location.href}).catch(()=>{});
+  else toast('<i class="fas fa-copy"></i> Lien de partage copié (valable 24h)');
+  render();
+}
+function deleteCard(){
+  if(curIdx<0) return; if(!confirm('Supprimer ce document ?')) return;
+  docs.splice(curIdx,1); TKStore.set('wallet',docs); closeDetail(); render(); toast('<i class="fas fa-trash"></i> Document supprimé');
+}
+function backup(){
+  if(!docs.length) return toast('<i class="fas fa-info-circle"></i> Aucun document à sauvegarder');
+  const blob=new Blob([JSON.stringify(docs,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='tchekela-backup-'+Date.now()+'.json'; a.click(); URL.revokeObjectURL(url);
+  toast('<i class="fas fa-cloud-arrow-up"></i> Sauvegarde téléchargée');
+}
+
+render();
+</script>
+</body>
+</html>
