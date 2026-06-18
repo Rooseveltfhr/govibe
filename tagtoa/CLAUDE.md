@@ -369,6 +369,9 @@ const PLATFORM_ICONS = [
 ];
 ```
 
+> ✅ **STATUT : pakè bati** dans `tagtoa/modules/links/` — voir `LINKS_INTEGRATION.md`.
+> Détection auto de plateforme + don via une page TAGTOA PAY.
+
 ---
 
 ## 5. PALETTE & DESIGN SYSTEM TAGTOA

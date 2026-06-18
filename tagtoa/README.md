@@ -30,6 +30,12 @@ tagtoa/
         ├── database/migrations/
         ├── resources/views/tagtoa/loyalty/
         └── routes/tagtoa_loyalty_routes.php
+    └── links/                # TAGTOA LINKS 🟢 modil konplè (Priorité 3)
+        ├── LINKS_INTEGRATION.md
+        ├── app/{Models,Http/Controllers}/
+        ├── database/migrations/
+        ├── resources/views/tagtoa/links/
+        └── routes/tagtoa_links_routes.php
 ```
 
 Chak dosye modil repwodui achitekti Laravel la, donk deplwaman = `cp -r` + `php artisan migrate`.
@@ -42,7 +48,7 @@ Chak dosye modil repwodui achitekti Laravel la, donk deplwaman = `cp -r` + `php 
 | MENU | ✅ Pakè pare | `modules/menu/` |
 | **PAY** | 🔨 **Pakè konplè bati** | `modules/pay/` → li `PAY_INTEGRATION.md` |
 | **LOYALTY** | 🟡 **Pakè konplè bati** | `modules/loyalty/` → li `LOYALTY_INTEGRATION.md` |
-| LINKS | ⏳ Anrichi baz egzistan | — |
+| **LINKS** | 🟢 **Pakè konplè bati** | `modules/links/` → li `LINKS_INTEGRATION.md` |
 | EVENT | ❌ Spec | CLAUDE.md §15 |
 | POS | ❌ Spec | CLAUDE.md §16 |
 
