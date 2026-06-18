@@ -10,17 +10,15 @@
 TAGTOA se yon **SaaS NFC/QR business platform** ki baze ann Haïti (tagtoa.com).
 Fondatè : Roosevelt Forestal (GOVIBE Ecosystem, Gonaïves/Port-au-Prince, Haïti).
 
-Platfòm nan gen **7 modules** piblik :
+Platfòm nan gen **5 modules** piblik :
 
 | Module | Deskripsyon | Estati |
 |--------|-------------|--------|
 | **TAGTOA CONNECT** | Digital business card (NFC + QR) | ✅ Templates kreye |
 | **TAGTOA MENU** | Digital restaurant/hotel/bar menu (NFC + QR) | ✅ Template kreye |
-| **TAGTOA PAY** | Smart payment page (Manuel + Auto, Haïti + Entènasyonal) | 🔨 Pakè bati (modules/pay) |
+| **TAGTOA PAY** | Smart payment page (Manuel + Auto, Haïti + Entènasyonal) | 🔨 À construire |
 | **TAGTOA LINKS** | Linktree-style + donation | ⏳ Base existante à enrichir |
 | **TAGTOA LOYALTY** | NFC loyalty card system | ❌ À construire from scratch |
-| **TAGTOA EVENT** | Billetterie + check-in NFC/QR + ventes in-event | ❌ Spec: TAGTOA_EVENT_SPEC.md |
-| **TAGTOA POS** | Caisse tactile offline-first | ❌ Spec: TAGTOA_POS_SPEC.md |
 
 ---
 
@@ -47,6 +45,7 @@ Frontend        : Blade + Bootstrap (existant) + CSS personnalisé TAGTOA (ajout
 - **538 routes web.php** — Ajouter en bas du fichier uniquement
 
 ### Modèles clés à connaître
+
 ```php
 // CONNECT / LINKS
 App\Models\Vcard               // profile public, alias URL, template_id, show_qr_code
@@ -82,12 +81,15 @@ App\Models\NfcCardOrder        // commandes cartes NFC physiques
 > ✅ **TOUJOURS** créer de nouvelles tables préfixées `tagtoa_*` pour les nouveaux modules.
 
 ### 3.2 URL Publiques TAGTOA
+
 ```
 tagtoa.com/{alias}              → VcardController::show()     [route: vcard.show]
 tagtoa.com/whatsapp-store/{alias} → WhatsappStoreController::show() [route: whatsapp.store.show]
 tagtoa.com/add-contact/{vcard}  → VcardController::addContact() [route: add-contact]
 ```
+
 **NE PAS** changer ces routes. Pour TAGTOA CONNECT ajouter des alias :
+
 ```php
 // À ajouter en bas de web.php (TAGTOA branded URLs)
 Route::get('/u/{alias}',    [VcardController::class, 'show'])->name('tagtoa.connect.u');
@@ -97,12 +99,18 @@ Route::get('/pay/{alias}',  [TaGtoaPayController::class, 'show'])->name('tagtoa.
 ```
 
 ### 3.3 Templates CONNECT (déjà créés)
+Les 3 templates Blade TAGTOA CONNECT sont dans :
+
 ```
 resources/views/vcardTemplates/tagtoa1.blade.php   → "Noir Absolu"    (black luxury)
 resources/views/vcardTemplates/tagtoa2.blade.php   → "Blanc Glacier"  (editorial white)
 resources/views/vcardTemplates/tagtoa3.blade.php   → "Bleu Électrique"(bold blue hero)
 ```
+
 Ils utilisent **uniquement** les variables déjà passées par `VcardController::show()`.
+Font Awesome 6 CDN + Google Fonts + CSS inline (pas de Webpack requis).
+Pour les enregistrer :
+
 ```sql
 INSERT INTO vcard_templates (name, image, status) VALUES
 ('TAGTOA Noir Absolu',     'tagtoa1.png', 1),
@@ -111,11 +119,20 @@ INSERT INTO vcard_templates (name, image, status) VALUES
 ```
 
 ### 3.4 Template MENU (déjà créé)
+
 ```
 resources/views/whatsapp_stores/templates/tagtoa_menu/index.blade.php
 resources/views/whatsapp_stores/templates/tagtoa_menu/partials/item-card.blade.php
 ```
-Migration associée : `database/migrations/2026_06_14_000001_add_tagtoa_menu_fields.php`
+
+Migration associée (À lancer) :
+
+```
+database/migrations/2026_06_14_000001_add_tagtoa_menu_fields.php
+```
+
+Enregistrer dans DB :
+
 ```sql
 INSERT INTO wp_store_templates (name, image, status) VALUES ('tagtoa_menu', 'tagtoa-menu.png', 1);
 ```
@@ -124,52 +141,239 @@ INSERT INTO wp_store_templates (name, image, status) VALUES ('tagtoa_menu', 'tag
 
 ## 4. MODULES À CONSTRUIRE (par priorité DEVEXPO)
 
-### 4.1 TAGTOA PAY — Priorité 1 🔴  → **PAKÈ BATI : `modules/pay/`**
+---
+
+### 4.1 TAGTOA PAY — Priorité 1 🔴
 **Concept** : Chaque utilisateur crée une "page de paiement" publique avec les méthodes qu'il supporte.
 
-Tables (préfixe `tagtoa_`) : `tagtoa_payment_pages`, `tagtoa_payment_methods`, `tagtoa_payment_proofs`.
-Controllers : `TaGtoaPayController` (public), `TaGtoaPayDashboardController` (owner).
-Notification : `TaGtoaPayProofReceived` (database + mail).
+#### Tables à créer
 
-#### Flow public (customer)
-```
-GET tagtoa.com/pay/{alias}
- → affiche la page avec les méthodes actives
- → client sélectionne une méthode → voit QR + numéro + instructions
- → upload preuve (si required) → POST /pay/{alias}/submit-proof
- → notification au owner (DB + email)
+```php
+// Migration: create_tagtoa_payment_pages_table
+Schema::create('tagtoa_payment_pages', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('vcard_id')->constrained()->cascadeOnDelete();
+    $table->string('tenant_id');
+    $table->string('title')->nullable();          // "Payez Jean Baptiste"
+    $table->string('alias')->unique();            // URL: tagtoa.com/pay/jean-baptiste
+    $table->text('description')->nullable();
+    $table->boolean('is_active')->default(true);
+    $table->timestamps();
+});
+
+// Migration: create_tagtoa_payment_methods_table
+Schema::create('tagtoa_payment_methods', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('payment_page_id')->constrained('tagtoa_payment_pages')->cascadeOnDelete();
+    $table->string('type');       // moncash|natcash|zelle|paypal|stripe|crypto|bank|cash|cod
+    $table->string('label')->nullable();          // "Mon compte MonCash"
+    $table->string('account_holder')->nullable();
+    $table->string('account_number')->nullable(); // numéro / adresse wallet
+    $table->string('instructions')->nullable();
+    $table->boolean('requires_proof')->default(true);  // upload preuve requis
+    $table->boolean('is_active')->default(true);
+    $table->unsignedTinyInteger('sort')->default(0);
+    // Media (QR image) via spatie/medialibrary — collection: 'payment-qr'
+    $table->timestamps();
+});
+
+// Migration: create_tagtoa_payment_proofs_table
+Schema::create('tagtoa_payment_proofs', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('payment_method_id')->constrained('tagtoa_payment_methods');
+    $table->string('payer_name');
+    $table->string('payer_phone')->nullable();
+    $table->decimal('amount', 10, 2)->nullable();
+    $table->string('currency', 10)->default('HTG');
+    $table->string('reference')->nullable();      // numéro de transaction
+    $table->tinyInteger('status')->default(0);    // 0=pending, 1=approved, 2=rejected
+    $table->text('note')->nullable();
+    // Image preuve via spatie/medialibrary — collection: 'proof-image'
+    $table->timestamp('reviewed_at')->nullable();
+    $table->timestamps();
+});
 ```
 
 #### Méthodes de paiement supportées
+
 ```php
 const PAYMENT_METHODS = [
-    'moncash'  => ['label' => 'MonCash',         'icon' => 'fa-mobile-screen-button', 'haiti' => true],
-    'natcash'  => ['label' => 'NatCash',         'icon' => 'fa-mobile-screen-button', 'haiti' => true],
-    'zelle'    => ['label' => 'Zelle',           'icon' => 'fa-dollar-sign',          'diaspora' => true],
-    'paypal'   => ['label' => 'PayPal',          'icon' => 'fa-paypal',               'intl' => true],
-    'stripe'   => ['label' => 'Stripe/Card',     'icon' => 'fa-credit-card',          'intl' => true],
-    'crypto'   => ['label' => 'Crypto',          'icon' => 'fa-bitcoin-sign',         'intl' => true],
-    'bank'     => ['label' => 'Bank Transfer',   'icon' => 'fa-building-columns',     'intl' => true],
-    'cash'     => ['label' => 'Cash',            'icon' => 'fa-money-bill-wave',      'local' => true],
-    'cod'      => ['label' => 'Cash on Delivery','icon' => 'fa-box-open',             'local' => true],
-    'binance'  => ['label' => 'Binance Pay',     'icon' => 'fa-coins',               'intl' => true],
-    'coinbase' => ['label' => 'Coinbase',        'icon' => 'fa-ethereum',             'intl' => true],
+    'moncash'  => ['label' => 'MonCash',       'icon' => 'fa-mobile-screen-button', 'haiti' => true],
+    'natcash'  => ['label' => 'NatCash',        'icon' => 'fa-mobile-screen-button', 'haiti' => true],
+    'zelle'    => ['label' => 'Zelle',          'icon' => 'fa-dollar-sign',          'diaspora' => true],
+    'paypal'   => ['label' => 'PayPal',         'icon' => 'fa-paypal',               'intl' => true],
+    'stripe'   => ['label' => 'Stripe/Card',    'icon' => 'fa-credit-card',          'intl' => true],
+    'crypto'   => ['label' => 'Crypto',         'icon' => 'fa-bitcoin-sign',         'intl' => true],
+    'bank'     => ['label' => 'Bank Transfer',  'icon' => 'fa-building-columns',     'intl' => true],
+    'cash'     => ['label' => 'Cash',           'icon' => 'fa-money-bill-wave',      'local' => true],
+    'cod'      => ['label' => 'Cash on Delivery','icon' => 'fa-box-open',            'local' => true],
+    'binance'  => ['label' => 'Binance Pay',    'icon' => 'fa-coins',               'intl' => true],
+    'coinbase' => ['label' => 'Coinbase',       'icon' => 'fa-ethereum',             'intl' => true],
 ];
 ```
 
+#### Flow public (customer)
+
+```
+GET tagtoa.com/pay/{alias}
+ → affiche la page avec les méthodes actives
+ → client sélectionne une méthode
+ → voit QR + numéro de compte + instructions
+ → upload preuve (si required)
+ → POST /tagtoa-pay/{alias}/submit-proof
+ → notification au owner via DB notification + email
+```
+
+#### Controller à créer
+
+```php
+App\Http\Controllers\TaGtoaPayController
+  show($alias)           // page publique
+  submitProof(Request)   // POST proof upload
+
+App\Http\Controllers\TaGtoaPayDashboardController
+  index()                // liste des pages PAY du user
+  create() / store()     // créer une page
+  edit($id) / update()   // modifier
+  proofs($pageId)        // voir les preuves reçues
+  approveProof($id)      // approuver
+  rejectProof($id)       // rejeter
+```
+
+#### Notification au owner
+
+```php
+// Utiliser le système de notifications Laravel existant
+// App\Notifications\TaGtoaPayProofReceived
+// Database channel + Mail channel
+```
+
+> ✅ **STATUT : pakè bati** dans `tagtoa/modules/pay/` — voir `PAY_INTEGRATION.md`.
+
+---
+
 ### 4.2 TAGTOA LOYALTY — Priorité 2 🟡
-Cartes NFC de fidélité. Tables : `tagtoa_loyalty_programs`, `tagtoa_loyalty_cards`,
-`tagtoa_loyalty_transactions`, `tagtoa_loyalty_rewards`. Service : `LoyaltyCardService`
-(numéro 16 chiffres préfixe `4297` + Luhn, CVC 4 chiffres hashé).
+**Concept** : Cartes NFC de fidélité pour boutiques/restaurants. Chaque carte a un numéro 16 chiffres chiffré, CVC, expiry, QR.
+
+#### Tables à créer
+
+```php
+// create_tagtoa_loyalty_programs_table
+Schema::create('tagtoa_loyalty_programs', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('vcard_id')->nullable()->constrained();
+    $table->string('tenant_id');
+    $table->string('name');                        // "TAGTOA Fidélité"
+    $table->string('alias')->unique();
+    $table->text('description')->nullable();
+    $table->decimal('points_per_dollar', 8, 2)->default(1);
+    $table->decimal('dollar_per_point', 8, 4)->default(0.01);
+    $table->boolean('is_active')->default(true);
+    // Logo via spatie media
+    $table->timestamps();
+});
+
+// create_tagtoa_loyalty_cards_table
+Schema::create('tagtoa_loyalty_cards', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('program_id')->constrained('tagtoa_loyalty_programs');
+    $table->string('card_number', 16)->unique();   // 16 chiffres chiffrés
+    $table->string('card_number_encrypted');       // version chiffrée stockée
+    $table->string('cvc', 4);                      // 3-4 chiffres (hashé)
+    $table->date('expiry_date');
+    $table->string('cardholder_name');
+    $table->string('cardholder_phone')->nullable();
+    $table->string('cardholder_email')->nullable();
+    $table->decimal('balance', 10, 2)->default(0);
+    $table->unsignedInteger('points')->default(0);
+    $table->tinyInteger('status')->default(1);     // 1=active, 0=suspended, 2=expired
+    $table->tinyInteger('delivery_type')->default(0); // 0=pickup, 1=home, 2=authorized_point
+    $table->text('delivery_address')->nullable();
+    $table->timestamp('issued_at')->nullable();
+    $table->timestamps();
+});
+
+// create_tagtoa_loyalty_transactions_table
+Schema::create('tagtoa_loyalty_transactions', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('card_id')->constrained('tagtoa_loyalty_cards');
+    $table->string('type');                        // top_up|redeem|adjustment|refund
+    $table->decimal('amount', 10, 2)->default(0); // montant financier
+    $table->integer('points_delta')->default(0);  // +/- points
+    $table->string('payment_method')->nullable(); // moncash|natcash|cash|paypal|zelle
+    $table->string('reference')->nullable();
+    $table->text('note')->nullable();
+    $table->tinyInteger('status')->default(1);    // 1=confirmed, 0=pending, 2=failed
+    $table->timestamps();
+});
+
+// create_tagtoa_loyalty_rewards_table
+Schema::create('tagtoa_loyalty_rewards', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('program_id')->constrained('tagtoa_loyalty_programs');
+    $table->string('name');
+    $table->text('description')->nullable();
+    $table->unsignedInteger('points_required');
+    $table->decimal('discount_value', 8, 2)->nullable();  // valeur en $ ou %
+    $table->string('discount_type')->default('fixed');    // fixed|percent
+    $table->boolean('is_active')->default(true);
+    $table->timestamps();
+});
+```
+
+#### Génération du numéro de carte
+
+```php
+// Dans App\Services\LoyaltyCardService
+public function generateCardNumber(): string
+{
+    do {
+        // Format: TAGTOA xxxx xxxx xxxx
+        $prefix = '4297';  // préfixe TAGTOA
+        $number = $prefix . str_pad(random_int(0, 999999999999), 12, '0', STR_PAD_LEFT);
+        $luhn   = $this->applyLuhn($number);
+    } while (TaGtoaLoyaltyCard::where('card_number', $luhn)->exists());
+    return $luhn;
+}
+public function generateCvc(): string
+{
+    return str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+}
+```
+
+> ✅ **STATUT : pakè bati** dans `tagtoa/modules/loyalty/` — voir `LOYALTY_INTEGRATION.md`.
+
+---
 
 ### 4.3 TAGTOA LINKS — Priorité 3 🟢
-Base via `CustomLink` + `VcardPaymentLink`. Enrichir vue publique (logos auto-détectés),
-ajouter section donation, template LINKS dédié.
+La base existe via `CustomLink` et `VcardPaymentLink`. Il faut :
+1. **Enrichir** la vue publique avec logos auto-détectés par plateforme
+2. **Ajouter section donation** (Moncash/NatCash/Zelle/PayPal/Crypto)
+3. **Créer template LINKS dédié** (séparé de CONNECT)
+
+```php
+// Mapping plateformes → logos (à utiliser dans Blade)
+const PLATFORM_ICONS = [
+    'facebook'  => 'fa-brands fa-facebook',
+    'instagram' => 'fa-brands fa-instagram',
+    'tiktok'    => 'fa-brands fa-tiktok',
+    'youtube'   => 'fa-brands fa-youtube',
+    'twitter'   => 'fa-brands fa-x-twitter',
+    'linkedin'  => 'fa-brands fa-linkedin',
+    'telegram'  => 'fa-brands fa-telegram',
+    'whatsapp'  => 'fa-brands fa-whatsapp',
+    'snapchat'  => 'fa-brands fa-snapchat',
+    'twitch'    => 'fa-brands fa-twitch',
+    'pinterest' => 'fa-brands fa-pinterest',
+    'discord'   => 'fa-brands fa-discord',
+];
+```
 
 ---
 
 ## 5. PALETTE & DESIGN SYSTEM TAGTOA
 > **Tout nouveau code CSS doit respecter ces tokens.**
+
 ```css
 :root {
     --tagtoa-black:       #0A0A0A;
@@ -182,48 +386,70 @@ ajouter section donation, template LINKS dédié.
     --tagtoa-green:       #1D9E75;  /* Success, open, approved */
     --tagtoa-red:         #E0473E;  /* Error, closed, rejected */
     --tagtoa-border:      rgba(0,0,0,0.08);
-    --tagtoa-font-head:   'Space Grotesk', sans-serif;
-    --tagtoa-font-body:   'Nunito', -apple-system, sans-serif;
+    --tagtoa-font-head:   'Space Grotesk', sans-serif;   /* Titres */
+    --tagtoa-font-body:   'Nunito', -apple-system, sans-serif; /* Corps */
 }
 ```
-**Fonts CDN** :
+
+**Fonts CDN** (à inclure dans tout nouveau template) :
+
 ```html
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 ```
+
 **Règles design impératives** :
 - Mobile-first, max-width `480px` sur les pages publiques
 - `loading="lazy"` sur toutes les images sauf above-the-fold
 - Pas de jQuery, pas de Bootstrap JS dans les templates publics — vanilla JS uniquement
-- Animations : `cubic-bezier(0.4, 0, 0.2, 1)`, durée max `0.3s`, respecter `prefers-reduced-motion`
+- Animations : `cubic-bezier(0.4, 0, 0.2, 1)`, durée max `0.3s`
+- Toujours respecter `prefers-reduced-motion`
 - Bottom bar fixe pour navigation rapide (share, whatsapp, action principale)
 
 ---
 
 ## 6. INFRASTRUCTURE — VPS INTERSERVER
+
 ```
-Provider   : InterServer.net          Web server : Nginx
-Domain     : tagtoa.com → VPS         PHP        : 8.2 (FPM)
-CDN/Proxy  : Cloudflare (activé)      DB         : MySQL 8
-OS         : Ubuntu 24                SSL        : Let's Encrypt (Certbot)
+Provider   : InterServer.net
+Domain     : tagtoa.com → pointe sur VPS
+CDN/Proxy  : Cloudflare (activé)
+OS         : Ubuntu 24
+Web server : Nginx
+PHP        : 8.2 (FPM)
+DB         : MySQL 8
+SSL        : Let's Encrypt (via Certbot)
 Deployer   : SSH via Termius (mobile) / Git pull
 ```
+
 ### Commandes de déploiement standard
+
 ```bash
-php artisan config:cache && php artisan route:cache && php artisan view:cache
-php artisan migrate --force                              # après migration
-composer install --no-dev --optimize-autoloader         # après composer update
-php artisan queue:restart                                # queues (supervisor)
+# Après chaque changement
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+# Après migration
+php artisan migrate --force
+# Après composer update
+composer install --no-dev --optimize-autoloader
+# Queues (supervisor process)
+php artisan queue:restart
 ```
-### Variables .env critiques
+
+### Variables .env critiques à configurer
+
 ```env
 APP_NAME="TAGTOA"
 APP_URL=https://tagtoa.com
 APP_DOMAIN=tagtoa.com
+# Cloudflare (pour proxy correct)
 TRUSTED_PROXIES=*
+# Paiements Haïti (Phase MVP — manuel d'abord)
 MONCASH_CLIENT_ID=
 MONCASH_CLIENT_SECRET=
 MONCASH_MODE=sandbox   # passer à 'live' quand prêt
+# Paiements Internationaux
 STRIPE_KEY=
 STRIPE_SECRET=
 PAYPAL_CLIENT_ID=
@@ -235,93 +461,167 @@ COINBASE_COMMERCE_API_KEY=
 ---
 
 ## 7. PERFORMANCE — CRITIQUE POUR HAÏTI (connexion 3G lente)
+Chaque décision de code doit tenir compte des connexions lentes.
+
+### Règles obligatoires
+
 ```php
-// 1. Cache agressif: php artisan config:cache && route:cache && view:cache
-// 2. Images compressées: Image::make($f)->resize(800,null,...)->encode('webp',75); // max 80kb avatar
-// 3. QR en SVG (léger): QrCode::format('svg')->size(200)->generate($url)
-// 4. <img loading="lazy"> TOUJOURS sauf hero
-// 5. Pas de jQuery/Vue/React/Bootstrap JS sur pages publiques — vanilla JS only
+// 1. Cache agressif en production
+php artisan config:cache && php artisan route:cache && php artisan view:cache
+// 2. Images — toujours compresser avec Intervention Image
+use Intervention\Image\Facades\Image;
+$image = Image::make($file)->resize(800, null, fn($c) => $c->aspectRatio())
+              ->encode('webp', 75);  // WebP 75% qualité, max 80kb pour les avatars
+// 3. QR Code — utiliser SVG (léger) pas PNG
+QrCode::format('svg')->size(200)->generate($url)
+// 4. Lazy loading strict
+<img loading="lazy" src="...">   // TOUJOURS sauf hero image
+// 5. Pas de librairies JS lourdes sur les pages publiques
+// ❌ jQuery, ❌ Vue, ❌ React, ❌ Bootstrap JS
+// ✅ Vanilla JS uniquement
 ```
-Objectifs : CONNECT < 2s · MENU < 3s · PAY < 1.5s (sur 3G).
+
+### Objectifs de performance
+- Page CONNECT : chargement < 2s sur 3G
+- Page MENU : chargement < 3s sur 3G (images lazy)
+- Page PAY : chargement < 1.5s (pas d'images lourdes)
 
 ---
 
-## 8. MULTI-TENANCY
-`stancl/tenancy` en **single-database**.
+## 8. MULTI-TENANCY — COMMENT ÇA MARCHE
+Le projet utilise `stancl/tenancy` en mode **single-database** (pas de DB séparée par tenant).
+
 ```php
+// Chaque model appartenant à un tenant DOIT avoir :
 use Stancl\Tenancy\Database\Concerns\BelongsToTenant;
 // + 'tenant_id' dans $fillable
-// + migration: $table->string('tenant_id');
+// + foreign key: $table->string('tenant_id'); + ->foreign('tenant_id')->references('id')->on('tenants')
+// Récupérer le tenant courant
 getLogInTenantId()    // string tenant_id
 getLogInUser()        // User model
+// Scope automatique — les modèles avec BelongsToTenant filtrent automatiquement par tenant
 ```
-**Règle** : tout nouveau modèle TAGTOA lié à un user utilise `BelongsToTenant`.
+
+**Règle** : Tout nouveau modèle TAGTOA lié à un utilisateur doit utiliser `BelongsToTenant`.
 
 ---
 
-## 9. HELPERS GLOBAUX (déjà existants)
+## 9. HELPERS ET FONCTIONS GLOBALES (déjà existants)
+
 ```php
-checkFeature('social_links')          getLogInUser()
-getSocialLink($vcard)                 getLogInTenantId()
-currencyFormat($amount,$dec,$code)    getAppName()
-getVcardFavicon($vcard)               getUserCurrencyIcon($userId)
-YoutubeID($url)                       getLanguageIsoCode($name)
-checkFrontLanguageSession()           getAllLanguageWithFullData()
+// Vcard helpers (app/helpers.php ou Vcard model)
+checkFeature('social_links')    // bool — vérifie si le plan a la feature
+getSocialLink($vcard)           // array de HTML <a> pour chaque réseau social
+currencyFormat($amount, $dec, $code)  // formatage monétaire
+getLogInUser()                  // User authentifié
+getLogInTenantId()              // tenant_id string
+getAppName()                    // APP_NAME depuis settings
+getVcardFavicon($vcard)         // URL favicon du vcard
+getUserCurrencyIcon($userId)    // symbole monétaire
+// WhatsApp store helpers
+YoutubeID($url)                 // extrait l'ID YouTube d'une URL
+TrendingYoutubeID($url)         // idem pour trending
+getLanguageIsoCode($name)       // "French" → "fr"
+checkFrontLanguageSession()     // langue courante ('ar', 'fr', 'en'...)
+getAllLanguageWithFullData()     // collection Language
 ```
 
 ---
 
-## 10. ROADMAP DEVEXPO
+## 10. ORDRE DES TÂCHES — ROADMAP DEVEXPO
+
 ```
-SEM 1-2  Foundation : déployer saas_vcard, .env, migrate, Nginx+SSL+CF, routes alias, templates DB
-SEM 3-4  CONNECT + PAY : 3 templates CONNECT, template MENU, TaGtoaPayController, migrations PAY, vue + dashboard PAY, notifications
-SEM 5-6  MENU dashboard : formulaire produit (prep_time/featured/discount/modes), champs store, upload preuve→tagtoa_payment_proofs
-SEM 7-8  LINKS + polish : template LINKS logos auto, donation, wizard onboarding
-SEM 9-10 LOYALTY + DEVEXPO : migrations loyalty, LoyaltyCardService, vue carte+QR, 3 cartes NFC demo, demo pack (CONNECT+MENU+PAY MonCash)
+SEMAINE 1-2  : Foundation
+  [ ] Déployer saas_vcard sur VPS Interserver
+  [ ] Configurer .env (APP_URL=tagtoa.com, DB, mail)
+  [ ] php artisan migrate (324 migrations)
+  [ ] Configurer Nginx + SSL + Cloudflare
+  [ ] Ajouter routes /u/{alias}, /card/{alias}, /menu/{alias}
+  [ ] Insérer templates CONNECT + MENU dans les tables DB
+  [ ] Lancer migration 2026_06_14_000001_add_tagtoa_menu_fields.php
+SEMAINE 3-4  : TAGTOA CONNECT + PAY
+  [ ] Installer les 3 templates CONNECT (tagtoa1/2/3.blade.php)
+  [ ] Installer le template MENU (tagtoa_menu/)
+  [ ] Créer TaGtoaPayController + routes
+  [ ] Créer migrations tagtoa_payment_pages, _methods, _proofs
+  [ ] Créer models TaGtoaPaymentPage, TaGtoaPaymentMethod, TaGtoaPaymentProof
+  [ ] Créer vue publique PAY (style TAGTOA, même palette)
+  [ ] Créer dashboard owner pour PAY (gérer méthodes, voir preuves)
+  [ ] Notification par DB + email à l'approbation/rejet
+SEMAINE 5-6  : TAGTOA MENU (dashboard owner)
+  [ ] Enrichir formulaire produit (prep_time, featured, discount_price, dine_in/takeout/delivery)
+  [ ] Ajouter champs business_type + delivery_available au formulaire store
+  [ ] Brancher upload preuve de paiement depuis template MENU → tagtoa_payment_proofs
+SEMAINE 7-8  : TAGTOA LINKS + Polish
+  [ ] Créer template LINKS dédié avec logos auto-détectés
+  [ ] Ajouter section donation (réutiliser TaGtoaPaymentMethod structure)
+  [ ] Wizard onboarding user (choisir module au premier login)
+SEMAINE 9-10 : LOYALTY + DEVEXPO
+  [ ] Créer migrations loyalty (programs, cards, transactions, rewards)
+  [ ] Créer LoyaltyCardService (génération numéro 16 chiffres + CVC)
+  [ ] Créer vue publique carte fidélité + QR
+  [ ] Préparer 3 cartes NFC physiques pour DEVEXPO
+  [ ] Demo pack : 1 CONNECT + 1 MENU restaurant + 1 PAY MonCash
 ```
 
 ---
 
 ## 11. CONVENTIONS DE CODE
+
 ```php
-app/Http/Controllers/TaGtoaPayController.php       // PascalCase, prefix TaGtoa
+// Nommage des nouveaux fichiers TAGTOA
+app/Http/Controllers/TaGtoaPayController.php       // PascalCase avec TaGtoa prefix
 app/Models/TaGtoaPaymentPage.php
 app/Services/LoyaltyCardService.php
 database/migrations/2026_XX_XX_XXXXXX_create_tagtoa_*.php
-Route::prefix('tagtoa')->group(fn() => /* ... */);
-resources/views/tagtoa/pay/show.blade.php          // standalone HTML, pas d'@extends
+// Routes TAGTOA (web.php)
+Route::prefix('tagtoa')->group(function () {
+    // nouvelles routes ici
+});
+// Vues TAGTOA
+resources/views/tagtoa/pay/show.blade.php
+resources/views/tagtoa/pay/dashboard/index.blade.php
+resources/views/tagtoa/loyalty/card-public.blade.php
+// Noms de templates Blade publics (standalone HTML, pas d'@extends)
+// Les pages publiques NFC/QR sont des fichiers HTML complets autonomes
+// (comme les templates vcard existants)
 ```
 
 ---
 
 ## 12. PIÈGES À ÉVITER
+
 ```
-❌ php artisan migrate:fresh  — détruirait les 324 tables existantes
-❌ modifier App\Models\Vcard, WhatsappStore, Product  — seulement étendre
-❌ TailwindCSS CDN  — projet en Bootstrap, CSS inline pour templates publics
-❌ toucher mix('assets/css/...') sans vérifier webpack
-❌ jQuery dans les templates publics (lent sur 3G)
-❌ hardcoder des prix en USD  — passer par currencyFormat() ou rendre configurable
-❌ oublier BelongsToTenant sur les nouveaux modèles liés aux users
+❌ NE PAS faire php artisan migrate:fresh  — détruirait les 324 tables existantes
+❌ NE PAS modifier App\Models\Vcard, WhatsappStore, Product  — seulement étendre
+❌ NE PAS utiliser TailwindCSS CDN — le projet existant utilise Bootstrap. CSS inline pour les templates publics.
+❌ NE PAS toucher mix('assets/css/...') sans vérifier que webpack est configuré
+❌ NE PAS utiliser jQuery dans les templates publics (lent sur 3G)
+❌ NE PAS hardcoder des prix en USD — toujours passer par currencyFormat() ou laisser configurable
+❌ NE PAS oublier BelongsToTenant sur les nouveaux modèles liés aux users
 ```
 
 ---
 
 ## 13. FICHIERS DÉJÀ PRODUITS (à copier dans le projet)
-Ce dépôt git est la **source de vérité versionnée** de TAGTOA. Chaque module est un
-pakè autonome sous `tagtoa/modules/<module>/` qui reproduit l'arborescence Laravel.
-```bash
-# MENU (prêt)
-cp modules/menu/database/migrations/2026_06_14_000001_add_tagtoa_menu_fields.php database/migrations/
-cp -r modules/menu/resources/views/whatsapp_stores/templates/tagtoa_menu resources/views/whatsapp_stores/templates/
+Ces fichiers sont prêts et testés — les copier aux bons endroits :
 
-# PAY (prêt) — voir modules/pay/PAY_INTEGRATION.md
-cp -r modules/pay/app/* app/
-cp -r modules/pay/database/migrations/* database/migrations/
-cp -r modules/pay/resources/views/tagtoa resources/views/
-# puis ajouter le contenu de modules/pay/routes/tagtoa_pay_routes.php en bas de web.php
+```bash
+# Templates CONNECT (3 fichiers)
+cp tagtoa-connect-templates/tagtoa-connect-1.blade.php resources/views/vcardTemplates/tagtoa1.blade.php
+cp tagtoa-connect-templates/tagtoa-connect-2.blade.php resources/views/vcardTemplates/tagtoa2.blade.php
+cp tagtoa-connect-templates/tagtoa-connect-3.blade.php resources/views/vcardTemplates/tagtoa3.blade.php
+# Template MENU
+mkdir -p resources/views/whatsapp_stores/templates/tagtoa_menu/partials
+cp tagtoa-menu-template/tagtoa-menu-index.blade.php resources/views/whatsapp_stores/templates/tagtoa_menu/index.blade.php
+cp tagtoa-menu-template/partials_item-card.blade.php resources/views/whatsapp_stores/templates/tagtoa_menu/partials/item-card.blade.php
+# Migration MENU
+cp tagtoa-menu-template/2026_06_14_000001_add_tagtoa_menu_fields.php database/migrations/
 php artisan migrate
 ```
+
+> Dépôt git de référence : ce repo. Chaque module est un pakè autonome sous
+> `tagtoa/modules/<module>/` qui reproduit l'arborescence Laravel.
 
 ---
 
@@ -336,6 +636,10 @@ php artisan migrate
 
 ---
 
+*Dènye mizajou : Jen 2026 — Roosevelt Forestal × Claude (Anthropic)*
+
+---
+
 ## 15. MODULE 6 — TAGTOA EVENT (spec complète dans TAGTOA_EVENT_SPEC.md)
 Tables : `tagtoa_ev_events`, `tagtoa_ev_ticket_types`, `tagtoa_ev_orders`,
          `tagtoa_ev_tickets`, `tagtoa_ev_checkins`, `tagtoa_ev_sale_items`,
@@ -346,7 +650,7 @@ Fonctionnalités :
 - Événements payants ou gratuits, multi-type (concert, expo, mariage, sport…)
 - Types de tickets (VIP, Standard, Gratuit) avec quantités et dates de vente
 - Check-in / check-out NFC tap + QR scan + manuel (offline-first avec sync)
-- Scanner PWA : sons + vibration + temps réel
+- Scanner PWA (vue fournie dans spec) : sons + vibration + temps réel
 - Ventes in-event : participant achète avec wallet NFC de son ticket
 - Dashboard organisateur : commandes, analytics, export CSV
 
@@ -357,15 +661,11 @@ Tables : `tagtoa_pos_terminals`, `tagtoa_pos_products`, `tagtoa_pos_sales`,
          `tagtoa_pos_sale_items`, `tagtoa_pos_cash_movements`
 Controller principal : `TaGtoaPosController`
 Fonctionnalités :
-- Interface caisse tactile (1 bouton = 1 article, emoji + couleur personnalisable)
+- Interface caisse tactile (vue HTML complète fournie dans spec)
+- 1 bouton = 1 article, emoji + couleur personnalisable
 - Sons natifs Web Audio API (pas de fichiers audio) : add/success/error/warning
 - OFFLINE-FIRST : IndexedDB + sync automatique quand connexion revient
-- Paiements : Cash, MonCash, NatCash, Zelle, PayPal, Carte (VISA/Mastercard),
-  Virement Bank (Unibank, Sogebank), Cash on delivery, USDT, Bitcoin, Loyalty NFC
+- Cash, MonCash, NatCash, Zelle, PayPal, Carte Bancaire (VISA, Mastercard), Virement Bank, Unibank, Sogebank, Cash on delivery, USDT Crypto, Bitcoin, Loyalty card NFC
 - Paiement split (moitié cash + moitié MonCash)
 - Reçu imprimante thermique Bluetooth (ESC/POS) + envoi WhatsApp
 - Rapport journalier Z, historique ventes, stats produits
-
----
-
-*Dènye mizajou : Jen 2026 — Roosevelt Forestal × Claude (Anthropic)*

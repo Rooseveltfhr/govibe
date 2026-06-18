@@ -18,12 +18,18 @@ tagtoa/
     │   ├── MENU_INTEGRATION.md
     │   ├── database/migrations/
     │   └── resources/views/whatsapp_stores/templates/tagtoa_menu/
-    └── pay/                  # TAGTOA PAY   🔨 modil konplè (Priorité 1)
-        ├── PAY_INTEGRATION.md
-        ├── app/{Models,Http/Controllers,Notifications}/
+    ├── pay/                  # TAGTOA PAY   🔨 modil konplè (Priorité 1)
+    │   ├── PAY_INTEGRATION.md
+    │   ├── app/{Models,Http/Controllers,Notifications}/
+    │   ├── database/migrations/
+    │   ├── resources/views/tagtoa/pay/
+    │   └── routes/tagtoa_pay_routes.php
+    └── loyalty/              # TAGTOA LOYALTY 🟡 modil konplè (Priorité 2)
+        ├── LOYALTY_INTEGRATION.md
+        ├── app/{Models,Services,Http/Controllers}/
         ├── database/migrations/
-        ├── resources/views/tagtoa/pay/
-        └── routes/tagtoa_pay_routes.php
+        ├── resources/views/tagtoa/loyalty/
+        └── routes/tagtoa_loyalty_routes.php
 ```
 
 Chak dosye modil repwodui achitekti Laravel la, donk deplwaman = `cp -r` + `php artisan migrate`.
@@ -35,7 +41,7 @@ Chak dosye modil repwodui achitekti Laravel la, donk deplwaman = `cp -r` + `php 
 | CONNECT | ✅ Templates kreye (sou VPS) | — |
 | MENU | ✅ Pakè pare | `modules/menu/` |
 | **PAY** | 🔨 **Pakè konplè bati** | `modules/pay/` → li `PAY_INTEGRATION.md` |
-| LOYALTY | ❌ Pwochen | — |
+| **LOYALTY** | 🟡 **Pakè konplè bati** | `modules/loyalty/` → li `LOYALTY_INTEGRATION.md` |
 | LINKS | ⏳ Anrichi baz egzistan | — |
 | EVENT | ❌ Spec | CLAUDE.md §15 |
 | POS | ❌ Spec | CLAUDE.md §16 |
