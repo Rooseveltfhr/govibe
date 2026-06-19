@@ -30,12 +30,18 @@ tagtoa/
         ├── database/migrations/
         ├── resources/views/tagtoa/loyalty/
         └── routes/tagtoa_loyalty_routes.php
-    └── links/                # TAGTOA LINKS 🟢 modil konplè (Priorité 3)
-        ├── LINKS_INTEGRATION.md
-        ├── app/{Models,Http/Controllers}/
-        ├── database/migrations/
-        ├── resources/views/tagtoa/links/
-        └── routes/tagtoa_links_routes.php
+    ├── links/                # TAGTOA LINKS 🟢 modil konplè (Priorité 3)
+    │   ├── LINKS_INTEGRATION.md
+    │   ├── app/{Models,Http/Controllers}/  database/migrations/  resources/views/tagtoa/links/  routes/
+    ├── billing/              # TAGTOA BILLING 💰 modèl revni (abònman + komisyon)
+    │   ├── BILLING_INTEGRATION.md
+    │   ├── app/{Models,Services,Http/Controllers}/  database/migrations/  resources/views/tagtoa/billing/  routes/
+    ├── event/                # TAGTOA EVENT 🎟️ modil konplè (Module 6)
+    │   ├── EVENT_INTEGRATION.md
+    │   ├── app/{Models,Services,Http/Controllers}/  database/migrations/  resources/views/tagtoa/event/  routes/
+    └── pos/                  # TAGTOA POS 🧾 modil konplè (Module 7)
+        ├── POS_INTEGRATION.md
+        └── app/{Models,Services,Http/Controllers}/  database/migrations/  resources/views/tagtoa/pos/  routes/
 ```
 
 Chak dosye modil repwodui achitekti Laravel la, donk deplwaman = `cp -r` + `php artisan migrate`.
@@ -49,8 +55,19 @@ Chak dosye modil repwodui achitekti Laravel la, donk deplwaman = `cp -r` + `php 
 | **PAY** | 🔨 **Pakè konplè bati** | `modules/pay/` → li `PAY_INTEGRATION.md` |
 | **LOYALTY** | 🟡 **Pakè konplè bati** | `modules/loyalty/` → li `LOYALTY_INTEGRATION.md` |
 | **LINKS** | 🟢 **Pakè konplè bati** | `modules/links/` → li `LINKS_INTEGRATION.md` |
-| EVENT | ❌ Spec | CLAUDE.md §15 |
-| POS | ❌ Spec | CLAUDE.md §16 |
+| **EVENT** | 🎟️ **Pakè konplè bati** | `modules/event/` → li `EVENT_INTEGRATION.md` |
+| **POS** | 🧾 **Pakè konplè bati** | `modules/pos/` → li `POS_INTEGRATION.md` |
+| **BILLING** | 💰 **Pakè konplè bati** | `modules/billing/` → li `BILLING_INTEGRATION.md` |
+
+### Modèl revni (2 opsyon a chwazi)
+TAGTOA jenere revni via **modil BILLING** (`modules/billing/`):
+- **Abònman** — machann nan peye yon fòfè (sistèm `Plan`/`Subscription` ki egziste deja).
+- **Komisyon** — TAGTOA pran yon % (+ frè fiks) sou chak vant (EVENT, POS…).
+- **Toulède** — fòfè redui + komisyon redui.
+
+Machann nan chwazi sou `/tagtoa/billing`. Komisyon an konekte otomatikman nan
+**EVENT** (sou kòmand peye) ak **POS** (sou chak vant). ⚠️ Deplwaye BILLING
+**anvan** EVENT/POS.
 
 ## Deplwaman rapid (sou VPS la)
 

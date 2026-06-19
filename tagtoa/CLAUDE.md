@@ -657,6 +657,9 @@ Fonctionnalités :
 - Ventes in-event : participant achète avec wallet NFC de son ticket
 - Dashboard organisateur : commandes, analytics, export CSV
 
+> ✅ **STATUT : pakè bati** dans `tagtoa/modules/event/` — voir `EVENT_INTEGRATION.md`.
+> Commission plateforme câblée via le module BILLING.
+
 ---
 
 ## 16. MODULE 7 — TAGTOA POS (spec complète dans TAGTOA_POS_SPEC.md)
@@ -672,3 +675,19 @@ Fonctionnalités :
 - Paiement split (moitié cash + moitié MonCash)
 - Reçu imprimante thermique Bluetooth (ESC/POS) + envoi WhatsApp
 - Rapport journalier Z, historique ventes, stats produits
+
+> ✅ **STATUT : pakè bati** dans `tagtoa/modules/pos/` — voir `POS_INTEGRATION.md`.
+> Commission plateforme câblée via le module BILLING.
+
+---
+
+## 17. MODÈLE DE REVENU — TAGTOA BILLING (`tagtoa/modules/billing/`)
+TAGTOA génère ses revenus de **2 façons au choix** du marchand (ou défaut plateforme) :
+- **`subscription`** : abonnement (réutilise `Plan`/`PlanFeature`/`Subscription` existants), aucune commission.
+- **`commission`** : commission `%` + frais fixe sur chaque vente (EVENT, POS, …).
+- **`both`** : abonnement réduit + commission réduite.
+
+Tables : `tagtoa_revenue_settings`, `tagtoa_commissions`.
+Service : `TaGtoaRevenueService::record($sourceType,$sourceId,$module,$gross,$tenantId,$currency)`.
+Dashboard : `/tagtoa/billing` (choix du modèle + journal des commissions + net marchand).
+Câblé dans : EVENT (commande payée) et POS (vente). ⚠️ Déployer BILLING avant EVENT/POS.
