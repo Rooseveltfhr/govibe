@@ -2,6 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Tagtoa\App\Http\Controllers\Billing\BillingController;
+use Modules\Tagtoa\App\Http\Controllers\Event\CheckinController as EventCheckin;
+use Modules\Tagtoa\App\Http\Controllers\Event\DashboardController as EventDashboard;
+use Modules\Tagtoa\App\Http\Controllers\Event\PublicController as EventPublic;
 use Modules\Tagtoa\App\Http\Controllers\Hub\HubController;
 use Modules\Tagtoa\App\Http\Controllers\Links\DashboardController as LinksDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Links\PublicController as LinksPublic;
@@ -9,6 +12,7 @@ use Modules\Tagtoa\App\Http\Controllers\Loyalty\DashboardController as LoyaltyDa
 use Modules\Tagtoa\App\Http\Controllers\Loyalty\PublicController as LoyaltyPublic;
 use Modules\Tagtoa\App\Http\Controllers\Pay\DashboardController as PayDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Pay\PublicController as PayPublic;
+use Modules\Tagtoa\App\Http\Controllers\Pos\PosController;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,6 +27,10 @@ Route::post('/pay/{alias}/submit-proof', [PayPublic::class, 'submitProof'])->nam
 Route::get('/loyalty/card/{token}', [LoyaltyPublic::class, 'show'])->name('tagtoa.loyalty.card');
 Route::get('/links/{alias}', [LinksPublic::class, 'show'])->name('tagtoa.links.show');
 Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->name('tagtoa.links.go');
+Route::get('/event/{alias}', [EventPublic::class, 'show'])->name('tagtoa.event.show');
+Route::post('/event/{alias}/buy', [EventPublic::class, 'buy'])->name('tagtoa.event.buy');
+Route::get('/event/order/{reference}', [EventPublic::class, 'order'])->name('tagtoa.event.order');
+Route::get('/event/ticket/{code}', [EventPublic::class, 'ticket'])->name('tagtoa.event.ticket');
 
 // ---------- DASHBOARD (auth) ----------
 Route::middleware(['auth'])->prefix('tagtoa')->group(function () {
@@ -64,6 +72,32 @@ Route::middleware(['auth'])->prefix('tagtoa')->group(function () {
         Route::get('/{id}/edit', [LinksDashboard::class, 'edit'])->name('edit');
         Route::put('/{id}', [LinksDashboard::class, 'update'])->name('update');
         Route::delete('/{id}', [LinksDashboard::class, 'destroy'])->name('destroy');
+    });
+
+    // EVENT
+    Route::prefix('event')->name('tagtoa.event.dashboard.')->group(function () {
+        Route::get('/', [EventDashboard::class, 'index'])->name('index');
+        Route::get('/create', [EventDashboard::class, 'create'])->name('create');
+        Route::post('/', [EventDashboard::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [EventDashboard::class, 'edit'])->name('edit');
+        Route::put('/{id}', [EventDashboard::class, 'update'])->name('update');
+        Route::get('/{id}/orders', [EventDashboard::class, 'orders'])->name('orders');
+        Route::get('/{id}/orders/export', [EventDashboard::class, 'exportOrders'])->name('orders.export');
+        Route::get('/{id}/scanner', [EventCheckin::class, 'scanner'])->name('scanner');
+        Route::post('/{id}/scan', [EventCheckin::class, 'scan'])->name('scan');
+        Route::post('/{id}/sync', [EventCheckin::class, 'sync'])->name('sync');
+    });
+
+    // POS
+    Route::prefix('pos')->name('tagtoa.pos.')->group(function () {
+        Route::get('/', [PosController::class, 'index'])->name('index');
+        Route::post('/', [PosController::class, 'store'])->name('store');
+        Route::get('/{id}/register', [PosController::class, 'register'])->name('register');
+        Route::post('/{id}/sale', [PosController::class, 'sale'])->name('sale');
+        Route::post('/{id}/sync', [PosController::class, 'sync'])->name('sync');
+        Route::get('/{id}/report', [PosController::class, 'report'])->name('report');
+        Route::get('/{id}/products', [PosController::class, 'products'])->name('products');
+        Route::post('/{id}/products', [PosController::class, 'saveProducts'])->name('products.save');
     });
 
     // BILLING
