@@ -39,6 +39,20 @@ class LoyaltyCardService
         return (10 - ($sum % 10)) % 10;
     }
 
+    public function isValidLuhn(string $number): bool
+    {
+        if (! ctype_digit($number)) {
+            return false;
+        }
+        $sum = 0; $double = false;
+        for ($i = strlen($number) - 1; $i >= 0; $i--) {
+            $d = (int) $number[$i];
+            if ($double) { $d *= 2; if ($d > 9) { $d -= 9; } }
+            $sum += $d; $double = ! $double;
+        }
+        return $sum % 10 === 0;
+    }
+
     public function issueCard(Program $program, array $data): array
     {
         $number = $this->generateCardNumber();
