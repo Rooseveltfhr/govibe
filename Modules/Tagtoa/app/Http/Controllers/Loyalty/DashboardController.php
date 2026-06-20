@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Vcard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Loyalty\Card;
 use Modules\Tagtoa\App\Models\Loyalty\Program;
@@ -141,8 +142,10 @@ class DashboardController extends Controller
 
     protected function validateProgram(Request $request, ?int $ignoreId = null): array
     {
+        $ownVcardIds = $this->vcards()->pluck('id')->all();
+
         return $request->validate([
-            'vcard_id'          => ['nullable', 'integer'],
+            'vcard_id'          => ['nullable', 'integer', Rule::in($ownVcardIds)],
             'name'              => ['required', 'string', 'max:160'],
             'alias'             => ['nullable', 'string', 'max:120', 'alpha_dash', 'unique:tagtoa_loyalty_programs,alias'.($ignoreId ? ','.$ignoreId : '')],
             'description'       => ['nullable', 'string', 'max:1000'],
@@ -157,7 +160,7 @@ class DashboardController extends Controller
     protected function vcards()
     {
         try {
-            return Vcard::query()->orderBy('name')->get(['id', 'name']);
+            return Vcard::query()->where('tenant_id', Tenant::id())->orderBy('name')->get(['id', 'name']);
         } catch (\Throwable $e) {
             return collect();
         }

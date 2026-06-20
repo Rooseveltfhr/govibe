@@ -7,6 +7,7 @@ use App\Models\Vcard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Models\Pay\PaymentProof;
@@ -111,8 +112,10 @@ class DashboardController extends Controller
 
     protected function validatePage(Request $request, ?int $ignoreId = null): array
     {
+        $ownVcardIds = $this->vcards()->pluck('id')->all();
+
         return $request->validate([
-            'vcard_id'         => ['nullable', 'integer'],
+            'vcard_id'         => ['nullable', 'integer', Rule::in($ownVcardIds)],
             'title'            => ['nullable', 'string', 'max:160'],
             'alias'            => ['nullable', 'string', 'max:120', 'alpha_dash',
                                    'unique:tagtoa_payment_pages,alias'.($ignoreId ? ','.$ignoreId : '')],
@@ -157,7 +160,7 @@ class DashboardController extends Controller
     protected function vcards()
     {
         try {
-            return Vcard::query()->orderBy('name')->get(['id', 'name']);
+            return Vcard::query()->where('tenant_id', Tenant::id())->orderBy('name')->get(['id', 'name']);
         } catch (\Throwable $e) {
             return collect();
         }

@@ -77,7 +77,7 @@
                     <div class="card">
                         @if($m->qr_url)<div class="qr"><img src="{{ $m->qr_url }}" alt="QR" loading="lazy"></div>@endif
                         @if($m->account_holder)<div class="kv"><span>{{ __('Bénéficiaire') }}</span><b>{{ $m->account_holder }}</b></div>@endif
-                        @if($m->account_number)<div class="kv"><span>{{ __('Compte / N°') }}</span><b>{{ $m->account_number }}<button class="copy" type="button" onclick="cp('{{ $m->account_number }}',this)">{{ __('Copier') }}</button></b></div>@endif
+                        @if($m->account_number)<div class="kv"><span>{{ __('Compte / N°') }}</span><b>{{ $m->account_number }}<button class="copy" type="button" data-copy="{{ $m->account_number }}" onclick="cp(this)">{{ __('Copier') }}</button></b></div>@endif
                         @if($m->instructions)<div class="instr"><i class="fa-solid fa-circle-info" style="color:var(--blue);margin-right:6px"></i>{{ $m->instructions }}</div>@endif
 
                         <form method="POST" action="{{ route('tagtoa.pay.submit-proof', $page->alias) }}" enctype="multipart/form-data" style="margin-top:14px">
@@ -122,7 +122,7 @@ function pick(btn,id){var d=document.getElementById('det-'+id);
     btn.classList.add('on');d.classList.add('show');cur=id;
     setTimeout(function(){d.scrollIntoView({behavior:'smooth',block:'center'})},120);}
 function pv(i){var f=i.files[0];if(!f)return;i.parentNode.querySelector('.ftx').textContent=f.name;var img=i.closest('form').querySelector('.prev');var r=new FileReader();r.onload=function(e){img.src=e.target.result;img.style.display='block';};r.readAsDataURL(f);}
-function cp(t,el){navigator.clipboard&&navigator.clipboard.writeText(t);var o=el.textContent;el.textContent='{{ __('Copié!') }}';setTimeout(function(){el.textContent=o;},1400);}
+function cp(el){var t=el.getAttribute('data-copy');navigator.clipboard&&navigator.clipboard.writeText(t);var o=el.textContent;el.textContent='{{ __('Copié!') }}';setTimeout(function(){el.textContent=o;},1400);}
 function sh(){if(navigator.share){navigator.share({title:document.title,url:location.href}).catch(function(){});}else{navigator.clipboard&&navigator.clipboard.writeText(location.href);alert('{{ __('Lien copié') }}');}}
 @if($errors->any())var b=document.querySelector('.m');if(b)b.click();@endif
 </script>

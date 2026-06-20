@@ -3,7 +3,6 @@
 namespace Modules\Tagtoa\App\Services\Pos;
 
 use Illuminate\Support\Facades\DB;
-use Modules\Tagtoa\App\Models\Pos\Product;
 use Modules\Tagtoa\App\Models\Pos\Sale;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
@@ -49,18 +48,24 @@ class PosService
 
             foreach ($items as $it) {
                 $qty = (int) $it['qty'];
+
+                // Sécurité : ne résoudre le produit QUE via le terminal courant.
+                // Un product_id appartenant à un autre tenant est ignoré (pas de
+                // référence stockée, pas de décrément de stock cross-tenant).
+                $product = ! empty($it['product_id'])
+                    ? $terminal->products()->whereKey($it['product_id'])->first()
+                    : null;
+
                 $sale->items()->create([
-                    'product_id' => $it['product_id'] ?? null,
+                    'product_id' => $product?->id,
                     'name'       => $it['name'],
                     'price'      => $it['price'],
                     'qty'        => $qty,
                     'line_total' => (float) $it['price'] * $qty,
                 ]);
-                if (! empty($it['product_id'])) {
-                    $p = Product::find($it['product_id']);
-                    if ($p && $p->stock !== null) {
-                        $p->decrement('stock', $qty);
-                    }
+
+                if ($product && $product->stock !== null) {
+                    $product->decrement('stock', $qty);
                 }
             }
 

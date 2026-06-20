@@ -7,6 +7,7 @@ use App\Models\Vcard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Links\Link;
 use Modules\Tagtoa\App\Models\Links\LinkPage;
@@ -81,14 +82,17 @@ class DashboardController extends Controller
 
     protected function validatePage(Request $request, ?int $ignoreId = null): array
     {
+        $ownVcardIds = $this->vcards()->pluck('id')->all();
+        $ownPayIds   = $this->payPages()->pluck('id')->all();
+
         return $request->validate([
-            'vcard_id'       => ['nullable', 'integer'],
+            'vcard_id'       => ['nullable', 'integer', Rule::in($ownVcardIds)],
             'title'          => ['nullable', 'string', 'max:160'],
             'alias'          => ['nullable', 'string', 'max:120', 'alpha_dash', 'unique:tagtoa_link_pages,alias'.($ignoreId ? ','.$ignoreId : '')],
             'bio'            => ['nullable', 'string', 'max:500'],
             'theme'          => ['nullable', 'in:dark,light,blue'],
             'donation_label' => ['nullable', 'string', 'max:80'],
-            'pay_page_id'    => ['nullable', 'integer'],
+            'pay_page_id'    => ['nullable', 'integer', Rule::in($ownPayIds)],
             'is_active'      => ['nullable', 'boolean'],
             'avatar'         => ['nullable', 'image', 'max:2048'],
         ]);
@@ -122,7 +126,7 @@ class DashboardController extends Controller
     protected function vcards()
     {
         try {
-            return Vcard::query()->orderBy('name')->get(['id', 'name']);
+            return Vcard::query()->where('tenant_id', Tenant::id())->orderBy('name')->get(['id', 'name']);
         } catch (\Throwable $e) {
             return collect();
         }
