@@ -32,8 +32,11 @@ Route::post('/event/{alias}/buy', [EventPublic::class, 'buy'])->name('tagtoa.eve
 Route::get('/event/order/{reference}', [EventPublic::class, 'order'])->name('tagtoa.event.order');
 Route::get('/event/ticket/{code}', [EventPublic::class, 'ticket'])->name('tagtoa.event.ticket');
 
-// ---------- DASHBOARD (auth) ----------
-Route::middleware(['auth'])->prefix('tagtoa')->group(function () {
+// ---------- DASHBOARD (back-office marchand) ----------
+// Middleware aligné sur le back-office Biztap (confirmé dans routes/web.php) :
+// auth + valid.user + role:admin + multi_tenant (initialise le tenant courant
+// pour getLogInTenantId()). Retirer/adapter si votre groupe diffère.
+Route::middleware(['auth', 'valid.user', 'role:admin', 'multi_tenant'])->prefix('tagtoa')->group(function () {
 
     Route::get('/', [HubController::class, 'index'])->name('tagtoa.hub');
 
