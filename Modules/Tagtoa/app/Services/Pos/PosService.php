@@ -25,11 +25,24 @@ class PosService
         }
 
         return DB::transaction(function () use ($terminal, $payload, $uuid) {
-            $items = $payload['items'] ?? [];
-            $discount = (float) ($payload['discount'] ?? 0);
+            $items    = $payload['items'] ?? [];
+            $discount = max(0, (float) ($payload['discount'] ?? 0));
+
+            // Sécurité financière : pré-résoudre chaque ligne. Pour un produit du
+            // catalogue (appartenant à CE terminal), on impose le prix/nom du SERVEUR
+            // — jamais le prix envoyé par le client (anti-tampering). Les articles
+            // ad-hoc (sans product_id) gardent le prix saisi par le caissier.
+            $lines = [];
             $subtotal = 0;
             foreach ($items as $it) {
-                $subtotal += (float) $it['price'] * (int) $it['qty'];
+                $qty = max(1, (int) ($it['qty'] ?? 1));
+                $product = ! empty($it['product_id'])
+                    ? $terminal->products()->whereKey($it['product_id'])->first()
+                    : null;
+                $price = $product ? (float) $product->price : (float) ($it['price'] ?? 0);
+                $name  = $product ? $product->name : (string) ($it['name'] ?? 'Article');
+                $subtotal += $price * $qty;
+                $lines[] = [$product, $name, $price, $qty];
             }
             $total = max(0, $subtotal - $discount);
 
@@ -46,22 +59,13 @@ class PosService
                 'sold_at'        => now(),
             ]);
 
-            foreach ($items as $it) {
-                $qty = (int) $it['qty'];
-
-                // Sécurité : ne résoudre le produit QUE via le terminal courant.
-                // Un product_id appartenant à un autre tenant est ignoré (pas de
-                // référence stockée, pas de décrément de stock cross-tenant).
-                $product = ! empty($it['product_id'])
-                    ? $terminal->products()->whereKey($it['product_id'])->first()
-                    : null;
-
+            foreach ($lines as [$product, $name, $price, $qty]) {
                 $sale->items()->create([
                     'product_id' => $product?->id,
-                    'name'       => $it['name'],
-                    'price'      => $it['price'],
+                    'name'       => $name,
+                    'price'      => $price,
                     'qty'        => $qty,
-                    'line_total' => (float) $it['price'] * $qty,
+                    'line_total' => $price * $qty,
                 ]);
 
                 if ($product && $product->stock !== null) {

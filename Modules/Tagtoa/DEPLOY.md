@@ -3,6 +3,51 @@
 Procédure copier-coller pour Termius (mobile) / SSH. Le module n'altère aucune
 table existante (tout en `tagtoa_*`).
 
+> ⚠️ **Production = site vivant** (clients vcard payants). Voir `RISKS.md`.
+> Toujours suivre la **procédure SÛRE** ci-dessous, jamais un déploiement « brut ».
+
+---
+
+## ⭐ Déploiement SÛR (production) — à utiliser
+Neutralise le risque #2 (casser la prod). `APP=...tapbiz` = racine de l'app.
+
+```bash
+APP=/home/admin/domains/tagtoa.com/public_html/tapbiz
+cd "$APP"
+
+# 1) Sauvegarde DB (filet de sécurité) — voir §1 plus bas pour les identifiants
+#    (ex. via DirectAdmin, ou mysqldump)
+
+# 2) Mode maintenance (le site affiche une page d'attente, pas d'erreur 500)
+php artisan down --render="errors::503" || php artisan down
+
+# 3) Récupérer le module (git clone/pull ou rsync) — voir §2
+
+# 4) Autoload déterministe (enregistre le PSR-4 Tagtoa puis dump)
+php composer.phar dump-autoload -o 2>&1 | tail -3
+
+# 5) Activer + migrer
+php artisan module:enable Tagtoa
+php artisan migrate --force
+
+# 6) SMOKE TEST (doit réussir avant de rouvrir)
+php artisan package:discover >/dev/null 2>&1 && echo "providers OK" || { echo "ECHEC providers"; }
+php artisan route:list 2>/dev/null | grep -q tagtoa && echo "routes OK" || echo "ECHEC routes"
+
+# 7) Caches + réouverture
+php artisan optimize:clear
+php artisan up
+```
+
+**Rollback immédiat si le smoke test échoue (sans rouvrir cassé) :**
+```bash
+php -r '$f="modules_statuses.json";$j=json_decode(file_get_contents($f),true);$j["Tagtoa"]=false;file_put_contents($f,json_encode($j,JSON_PRETTY_PRINT));'
+php artisan migrate:rollback --path=Modules/Tagtoa/Database/migrations --force
+php artisan optimize:clear && php artisan up
+```
+
+---
+
 ## 0. Pré-requis (déjà OK sur Biztap)
 Laravel 10.18, `nwidart/laravel-modules`, `simple-qrcode`, `stancl/tenancy`,
 `spatie/permission`, `app/helpers.php`. Rien à installer.
