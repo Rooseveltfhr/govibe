@@ -38,7 +38,10 @@ Route::get('/event/ticket/{code}', [EventPublic::class, 'ticket'])->name('tagtoa
 // pour getLogInTenantId()). Retirer/adapter si votre groupe diffère.
 Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant'])->prefix('tagtoa')->group(function () {
 
-    Route::get('/', [HubController::class, 'index'])->name('tagtoa.hub');
+    // Accueil sur /tagtoa/home (le segment unique /tagtoa entre en conflit avec
+    // la route vcard {alias} de Biztap). /tagtoa redirige vers /tagtoa/home.
+    Route::get('/', fn () => redirect('/tagtoa/home'));
+    Route::get('/home', [HubController::class, 'index'])->name('tagtoa.hub');
 
     // PAY
     Route::prefix('pay')->name('tagtoa.pay.dashboard.')->group(function () {

@@ -90,7 +90,7 @@
     <aside class="sb" id="sb">
         <div class="brand"><span class="logo">⚡</span><b>TAGTOA</b></div>
         <nav class="nav">
-            <a href="{{ url('/tagtoa') }}" class="{{ request()->is('tagtoa') ? 'on' : '' }}"><i class="fa-solid fa-grip"></i> {{ __('Accueil') }}</a>
+            <a href="{{ url('/tagtoa/home') }}" class="{{ request()->is('tagtoa/home') ? 'on' : '' }}"><i class="fa-solid fa-grip"></i> {{ __('Accueil') }}</a>
             <span class="sep">{{ __('Modules') }}</span>
             <a href="{{ url('/tagtoa/pay') }}" class="{{ request()->is('tagtoa/pay*') ? 'on' : '' }}"><i class="fa-solid fa-money-bill-transfer"></i> {{ __('Paiements') }}</a>
             <a href="{{ url('/tagtoa/loyalty') }}" class="{{ request()->is('tagtoa/loyalty*') ? 'on' : '' }}"><i class="fa-solid fa-id-card"></i> {{ __('Fidélité') }}</a>
