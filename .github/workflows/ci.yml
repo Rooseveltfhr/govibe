@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  tagtoa:
+    name: TAGTOA module — lint + unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+          tools: composer:v2
+
+      - name: PHP syntax lint (all module files)
+        run: |
+          set -e
+          find Modules/Tagtoa -name '*.php' -print0 \
+            | xargs -0 -n1 -P4 php -l > /dev/null
+          echo "✓ Aucun erreur de syntaxe PHP."
+
+      - name: Validate module composer.json
+        run: composer validate Modules/Tagtoa/composer.json --no-check-publish
+
+      - name: Install dev tools (phpunit)
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Unit tests (pure logic)
+        run: vendor/bin/phpunit --testdox --testsuite Unit

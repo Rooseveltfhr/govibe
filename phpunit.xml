@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache">
+    <testsuites>
+        <!-- Tests de logique pure (sans Laravel) — exécutables en CI. -->
+        <testsuite name="Unit">
+            <directory>Modules/Tagtoa/tests/Unit</directory>
+        </testsuite>
+        <!-- Les tests Feature nécessitent l'app Biztap (Laravel) et tournent là-bas. -->
+    </testsuites>
+</phpunit>
