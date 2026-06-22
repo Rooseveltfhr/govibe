@@ -58,6 +58,14 @@ if ! php artisan package:discover >/dev/null 2>&1; then
   rollback
 fi
 
+# 4.5) Données de démo (idempotent — firstOrCreate sur les alias).
+#      Ne bloque JAMAIS le déploiement. Désactivable : TAGTOA_SEED_DEMO=0
+if [ "${TAGTOA_SEED_DEMO:-1}" != "0" ]; then
+  echo "==> Seed démo TAGTOA (idempotent)"
+  php artisan db:seed --class="Modules\\Tagtoa\\Database\\Seeders\\TagtoaDemoSeeder" --force \
+    || echo "WARN: seed démo ignoré (non bloquant)"
+fi
+
 # 5) Caches + réouverture
 php artisan optimize:clear >/dev/null 2>&1 || true
 php artisan up
