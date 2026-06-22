@@ -33,7 +33,7 @@ class PaymentMethod extends Model
     public function getMetaAttribute(): array
     {
         return PaymentPage::METHODS[$this->type]
-            ?? ['label' => ucfirst($this->type), 'icon' => 'fa-money-check-dollar', 'region' => 'other'];
+            ?? ['label' => ucfirst($this->type), 'icon' => 'fa-solid fa-money-check-dollar', 'region' => 'other'];
     }
 
     public function getDisplayLabelAttribute(): string

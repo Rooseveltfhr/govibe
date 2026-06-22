@@ -30,14 +30,29 @@ class TagtoaDemoSeeder extends Seeder
             ['alias' => 'demo'],
             ['title' => 'Payez TAGTOA Demo', 'default_currency' => 'HTG', 'is_active' => true]
         );
-        PaymentMethod::firstOrCreate(
-            ['payment_page_id' => $pay->id, 'type' => 'moncash'],
-            ['label' => 'MonCash', 'account_holder' => 'TAGTOA Demo', 'account_number' => '+509 0000 0000', 'requires_proof' => true, 'is_active' => true, 'sort' => 1]
-        );
-        PaymentMethod::firstOrCreate(
-            ['payment_page_id' => $pay->id, 'type' => 'natcash'],
-            ['label' => 'NatCash', 'account_holder' => 'TAGTOA Demo', 'account_number' => '+509 1111 1111', 'requires_proof' => true, 'is_active' => true, 'sort' => 2]
-        );
+        $demoMethods = [
+            ['moncash',     '+509 3000 0000'],
+            ['natcash',     '+509 4000 0000'],
+            ['unibank',     'Unibank • 011-xxxxxxx'],
+            ['sogebank',    'Sogebank • 021-xxxxxxx'],
+            ['bnc',         'BNC • 031-xxxxxxx'],
+            ['zelle',       'pay@tagtoa.com'],
+            ['cashapp',     '$tagtoa'],
+            ['paypal',      'paypal@tagtoa.com'],
+            ['card',        'VISA / Mastercard'],
+            ['usdt',        'TRC20 • Txxxxxxxxxxxxxxxx'],
+            ['btc',         'bc1qxxxxxxxxxxxxxxxx'],
+            ['eth',         '0xXXXXXXXXXXXXXXXX'],
+            ['cash',        'Sou plas'],
+            ['tagtoa_card', 'Carte TAGTOA'],
+        ];
+        $needsProof = ['moncash', 'natcash', 'unibank', 'sogebank', 'bnc', 'zelle', 'cashapp', 'paypal', 'usdt', 'btc', 'eth'];
+        foreach ($demoMethods as $i => [$type, $acct]) {
+            PaymentMethod::firstOrCreate(
+                ['payment_page_id' => $pay->id, 'type' => $type],
+                ['account_holder' => 'TAGTOA Demo', 'account_number' => $acct, 'requires_proof' => in_array($type, $needsProof, true), 'is_active' => true, 'sort' => $i]
+            );
+        }
 
         // 2) LOYALTY — programme + 1 carte
         $program = Program::firstOrCreate(
