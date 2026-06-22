@@ -10,6 +10,8 @@ use Modules\Tagtoa\App\Http\Controllers\Links\DashboardController as LinksDashbo
 use Modules\Tagtoa\App\Http\Controllers\Links\PublicController as LinksPublic;
 use Modules\Tagtoa\App\Http\Controllers\Loyalty\DashboardController as LoyaltyDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Loyalty\PublicController as LoyaltyPublic;
+use Modules\Tagtoa\App\Http\Controllers\Menu\DashboardController as MenuDashboard;
+use Modules\Tagtoa\App\Http\Controllers\Menu\PublicController as MenuPublic;
 use Modules\Tagtoa\App\Http\Controllers\Pay\DashboardController as PayDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Pay\PublicController as PayPublic;
 use Modules\Tagtoa\App\Http\Controllers\Pos\PosController;
@@ -27,6 +29,7 @@ Route::post('/pay/{alias}/submit-proof', [PayPublic::class, 'submitProof'])->nam
 Route::get('/loyalty/card/{token}', [LoyaltyPublic::class, 'show'])->name('tagtoa.loyalty.card');
 Route::get('/links/{alias}', [LinksPublic::class, 'show'])->name('tagtoa.links.show');
 Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->name('tagtoa.links.go');
+Route::get('/menu/{alias}', [MenuPublic::class, 'show'])->name('tagtoa.menu.show');
 Route::get('/event/{alias}', [EventPublic::class, 'show'])->name('tagtoa.event.show');
 Route::post('/event/{alias}/buy', [EventPublic::class, 'buy'])->name('tagtoa.event.buy');
 Route::get('/event/order/{reference}', [EventPublic::class, 'order'])->name('tagtoa.event.order');
@@ -54,6 +57,16 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/proofs', [PayDashboard::class, 'proofs'])->name('proofs');
         Route::post('/proofs/{id}/approve', [PayDashboard::class, 'approveProof'])->name('proofs.approve');
         Route::post('/proofs/{id}/reject', [PayDashboard::class, 'rejectProof'])->name('proofs.reject');
+    });
+
+    // MENU (restaurant, club, lounge, hôtel, bar, café…)
+    Route::prefix('menu')->name('tagtoa.menu.dashboard.')->group(function () {
+        Route::get('/', [MenuDashboard::class, 'index'])->name('index');
+        Route::get('/create', [MenuDashboard::class, 'create'])->name('create');
+        Route::post('/', [MenuDashboard::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [MenuDashboard::class, 'edit'])->name('edit');
+        Route::put('/{id}', [MenuDashboard::class, 'update'])->name('update');
+        Route::delete('/{id}', [MenuDashboard::class, 'destroy'])->name('destroy');
     });
 
     // LOYALTY
