@@ -13,6 +13,7 @@
 <div class="h-row" style="margin-top:26px"><h2>{{ __('Vos outils TAGTOA') }}</h2></div>
 <div class="grid g3">
     @foreach([
+        ['menu','Menu','fa-utensils','Menu digital NFC/QR : restaurant, club, lounge, hôtel… vendez produits & services.'],
         ['pay','Paiements','fa-money-bill-transfer','Page de paiement (MonCash, NatCash, Zelle, PayPal…) + preuves.'],
         ['loyalty','Fidélité','fa-id-card','Cartes NFC de fidélité : solde, points, récompenses.'],
         ['links','Liens','fa-link','Page de liens style Linktree + don.'],

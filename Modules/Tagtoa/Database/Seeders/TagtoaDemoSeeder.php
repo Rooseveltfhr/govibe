@@ -7,6 +7,7 @@ use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Links\Link;
 use Modules\Tagtoa\App\Models\Links\LinkPage;
 use Modules\Tagtoa\App\Models\Loyalty\Program;
+use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Pay\PaymentMethod;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Models\Pos\Product;
@@ -90,7 +91,45 @@ class TagtoaDemoSeeder extends Seeder
         );
         $event->ticketTypes()->firstOrCreate(['name' => 'Standard'], ['price' => 0, 'quantity' => 200, 'is_active' => true]);
 
-        // 5) POS — caisse démo + produits
+        // 5) MENU — menu digital démo (lounge/restaurant) + catégories + produits
+        $menu = Menu::firstOrCreate(
+            ['alias' => 'demo-menu'],
+            [
+                'name' => 'TAGTOA Lounge Demo', 'type' => 'lounge',
+                'tagline' => 'Cuisine créole • Cocktails • Ambiance lounge',
+                'description' => 'Scannez, commandez, payez. Le menu digital TAGTOA.',
+                'currency' => 'HTG', 'whatsapp' => '+509 3000 0000',
+                'pay_page_id' => $pay->id, 'accent_color' => '#0055FF', 'theme' => 'dark',
+                'show_prices' => true, 'ordering_enabled' => true, 'is_active' => true,
+            ]
+        );
+        $menuData = [
+            ['Entrées', '🥗', [
+                ['Accra de morue', 250, '🧆', 'Beignets de morue épicés', 'Populaire'],
+                ['Pikliz maison', 100, '🌶️', 'Chou et carottes pimentés', null],
+            ]],
+            ['Plats', '🍽️', [
+                ['Griot + bannann peze', 650, '🍖', 'Porc mariné, banane plantain', 'Populaire'],
+                ['Poisson gros sel', 800, '🐟', 'Poisson frit, riz djon-djon', null],
+                ['Tassot kabrit', 750, '🥩', 'Cabri frit, sauce ti-malice', 'Nouveau'],
+            ]],
+            ['Boissons', '🍹', [
+                ['Prestige', 150, '🍺', 'Bière nationale', null],
+                ['Rhum Barbancourt', 300, '🥃', '5 étoiles, sur glace', null],
+                ['Jus de fruits frais', 150, '🧃', 'Chadèque, corossol, grenadia', null],
+            ]],
+        ];
+        foreach ($menuData as $ci => [$catName, $icon, $items]) {
+            $cat = $menu->categories()->firstOrCreate(['name' => $catName], ['icon' => $icon, 'sort' => $ci, 'is_active' => true]);
+            foreach ($items as $ii => [$name, $price, $emoji, $desc, $badge]) {
+                $cat->items()->firstOrCreate(
+                    ['name' => $name],
+                    ['menu_id' => $menu->id, 'price' => $price, 'emoji' => $emoji, 'description' => $desc, 'badge' => $badge, 'is_available' => true, 'sort' => $ii]
+                );
+            }
+        }
+
+        // 6) POS — caisse démo + produits
         $terminal = Terminal::firstOrCreate(['name' => 'Caisse Demo'], ['currency' => 'HTG', 'is_active' => true]);
         foreach ([
             ['Café', 100, '☕', '#0055FF'],
