@@ -69,7 +69,7 @@
         <div class="methods" id="methods">
             @foreach($methods as $m)
                 <button type="button" class="m" data-id="{{ $m->id }}" onclick="pick(this,{{ $m->id }})">
-                    <span class="m-ic"><i class="fa-solid {{ $m->icon }}"></i></span>
+                    <span class="m-ic"><i class="{{ $m->icon }}"></i></span>
                     <span class="m-tx"><b>{{ $m->display_label }}</b><span>{{ $m->account_number ?: ($m->account_holder ?: __('Voir détails')) }}</span></span>
                     <span class="m-ck"><i class="fa-solid fa-check"></i></span>
                 </button>
