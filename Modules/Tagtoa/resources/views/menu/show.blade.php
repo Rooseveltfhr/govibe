@@ -85,6 +85,7 @@
     </style>
 </head>
 <body>
+<div style="position:fixed;top:12px;right:12px;z-index:50">@include('tagtoa::partials.lang')</div>
 <div class="wrap">
     <div class="cover" @if($menu->cover_url) style="background-image:url('{{ $menu->cover_url }}')" @endif></div>
     <div class="head">
@@ -120,7 +121,7 @@
                             <div class="nm">{{ $it->name }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif</div>
                             @if($it->description)<div class="ds">{{ $it->description }}</div>@endif
                             <div class="ft">
-                                @if($menu->show_prices)<span class="price">{{ number_format((float) $it->price, 2) }} {{ $cur }}</span>@else<span></span>@endif
+                                @if($menu->show_prices)<span class="price">{{ \Modules\Tagtoa\App\Support\Money::format($it->price, $cur) }}</span>@else<span></span>@endif
                                 @if($canOrder)
                                     <button class="add" aria-label="{{ __('Ajouter') }}" data-id="{{ $it->id }}" data-name="{{ $it->name }}" data-price="{{ (float) $it->price }}" onclick="add(this)"><i class="fa-solid fa-plus"></i></button>
                                 @endif
@@ -137,7 +138,7 @@
 
 @if($canOrder)
     <div class="cartbar" id="cartbar">
-        <button onclick="openCart()"><span><i class="fa-solid fa-bag-shopping"></i> {{ __('Voir la commande') }} <span class="cnt" id="cnt">0</span></span><span id="bartot">0 {{ $cur }}</span></button>
+        <button onclick="openCart()"><span><i class="fa-solid fa-bag-shopping"></i> {{ __('Voir la commande') }} <span class="cnt" id="cnt">0</span></span><span id="bartot">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></button>
     </div>
 
     <div class="sheet" id="sheet">
@@ -145,7 +146,7 @@
         <div class="pan">
             <h3>{{ __('Votre commande') }} <button class="x" onclick="closeCart()">&times;</button></h3>
             <div id="clist"></div>
-            <div class="tot"><span>{{ __('Total') }}</span><span id="total">0 {{ $cur }}</span></div>
+            <div class="tot"><span>{{ __('Total') }}</span><span id="total">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
             <div class="cta">
                 <a class="wa" id="waBtn" href="#" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> {{ __('Commander sur WhatsApp') }}</a>
                 @if($menu->payPage)<a class="pay" href="{{ url('/pay/'.$menu->payPage->alias) }}"><i class="fa-solid fa-credit-card"></i> {{ __('Payer maintenant') }}</a>@endif
@@ -155,11 +156,15 @@
     </div>
 
     <script>
-        var CUR = @json($cur);
+        var CURMETA = @json(\Modules\Tagtoa\App\Support\Money::meta($cur));
         var WA  = @json($menu->whatsapp_digits);
         var NAME = @json($menu->name);
         var cart = {};
-        function fmt(n){ return n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' ' + CUR; }
+        function fmt(n){
+            var d = (CURMETA.decimals==null) ? 2 : CURMETA.decimals;
+            var s = Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+            return CURMETA.position==='before' ? CURMETA.symbol+s : s+' '+CURMETA.symbol;
+        }
         function add(el){
             var id = el.getAttribute('data-id');
             if(!cart[id]) cart[id] = {name:el.getAttribute('data-name'), price:parseFloat(el.getAttribute('data-price'))||0, qty:0};

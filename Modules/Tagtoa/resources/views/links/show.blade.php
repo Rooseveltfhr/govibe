@@ -43,6 +43,7 @@
     </style>
 </head>
 <body>
+    <div style="position:fixed;top:16px;left:16px;z-index:50">@include('tagtoa::partials.lang')</div>
     <button class="share" onclick="sh()"><i class="fa-solid fa-share-nodes"></i></button>
     <div class="wrap">
         @if($page->avatar_url)<img class="av" src="{{ $page->avatar_url }}" alt="">

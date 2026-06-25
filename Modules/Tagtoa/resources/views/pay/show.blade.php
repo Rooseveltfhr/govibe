@@ -51,6 +51,7 @@
     </style>
 </head>
 <body>
+<div style="position:fixed;top:12px;right:12px;z-index:50">@include('tagtoa::partials.lang')</div>
 <div class="wrap">
     <header class="hd">
         <span class="badge"><i class="fa-solid fa-wifi"></i> TAGTOA PAY</span>

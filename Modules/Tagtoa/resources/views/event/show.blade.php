@@ -28,6 +28,7 @@
     </style>
 </head>
 <body>
+<div style="position:fixed;top:12px;right:12px;z-index:50">@include('tagtoa::partials.lang')</div>
 <form class="wrap" method="POST" action="{{ route('tagtoa.event.buy', $event->alias) }}">
     @csrf
     <div class="cover"><span class="tb">{{ $event->type }}</span>@if($event->cover_url)<img src="{{ $event->cover_url }}" alt="">@endif</div>

@@ -108,6 +108,7 @@
         <header class="top">
             <button class="burger" onclick="document.getElementById('sb').classList.toggle('open')"><i class="fa-solid fa-bars"></i></button>
             <h1>@yield('page', 'TAGTOA')</h1>
+            @include('tagtoa::partials.lang')
             <span class="who">{{ optional(auth()->user())->name ?? '' }}</span>
         </header>
         <main class="content">
