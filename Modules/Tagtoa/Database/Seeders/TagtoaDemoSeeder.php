@@ -129,6 +129,24 @@ class TagtoaDemoSeeder extends Seeder
             }
         }
 
+        // 5b) MENU — une commande démo (en attente) pour tester la gestion
+        if ($menu->orders()->count() === 0) {
+            $griot = $menu->items()->where('name', 'Griot + bannann peze')->first();
+            $jus   = $menu->items()->where('name', 'Jus de fruits frais')->first();
+            if ($griot && $jus) {
+                $total = (float) $griot->price + 2 * (float) $jus->price;
+                $order = $menu->orders()->create([
+                    'tenant_id' => $menu->tenant_id, 'reference' => \Modules\Tagtoa\App\Models\Menu\Order::generateReference(),
+                    'subtotal' => $total, 'total' => $total, 'currency' => $menu->currency,
+                    'status' => 'pending', 'payment_status' => 'unpaid', 'channel' => 'menu',
+                    'customer_name' => 'Client Demo', 'customer_phone' => '+509 3000 0000',
+                    'table_label' => '4', 'placed_at' => now(),
+                ]);
+                $order->items()->create(['item_id' => $griot->id, 'name' => $griot->name, 'price' => $griot->price, 'qty' => 1, 'line_total' => $griot->price]);
+                $order->items()->create(['item_id' => $jus->id, 'name' => $jus->name, 'price' => $jus->price, 'qty' => 2, 'line_total' => 2 * (float) $jus->price]);
+            }
+        }
+
         // 6) POS — caisse démo + produits
         $terminal = Terminal::firstOrCreate(['name' => 'Caisse Demo'], ['currency' => 'HTG', 'is_active' => true]);
         foreach ([

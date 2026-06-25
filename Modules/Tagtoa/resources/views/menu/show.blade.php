@@ -16,6 +16,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $menu->name }} — TAGTOA Menu</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -81,6 +82,10 @@
         .cta .pay{background:var(--acc);color:#fff}
         .cta .clr{background:transparent;color:var(--mut)}
         .empty{color:var(--mut);text-align:center;padding:30px 0}
+        .custf{display:flex;flex-direction:column;gap:8px;margin:6px 0 14px}
+        .cin{width:100%;padding:12px 14px;border:1px solid var(--bd);border-radius:11px;font:15px var(--fb);background:var(--surf);color:var(--fg)}
+        .cin:focus{outline:0;border-color:var(--acc)}
+        .cta button:disabled{opacity:.6;cursor:default}
         @media (prefers-reduced-motion:reduce){*{transition:none!important}}
     </style>
 </head>
@@ -145,26 +150,52 @@
         <div class="ov" onclick="closeCart()"></div>
         <div class="pan">
             <h3>{{ __('Votre commande') }} <button class="x" onclick="closeCart()">&times;</button></h3>
-            <div id="clist"></div>
-            <div class="tot"><span>{{ __('Total') }}</span><span id="total">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
-            <div class="cta">
-                <a class="wa" id="waBtn" href="#" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> {{ __('Commander sur WhatsApp') }}</a>
-                @if($menu->payPage)<a class="pay" href="{{ url('/pay/'.$menu->payPage->alias) }}"><i class="fa-solid fa-credit-card"></i> {{ __('Payer maintenant') }}</a>@endif
-                <button class="clr" onclick="clearCart()">{{ __('Vider la commande') }}</button>
+
+            {{-- État 1 : panier + infos client --}}
+            <div id="orderForm">
+                <div id="clist"></div>
+                <div class="tot"><span>{{ __('Total') }}</span><span id="total">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
+                <div class="custf">
+                    <input id="cName" class="cin" placeholder="{{ __('Votre nom') }}" maxlength="120">
+                    <input id="cPhone" class="cin" type="tel" placeholder="{{ __('Téléphone (WhatsApp)') }}" maxlength="40">
+                    <input id="cTable" class="cin" placeholder="{{ __('N° table (optionnel)') }}" maxlength="40">
+                </div>
+                <div class="cta">
+                    <button class="wa" id="confirmBtn" onclick="submitOrder()"><i class="fa-solid fa-bag-shopping"></i> {{ __('Confirmer la commande') }}</button>
+                    <button class="clr" onclick="clearCart()">{{ __('Vider la commande') }}</button>
+                </div>
+            </div>
+
+            {{-- État 2 : commande confirmée --}}
+            <div id="orderDone" style="display:none">
+                <div style="text-align:center;padding:14px 0 4px">
+                    <div style="width:64px;height:64px;border-radius:50%;background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 12px"><i class="fa-solid fa-check"></i></div>
+                    <div style="font:700 18px var(--fh)">{{ __('Commande créée') }}</div>
+                    <div style="color:var(--mut);margin-top:4px">{{ __('Référence') }} : <b id="okRef"></b></div>
+                    <div style="color:var(--mut)">{{ __('Total') }} : <b id="okTotal"></b></div>
+                </div>
+                <div class="cta" style="margin-top:8px">
+                    <a class="wa" id="okWa" href="#" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> {{ __('Commander sur WhatsApp') }}</a>
+                    <a class="pay" id="okPay" href="#" style="display:none"><i class="fa-solid fa-credit-card"></i> {{ __('Payer maintenant') }}</a>
+                    <button class="clr" onclick="newOrder()">{{ __('Nouvelle') }}</button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
         var CURMETA = @json(\Modules\Tagtoa\App\Support\Money::meta($cur));
-        var WA  = @json($menu->whatsapp_digits);
-        var NAME = @json($menu->name);
+        var ORDER_URL = @json(route('tagtoa.menu.order', $menu->alias));
+        var CSRF = document.querySelector('meta[name=csrf-token]').getAttribute('content');
+        var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')) };
         var cart = {};
+        var ORDER_UUID = 'mo-' + Date.now().toString(36) + Math.random().toString(36).slice(2,10);
         function fmt(n){
             var d = (CURMETA.decimals==null) ? 2 : CURMETA.decimals;
             var s = Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
             return CURMETA.position==='before' ? CURMETA.symbol+s : s+' '+CURMETA.symbol;
         }
+        function val(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
         function add(el){
             var id = el.getAttribute('data-id');
             if(!cart[id]) cart[id] = {name:el.getAttribute('data-name'), price:parseFloat(el.getAttribute('data-price'))||0, qty:0};
@@ -180,19 +211,43 @@
             document.getElementById('total').textContent = fmt(s.t);
             document.getElementById('cartbar').classList.toggle('show', s.n>0);
             var list = document.getElementById('clist'), html='';
-            if(s.n===0){ html = '<div class="empty">'+@json(__('Votre commande est vide.'))+'</div>'; }
+            if(s.n===0){ html = '<div class="empty">'+T.empty+'</div>'; }
             else { for(var k in cart){ var c=cart[k];
                 html += '<div class="crow"><div class="cn">'+esc(c.name)+'<div class="cp">'+fmt(c.price)+'</div></div>'+
                         '<div class="qty"><button onclick="chg(\''+k+'\',-1)">−</button><span>'+c.qty+'</span><button onclick="chg(\''+k+'\',1)">+</button></div></div>';
             }}
             list.innerHTML = html;
-            updateWa(s);
         }
-        function updateWa(s){
-            var lines = [@json(__('Bonjour')) + ' ' + NAME + ', ' + @json(__('je voudrais commander :'))];
-            for(var k in cart){ var c=cart[k]; lines.push('• '+c.qty+'x '+c.name+' — '+fmt(c.qty*c.price)); }
-            lines.push(''); lines.push(@json(__('Total')) + ': ' + fmt(s.t));
-            document.getElementById('waBtn').href = 'https://wa.me/'+WA+'?text='+encodeURIComponent(lines.join('\n'));
+        function submitOrder(){
+            var s = totals(); if(s.n===0) return;
+            var items=[]; for(var k in cart){ items.push({id:Number(k), qty:cart[k].qty}); }
+            var btn=document.getElementById('confirmBtn'); btn.disabled=true; var old=btn.innerHTML; btn.textContent=T.wait;
+            fetch(ORDER_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF},
+                body:JSON.stringify({items:items,client_uuid:ORDER_UUID,channel:'menu',
+                    customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable')})})
+            .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+            .then(function(res){
+                if(!res.ok||!res.j.ok){ throw new Error(); }
+                showConfirmed(res.j);
+            })
+            .catch(function(){ btn.disabled=false; btn.innerHTML=old; alert(T.err); });
+        }
+        function showConfirmed(j){
+            document.getElementById('okRef').textContent = j.reference;
+            document.getElementById('okTotal').textContent = j.total;
+            var wa=document.getElementById('okWa');
+            if(j.whatsapp_url){ wa.href=j.whatsapp_url; wa.style.display=''; } else { wa.style.display='none'; }
+            var pay=document.getElementById('okPay');
+            if(j.pay_url){ pay.href=j.pay_url; pay.style.display=''; } else { pay.style.display='none'; }
+            document.getElementById('orderForm').style.display='none';
+            document.getElementById('orderDone').style.display='';
+        }
+        function newOrder(){
+            cart={}; ORDER_UUID='mo-'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+            document.getElementById('orderDone').style.display='none';
+            document.getElementById('orderForm').style.display='';
+            var b=document.getElementById('confirmBtn'); b.disabled=false; b.innerHTML='<i class="fa-solid fa-bag-shopping"></i> '+T.confirm;
+            render(); closeCart();
         }
         function esc(x){ return String(x).replace(/[&<>"]/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];}); }
         function openCart(){ document.getElementById('sheet').classList.add('show'); }

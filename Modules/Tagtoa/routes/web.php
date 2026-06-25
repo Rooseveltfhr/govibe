@@ -30,6 +30,7 @@ Route::get('/loyalty/card/{token}', [LoyaltyPublic::class, 'show'])->name('tagto
 Route::get('/links/{alias}', [LinksPublic::class, 'show'])->name('tagtoa.links.show');
 Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->name('tagtoa.links.go');
 Route::get('/menu/{alias}', [MenuPublic::class, 'show'])->name('tagtoa.menu.show');
+Route::post('/menu/{alias}/order', [MenuPublic::class, 'order'])->name('tagtoa.menu.order');
 Route::get('/event/{alias}', [EventPublic::class, 'show'])->name('tagtoa.event.show');
 Route::post('/event/{alias}/buy', [EventPublic::class, 'buy'])->name('tagtoa.event.buy');
 Route::get('/event/order/{reference}', [EventPublic::class, 'order'])->name('tagtoa.event.order');
@@ -67,6 +68,9 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/edit', [MenuDashboard::class, 'edit'])->name('edit');
         Route::put('/{id}', [MenuDashboard::class, 'update'])->name('update');
         Route::delete('/{id}', [MenuDashboard::class, 'destroy'])->name('destroy');
+        Route::get('/{id}/orders', [MenuDashboard::class, 'orders'])->name('orders');
+        Route::post('/orders/{order}/status', [MenuDashboard::class, 'setStatus'])->name('orders.status');
+        Route::post('/orders/{order}/paid', [MenuDashboard::class, 'markPaid'])->name('orders.paid');
     });
 
     // LOYALTY

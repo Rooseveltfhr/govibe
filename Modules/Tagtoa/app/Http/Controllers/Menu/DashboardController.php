@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Menu\Menu;
+use Modules\Tagtoa\App\Models\Menu\Order;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
+use Modules\Tagtoa\App\Services\Menu\MenuOrderService;
 use Modules\Tagtoa\App\Support\Locale;
 use Modules\Tagtoa\App\Support\Tenant;
 
@@ -80,6 +82,39 @@ class DashboardController extends Controller
         $this->own($id)->delete();
 
         return redirect()->route('tagtoa.menu.dashboard.index')->with('success', __('Menu supprimé.'));
+    }
+
+    /* ---------- commandes ---------- */
+
+    public function orders(int $id): View
+    {
+        $menu = $this->own($id);
+        $orders = $menu->orders()->with('items')->paginate(20);
+        $pending = $menu->orders()->where('status', 'pending')->count();
+
+        return view('tagtoa::menu.orders', compact('menu', 'orders', 'pending'));
+    }
+
+    public function setStatus(Request $request, int $orderId): RedirectResponse
+    {
+        $order = $this->ownOrder($orderId);
+        $data = $request->validate(['status' => ['required', Rule::in(Order::STATUSES)]]);
+        $order->update(['status' => $data['status']]);
+
+        return back()->with('success', __('Commande mise à jour.'));
+    }
+
+    public function markPaid(int $orderId): RedirectResponse
+    {
+        $order = $this->ownOrder($orderId);
+        app(MenuOrderService::class)->markPaid($order);
+
+        return back()->with('success', __('Paiement effectué.'));
+    }
+
+    protected function ownOrder(int $id): Order
+    {
+        return Order::whereHas('menu', fn ($q) => $q->where('tenant_id', Tenant::id()))->findOrFail($id);
     }
 
     /* ---------- helpers ---------- */
