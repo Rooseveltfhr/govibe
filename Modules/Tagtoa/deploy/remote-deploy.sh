@@ -70,4 +70,16 @@ fi
 php artisan optimize:clear >/dev/null 2>&1 || true
 php artisan up
 
+# 6) Smoke test public (non bloquant). Activer : TAGTOA_SMOKE_BASE=https://tagtoa.com/tapbiz/public
+if [ -n "${TAGTOA_SMOKE_BASE:-}" ]; then
+  echo "==> Smoke test public @ ${TAGTOA_SMOKE_BASE}"
+  for p in /menu/demo-menu /pay/demo /links/demo-links /event/demo-concert; do
+    code=$(curl -s -o /dev/null -w "%{http_code}" -L --max-time 15 "${TAGTOA_SMOKE_BASE}${p}" 2>/dev/null || echo 000)
+    case "$code" in
+      2*|3*) echo "   OK   $p -> $code" ;;
+      *)     echo "   WARN $p -> $code (non bloquant)" ;;
+    esac
+  done
+fi
+
 echo "DEPLOY_OK"
