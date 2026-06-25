@@ -15,3 +15,4 @@ $base = __DIR__.'/../Modules/Tagtoa/app';
 // Uniquement des classes sans parent Eloquent (sinon il faudrait charger Laravel).
 require_once $base.'/Services/Loyalty/LoyaltyCardService.php';
 require_once $base.'/Services/Billing/RevenueService.php';
+require_once $base.'/Support/Money.php';
