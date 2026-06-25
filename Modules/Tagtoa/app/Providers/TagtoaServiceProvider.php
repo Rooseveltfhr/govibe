@@ -16,6 +16,7 @@ class TagtoaServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/migrations'));
+        $this->loadJsonTranslationsFrom(module_path($this->moduleName, 'resources/lang'));
     }
 
     public function register(): void

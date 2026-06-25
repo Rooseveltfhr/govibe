@@ -11,6 +11,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
+use Modules\Tagtoa\App\Support\Locale;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -30,7 +31,7 @@ class DashboardController extends Controller
     public function create(): View
     {
         return view('tagtoa::menu.form', [
-            'menu'     => new Menu(['theme' => 'light', 'accent_color' => '#0055FF', 'currency' => Tenant::currency()]),
+            'menu'     => new Menu(['theme' => 'light', 'accent_color' => '#0055FF', 'currency' => Locale::currencyFor()]),
             'vcards'   => $this->vcards(),
             'payPages' => $this->payPages(),
         ]);
@@ -110,7 +111,7 @@ class DashboardController extends Controller
             'type'             => ['nullable', Rule::in(array_keys(Menu::TYPES))],
             'tagline'          => ['nullable', 'string', 'max:160'],
             'description'      => ['nullable', 'string', 'max:600'],
-            'currency'         => ['nullable', 'string', 'max:8'],
+            'currency'         => ['nullable', Rule::in(array_keys((array) config('tagtoa.currencies', [])))],
             'whatsapp'         => ['nullable', 'string', 'max:40'],
             'phone'            => ['nullable', 'string', 'max:40'],
             'address'          => ['nullable', 'string', 'max:200'],

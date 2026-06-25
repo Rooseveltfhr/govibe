@@ -22,7 +22,7 @@ class RouteServiceProvider extends ServiceProvider
 
     protected function mapWebRoutes(): void
     {
-        Route::middleware('web')
+        Route::middleware(['web', \Modules\Tagtoa\App\Http\Middleware\SetLocale::class])
             ->namespace($this->moduleNamespace)
             ->group(module_path('Tagtoa', '/routes/web.php'));
     }
