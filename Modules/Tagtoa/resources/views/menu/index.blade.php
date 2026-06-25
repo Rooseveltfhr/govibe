@@ -36,6 +36,7 @@
                     <span><i class="fa-solid fa-eye"></i> {{ $m->views }}</span>
                 </div>
                 <div class="row" style="margin-top:14px;gap:8px">
+                    <a href="{{ route('tagtoa.menu.dashboard.orders',$m->id) }}" class="btn btn-d btn-sm" style="flex:0"><i class="fa-solid fa-receipt"></i> {{ __('Commandes') }}</a>
                     <a href="{{ route('tagtoa.menu.dashboard.edit',$m->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-pen"></i> {{ __('Modifier') }}</a>
                     <a href="{{ url('/menu/'.$m->alias) }}" target="_blank" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-eye"></i> {{ __('Voir') }}</a>
                     <form method="POST" action="{{ route('tagtoa.menu.dashboard.destroy',$m->id) }}" onsubmit="return confirm('{{ __('Supprimer ce menu ?') }}')" style="flex:0">@csrf @method('DELETE')<button class="btn btn-o btn-sm" style="color:var(--red)"><i class="fa-solid fa-trash"></i></button></form>

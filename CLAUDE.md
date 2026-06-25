@@ -51,8 +51,12 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
 
 ## 5. Plan faz yo
 - **Faz 1 — Lang + Lajan** ✅ FÈT (PR #9)
-- **Faz 2 — Kolòn revni**: MonCash/NatCash API otomatik + kòmand MENU nan DB
-  (`tagtoa_menu_orders`) + règleman/relve komisyon. ⏳ PROCHÈN
+- **Faz 2 — Kolòn revni** 🔨 AN KOU:
+  - ✅ Kòmand MENU nan DB (`tagtoa_menu_orders` + `_order_items`) — kaptire sou paj
+    piblik (`MenuOrderService`, pri enpoze sèvè, idempotan via client_uuid),
+    jesyon kòmand dashboard (`/tagtoa/menu/{id}/orders`, estati + ankese),
+    komisyon otomatik sou kòmand peye (`RevenueService::record('menu_order',…)`).
+  - ⏳ RES: MonCash/NatCash API otomatik (bezwen kredansyèl biznis) + relve/règleman komisyon.
 - **Faz 3 — Abonman + plan gating** (limit pa fòfè, blokaj, dèsè; lye ak Plan Biztap)
 - **Faz 4 — QR nan dashboard, notifikasyon (WhatsApp/email), CRM kliyan, analytics**
 - **Faz 5 — Booking, reviews, estòk, PWA POS, tès, jounal odit**
