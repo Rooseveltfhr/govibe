@@ -126,4 +126,6 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     // BILLING
     Route::get('/billing', [BillingController::class, 'index'])->name('tagtoa.billing.index');
     Route::put('/billing', [BillingController::class, 'update'])->name('tagtoa.billing.update');
+    Route::post('/billing/settle', [BillingController::class, 'settle'])->name('tagtoa.billing.settle');
+    Route::get('/billing/export', [BillingController::class, 'export'])->name('tagtoa.billing.export');
 });
