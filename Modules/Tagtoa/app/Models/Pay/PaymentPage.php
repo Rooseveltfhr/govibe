@@ -47,6 +47,7 @@ class PaymentPage extends Model
         'wise'        => ['label' => 'Wise',                     'icon' => 'fa-solid fa-money-bill-transfer',   'region' => 'intl'],
         // Crypto
         'usdt'        => ['label' => 'USDT (Tether)',           'icon' => 'fa-solid fa-dollar-sign',           'region' => 'crypto'],
+        'usdc'        => ['label' => 'USDC',                     'icon' => 'fa-solid fa-dollar-sign',           'region' => 'crypto'],
         'btc'         => ['label' => 'Bitcoin (BTC)',          'icon' => 'fa-brands fa-bitcoin',              'region' => 'crypto'],
         'eth'         => ['label' => 'Ethereum (ETH)',         'icon' => 'fa-brands fa-ethereum',             'region' => 'crypto'],
         'binance'     => ['label' => 'Binance Pay',            'icon' => 'fa-solid fa-coins',                 'region' => 'crypto'],

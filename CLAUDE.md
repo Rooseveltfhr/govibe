@@ -58,7 +58,14 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     komisyon otomatik sou kòmand peye (`RevenueService::record('menu_order',…)`).
   - ✅ Relve & règleman komisyon (BILLING): rezime pa deviz (brut/komisyon/à régler/réglé),
     bouton « Régler » (accrued→settled, `settled_at`), export CSV.
-  - ⏳ RES: MonCash/NatCash API otomatik (bezwen kredansyèl biznis API).
+  - ✅ Fondasyon pasrèl PAY: rejis auto/manyèl (`Support/PaymentGateway`), deteksyon
+    aktivasyon (`Support/GatewayManager`, kredansyèl nan config/.env), afichaj piblik
+    rich (logo+koulè mak, institution, nom du compte, numéro, QR), chan institution+logo
+    nan dashboard. Doc kredansyèl: `Modules/Tagtoa/PAYMENTS.md`.
+  - ⏳ RES: drivers API reyèl (1 PR pa pasrèl, teste ak kredansyèl): MonCash, PayPal(+kat),
+    CoinPayments (USDT/USDC/BTC/ETH), Stripe, Authorize.Net — route `tagtoa.pay.checkout`
+    + webhook/IPN. Metòd manyèl yo (NatCash, Zelle, CashApp, Unibank, Sogebank, Capital
+    Bank, BNC) rete sou prèv.
 - **Faz 3 — Abonman + plan gating** (limit pa fòfè, blokaj, dèsè; lye ak Plan Biztap)
 - **Faz 4 — QR nan dashboard, notifikasyon (WhatsApp/email), CRM kliyan, analytics**
 - **Faz 5 — Booking, reviews, estòk, PWA POS, tès, jounal odit**

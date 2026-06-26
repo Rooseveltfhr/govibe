@@ -32,6 +32,57 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Passerelles de paiement API (auto)
+    |--------------------------------------------------------------------------
+    | Activées seulement si les identifiants sont présents (GatewayManager).
+    | Définir les secrets via .env / GitHub secrets — JAMAIS en clair dans le repo.
+    */
+    'gateways' => [
+        'moncash' => [
+            'label'       => 'MonCash',
+            'mode'        => env('TAGTOA_MONCASH_MODE', 'sandbox'),
+            'credentials' => [
+                'client_id' => env('TAGTOA_MONCASH_CLIENT_ID'),
+                'secret'    => env('TAGTOA_MONCASH_SECRET'),
+            ],
+        ],
+        'paypal' => [
+            'label'       => 'PayPal',
+            'mode'        => env('TAGTOA_PAYPAL_MODE', 'sandbox'),
+            'credentials' => [
+                'client_id' => env('TAGTOA_PAYPAL_CLIENT_ID'),
+                'secret'    => env('TAGTOA_PAYPAL_SECRET'),
+            ],
+        ],
+        'stripe' => [
+            'label'       => 'Stripe',
+            'credentials' => [
+                'key'    => env('TAGTOA_STRIPE_KEY'),
+                'secret' => env('TAGTOA_STRIPE_SECRET'),
+            ],
+            'webhook_secret' => env('TAGTOA_STRIPE_WEBHOOK_SECRET'),
+        ],
+        'coinpayments' => [
+            'label'       => 'CoinPayments',
+            'credentials' => [
+                'merchant_id' => env('TAGTOA_COINPAYMENTS_MERCHANT_ID'),
+                'public_key'  => env('TAGTOA_COINPAYMENTS_PUBLIC_KEY'),
+                'private_key' => env('TAGTOA_COINPAYMENTS_PRIVATE_KEY'),
+            ],
+            'ipn_secret' => env('TAGTOA_COINPAYMENTS_IPN_SECRET'),
+        ],
+        'authorizenet' => [
+            'label'       => 'Authorize.Net',
+            'mode'        => env('TAGTOA_AUTHNET_MODE', 'sandbox'),
+            'credentials' => [
+                'login_id'        => env('TAGTOA_AUTHNET_LOGIN_ID'),
+                'transaction_key' => env('TAGTOA_AUTHNET_TRANSACTION_KEY'),
+            ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Devises supportées
     |--------------------------------------------------------------------------
     | symbol : symbole affiché · decimals : nb de décimales ·

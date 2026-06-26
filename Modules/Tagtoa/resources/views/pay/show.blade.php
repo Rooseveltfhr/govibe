@@ -42,6 +42,10 @@
         .prev{margin-top:10px;border-radius:12px;max-height:200px;width:100%;object-fit:cover;display:none}
         .err{color:var(--red);font-size:12.5px;margin-top:5px;display:block}
         .ok{background:#eafaf3;border:1px solid var(--green);color:#0e5f44;border-radius:14px;padding:14px 16px;margin:16px;display:flex;gap:10px;align-items:center;font-size:14px}
+        .info{background:#fff5e6;border:1px solid #E08A1E;color:#7a5200;border-radius:14px;padding:14px 16px;margin:16px;display:flex;gap:10px;align-items:center;font-size:14px}
+        .auto-tag{display:inline-flex;align-items:center;gap:4px;font:700 9.5px var(--fh);letter-spacing:.04em;text-transform:uppercase;background:var(--blue);color:#fff;padding:2px 7px;border-radius:999px;margin-left:6px;vertical-align:middle}
+        .brand{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0;overflow:hidden}
+        .brand img{width:100%;height:100%;object-fit:cover}
         .btn{border:0;border-radius:14px;padding:15px;font:600 15px var(--fh);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;width:100%}
         .btn-p{background:var(--blue);color:#fff}
         .bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid var(--bd);padding:12px 16px;display:flex;gap:10px}
@@ -62,6 +66,9 @@
     @if(session('proof_submitted'))
         <div class="ok"><i class="fa-solid fa-circle-check"></i><div>{{ __('Preuve reçue! Le bénéficiaire va vérifier.') }}</div></div>
     @endif
+    @if(session('error'))
+        <div class="info"><i class="fa-solid fa-circle-info"></i><div>{{ session('error') }}</div></div>
+    @endif
 
     @if($methods->isEmpty())
         <div class="foot" style="padding:50px 22px">{{ __('Aucune méthode de paiement active.') }}</div>
@@ -70,15 +77,32 @@
         <div class="methods" id="methods">
             @foreach($methods as $m)
                 <button type="button" class="m" data-id="{{ $m->id }}" onclick="pick(this,{{ $m->id }})">
-                    <span class="m-ic"><i class="{{ $m->icon }}"></i></span>
-                    <span class="m-tx"><b>{{ $m->display_label }}</b><span>{{ $m->account_number ?: ($m->account_holder ?: __('Voir détails')) }}</span></span>
+                    <span class="m-ic" style="background:{{ $m->brand_color }}">
+                        @if($m->logo_url)<img src="{{ $m->logo_url }}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:12px">@else<i class="{{ $m->icon }}"></i>@endif
+                    </span>
+                    <span class="m-tx">
+                        <b>{{ $m->display_label }}
+                            @if($m->isAuto())<span class="auto-tag"><i class="fa-solid fa-bolt"></i> {{ __('Automatique') }}</span>@endif
+                        </b>
+                        <span>{{ $m->institution ?: ($m->account_number ?: ($m->account_holder ?: __('Voir détails'))) }}</span>
+                    </span>
                     <span class="m-ck"><i class="fa-solid fa-check"></i></span>
                 </button>
                 <div class="det" id="det-{{ $m->id }}">
                     <div class="card">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                            <span class="brand" style="background:{{ $m->brand_color }}">
+                                @if($m->logo_url)<img src="{{ $m->logo_url }}" alt="">@else<i class="{{ $m->icon }}"></i>@endif
+                            </span>
+                            <b style="font-family:var(--fh);font-size:16px">{{ $m->display_label }}</b>
+                        </div>
+                        @if($m->onlineAvailable())
+                            <a class="btn btn-p" href="{{ route('tagtoa.pay.checkout', [$page->alias, $m->id]) }}" style="margin-bottom:14px"><i class="fa-solid fa-bolt"></i> {{ __('Payer en ligne') }}</a>
+                        @endif
                         @if($m->qr_url)<div class="qr"><img src="{{ $m->qr_url }}" alt="QR" loading="lazy"></div>@endif
-                        @if($m->account_holder)<div class="kv"><span>{{ __('Bénéficiaire') }}</span><b>{{ $m->account_holder }}</b></div>@endif
-                        @if($m->account_number)<div class="kv"><span>{{ __('Compte / N°') }}</span><b>{{ $m->account_number }}<button class="copy" type="button" data-copy="{{ $m->account_number }}" onclick="cp(this)">{{ __('Copier') }}</button></b></div>@endif
+                        @if($m->institution)<div class="kv"><span>{{ __('Institution') }}</span><b>{{ $m->institution }}</b></div>@endif
+                        @if($m->account_holder)<div class="kv"><span>{{ __('Nom du compte') }}</span><b>{{ $m->account_holder }}</b></div>@endif
+                        @if($m->account_number)<div class="kv"><span>{{ __('Numéro du compte') }}</span><b>{{ $m->account_number }}<button class="copy" type="button" data-copy="{{ $m->account_number }}" onclick="cp(this)">{{ __('Copier') }}</button></b></div>@endif
                         @if($m->instructions)<div class="instr"><i class="fa-solid fa-circle-info" style="color:var(--blue);margin-right:6px"></i>{{ $m->instructions }}</div>@endif
 
                         <form method="POST" action="{{ route('tagtoa.pay.submit-proof', $page->alias) }}" enctype="multipart/form-data" style="margin-top:14px">

@@ -139,6 +139,7 @@ class DashboardController extends Controller
                     'type'           => $row['type'],
                     'label'          => $row['label'] ?? null,
                     'account_holder' => $row['account_holder'] ?? null,
+                    'institution'    => $row['institution'] ?? null,
                     'account_number' => $row['account_number'] ?? null,
                     'instructions'   => $row['instructions'] ?? null,
                     'requires_proof' => ! empty($row['requires_proof']),
@@ -150,6 +151,9 @@ class DashboardController extends Controller
 
                 if ($request->hasFile("methods.$i.qr")) {
                     $m->update(['qr_path' => $request->file("methods.$i.qr")->store('tagtoa/pay-qr', 'public')]);
+                }
+                if ($request->hasFile("methods.$i.logo")) {
+                    $m->update(['logo_path' => $request->file("methods.$i.logo")->store('tagtoa/pay-logos', 'public')]);
                 }
                 $keep[] = $m->id;
             }
