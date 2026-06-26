@@ -9,7 +9,7 @@
     <div class="card">
         <div class="row">
             <div><label class="lbl">{{ __('Titre') }}</label><input class="inp" name="title" value="{{ old('title',$page->title) }}" placeholder="{{ __('Payez Jean Baptiste') }}"></div>
-            <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="default_currency">@foreach(['HTG','USD'] as $c)<option @selected(old('default_currency',$page->default_currency ?: 'HTG')===$c)>{{ $c }}</option>@endforeach</select></div>
+            <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="default_currency">@foreach(\Modules\Tagtoa\App\Support\Money::options() as $code=>$label)<option value="{{ $code }}" @selected(old('default_currency',$page->default_currency ?: 'HTG')===$code)>{{ $label }}</option>@endforeach</select></div>
         </div>
         <label class="lbl">{{ __('Alias (URL)') }}</label>
         <div style="display:flex;align-items:center;gap:8px"><span style="color:var(--muted);font-size:14px">tagtoa.com/pay/</span><input class="inp" name="alias" value="{{ old('alias',$page->alias) }}" placeholder="{{ __('auto si vide') }}"></div>
@@ -35,12 +35,14 @@
             <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.mrow').remove()"><i class="fa-solid fa-trash"></i></button>
         </div>
         <div class="row" style="margin-top:8px">
-            <input name="methods[IDX][account_holder]" class="inp" placeholder="{{ __('Bénéficiaire') }}">
+            <input name="methods[IDX][account_holder]" class="inp" placeholder="{{ __('Nom du compte') }}">
+            <input name="methods[IDX][institution]" class="inp" placeholder="{{ __('Institution (banque / wallet)') }}">
             <input name="methods[IDX][account_number]" class="inp" placeholder="{{ __('Compte / N° / wallet') }}">
         </div>
         <input name="methods[IDX][instructions]" class="inp" placeholder="{{ __('Instructions (optionnel)') }}" style="margin-top:8px">
         <div class="row" style="margin-top:8px;align-items:center">
             <div><label class="lbl" style="margin:0 0 4px">{{ __('QR (image)') }}</label><input type="file" name="methods[IDX][qr]" accept="image/*" class="inp"></div>
+            <div><label class="lbl" style="margin:0 0 4px">{{ __('Logo (image)') }}</label><input type="file" name="methods[IDX][logo]" accept="image/*" class="inp"></div>
             <label class="switch" style="flex:0"><input type="checkbox" name="methods[IDX][requires_proof]" value="1" checked> {{ __('Preuve requise') }}</label>
             <label class="switch" style="flex:0"><input type="checkbox" name="methods[IDX][is_active]" value="1" checked> {{ __('Active') }}</label>
         </div>
@@ -50,9 +52,9 @@
 <script>
 var mIdx=0;
 function addM(d){var h=document.getElementById('mtpl').innerHTML.replace(/IDX/g,mIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('mlist').appendChild(r);
-    if(d){r.querySelector('[name$="[type]"]').value=d.type;r.querySelector('[name$="[label]"]').value=d.label||'';r.querySelector('[name$="[account_holder]"]').value=d.account_holder||'';r.querySelector('[name$="[account_number]"]').value=d.account_number||'';r.querySelector('[name$="[instructions]"]').value=d.instructions||'';r.querySelector('[name$="[requires_proof]"]').checked=!!d.requires_proof;r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;var i=document.createElement('input');i.type='hidden';i.name='methods['+mIdx+'][id]';i.value=d.id;r.appendChild(i);}
+    if(d){r.querySelector('[name$="[type]"]').value=d.type;r.querySelector('[name$="[label]"]').value=d.label||'';r.querySelector('[name$="[account_holder]"]').value=d.account_holder||'';r.querySelector('[name$="[institution]"]').value=d.institution||'';r.querySelector('[name$="[account_number]"]').value=d.account_number||'';r.querySelector('[name$="[instructions]"]').value=d.instructions||'';r.querySelector('[name$="[requires_proof]"]').checked=!!d.requires_proof;r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;var i=document.createElement('input');i.type='hidden';i.name='methods['+mIdx+'][id]';i.value=d.id;r.appendChild(i);}
     mIdx++;}
-var ex=@json($page->relationLoaded('methods') ? $page->methods->map(fn($m)=>['id'=>$m->id,'type'=>$m->type,'label'=>$m->label,'account_holder'=>$m->account_holder,'account_number'=>$m->account_number,'instructions'=>$m->instructions,'requires_proof'=>$m->requires_proof,'is_active'=>$m->is_active]) : []);
+var ex=@json($page->relationLoaded('methods') ? $page->methods->map(fn($m)=>['id'=>$m->id,'type'=>$m->type,'label'=>$m->label,'account_holder'=>$m->account_holder,'institution'=>$m->institution,'account_number'=>$m->account_number,'instructions'=>$m->instructions,'requires_proof'=>$m->requires_proof,'is_active'=>$m->is_active]) : []);
 if(ex.length){ex.forEach(addM);}else{addM();}
 </script>
 @endpush

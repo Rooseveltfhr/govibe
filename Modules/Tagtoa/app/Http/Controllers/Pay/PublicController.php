@@ -27,6 +27,21 @@ class PublicController extends Controller
         return view('tagtoa::pay.show', ['page' => $page, 'methods' => $page->activeMethods]);
     }
 
+    /**
+     * Paiement en ligne via passerelle API (PayPal, CoinPayments, Stripe…).
+     * Tant qu'aucun driver n'est branché, on retombe proprement sur le manuel.
+     */
+    public function checkout(string $alias, int $method): RedirectResponse
+    {
+        $page = PaymentPage::where('alias', $alias)->where('is_active', true)->firstOrFail();
+        $m = $page->activeMethods()->whereKey($method)->firstOrFail();
+
+        // Driver pas encore branché → retour à la page avec instructions manuelles.
+        return redirect()->route('tagtoa.pay.show', $page->alias)
+            ->with('proof_submitted', false)
+            ->with('error', __('Le paiement en ligne arrive bientôt. Utilisez les informations ci-dessous.'));
+    }
+
     public function submitProof(Request $request, string $alias): RedirectResponse
     {
         $page = PaymentPage::where('alias', $alias)->where('is_active', true)->firstOrFail();

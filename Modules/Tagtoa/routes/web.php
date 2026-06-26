@@ -26,6 +26,7 @@ use Modules\Tagtoa\App\Http\Controllers\Pos\PosController;
 // ---------- PUBLIC (NFC / QR, pas d'auth) ----------
 Route::get('/pay/{alias}', [PayPublic::class, 'show'])->name('tagtoa.pay.show');
 Route::post('/pay/{alias}/submit-proof', [PayPublic::class, 'submitProof'])->name('tagtoa.pay.submit-proof');
+Route::get('/pay/{alias}/checkout/{method}', [PayPublic::class, 'checkout'])->name('tagtoa.pay.checkout');
 Route::get('/loyalty/card/{token}', [LoyaltyPublic::class, 'show'])->name('tagtoa.loyalty.card');
 Route::get('/links/{alias}', [LinksPublic::class, 'show'])->name('tagtoa.links.show');
 Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->name('tagtoa.links.go');
