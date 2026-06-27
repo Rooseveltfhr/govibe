@@ -10,8 +10,10 @@
         "barryvdh/laravel-dompdf": "^3.1",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
+        "livewire/livewire": "^4.3",
         "maatwebsite/excel": "^3.1",
-        "simplesoftwareio/simple-qrcode": "^4.2"
+        "simplesoftwareio/simple-qrcode": "^4.2",
+        "spatie/laravel-permission": "^8.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
