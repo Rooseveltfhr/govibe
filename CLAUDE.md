@@ -73,6 +73,10 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
 ## 6. Deplwaman & URL
 - App sèvi nan `public/`: base = **https://tagtoa.com/tapbiz/public**
 - Login admin: `/tapbiz/public/login`
+- **Paj akèy piblik** (`LandingController` → `landing.blade.php`) sou wout rasin `/`
+  (modil la override akèy Biztap la — wout anrejistre apre). Parèt sou `<base>/`.
+  Pou l parèt sou **bare tagtoa.com**: pwente docroot domèn nan sou dosye `public/`
+  Laravel la nan DirectAdmin (oswa redireksyon nan public_html/).
 - CI: `.github/workflows/ci.yml` (lint + `phpunit --testsuite Unit`, bootstrap
   `tests/bootstrap.php` chaje sous pi yo manyèlman — ajoute nouvo klas pi la).
 - Deploy: `.github/workflows/deploy.yml` → `Modules/Tagtoa/deploy/remote-deploy.sh`

@@ -6,6 +6,7 @@ use Modules\Tagtoa\App\Http\Controllers\Event\CheckinController as EventCheckin;
 use Modules\Tagtoa\App\Http\Controllers\Event\DashboardController as EventDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Event\PublicController as EventPublic;
 use Modules\Tagtoa\App\Http\Controllers\Hub\HubController;
+use Modules\Tagtoa\App\Http\Controllers\LandingController;
 use Modules\Tagtoa\App\Http\Controllers\Links\DashboardController as LinksDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Links\PublicController as LinksPublic;
 use Modules\Tagtoa\App\Http\Controllers\Loyalty\DashboardController as LoyaltyDashboard;
@@ -24,6 +25,8 @@ use Modules\Tagtoa\App\Http\Controllers\Pos\PosController;
 */
 
 // ---------- PUBLIC (NFC / QR, pas d'auth) ----------
+// Page d'accueil TAGTOA à la racine (remplace l'accueil par défaut).
+Route::get('/', [LandingController::class, 'index'])->name('tagtoa.landing');
 Route::get('/pay/{alias}', [PayPublic::class, 'show'])->name('tagtoa.pay.show');
 Route::post('/pay/{alias}/submit-proof', [PayPublic::class, 'submitProof'])->name('tagtoa.pay.submit-proof');
 Route::get('/pay/{alias}/checkout/{method}', [PayPublic::class, 'checkout'])->name('tagtoa.pay.checkout');
