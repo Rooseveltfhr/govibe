@@ -27,6 +27,7 @@ Grafe sou yon SaaS vcard achte ki rele **Biztap** (Laravel 10, `nwidart/laravel-
 ## 3. Eta modil yo (AKTYÈL)
 | Modil | Eta | Wout piblik | Dashboard |
 |---|---|---|---|
+| SITE (sitwèb pa abònman) | ✅ Bati + live | `/site/{alias}` | `/tagtoa/site` |
 | MENU (restoran/club/lounge/otèl) | ✅ Bati + live | `/menu/{alias}` | `/tagtoa/menu` |
 | PAY (24 metòd, prèv manyèl) | ✅ Bati + live | `/pay/{alias}` | `/tagtoa/pay` |
 | LOYALTY (kat NFC, pwen) | ✅ Bati + live | `/loyalty/card/{token}` | `/tagtoa/loyalty` |

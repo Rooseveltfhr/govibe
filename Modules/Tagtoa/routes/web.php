@@ -16,6 +16,8 @@ use Modules\Tagtoa\App\Http\Controllers\Menu\PublicController as MenuPublic;
 use Modules\Tagtoa\App\Http\Controllers\Pay\DashboardController as PayDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Pay\PublicController as PayPublic;
 use Modules\Tagtoa\App\Http\Controllers\Pos\PosController;
+use Modules\Tagtoa\App\Http\Controllers\Site\DashboardController as SiteDashboard;
+use Modules\Tagtoa\App\Http\Controllers\Site\PublicController as SitePublic;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,6 +35,7 @@ Route::get('/pay/{alias}/checkout/{method}', [PayPublic::class, 'checkout'])->na
 Route::get('/loyalty/card/{token}', [LoyaltyPublic::class, 'show'])->name('tagtoa.loyalty.card');
 Route::get('/links/{alias}', [LinksPublic::class, 'show'])->name('tagtoa.links.show');
 Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->name('tagtoa.links.go');
+Route::get('/site/{alias}', [SitePublic::class, 'show'])->name('tagtoa.site.show');
 Route::get('/menu/{alias}', [MenuPublic::class, 'show'])->name('tagtoa.menu.show');
 Route::post('/menu/{alias}/order', [MenuPublic::class, 'order'])->name('tagtoa.menu.order');
 Route::get('/event/{alias}', [EventPublic::class, 'show'])->name('tagtoa.event.show');
@@ -62,6 +65,16 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/proofs', [PayDashboard::class, 'proofs'])->name('proofs');
         Route::post('/proofs/{id}/approve', [PayDashboard::class, 'approveProof'])->name('proofs.approve');
         Route::post('/proofs/{id}/reject', [PayDashboard::class, 'rejectProof'])->name('proofs.reject');
+    });
+
+    // SITE (création de site web par abonnement)
+    Route::prefix('site')->name('tagtoa.site.dashboard.')->group(function () {
+        Route::get('/', [SiteDashboard::class, 'index'])->name('index');
+        Route::get('/create', [SiteDashboard::class, 'create'])->name('create');
+        Route::post('/', [SiteDashboard::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [SiteDashboard::class, 'edit'])->name('edit');
+        Route::put('/{id}', [SiteDashboard::class, 'update'])->name('update');
+        Route::delete('/{id}', [SiteDashboard::class, 'destroy'])->name('destroy');
     });
 
     // MENU (restaurant, club, lounge, hôtel, bar, café…)
