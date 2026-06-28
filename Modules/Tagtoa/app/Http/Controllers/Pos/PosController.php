@@ -118,7 +118,7 @@ class PosController extends Controller
                 'name'      => $row['name'],
                 'price'     => (float) ($row['price'] ?? 0),
                 'emoji'     => $row['emoji'] ?? null,
-                'color'     => $row['color'] ?? '#0055FF',
+                'color'     => $row['color'] ?? '#16A34A',
                 'stock'     => ($row['stock'] ?? '') === '' ? null : (int) $row['stock'],
                 'is_active' => ! empty($row['is_active']),
                 'sort'      => (int) ($row['sort'] ?? $i),

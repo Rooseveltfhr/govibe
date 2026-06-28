@@ -20,7 +20,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root{--blk:#0A0A0A;--bg:#F5F5F3;--sf:#fff;--blue:#0055FF;--blue-deep:#0040CC;--blue-pale:rgba(0,85,255,.08);--mut:#8a8a8a;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        :root{--blk:#0A0A0A;--bg:#F5F5F3;--sf:#fff;--blue:#16A34A;--blue-deep:#15803D;--blue-pale:rgba(22,163,74,.08);--mut:#8a8a8a;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:var(--fb);background:var(--bg);color:var(--blk);line-height:1.6;-webkit-font-smoothing:antialiased}
         a{text-decoration:none;color:inherit}
@@ -37,7 +37,7 @@
         .btn-o{background:#fff;border:1.5px solid var(--bd);color:var(--blk)}
         .btn-g{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.25)}
         /* Hero */
-        .hero{background:linear-gradient(160deg,#0040CC,#0A0A0A);color:#fff;border-radius:0 0 32px 32px;overflow:hidden;position:relative}
+        .hero{background:linear-gradient(160deg,#15803D,#0A0A0A);color:#fff;border-radius:0 0 32px 32px;overflow:hidden;position:relative}
         .hero::after{content:"";position:absolute;right:-80px;top:-80px;width:340px;height:340px;background:radial-gradient(circle,var(--blue) 0%,transparent 70%);opacity:.4}
         .hero .in{padding:64px 0 72px;position:relative;z-index:2;text-align:center}
         .tagpill{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);padding:6px 14px;border-radius:999px;font:600 12px var(--fh);letter-spacing:.06em;text-transform:uppercase}

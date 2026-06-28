@@ -17,7 +17,7 @@
                 'commission'=>['Commission','fa-percent','Pas de forfait. TAGTOA prélève un % sur chaque vente.'],
                 'both'=>['Les deux','fa-layer-group','Forfait réduit + petite commission.'],
             ] as $k=>$v)
-                <label class="card" style="cursor:pointer;border-color:{{ $rm===$k ? 'var(--blue)' : 'var(--bd)' }};{{ $rm===$k ? 'box-shadow:0 6px 22px rgba(0,85,255,.12)' : '' }}">
+                <label class="card" style="cursor:pointer;border-color:{{ $rm===$k ? 'var(--blue)' : 'var(--bd)' }};{{ $rm===$k ? 'box-shadow:0 6px 22px rgba(22,163,74,.12)' : '' }}">
                     <div style="display:flex;align-items:center;gap:10px">
                         <input type="radio" name="revenue_model" value="{{ $k }}" @checked($rm===$k)>
                         <i class="fa-solid {{ $v[1] }}" style="color:var(--blue);font-size:18px"></i>
