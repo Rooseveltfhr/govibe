@@ -1,7 +1,7 @@
 {{-- TAGTOA — page d'accueil premium (landing). Multilingue, sans emoji (icônes only). --}}
 @php
     $services = [
-        ['fa-globe',                'Site web',     'Création de site web professionnel par abonnement — vitrine, boutique, réservation.', url('/login'), true],
+        ['fa-globe',                'Site web',     'Création de site web professionnel par abonnement — vitrine, boutique, réservation.', url('/site/demo-site'), true],
         ['fa-utensils',            'Menu digital', 'Restaurant, club, lounge, hôtel : menu NFC/QR, commande WhatsApp, paiement.', url('/menu/demo-menu'), false],
         ['fa-money-bill-transfer', 'Paiements',    'MonCash, NatCash, cartes, PayPal, crypto — un seul lien, un seul QR.', url('/pay/demo'), false],
         ['fa-id-card',             'Fidélité',     'Cartes NFC de fidélité, points et récompenses automatiques.', url('/login'), false],

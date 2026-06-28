@@ -12,6 +12,7 @@ use Modules\Tagtoa\App\Models\Pay\PaymentMethod;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Models\Pos\Product;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
+use Modules\Tagtoa\App\Models\Site\Site;
 use Modules\Tagtoa\App\Services\Loyalty\LoyaltyCardService;
 
 /**
@@ -146,6 +147,37 @@ class TagtoaDemoSeeder extends Seeder
                 $order->items()->create(['item_id' => $jus->id, 'name' => $jus->name, 'price' => $jus->price, 'qty' => 2, 'line_total' => 2 * (float) $jus->price]);
             }
         }
+
+        // 5c) SITE — site web vitrine démo
+        Site::firstOrCreate(
+            ['alias' => 'demo-site'],
+            [
+                'name' => 'TAGTOA Lounge', 'tagline' => 'Restaurant • Lounge • Événements à Gonaïves',
+                'about' => "Bienvenue chez TAGTOA Lounge. Cuisine créole raffinée, cocktails signature et ambiance lounge. "
+                    ."Réservez, commandez et payez en ligne — simplement.",
+                'theme' => 'dark', 'accent_color' => '#16A34A',
+                'phone' => '+509 3000 0000', 'whatsapp' => '+509 3000 0000',
+                'email' => 'bonjou@tagtoa.com', 'address' => 'Rue Egalité, Gonaïves, Haïti',
+                'services' => [
+                    ['icon' => 'fa-solid fa-utensils', 'title' => 'Restaurant', 'desc' => 'Cuisine créole et internationale, produits frais.'],
+                    ['icon' => 'fa-solid fa-martini-glass', 'title' => 'Lounge & Bar', 'desc' => 'Cocktails signature et ambiance musicale.'],
+                    ['icon' => 'fa-solid fa-calendar-check', 'title' => 'Événements', 'desc' => 'Soirées, anniversaires et privatisation.'],
+                ],
+                'hours' => [
+                    ['day' => 'Lun - Jeu', 'value' => '11h - 23h'],
+                    ['day' => 'Ven - Sam', 'value' => '11h - 02h'],
+                    ['day' => 'Dimanche', 'value' => '12h - 22h'],
+                ],
+                'socials' => [
+                    ['platform' => 'instagram', 'url' => 'https://instagram.com/tagtoa'],
+                    ['platform' => 'whatsapp', 'url' => 'https://wa.me/50930000000'],
+                ],
+                'menu_id' => $menu->id ?? null,
+                'pay_page_id' => $pay->id ?? null,
+                'link_page_id' => $links->id ?? null,
+                'is_published' => true,
+            ]
+        );
 
         // 6) POS — caisse démo + produits
         $terminal = Terminal::firstOrCreate(['name' => 'Caisse Demo'], ['currency' => 'HTG', 'is_active' => true]);
