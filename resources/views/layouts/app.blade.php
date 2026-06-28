@@ -45,13 +45,15 @@
     <nav class="navbar-blur fixed top-0 w-full z-50 shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
-                <a href="{{ route('inscription.create') }}" class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-full gold-gradient flex items-center justify-center">
-                        <span class="text-navy-900 font-black text-lg" style="color:#1e3a5f">G</span>
+                <a href="{{ route('inscription.create') }}" class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#DC2626">
+                        <i class="bi bi-lightning-charge-fill text-white text-base"></i>
                     </div>
                     <div>
-                        <span class="text-white font-bold text-lg leading-none">GOVIBE</span>
-                        <span class="text-yellow-400 font-light text-sm block leading-none">Academy</span>
+                        <p class="font-black text-lg leading-none tracking-wide">
+                            <span style="color:#60A5FA">G</span><span style="color:#F87171">O</span><span style="color:#FCD34D">V</span><span style="color:#4ADE80">I</span><span style="color:#60A5FA">BE</span>
+                        </p>
+                        <span class="text-slate-300 font-light text-xs block leading-none tracking-widest uppercase">Academy</span>
                     </div>
                 </a>
                 <div class="flex items-center space-x-4">

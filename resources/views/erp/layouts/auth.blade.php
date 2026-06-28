@@ -20,10 +20,19 @@
         {{-- Left: branding --}}
         <div class="hidden lg:flex flex-col justify-center items-start p-16 w-1/2">
             <div class="mb-8">
-                <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-6" style="background:linear-gradient(135deg,#d4a017,#f5c518)">
-                    <span class="font-black text-2xl" style="color:#0f2236">G</span>
+                {{-- GOVIBE Logo --}}
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:#DC2626">
+                        <i class="bi bi-lightning-charge-fill text-white text-2xl"></i>
+                    </div>
+                    <div>
+                        <p class="font-black text-3xl leading-none tracking-wide">
+                            <span style="color:#3B82F6">G</span><span style="color:#DC2626">O</span><span style="color:#F59E0B">V</span><span style="color:#22C55E">I</span><span style="color:#3B82F6">BE</span>
+                        </p>
+                        <p class="text-slate-400 text-xs mt-0.5 tracking-widest uppercase">Innovation Hub</p>
+                    </div>
                 </div>
-                <h1 class="text-4xl font-extrabold text-white mb-3">GOVIBE ERP</h1>
+                <h1 class="text-3xl font-extrabold text-white mb-3">Espace ERP</h1>
                 <p class="text-blue-300 text-lg max-w-md">Plateforme de gestion complète pour GOVIBE Innovation Hub</p>
             </div>
             <div class="space-y-4">

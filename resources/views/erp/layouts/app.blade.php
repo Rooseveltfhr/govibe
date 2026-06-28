@@ -110,12 +110,16 @@
 
         {{-- Logo --}}
         <div class="flex items-center gap-3 px-4 py-5 border-b border-white/10">
-            <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#d4a017,#f5c518)">
-                <span class="font-black text-base" style="color:#0f2236">G</span>
+            {{-- GOVIBE icon: letter O = power icon --}}
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 flex-shrink-0" style="background:#DC2626">
+                <i class="bi bi-lightning-charge-fill text-white text-base"></i>
             </div>
             <div x-show="sidebarOpen" x-transition class="overflow-hidden">
-                <p class="text-white font-bold text-sm leading-none">GOVIBE</p>
-                <p class="text-yellow-400 text-xs">Innovation Hub ERP</p>
+                {{-- Colorful GOVIBE wordmark matching the logo --}}
+                <p class="font-black text-base leading-none tracking-wide">
+                    <span style="color:#3B82F6">G</span><span style="color:#DC2626">O</span><span style="color:#F59E0B">V</span><span style="color:#22C55E">I</span><span style="color:#3B82F6">BE</span>
+                </p>
+                <p class="text-slate-400 text-xs mt-0.5">Innovation Hub · ERP</p>
             </div>
         </div>
 
