@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root{--blk:#0A0A0A;--bg:#F5F5F3;--sf:#fff;--blue:#0055FF;--blue-deep:#0040CC;--blue-pale:rgba(0,85,255,.08);--green:#1D9E75;--red:#E0473E;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        :root{--blk:#0A0A0A;--bg:#F5F5F3;--sf:#fff;--blue:#16A34A;--blue-deep:#15803D;--blue-pale:rgba(22,163,74,.08);--green:#1D9E75;--red:#E0473E;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:var(--fb);background:var(--bg);color:var(--blk);line-height:1.5}
         .wrap{max-width:480px;margin:0 auto;min-height:100vh;padding-bottom:90px}
@@ -22,7 +22,7 @@
         .sec{font:600 13px var(--fh);letter-spacing:.05em;text-transform:uppercase;color:#777;margin:22px 22px 12px}
         .methods{padding:0 16px;display:flex;flex-direction:column;gap:10px}
         .m{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:15px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;width:100%;text-align:left;font:inherit;transition:all .25s cubic-bezier(.4,0,.2,1)}
-        .m:active{transform:scale(.985)}.m.on{border-color:var(--blue);background:var(--blue-pale);box-shadow:0 4px 18px rgba(0,85,255,.12)}
+        .m:active{transform:scale(.985)}.m.on{border-color:var(--blue);background:var(--blue-pale);box-shadow:0 4px 18px rgba(22,163,74,.12)}
         .m-ic{width:46px;height:46px;border-radius:12px;background:var(--blk);color:#fff;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
         .m.on .m-ic{background:var(--blue)}
         .m-tx{flex:1;min-width:0}.m-tx b{display:block;font:600 15px var(--fh)}.m-tx span{font-size:12.5px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}

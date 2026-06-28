@@ -7,10 +7,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root{--blk:#0A0A0A;--blue:#0055FF;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        :root{--blk:#0A0A0A;--blue:#16A34A;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--fb);background:#0A0A0A;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
         .tk{max-width:380px;width:100%;background:#fff;color:var(--blk);border-radius:22px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-        .top{background:linear-gradient(135deg,#0A0A0A,#0040CC);color:#fff;padding:22px;text-align:center}.top .b{font:600 11px var(--fh);letter-spacing:.14em;text-transform:uppercase;opacity:.8}.top h1{font:700 19px var(--fh);margin-top:6px}
+        .top{background:linear-gradient(135deg,#0A0A0A,#15803D);color:#fff;padding:22px;text-align:center}.top .b{font:600 11px var(--fh);letter-spacing:.14em;text-transform:uppercase;opacity:.8}.top h1{font:700 19px var(--fh);margin-top:6px}
         .qr{padding:26px;text-align:center}.qr svg,.qr img{width:220px;height:220px}
         .dash{border:0;border-top:2px dashed rgba(0,0,0,.12);margin:0 20px}
         .info{padding:18px 22px}.kv{display:flex;justify-content:space-between;padding:8px 0;font-size:14px;border-bottom:1px solid rgba(0,0,0,.06)}.kv:last-child{border:0}.kv span{color:#888}.kv b{font-family:var(--fh)}

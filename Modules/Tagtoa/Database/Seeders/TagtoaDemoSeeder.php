@@ -99,7 +99,7 @@ class TagtoaDemoSeeder extends Seeder
                 'tagline' => 'Cuisine créole • Cocktails • Ambiance lounge',
                 'description' => 'Scannez, commandez, payez. Le menu digital TAGTOA.',
                 'currency' => 'HTG', 'whatsapp' => '+509 3000 0000',
-                'pay_page_id' => $pay->id, 'accent_color' => '#0055FF', 'theme' => 'dark',
+                'pay_page_id' => $pay->id, 'accent_color' => '#16A34A', 'theme' => 'dark',
                 'show_prices' => true, 'ordering_enabled' => true, 'is_active' => true,
             ]
         );
@@ -150,7 +150,7 @@ class TagtoaDemoSeeder extends Seeder
         // 6) POS — caisse démo + produits
         $terminal = Terminal::firstOrCreate(['name' => 'Caisse Demo'], ['currency' => 'HTG', 'is_active' => true]);
         foreach ([
-            ['Café', 100, '☕', '#0055FF'],
+            ['Café', 100, '☕', '#16A34A'],
             ['Sandwich', 250, '🥪', '#1D9E75'],
             ['Jus', 150, '🧃', '#E08A1E'],
         ] as $i => [$name, $price, $emoji, $color]) {

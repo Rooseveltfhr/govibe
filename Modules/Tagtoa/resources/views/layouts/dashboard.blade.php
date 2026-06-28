@@ -13,8 +13,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root{
-            --blk:#0A0A0A;--white:#fff;--bg:#F5F5F3;--surface:#fff;--blue:#0055FF;--blue-deep:#0040CC;
-            --blue-pale:rgba(0,85,255,.08);--green:#1D9E75;--red:#E0473E;--amber:#E08A1E;
+            --blk:#0A0A0A;--white:#fff;--bg:#F5F5F3;--surface:#fff;--blue:#16A34A;--blue-deep:#15803D;
+            --blue-pale:rgba(22,163,74,.08);--green:#1D9E75;--red:#E0473E;--amber:#E08A1E;
             --bd:rgba(0,0,0,.08);--muted:#8a8a8a;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif;
             --sb:248px;
         }

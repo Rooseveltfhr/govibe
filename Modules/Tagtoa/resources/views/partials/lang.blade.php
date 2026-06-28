@@ -24,9 +24,9 @@
     .tg-lang[open]>summary .ch{transform:rotate(180deg)}
     .tg-lang-menu{position:absolute;right:0;top:calc(100% + 6px);min-width:170px;background:#fff;color:#0A0A0A;border:1px solid rgba(0,0,0,.1);border-radius:12px;box-shadow:0 12px 34px rgba(0,0,0,.16);padding:6px;z-index:200}
     .tg-lang-menu a{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:9px;font:600 14px 'Space Grotesk',sans-serif;color:#0A0A0A;white-space:nowrap}
-    .tg-lang-menu a:hover{background:rgba(0,85,255,.08)}
-    .tg-lang-menu a.on{color:#0055FF}
-    .tg-lang-menu a .ck{margin-left:auto;font-size:11px;color:#0055FF}
+    .tg-lang-menu a:hover{background:rgba(22,163,74,.08)}
+    .tg-lang-menu a.on{color:#16A34A}
+    .tg-lang-menu a .ck{margin-left:auto;font-size:11px;color:#16A34A}
     .tg-lang-menu .fl,.tg-lang>summary .fl{font-size:15px;line-height:1}
     @media(max-width:520px){.tg-lang>summary .lb{display:none}}
 </style>
