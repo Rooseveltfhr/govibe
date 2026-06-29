@@ -78,7 +78,11 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
   - ✅ Analytics (`/tagtoa/analytics`): `AnalyticsService` (revni pa deviz, kòmand,
     vizit, komisyon, graf 14 jou, top pwodwi). CRM (`/tagtoa/customers`):
     `CrmService` agrege kliyan an lekti depi menu/event/pay/pos/loyalty (dedoub pa telefòn).
-  - ⏳ RES: notifikasyon (WhatsApp/email).
+  - ✅ Notifikasyon imèl (opt-in): `Services/Notifications/NotificationService` (compose +
+    validRecipient = lojik pi teste; voye tolerab via `Mail::raw`, try/catch, no-op si
+    dezaktive). Branche sou kreyasyon randevou (alèt machann + konfimasyon kliyan).
+    Aktive ak `TAGTOA_NOTIFY=true` + config MAIL_* sou VPS la (bezwen aksyon itilizatè).
+  - ⏳ RES: notifikasyon WhatsApp (bezwen API/kredansyèl — bloke).
 - **Faz 5 — Booking, reviews, estòk, PWA POS, tès, jounal odit** 🔨 AN KOU:
   - ✅ BOOKING (rendez-vous): `tagtoa_booking_pages` + `_booking_services` + `_bookings`.
     Paj piblik `/book/{alias}` (chwazi prestation + dat/lè + koordone → JSON, idempotan
@@ -86,7 +90,8 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     + markCompleted → komisyon `RevenueService::record('booking',…)`), dashboard
     `/tagtoa/booking` (CRUD paj + prestations répétables + lis randevou + estati),
     `EnforcesPlan` guard (`booking`: free=0, pro/ent=null), demo `demo-booking`.
-  - ⏳ RES: notifikasyon (WhatsApp/email), reviews, estòk, PWA POS, jounal odit.
+  - ✅ Notifikasyon imèl opt-in branche sou randevou (gade Faz 4 RES).
+  - ⏳ RES: notifikasyon WhatsApp (API), reviews, estòk, PWA POS, jounal odit.
 
 ## 6. Deplwaman & URL
 - App sèvi nan `public/`: base = **https://tagtoa.com/tapbiz/public**

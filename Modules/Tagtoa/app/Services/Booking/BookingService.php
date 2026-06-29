@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Booking\Booking;
 use Modules\Tagtoa\App\Models\Booking\BookingPage;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
+use Modules\Tagtoa\App\Services\Notifications\NotificationService;
 
 /**
  * TAGTOA BOOKING — capture & gestion des rendez-vous.
@@ -17,7 +18,7 @@ use Modules\Tagtoa\App\Services\Billing\RevenueService;
  */
 class BookingService
 {
-    public function __construct(protected RevenueService $revenue)
+    public function __construct(protected RevenueService $revenue, protected NotificationService $notifications)
     {
     }
 
@@ -25,10 +26,10 @@ class BookingService
     {
         $uuid = $payload['client_uuid'] ?? null;
         if ($uuid && $existing = Booking::where('client_uuid', $uuid)->first()) {
-            return $existing;
+            return $existing; // idempotent : déjà notifié à la création
         }
 
-        return DB::transaction(function () use ($page, $payload, $uuid) {
+        $booking = DB::transaction(function () use ($page, $payload, $uuid) {
             // Prestation autorisée : prestation active de CETTE page (prix imposé serveur).
             $service = null;
             if (! empty($payload['service_id'])) {
@@ -56,6 +57,11 @@ class BookingService
                 'client_uuid'    => $uuid,
             ]);
         });
+
+        // Notifications hors transaction (envoi tolérant, ne casse jamais le parcours).
+        $this->notifications->notifyNewBooking($booking);
+
+        return $booking;
     }
 
     /** Marque honoré + enregistre la commission plateforme (idempotent). */
