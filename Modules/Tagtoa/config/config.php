@@ -16,6 +16,34 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Forfaits d'abonnement (plan gating)
+    |--------------------------------------------------------------------------
+    | limits : nb max par module pour un tenant (null = illimité, 0 = bloqué).
+    | features : libellés affichés (vitrine). Le forfait du marchand est stocké
+    | dans tagtoa_subscriptions ; à défaut, 'default_plan'.
+    */
+    'default_plan' => env('TAGTOA_DEFAULT_PLAN', 'free'),
+
+    'plans' => [
+        'free' => [
+            'label'  => 'Gratuit',
+            'price'  => 0,
+            'limits' => ['site' => 1, 'menu' => 1, 'pay' => 1, 'links' => 1, 'loyalty' => 0, 'event' => 0, 'pos' => 0],
+        ],
+        'pro' => [
+            'label'  => 'Pro',
+            'price'  => 1500,
+            'limits' => ['site' => null, 'menu' => null, 'pay' => null, 'links' => null, 'loyalty' => null, 'event' => null, 'pos' => null],
+        ],
+        'enterprise' => [
+            'label'  => 'Enterprise',
+            'price'  => null, // sur devis
+            'limits' => ['site' => null, 'menu' => null, 'pay' => null, 'links' => null, 'loyalty' => null, 'event' => null, 'pos' => null],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Internationalisation (i18n)
     |--------------------------------------------------------------------------
     | Langues supportées + devise par défaut associée à chaque langue.

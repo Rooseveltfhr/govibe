@@ -140,6 +140,10 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/{id}/products', [PosController::class, 'saveProducts'])->name('products.save');
     });
 
+    // PLAN / ABONNEMENT
+    Route::get('/plan', [\Modules\Tagtoa\App\Http\Controllers\Billing\PlanController::class, 'index'])->name('tagtoa.plan.index');
+    Route::post('/plan/subscribe', [\Modules\Tagtoa\App\Http\Controllers\Billing\PlanController::class, 'subscribe'])->name('tagtoa.plan.subscribe');
+
     // BILLING
     Route::get('/billing', [BillingController::class, 'index'])->name('tagtoa.billing.index');
     Route::put('/billing', [BillingController::class, 'update'])->name('tagtoa.billing.update');

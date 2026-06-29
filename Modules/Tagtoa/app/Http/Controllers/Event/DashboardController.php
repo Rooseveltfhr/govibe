@@ -3,6 +3,7 @@
 namespace Modules\Tagtoa\App\Http\Controllers\Event;
 
 use App\Http\Controllers\Controller;
+use Modules\Tagtoa\App\Support\EnforcesPlan;
 use App\Models\Vcard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class DashboardController extends Controller
 {
+    use EnforcesPlan;
+
     public function index(): View
     {
         $events = Event::where('tenant_id', Tenant::id())->withCount(['tickets', 'orders'])->latest()->paginate(12);
@@ -33,7 +36,11 @@ class DashboardController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $data = $this->validateEvent($request);
+        
+        if ($r = $this->planGuard('event')) {
+            return $r;
+        }
+$data = $this->validateEvent($request);
         $event = new Event($data);
         $event->tenant_id = Tenant::id();
         $event->alias = $data['alias'] ?: Event::generateAlias($data['title']);

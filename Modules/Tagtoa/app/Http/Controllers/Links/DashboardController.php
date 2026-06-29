@@ -3,6 +3,7 @@
 namespace Modules\Tagtoa\App\Http\Controllers\Links;
 
 use App\Http\Controllers\Controller;
+use Modules\Tagtoa\App\Support\EnforcesPlan;
 use App\Models\Vcard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,8 @@ use Modules\Tagtoa\App\Support\Tenant;
  */
 class DashboardController extends Controller
 {
+    use EnforcesPlan;
+
     public function index(): View
     {
         $pages = LinkPage::where('tenant_id', Tenant::id())->withCount('links')->latest()->paginate(12);
@@ -33,7 +36,11 @@ class DashboardController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $data = $this->validatePage($request);
+        
+        if ($r = $this->planGuard('links')) {
+            return $r;
+        }
+$data = $this->validatePage($request);
         $page = new LinkPage($data);
         $page->tenant_id = Tenant::id();
         $page->alias = $data['alias'] ?: LinkPage::generateAlias($data['title'] ?? 'links');

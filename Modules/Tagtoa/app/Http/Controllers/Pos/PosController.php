@@ -10,6 +10,7 @@ use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Pos\Sale;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Services\Pos\PosService;
+use Modules\Tagtoa\App\Support\EnforcesPlan;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -17,6 +18,8 @@ use Modules\Tagtoa\App\Support\Tenant;
  */
 class PosController extends Controller
 {
+    use EnforcesPlan;
+
     public function __construct(protected PosService $service)
     {
     }
@@ -30,6 +33,9 @@ class PosController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if ($r = $this->planGuard('pos')) {
+            return $r;
+        }
         $data = $request->validate(['name' => ['required', 'string', 'max:120'], 'currency' => ['nullable', 'string', 'max:10']]);
         $terminal = new Terminal($data);
         $terminal->tenant_id = Tenant::id();

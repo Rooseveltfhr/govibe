@@ -67,7 +67,10 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     CoinPayments (USDT/USDC/BTC/ETH), Stripe, Authorize.Net — route `tagtoa.pay.checkout`
     + webhook/IPN. Metòd manyèl yo (NatCash, Zelle, CashApp, Unibank, Sogebank, Capital
     Bank, BNC) rete sou prèv.
-- **Faz 3 — Abonman + plan gating** (limit pa fòfè, blokaj, dèsè; lye ak Plan Biztap)
+- **Faz 3 — Abonman + plan gating** ✅ FÈT: `tagtoa_subscriptions` + config `tagtoa.plans`
+  (free/pro/enterprise, limit pa modil), `PlanService` (limit/usage/canCreate),
+  trait `EnforcesPlan` (guard nan store() tout modil), paj `/tagtoa/plan` (usage +
+  chanjman fòfè self-service). Peman fòfè otomatik = ap vini ak pasrèl PAY.
 - **Faz 4 — QR nan dashboard, notifikasyon (WhatsApp/email), CRM kliyan, analytics**
 - **Faz 5 — Booking, reviews, estòk, PWA POS, tès, jounal odit**
 
