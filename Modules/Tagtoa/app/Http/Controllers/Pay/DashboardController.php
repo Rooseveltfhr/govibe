@@ -3,6 +3,7 @@
 namespace Modules\Tagtoa\App\Http\Controllers\Pay;
 
 use App\Http\Controllers\Controller;
+use Modules\Tagtoa\App\Support\EnforcesPlan;
 use App\Models\Vcard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,8 @@ use Modules\Tagtoa\App\Support\Tenant;
  */
 class DashboardController extends Controller
 {
+    use EnforcesPlan;
+
     public function index(): View
     {
         $pages = PaymentPage::where('tenant_id', Tenant::id())
@@ -38,7 +41,11 @@ class DashboardController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $data = $this->validatePage($request);
+        
+        if ($r = $this->planGuard('pay')) {
+            return $r;
+        }
+$data = $this->validatePage($request);
         $page = new PaymentPage($data);
         $page->tenant_id = Tenant::id();
         $page->alias = $data['alias'] ?: PaymentPage::generateAlias($data['title'] ?? 'pay');

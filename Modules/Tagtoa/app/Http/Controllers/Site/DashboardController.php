@@ -3,6 +3,7 @@
 namespace Modules\Tagtoa\App\Http\Controllers\Site;
 
 use App\Http\Controllers\Controller;
+use Modules\Tagtoa\App\Support\EnforcesPlan;
 use App\Models\Vcard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,8 @@ use Modules\Tagtoa\App\Support\Tenant;
  */
 class DashboardController extends Controller
 {
+    use EnforcesPlan;
+
     public function index(): View
     {
         $sites = Site::where('tenant_id', Tenant::id())->latest()->paginate(12);
@@ -36,7 +39,11 @@ class DashboardController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $data = $this->validateSite($request);
+        
+        if ($r = $this->planGuard('site')) {
+            return $r;
+        }
+$data = $this->validateSite($request);
         $site = new Site($this->fill($data, $request));
         $site->tenant_id = Tenant::id();
         $site->alias = $data['alias'] ?: Site::generateAlias($data['name'] ?? 'site');

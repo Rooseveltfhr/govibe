@@ -3,6 +3,7 @@
 namespace Modules\Tagtoa\App\Http\Controllers\Loyalty;
 
 use App\Http\Controllers\Controller;
+use Modules\Tagtoa\App\Support\EnforcesPlan;
 use App\Models\Vcard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,8 @@ use Modules\Tagtoa\App\Support\Tenant;
  */
 class DashboardController extends Controller
 {
+    use EnforcesPlan;
+
     public function __construct(protected LoyaltyCardService $service)
     {
     }
@@ -36,7 +39,11 @@ class DashboardController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $data = $this->validateProgram($request);
+        
+        if ($r = $this->planGuard('loyalty')) {
+            return $r;
+        }
+$data = $this->validateProgram($request);
         $program = new Program($data);
         $program->tenant_id = Tenant::id();
         $program->alias = $data['alias'] ?: Program::generateAlias($data['name']);
