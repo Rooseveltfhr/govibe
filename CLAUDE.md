@@ -74,7 +74,10 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
 - **Faz 4 — Eksperyans machann** 🔨 AN KOU:
   - ✅ QR & Partage (`/tagtoa/qr`): QR pa resous piblik (Site/Menu/Pay/Links/Event),
     telechaje SVG, afich enprimab (`Support/Qr` simple-qrcode + fallback qrserver).
-  - ⏳ RES: notifikasyon (WhatsApp/email), CRM kliyan, analytics.
+  - ✅ Analytics (`/tagtoa/analytics`): `AnalyticsService` (revni pa deviz, kòmand,
+    vizit, komisyon, graf 14 jou, top pwodwi). CRM (`/tagtoa/customers`):
+    `CrmService` agrege kliyan an lekti depi menu/event/pay/pos/loyalty (dedoub pa telefòn).
+  - ⏳ RES: notifikasyon (WhatsApp/email).
 - **Faz 5 — Booking, reviews, estòk, PWA POS, tès, jounal odit**
 
 ## 6. Deplwaman & URL
