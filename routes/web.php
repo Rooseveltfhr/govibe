@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\FormationController;
 use App\Http\Controllers\Admin\InscriptionController as AdminInscriptionController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InscriptionController;
 use App\Http\Controllers\ERP\ERPAuthController;
 use App\Http\Controllers\ERP\DashboardController as ERPDashboardController;
@@ -21,7 +22,8 @@ use App\Http\Controllers\ERP\Services\ServiceController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
-Route::get('/', [InscriptionController::class, 'create'])->name('inscription.create');
+Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/inscription', [InscriptionController::class, 'create'])->name('inscription.create');
 Route::post('/inscription', [InscriptionController::class, 'store'])->name('inscription.store');
 Route::get('/inscription/qr/{inscription}', [InscriptionController::class, 'qr'])->name('inscription.qr');
 Route::post('/inscription/scan', [InscriptionController::class, 'scan'])->name('inscription.scan');
