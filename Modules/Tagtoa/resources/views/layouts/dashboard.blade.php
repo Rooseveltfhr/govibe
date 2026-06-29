@@ -98,6 +98,7 @@
             <a href="{{ url('/tagtoa/loyalty') }}" class="{{ request()->is('tagtoa/loyalty*') ? 'on' : '' }}"><i class="fa-solid fa-id-card"></i> {{ __('Fidélité') }}</a>
             <a href="{{ url('/tagtoa/links') }}" class="{{ request()->is('tagtoa/links*') ? 'on' : '' }}"><i class="fa-solid fa-link"></i> {{ __('Liens') }}</a>
             <a href="{{ url('/tagtoa/event') }}" class="{{ request()->is('tagtoa/event*') ? 'on' : '' }}"><i class="fa-solid fa-ticket"></i> {{ __('Événements') }}</a>
+            <a href="{{ url('/tagtoa/booking') }}" class="{{ request()->is('tagtoa/booking*') ? 'on' : '' }}"><i class="fa-solid fa-calendar-check"></i> {{ __('Réservations') }}</a>
             <a href="{{ url('/tagtoa/pos') }}" class="{{ request()->is('tagtoa/pos*') ? 'on' : '' }}"><i class="fa-solid fa-cash-register"></i> {{ __('Caisse (POS)') }}</a>
             <span class="sep">{{ __('Compte') }}</span>
             <a href="{{ url('/tagtoa/analytics') }}" class="{{ request()->is('tagtoa/analytics*') ? 'on' : '' }}"><i class="fa-solid fa-chart-line"></i> {{ __('Analytics') }}</a>

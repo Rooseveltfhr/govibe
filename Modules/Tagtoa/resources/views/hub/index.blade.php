@@ -19,6 +19,7 @@
         ['loyalty','Fidélité','fa-id-card','Cartes NFC de fidélité : solde, points, récompenses.'],
         ['links','Liens','fa-link','Page de liens style Linktree + don.'],
         ['event','Événements','fa-ticket','Billetterie + check-in NFC/QR.'],
+        ['booking','Réservations','fa-calendar-check','Prise de rendez-vous en ligne : prestations, créneaux, confirmation.'],
         ['pos','Caisse (POS)','fa-cash-register','Caisse tactile offline-first, multi-paiement.'],
         ['billing','Revenu & forfait','fa-wallet','Abonnement ou commission : votre choix.'],
     ] as $m)

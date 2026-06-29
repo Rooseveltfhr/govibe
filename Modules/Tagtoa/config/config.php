@@ -28,17 +28,17 @@ return [
         'free' => [
             'label'  => 'Gratuit',
             'price'  => 0,
-            'limits' => ['site' => 1, 'menu' => 1, 'pay' => 1, 'links' => 1, 'loyalty' => 0, 'event' => 0, 'pos' => 0],
+            'limits' => ['site' => 1, 'menu' => 1, 'pay' => 1, 'links' => 1, 'loyalty' => 0, 'event' => 0, 'pos' => 0, 'booking' => 0],
         ],
         'pro' => [
             'label'  => 'Pro',
             'price'  => 1500,
-            'limits' => ['site' => null, 'menu' => null, 'pay' => null, 'links' => null, 'loyalty' => null, 'event' => null, 'pos' => null],
+            'limits' => ['site' => null, 'menu' => null, 'pay' => null, 'links' => null, 'loyalty' => null, 'event' => null, 'pos' => null, 'booking' => null],
         ],
         'enterprise' => [
             'label'  => 'Enterprise',
             'price'  => null, // sur devis
-            'limits' => ['site' => null, 'menu' => null, 'pay' => null, 'links' => null, 'loyalty' => null, 'event' => null, 'pos' => null],
+            'limits' => ['site' => null, 'menu' => null, 'pay' => null, 'links' => null, 'loyalty' => null, 'event' => null, 'pos' => null, 'booking' => null],
         ],
     ],
 
