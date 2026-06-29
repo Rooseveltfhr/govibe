@@ -140,6 +140,10 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/{id}/products', [PosController::class, 'saveProducts'])->name('products.save');
     });
 
+    // QR & PARTAGE
+    Route::get('/qr', [\Modules\Tagtoa\App\Http\Controllers\Qr\QrController::class, 'index'])->name('tagtoa.qr.index');
+    Route::get('/qr/poster/{type}/{id}', [\Modules\Tagtoa\App\Http\Controllers\Qr\QrController::class, 'poster'])->name('tagtoa.qr.poster');
+
     // PLAN / ABONNEMENT
     Route::get('/plan', [\Modules\Tagtoa\App\Http\Controllers\Billing\PlanController::class, 'index'])->name('tagtoa.plan.index');
     Route::post('/plan/subscribe', [\Modules\Tagtoa\App\Http\Controllers\Billing\PlanController::class, 'subscribe'])->name('tagtoa.plan.subscribe');

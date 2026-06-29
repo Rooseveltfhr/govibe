@@ -100,6 +100,7 @@
             <a href="{{ url('/tagtoa/event') }}" class="{{ request()->is('tagtoa/event*') ? 'on' : '' }}"><i class="fa-solid fa-ticket"></i> {{ __('Événements') }}</a>
             <a href="{{ url('/tagtoa/pos') }}" class="{{ request()->is('tagtoa/pos*') ? 'on' : '' }}"><i class="fa-solid fa-cash-register"></i> {{ __('Caisse (POS)') }}</a>
             <span class="sep">{{ __('Compte') }}</span>
+            <a href="{{ url('/tagtoa/qr') }}" class="{{ request()->is('tagtoa/qr*') ? 'on' : '' }}"><i class="fa-solid fa-qrcode"></i> {{ __('QR & Partage') }}</a>
             <a href="{{ url('/tagtoa/plan') }}" class="{{ request()->is('tagtoa/plan*') ? 'on' : '' }}"><i class="fa-solid fa-crown"></i> {{ __('Abonnement') }}</a>
             <a href="{{ url('/tagtoa/billing') }}" class="{{ request()->is('tagtoa/billing*') ? 'on' : '' }}"><i class="fa-solid fa-wallet"></i> {{ __('Revenu & forfait') }}</a>
         </nav>
