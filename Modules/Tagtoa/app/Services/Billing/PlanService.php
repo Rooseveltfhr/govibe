@@ -3,6 +3,7 @@
 namespace Modules\Tagtoa\App\Services\Billing;
 
 use Modules\Tagtoa\App\Models\Billing\Subscription;
+use Modules\Tagtoa\App\Models\Booking\BookingPage;
 use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Links\LinkPage;
 use Modules\Tagtoa\App\Models\Loyalty\Program;
@@ -25,6 +26,7 @@ class PlanService
         'loyalty' => Program::class,
         'event'   => Event::class,
         'pos'     => Terminal::class,
+        'booking' => BookingPage::class,
     ];
 
     public function planKey(?string $tenantId): string

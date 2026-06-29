@@ -33,6 +33,7 @@ Grafe sou yon SaaS vcard achte ki rele **Biztap** (Laravel 10, `nwidart/laravel-
 | LOYALTY (kat NFC, pwen) | ✅ Bati + live | `/loyalty/card/{token}` | `/tagtoa/loyalty` |
 | LINKS (Linktree + don) | ✅ Bati + live | `/links/{alias}` | `/tagtoa/links` |
 | EVENT (tikè + checkin) | ✅ Bati + live | `/event/{alias}` | `/tagtoa/event` |
+| BOOKING (rendez-vous) | ✅ Bati + live | `/book/{alias}` | `/tagtoa/booking` |
 | POS (kès offline) | ✅ Bati + live | — | `/tagtoa/pos` |
 | BILLING (revni/komisyon) | ✅ Bati + live | — | `/tagtoa/billing` |
 | CONNECT (vcard) | ↩️ Biztap egzistan | `/{alias}` | Biztap |
@@ -78,7 +79,14 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     vizit, komisyon, graf 14 jou, top pwodwi). CRM (`/tagtoa/customers`):
     `CrmService` agrege kliyan an lekti depi menu/event/pay/pos/loyalty (dedoub pa telefòn).
   - ⏳ RES: notifikasyon (WhatsApp/email).
-- **Faz 5 — Booking, reviews, estòk, PWA POS, tès, jounal odit**
+- **Faz 5 — Booking, reviews, estòk, PWA POS, tès, jounal odit** 🔨 AN KOU:
+  - ✅ BOOKING (rendez-vous): `tagtoa_booking_pages` + `_booking_services` + `_bookings`.
+    Paj piblik `/book/{alias}` (chwazi prestation + dat/lè + koordone → JSON, idempotan
+    via client_uuid, pri enpoze sèvè depi prestation aktif), `BookingService` (placeBooking
+    + markCompleted → komisyon `RevenueService::record('booking',…)`), dashboard
+    `/tagtoa/booking` (CRUD paj + prestations répétables + lis randevou + estati),
+    `EnforcesPlan` guard (`booking`: free=0, pro/ent=null), demo `demo-booking`.
+  - ⏳ RES: notifikasyon (WhatsApp/email), reviews, estòk, PWA POS, jounal odit.
 
 ## 6. Deplwaman & URL
 - App sèvi nan `public/`: base = **https://tagtoa.com/tapbiz/public**
@@ -95,7 +103,7 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
 - Smoke piblik opsyonèl: mete `TAGTOA_SMOKE_BASE=https://tagtoa.com/tapbiz/public`.
 
 ## 7. Done demo (pou teste)
-- MENU: `demo-menu` · PAY: `demo` · LINKS: `demo-links` · EVENT: `demo-concert`
+- MENU: `demo-menu` · PAY: `demo` · LINKS: `demo-links` · EVENT: `demo-concert` · BOOKING: `demo-booking`
 - LOYALTY token: `uvcudqvm9xsie6knrkhbdcok` · POS terminal id: `1`
 - Teste lang: ajoute `?lang=ht|en|es|fr` sou nenpòt paj.
 

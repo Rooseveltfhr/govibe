@@ -3,6 +3,8 @@
 namespace Modules\Tagtoa\Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Modules\Tagtoa\App\Models\Booking\Booking;
+use Modules\Tagtoa\App\Models\Booking\BookingPage;
 use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Links\Link;
 use Modules\Tagtoa\App\Models\Links\LinkPage;
@@ -178,6 +180,40 @@ class TagtoaDemoSeeder extends Seeder
                 'is_published' => true,
             ]
         );
+
+        // 5d) BOOKING — page de réservation démo (salon) + prestations + 1 RDV
+        $booking = BookingPage::firstOrCreate(
+            ['alias' => 'demo-booking'],
+            [
+                'name' => 'TAGTOA Studio Demo', 'tagline' => 'Coiffure • Soins • Sur rendez-vous',
+                'about' => 'Réservez votre rendez-vous en ligne en quelques secondes.',
+                'theme' => 'light', 'accent_color' => '#16A34A',
+                'phone' => '+509 3000 0000', 'whatsapp' => '+509 3000 0000',
+                'email' => 'studio@tagtoa.com', 'address' => 'Rue Egalité, Gonaïves, Haïti',
+                'currency' => 'HTG', 'pay_page_id' => $pay->id ?? null, 'is_active' => true,
+            ]
+        );
+        $bookingServices = [
+            ['Coupe homme', 30, 500, 'Coupe + finitions'],
+            ['Coupe + barbe', 45, 750, 'Coupe complète et taille de barbe'],
+            ['Coloration', 90, 2000, 'Coloration professionnelle'],
+        ];
+        foreach ($bookingServices as $si => [$name, $dur, $price, $desc]) {
+            $booking->services()->firstOrCreate(
+                ['name' => $name],
+                ['duration_min' => $dur, 'price' => $price, 'description' => $desc, 'is_active' => true, 'sort' => $si]
+            );
+        }
+        if ($booking->bookings()->count() === 0) {
+            $svc = $booking->services()->where('name', 'Coupe + barbe')->first();
+            $booking->bookings()->create([
+                'tenant_id' => $booking->tenant_id, 'service_id' => $svc?->id,
+                'reference' => Booking::generateReference(),
+                'customer_name' => 'Client Demo', 'customer_phone' => '+509 3000 0000',
+                'starts_at' => now()->addDays(2)->setTime(14, 0),
+                'status' => 'pending', 'price' => $svc?->price ?? 0, 'currency' => $booking->currency,
+            ]);
+        }
 
         // 6) POS — caisse démo + produits
         $terminal = Terminal::firstOrCreate(['name' => 'Caisse Demo'], ['currency' => 'HTG', 'is_active' => true]);

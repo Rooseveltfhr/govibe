@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Tagtoa\App\Http\Controllers\Billing\BillingController;
+use Modules\Tagtoa\App\Http\Controllers\Booking\DashboardController as BookingDashboard;
+use Modules\Tagtoa\App\Http\Controllers\Booking\PublicController as BookingPublic;
 use Modules\Tagtoa\App\Http\Controllers\Event\CheckinController as EventCheckin;
 use Modules\Tagtoa\App\Http\Controllers\Event\DashboardController as EventDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Event\PublicController as EventPublic;
@@ -42,6 +44,8 @@ Route::get('/event/{alias}', [EventPublic::class, 'show'])->name('tagtoa.event.s
 Route::post('/event/{alias}/buy', [EventPublic::class, 'buy'])->name('tagtoa.event.buy');
 Route::get('/event/order/{reference}', [EventPublic::class, 'order'])->name('tagtoa.event.order');
 Route::get('/event/ticket/{code}', [EventPublic::class, 'ticket'])->name('tagtoa.event.ticket');
+Route::get('/book/{alias}', [BookingPublic::class, 'show'])->name('tagtoa.booking.show');
+Route::post('/book/{alias}/reserve', [BookingPublic::class, 'reserve'])->name('tagtoa.booking.reserve');
 
 // ---------- DASHBOARD (back-office marchand) ----------
 // Middleware aligné sur le back-office Biztap (confirmé dans routes/web.php) :
@@ -138,6 +142,18 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/report', [PosController::class, 'report'])->name('report');
         Route::get('/{id}/products', [PosController::class, 'products'])->name('products');
         Route::post('/{id}/products', [PosController::class, 'saveProducts'])->name('products.save');
+    });
+
+    // BOOKING (rendez-vous)
+    Route::prefix('booking')->name('tagtoa.booking.dashboard.')->group(function () {
+        Route::get('/', [BookingDashboard::class, 'index'])->name('index');
+        Route::get('/create', [BookingDashboard::class, 'create'])->name('create');
+        Route::post('/', [BookingDashboard::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [BookingDashboard::class, 'edit'])->name('edit');
+        Route::put('/{id}', [BookingDashboard::class, 'update'])->name('update');
+        Route::delete('/{id}', [BookingDashboard::class, 'destroy'])->name('destroy');
+        Route::get('/{id}/bookings', [BookingDashboard::class, 'bookings'])->name('bookings');
+        Route::post('/bookings/{booking}/status', [BookingDashboard::class, 'setStatus'])->name('bookings.status');
     });
 
     // ANALYTICS & CRM
