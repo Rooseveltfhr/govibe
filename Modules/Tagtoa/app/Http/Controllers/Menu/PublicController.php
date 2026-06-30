@@ -59,7 +59,11 @@ class PublicController extends Controller
         try {
             $order = app(MenuOrderService::class)->placeOrder($menu, $data);
         } catch (\RuntimeException $e) {
-            return response()->json(['ok' => false, 'message' => __('Votre commande est vide.')], 422);
+            $message = $e->getMessage() === 'out_of_stock'
+                ? __('Un article est en rupture de stock. Ajustez votre commande.')
+                : __('Votre commande est vide.');
+
+            return response()->json(['ok' => false, 'message' => $message], 422);
         }
 
         return response()->json([

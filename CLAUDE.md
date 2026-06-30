@@ -97,7 +97,12 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     (`POST /reviews`, tenant_id+alias dérivés sèvè anti-spoof), seksyon piblik reutilizab
     `partials/reviews.blade.php` (rezime+etwal+fòm) branche sou paj menu+booking. Moderasyon
     dashboard `/tagtoa/reviews` (pibliye/rejte/reponn/efase, filtre pa stati). Demo reviews.
-  - ⏳ RES: notifikasyon WhatsApp (API), estòk, PWA POS, jounal odit.
+  - ✅ ESTÒK (inventory): `StockService` pi (canFulfill/remaining/isLow/isOut, null=san limit,
+    teste). POS te gen stòk deja (kolòn + dekremante sou lavant). Ajoute pou MENU: kolòn
+    `stock` nullable sou `tagtoa_menu_items` (migrasyon 000073), kapti nan fòm dashboard
+    (chak atik), enpoze + dekremante nan `MenuOrderService` (refize kòmand si ripti),
+    badj « Épuisé » + dezaktive sou paj piblik, kont « stock faible » sou lis menu. Demo stòk.
+  - ⏳ RES: notifikasyon WhatsApp (API), PWA POS, jounal odit.
 
 ## 6. Deplwaman & URL
 - App sèvi nan `public/`: base = **https://tagtoa.com/tapbiz/public**

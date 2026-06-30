@@ -85,6 +85,7 @@
         <input name="cats[CIDX][items][IIDX][description]" class="inp" placeholder="{{ __('Description (optionnel)') }}" style="margin-top:8px">
         <div style="display:flex;gap:16px;align-items:center;margin-top:8px;flex-wrap:wrap">
             <input name="cats[CIDX][items][IIDX][badge]" class="inp" placeholder="{{ __('Badge: Nouveau, Promo…') }}" style="max-width:200px">
+            <input name="cats[CIDX][items][IIDX][stock]" class="inp" type="number" min="0" placeholder="{{ __('Stock (vide = illimité)') }}" style="max-width:170px" title="{{ __('Laisser vide pour ne pas suivre le stock') }}">
             <label class="switch" style="flex:0"><input type="hidden" name="cats[CIDX][items][IIDX][is_available]" value="0"><input type="checkbox" name="cats[CIDX][items][IIDX][is_available]" value="1" checked> {{ __('Disponible') }}</label>
             <label class="switch" style="flex:0"><input type="checkbox" name="cats[CIDX][items][IIDX][is_featured]" value="1"> {{ __('Mis en avant') }}</label>
         </div>
@@ -109,6 +110,7 @@ function addItem(catEl, d){
         row.querySelector('[name$="[price]"]').value = (d.price != null ? d.price : '');
         row.querySelector('[name$="[description]"]').value = d.description || '';
         row.querySelector('[name$="[badge]"]').value = d.badge || '';
+        row.querySelector('[name$="[stock]"]').value = (d.stock != null ? d.stock : '');
         row.querySelector('input[type=checkbox][name$="[is_available]"]').checked = d.is_available !== false;
         row.querySelector('[name$="[is_featured]"]').checked = !!d.is_featured;
         var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][items]['+ii+'][id]'; h.value=d.id; row.appendChild(h);
@@ -133,7 +135,7 @@ function addCat(d){
 
 var existing = @json($menu->relationLoaded('categories') ? $menu->categories->map(fn($c)=>[
     'id'=>$c->id,'name'=>$c->name,'icon'=>$c->icon,
-    'items'=>$c->items->map(fn($i)=>['id'=>$i->id,'name'=>$i->name,'emoji'=>$i->emoji,'price'=>$i->price,'description'=>$i->description,'badge'=>$i->badge,'is_available'=>$i->is_available,'is_featured'=>$i->is_featured]),
+    'items'=>$c->items->map(fn($i)=>['id'=>$i->id,'name'=>$i->name,'emoji'=>$i->emoji,'price'=>$i->price,'description'=>$i->description,'badge'=>$i->badge,'is_available'=>$i->is_available,'is_featured'=>$i->is_featured,'stock'=>$i->stock]),
 ]) : []);
 
 if (existing.length){ existing.forEach(addCat); }

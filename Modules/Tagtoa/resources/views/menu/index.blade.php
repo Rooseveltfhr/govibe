@@ -34,6 +34,7 @@
                     <span><i class="fa-solid fa-layer-group"></i> {{ $m->categories_count }} {{ __('cat.') }}</span>
                     <span><i class="fa-solid fa-bowl-food"></i> {{ $m->items_count }} {{ __('produits') }}</span>
                     <span><i class="fa-solid fa-eye"></i> {{ $m->views }}</span>
+                    @if($m->low_stock_count)<span style="color:var(--amber)"><i class="fa-solid fa-triangle-exclamation"></i> {{ $m->low_stock_count }} {{ __('stock faible') }}</span>@endif
                 </div>
                 <div class="row" style="margin-top:14px;gap:8px">
                     <a href="{{ route('tagtoa.menu.dashboard.orders',$m->id) }}" class="btn btn-d btn-sm" style="flex:0"><i class="fa-solid fa-receipt"></i> {{ __('Commandes') }}</a>

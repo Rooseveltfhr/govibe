@@ -119,15 +119,16 @@
             <section class="sec" id="cat{{ $c->id }}">
                 <h2>{{ $c->icon ? $c->icon.' ' : '' }}{{ $c->name }}</h2>
                 @foreach($c->availableItems as $it)
-                    <div class="item">
+                    @php $out = ! $it->in_stock; @endphp
+                    <div class="item" @if($out) style="opacity:.55" @endif>
                         @if($it->image_url)<img class="ph" src="{{ $it->image_url }}" alt="">
                         @else<div class="ph">{{ $it->emoji ?: '🍽️' }}</div>@endif
                         <div class="body">
-                            <div class="nm">{{ $it->name }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif</div>
+                            <div class="nm">{{ $it->name }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ __('Épuisé') }}</span>@endif</div>
                             @if($it->description)<div class="ds">{{ $it->description }}</div>@endif
                             <div class="ft">
                                 @if($menu->show_prices)<span class="price">{{ \Modules\Tagtoa\App\Support\Money::format($it->price, $cur) }}</span>@else<span></span>@endif
-                                @if($canOrder)
+                                @if($canOrder && ! $out)
                                     <button class="add" aria-label="{{ __('Ajouter') }}" data-id="{{ $it->id }}" data-name="{{ $it->name }}" data-price="{{ (float) $it->price }}" onclick="add(this)"><i class="fa-solid fa-plus"></i></button>
                                 @endif
                             </div>
