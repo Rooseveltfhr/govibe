@@ -12,6 +12,7 @@ use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Booking\Booking;
 use Modules\Tagtoa\App\Models\Booking\BookingPage;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
+use Modules\Tagtoa\App\Services\Audit\AuditService;
 use Modules\Tagtoa\App\Services\Booking\BookingService;
 use Modules\Tagtoa\App\Support\EnforcesPlan;
 use Modules\Tagtoa\App\Support\Locale;
@@ -110,6 +111,10 @@ class DashboardController extends Controller
             app(BookingService::class)->markCompleted($booking);
         } else {
             $booking->update(['status' => $data['status']]);
+        }
+
+        if (in_array($data['status'], ['completed', 'cancelled', 'confirmed'], true)) {
+            app(AuditService::class)->log('booking.'.$data['status'], $booking, $booking->reference);
         }
 
         return back()->with('success', __('Rendez-vous mis à jour.'));

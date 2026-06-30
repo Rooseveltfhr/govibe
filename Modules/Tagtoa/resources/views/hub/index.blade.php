@@ -23,6 +23,7 @@
         ['pos','Caisse (POS)','fa-cash-register','Caisse tactile offline-first, multi-paiement.'],
         ['reviews','Avis clients','fa-star','Collectez et modérez les avis clients sur vos pages publiques.'],
         ['billing','Revenu & forfait','fa-wallet','Abonnement ou commission : votre choix.'],
+        ['audit','Journal d\'audit','fa-clipboard-list','Traçabilité des actions sensibles : modération, finances, statuts.'],
     ] as $m)
         <a class="card" href="{{ url('/tagtoa/'.$m[0]) }}" style="display:block;transition:transform .12s,box-shadow .15s" onmouseover="this.style.boxShadow='0 8px 26px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow='none'">
             <div class="ic" style="width:46px;height:46px;border-radius:12px;background:var(--blue-pale);color:var(--blue-deep);display:flex;align-items:center;justify-content:center;font-size:20px"><i class="fa-solid {{ $m[2] }}"></i></div>
