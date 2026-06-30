@@ -106,7 +106,11 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     pi teste). Branche sou aksyon sansib: moderasyon avi (approve/reject/reply/delete),
     estati randevou (completed/cancelled/confirmed), kòmand menu ankese, billing settle/update,
     chanjman fòfè. Viewer lekti sèl `/tagtoa/audit` (filtre pa aksyon, pajine).
-  - ⏳ RES: notifikasyon WhatsApp (API), PWA POS.
+  - ✅ PWA POS: kès la enstalab + offline. Manifeste pa terminal (`/tagtoa/pos/{id}/app.webmanifest`),
+    service worker (`/tagtoa/pos/sw.js`, network-first navigation + cache-first asset, scope
+    `/tagtoa/pos/`), ikòn SVG (`/tagtoa/pos/icon.svg`), bouton « Installer » (beforeinstallprompt).
+    Lavant offline (localStorage queue + sync) te deja egziste — PWA ajoute app shell hors-ligne.
+  - ⏳ RES: notifikasyon WhatsApp (API — bloke, bezwen kredansyèl).
 
 ## 6. Deplwaman & URL
 - App sèvi nan `public/`: base = **https://tagtoa.com/tapbiz/public**

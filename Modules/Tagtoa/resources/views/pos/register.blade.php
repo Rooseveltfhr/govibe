@@ -5,6 +5,13 @@
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $terminal->name }} — TAGTOA POS</title>
+    {{-- PWA : installable + hors ligne --}}
+    <link rel="manifest" href="{{ route('tagtoa.pos.manifest',$terminal->id) }}">
+    <meta name="theme-color" content="#16A34A">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon" href="{{ route('tagtoa.pos.icon') }}">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
@@ -31,7 +38,7 @@
 </head>
 <body data-terminal="{{ $terminal->id }}" data-currency="{{ $terminal->currency }}">
     <div class="app">
-        <div class="top"><i class="fa-solid fa-cash-register" style="color:var(--blue)"></i><h1>{{ $terminal->name }}</h1><span class="net" id="net">●</span><a href="{{ route('tagtoa.pos.report',$terminal->id) }}"><i class="fa-solid fa-chart-simple"></i></a></div>
+        <div class="top"><i class="fa-solid fa-cash-register" style="color:var(--blue)"></i><h1>{{ $terminal->name }}</h1><button id="installBtn" class="net" style="display:none;border:0;cursor:pointer;background:var(--blue)" title="{{ __('Installer l\'application') }}"><i class="fa-solid fa-download"></i> {{ __('Installer') }}</button><span class="net" id="net">●</span><a href="{{ route('tagtoa.pos.report',$terminal->id) }}"><i class="fa-solid fa-chart-simple"></i></a></div>
         <div class="grid" id="grid">
             @foreach($products as $p)
                 <button class="p" style="background:{{ $p->color }}" onclick="add({{ $p->id }},'{{ addslashes($p->name) }}',{{ $p->price }})"><span class="em">{{ $p->emoji ?: '🛒' }}</span><span>{{ $p->name }}</span><span class="pr">{{ number_format($p->price,2) }}</span></button>
@@ -91,6 +98,15 @@ function ok(ref,p){beep('success');closePay();document.getElementById('dref').te
     document.getElementById('wa').href='https://wa.me/'+(p.customer_phone||'').replace(/[^0-9]/g,'')+'?text='+msg;document.getElementById('done').classList.add('show');}
 function newSale(){cart={};document.getElementById('disc').value=0;document.getElementById('phone').value='';document.getElementById('done').classList.remove('show');render();}
 window.addEventListener('load',function(){setNet();render();});
+
+// --- PWA : service worker + invite d'installation ---
+if('serviceWorker' in navigator){
+    navigator.serviceWorker.register("{{ route('tagtoa.pos.sw') }}", {scope:"{{ rtrim(url('/tagtoa/pos'),'/') }}/"}).catch(function(){});
+}
+var deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredPrompt=e;var b=document.getElementById('installBtn');if(b)b.style.display='inline-block';});
+(function(){var b=document.getElementById('installBtn');if(b)b.addEventListener('click',function(){if(!deferredPrompt)return;deferredPrompt.prompt();deferredPrompt.userChoice.finally(function(){deferredPrompt=null;b.style.display='none';});});})();
+window.addEventListener('appinstalled',function(){var b=document.getElementById('installBtn');if(b)b.style.display='none';});
 </script>
 </body>
 </html>
