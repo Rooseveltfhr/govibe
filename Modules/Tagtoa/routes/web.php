@@ -143,6 +143,10 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/report', [PosController::class, 'report'])->name('report');
         Route::get('/{id}/products', [PosController::class, 'products'])->name('products');
         Route::post('/{id}/products', [PosController::class, 'saveProducts'])->name('products.save');
+        // PWA (installable + offline)
+        Route::get('/sw.js', [PosController::class, 'serviceWorker'])->name('sw');
+        Route::get('/icon.svg', [PosController::class, 'icon'])->name('icon');
+        Route::get('/{id}/app.webmanifest', [PosController::class, 'manifest'])->name('manifest');
     });
 
     // BOOKING (rendez-vous)

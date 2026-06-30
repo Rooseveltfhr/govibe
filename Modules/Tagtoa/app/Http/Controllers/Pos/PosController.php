@@ -138,6 +138,80 @@ class PosController extends Controller
         return back()->with('success', __('Produits enregistrés.'));
     }
 
+    /* ---------- PWA (installable + offline) ---------- */
+
+    /** Manifeste Web App de la caisse (par terminal). */
+    public function manifest(int $id): JsonResponse
+    {
+        $terminal = $this->own($id);
+        $scope = rtrim(url('/tagtoa/pos'), '/').'/';
+
+        return response()->json([
+            'name'             => $terminal->name.' — TAGTOA POS',
+            'short_name'       => 'TAGTOA POS',
+            'start_url'        => route('tagtoa.pos.register', $terminal->id),
+            'scope'            => $scope,
+            'display'          => 'standalone',
+            'orientation'      => 'portrait-primary',
+            'background_color' => '#0A0A0A',
+            'theme_color'      => '#16A34A',
+            'lang'             => app()->getLocale(),
+            'icons'            => [
+                ['src' => route('tagtoa.pos.icon'), 'sizes' => 'any', 'type' => 'image/svg+xml', 'purpose' => 'any maskable'],
+            ],
+        ]);
+    }
+
+    /** Icône SVG (vectorielle, sans fichier binaire à publier). */
+    public function icon()
+    {
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">'
+            .'<rect width="512" height="512" rx="96" fill="#16A34A"/>'
+            .'<path d="M300 96 154 288h86l-28 128 160-208h-92z" fill="#fff"/>'
+            .'</svg>';
+
+        return response($svg, 200)
+            ->header('Content-Type', 'image/svg+xml')
+            ->header('Cache-Control', 'public, max-age=86400');
+    }
+
+    /** Service worker : cache l'enveloppe (app shell) pour un usage hors ligne. */
+    public function serviceWorker()
+    {
+        $scope = rtrim(url('/tagtoa/pos'), '/').'/';
+        $js = <<<JS
+const CACHE = 'tagtoa-pos-v1';
+self.addEventListener('install', (e) => self.skipWaiting());
+self.addEventListener('activate', (e) => {
+    e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+});
+// Network-first pour la navigation (HTML), cache-first pour le reste. GET seulement.
+self.addEventListener('fetch', (e) => {
+    const req = e.request;
+    if (req.method !== 'GET') return;
+    if (req.mode === 'navigate') {
+        e.respondWith(
+            fetch(req).then(res => { const c = res.clone(); caches.open(CACHE).then(ca => ca.put(req, c)); return res; })
+                      .catch(() => caches.match(req))
+        );
+        return;
+    }
+    e.respondWith(
+        caches.match(req).then(hit => hit || fetch(req).then(res => {
+            if (res && res.status === 200 && (res.type === 'basic' || res.type === 'cors')) {
+                const c = res.clone(); caches.open(CACHE).then(ca => ca.put(req, c));
+            }
+            return res;
+        }).catch(() => hit))
+    );
+});
+JS;
+
+        return response($js, 200)
+            ->header('Content-Type', 'application/javascript')
+            ->header('Service-Worker-Allowed', $scope);
+    }
+
     protected function own(int $id, array $with = []): Terminal
     {
         return Terminal::with($with)->where('tenant_id', Tenant::id())->findOrFail($id);
