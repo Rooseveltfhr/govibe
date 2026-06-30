@@ -1,8 +1,15 @@
 # TAGTOA EVENT — Extension : Réservation + Accès NFC/QR + Wallet closed-loop
 
-> **Statut : PLAN (deliverable #1) — à valider AVANT tout code.**
+> **Statut : ÉTAPES 1–2 IMPLÉMENTÉES — en attente de REVUE DU LEDGER avant les Actions argent.**
 > Conforme à la demande : schéma DB d'abord, implémentation par étapes,
 > tests par étape, **aucun déploiement prod sans revue de la logique de ledger**.
+>
+> - ✅ Étape 1 — migrations + modèles (`tagtoa_ev_nfc_tags`, `_wallet_accounts`,
+>   `_wallet_txns`, `_wallet_entries`) + modèles Eloquent.
+> - ✅ Étape 2 — `Support\Event\Ledger` (logique pure double-entry) + `LedgerTest`
+>   (10 tests Unit : signes, équilibre, fonds suffisants, idempotence d'exception).
+> - ⏸️ **STOP — revue du ledger requise** (gate #4) avant les classes Action argent
+>   (TopUp/Charge/Refund/Payout). Non mergé, non déployé.
 
 ---
 
