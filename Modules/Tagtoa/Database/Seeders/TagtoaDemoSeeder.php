@@ -107,6 +107,7 @@ class TagtoaDemoSeeder extends Seeder
                 'show_prices' => true, 'ordering_enabled' => true, 'is_active' => true,
             ]
         );
+        // Stock démo : Tassot kabrit limité (8) pour illustrer le suivi de stock.
         $menuData = [
             ['Entrées', '🥗', [
                 ['Accra de morue', 250, '🧆', 'Beignets de morue épicés', 'Populaire'],
@@ -131,6 +132,12 @@ class TagtoaDemoSeeder extends Seeder
                     ['menu_id' => $menu->id, 'price' => $price, 'emoji' => $emoji, 'description' => $desc, 'badge' => $badge, 'is_available' => true, 'sort' => $ii]
                 );
             }
+        }
+
+        // Stock démo : limite le Tassot kabrit pour illustrer le suivi de stock.
+        $tassot = $menu->items()->where('name', 'Tassot kabrit')->first();
+        if ($tassot && $tassot->stock === null) {
+            $tassot->update(['stock' => 8]);
         }
 
         // 5b) MENU — une commande démo (en attente) pour tester la gestion

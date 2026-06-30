@@ -17,4 +17,5 @@ require_once $base.'/Services/Loyalty/LoyaltyCardService.php';
 require_once $base.'/Services/Billing/RevenueService.php';
 require_once $base.'/Services/Notifications/NotificationService.php';
 require_once $base.'/Services/Review/ReviewService.php';
+require_once $base.'/Services/Inventory/StockService.php';
 require_once $base.'/Support/Money.php';

@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Menu\Order;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
+use Modules\Tagtoa\App\Services\Inventory\StockService;
 
 /**
  * TAGTOA MENU — capture & gestion des commandes.
@@ -39,6 +40,12 @@ class MenuOrderService
                     continue; // ignore tout article inconnu / indisponible
                 }
                 $qty = max(1, (int) ($it['qty'] ?? 1));
+
+                // Stock : refuse la commande si un article suivi n'a pas assez de stock.
+                if (! StockService::canFulfill($item->stock, $qty)) {
+                    throw new \RuntimeException('out_of_stock');
+                }
+
                 $price = (float) $item->price;
                 $subtotal += $price * $qty;
                 $lines[] = ['item' => $item, 'price' => $price, 'qty' => $qty];
@@ -75,6 +82,11 @@ class MenuOrderService
                     'qty'        => $l['qty'],
                     'line_total' => round($l['price'] * $l['qty'], 2),
                 ]);
+
+                // Décrémente le stock suivi (null = illimité, ignoré).
+                if ($l['item']->stock !== null) {
+                    $l['item']->decrement('stock', $l['qty']);
+                }
             }
 
             return $order;

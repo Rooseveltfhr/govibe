@@ -27,7 +27,8 @@ class DashboardController extends Controller
     public function index(): View
     {
         $menus = Menu::where('tenant_id', Tenant::id())
-            ->withCount(['items', 'categories'])
+            ->withCount(['items', 'categories', 'items as low_stock_count' => fn ($q) => $q->whereNotNull('stock')
+                ->where('stock', '<=', \Modules\Tagtoa\App\Services\Inventory\StockService::LOW_THRESHOLD)])
             ->latest()->paginate(12);
 
         return view('tagtoa::menu.index', compact('menus'));
@@ -203,6 +204,7 @@ $data = $this->validateMenu($request);
                         'badge'        => $it['badge'] ?? null,
                         'is_featured'  => ! empty($it['is_featured']),
                         'is_available' => ! isset($it['is_available']) ? true : (bool) $it['is_available'],
+                        'stock'        => (! isset($it['stock']) || $it['stock'] === '') ? null : max(0, (int) $it['stock']),
                         'sort'         => $ii,
                     ];
                     $item = ! empty($it['id']) ? $cat->items()->whereKey($it['id'])->first() : null;

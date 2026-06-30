@@ -15,15 +15,22 @@ class Item extends Model
 
     protected $fillable = [
         'menu_id', 'category_id', 'name', 'description', 'price', 'image_path',
-        'emoji', 'badge', 'is_available', 'is_featured', 'sort',
+        'emoji', 'badge', 'is_available', 'is_featured', 'stock', 'sort',
     ];
 
     protected $casts = [
         'price'        => 'decimal:2',
         'is_available' => 'boolean',
         'is_featured'  => 'boolean',
+        'stock'        => 'integer',
         'sort'         => 'integer',
     ];
+
+    /** Disponible à la vente : stock non suivi (null) OU stock > 0. */
+    public function getInStockAttribute(): bool
+    {
+        return $this->stock === null || $this->stock > 0;
+    }
 
     public function menu(): BelongsTo
     {
