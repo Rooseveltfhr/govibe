@@ -7,7 +7,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Booking\BookingPage;
+use Modules\Tagtoa\App\Models\Review\Review;
 use Modules\Tagtoa\App\Services\Booking\BookingService;
+use Modules\Tagtoa\App\Services\Review\ReviewService;
 use Modules\Tagtoa\App\Support\Money;
 
 /**
@@ -23,7 +25,15 @@ class PublicController extends Controller
 
         $page->incrementQuietly('views');
 
-        return view('tagtoa::booking.show', ['page' => $page, 'services' => $page->activeServices]);
+        $summary = app(ReviewService::class)->summary('booking', (int) $page->id);
+        $reviews = Review::query()->forSubject('booking', (int) $page->id)->approved()->latest()->limit(20)->get();
+
+        return view('tagtoa::booking.show', [
+            'page'     => $page,
+            'services' => $page->activeServices,
+            'reviews'  => $reviews,
+            'summary'  => $summary,
+        ]);
     }
 
     /** Capture un rendez-vous (prix imposé côté serveur). Renvoie JSON. */

@@ -138,6 +138,8 @@
         @endforeach
     @endif
 
+    @include('tagtoa::partials.reviews', ['subjectType' => 'menu', 'subjectId' => $menu->id, 'subjectAlias' => $menu->alias, 'reviews' => $reviews, 'summary' => $summary])
+
     <div class="foot">{{ __('Propulsé par') }} <b>TAGTOA</b> · tagtoa.com</div>
 </div>
 

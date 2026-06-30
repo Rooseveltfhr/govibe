@@ -7,7 +7,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Menu\Menu;
+use Modules\Tagtoa\App\Models\Review\Review;
 use Modules\Tagtoa\App\Services\Menu\MenuOrderService;
+use Modules\Tagtoa\App\Services\Review\ReviewService;
 use Modules\Tagtoa\App\Support\Money;
 
 /**
@@ -26,7 +28,15 @@ class PublicController extends Controller
         // Catégories non vides uniquement.
         $categories = $menu->activeCategories->filter(fn ($c) => $c->availableItems->isNotEmpty())->values();
 
-        return view('tagtoa::menu.show', ['menu' => $menu, 'categories' => $categories]);
+        $summary = app(ReviewService::class)->summary('menu', (int) $menu->id);
+        $reviews = Review::query()->forSubject('menu', (int) $menu->id)->approved()->latest()->limit(20)->get();
+
+        return view('tagtoa::menu.show', [
+            'menu'       => $menu,
+            'categories' => $categories,
+            'reviews'    => $reviews,
+            'summary'    => $summary,
+        ]);
     }
 
     /** Capture une commande (prix imposés côté serveur). Renvoie JSON. */
