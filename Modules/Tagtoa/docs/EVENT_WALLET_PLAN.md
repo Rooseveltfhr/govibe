@@ -8,8 +8,14 @@
 >   `_wallet_txns`, `_wallet_entries`) + modèles Eloquent.
 > - ✅ Étape 2 — `Support\Event\Ledger` (logique pure double-entry) + `LedgerTest`
 >   (10 tests Unit : signes, équilibre, fonds suffisants, idempotence d'exception).
-> - ⏸️ **STOP — revue du ledger requise** (gate #4) avant les classes Action argent
->   (TopUp/Charge/Refund/Payout). Non mergé, non déployé.
+> - ✅ Revue du ledger : **validée**.
+> - ✅ Étape 3 — classes Action (`PostLedgerTransaction`, `OpenEventWalletAccounts`,
+>   `IssueNfcTag`, `ResolveNfcTag`, `TopUpWallet`, `ChargeWallet`, `RefundWallet`,
+>   `PayoutToOrganizer`) + `InsufficientFundsException` + tests Feature
+>   (`WalletFlowTest`, à exécuter dans Biztap). Atomicité, `lockForUpdate`, idempotence.
+> - ⏭️ RESTE : étape 4 (intégration scanner NFC tap→wallet), étape 5 (dashboard
+>   recharge/vendeur/réconciliation), étape 6 (notifications). Schéma + code argent
+>   **additifs et dormants** (aucun endpoint ne les appelle encore).
 
 ---
 
