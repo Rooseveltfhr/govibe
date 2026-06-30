@@ -14,6 +14,7 @@ use Modules\Tagtoa\App\Models\Pay\PaymentMethod;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Models\Pos\Product;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
+use Modules\Tagtoa\App\Models\Review\Review;
 use Modules\Tagtoa\App\Models\Site\Site;
 use Modules\Tagtoa\App\Services\Loyalty\LoyaltyCardService;
 
@@ -213,6 +214,23 @@ class TagtoaDemoSeeder extends Seeder
                 'starts_at' => now()->addDays(2)->setTime(14, 0),
                 'status' => 'pending', 'price' => $svc?->price ?? 0, 'currency' => $booking->currency,
             ]);
+        }
+
+        // 5e) REVIEWS — avis démo (sur le menu et la page de réservation)
+        $demoReviews = [
+            ['menu', $menu->id ?? null, 'demo-menu', 5, 'Marie L.', 'Service rapide et plats délicieux. Le griot est incroyable !', 'approved'],
+            ['menu', $menu->id ?? null, 'demo-menu', 4, 'Jean P.', 'Très bonne ambiance lounge, je recommande.', 'approved'],
+            ['menu', $menu->id ?? null, 'demo-menu', 5, 'Sophia D.', 'Commande par QR super pratique.', 'pending'],
+            ['booking', $booking->id ?? null, 'demo-booking', 5, 'Carline J.', 'Prise de rendez-vous facile, ponctualité parfaite.', 'approved'],
+        ];
+        foreach ($demoReviews as [$type, $sid, $alias, $rating, $name, $comment, $status]) {
+            if (! $sid) {
+                continue;
+            }
+            Review::firstOrCreate(
+                ['subject_type' => $type, 'subject_id' => $sid, 'author_name' => $name],
+                ['subject_alias' => $alias, 'rating' => $rating, 'comment' => $comment, 'status' => $status]
+            );
         }
 
         // 6) POS — caisse démo + produits

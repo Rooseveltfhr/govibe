@@ -122,6 +122,8 @@
         </div>
     </div>
 
+    @include('tagtoa::partials.reviews', ['subjectType' => 'booking', 'subjectId' => $page->id, 'subjectAlias' => $page->alias, 'reviews' => $reviews, 'summary' => $summary])
+
     <div class="foot">{{ __('Propulsé par') }} <b>TAGTOA</b> · tagtoa.com</div>
 </div>
 

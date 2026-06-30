@@ -46,6 +46,7 @@ Route::get('/event/order/{reference}', [EventPublic::class, 'order'])->name('tag
 Route::get('/event/ticket/{code}', [EventPublic::class, 'ticket'])->name('tagtoa.event.ticket');
 Route::get('/book/{alias}', [BookingPublic::class, 'show'])->name('tagtoa.booking.show');
 Route::post('/book/{alias}/reserve', [BookingPublic::class, 'reserve'])->name('tagtoa.booking.reserve');
+Route::post('/reviews', [\Modules\Tagtoa\App\Http\Controllers\Review\PublicController::class, 'store'])->name('tagtoa.reviews.store');
 
 // ---------- DASHBOARD (back-office marchand) ----------
 // Middleware aligné sur le back-office Biztap (confirmé dans routes/web.php) :
@@ -154,6 +155,15 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::delete('/{id}', [BookingDashboard::class, 'destroy'])->name('destroy');
         Route::get('/{id}/bookings', [BookingDashboard::class, 'bookings'])->name('bookings');
         Route::post('/bookings/{booking}/status', [BookingDashboard::class, 'setStatus'])->name('bookings.status');
+    });
+
+    // REVIEWS (avis clients — modération)
+    Route::prefix('reviews')->name('tagtoa.reviews.')->group(function () {
+        Route::get('/', [\Modules\Tagtoa\App\Http\Controllers\Review\DashboardController::class, 'index'])->name('index');
+        Route::post('/{id}/status', [\Modules\Tagtoa\App\Http\Controllers\Review\DashboardController::class, 'setStatus'])->name('status');
+        Route::post('/{id}/reply', [\Modules\Tagtoa\App\Http\Controllers\Review\DashboardController::class, 'reply'])->name('reply');
+        Route::post('/{id}/feature', [\Modules\Tagtoa\App\Http\Controllers\Review\DashboardController::class, 'feature'])->name('feature');
+        Route::delete('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Review\DashboardController::class, 'destroy'])->name('destroy');
     });
 
     // ANALYTICS & CRM

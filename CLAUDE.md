@@ -91,7 +91,13 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     `/tagtoa/booking` (CRUD paj + prestations répétables + lis randevou + estati),
     `EnforcesPlan` guard (`booking`: free=0, pro/ent=null), demo `demo-booking`.
   - ✅ Notifikasyon imèl opt-in branche sou randevou (gade Faz 4 RES).
-  - ⏳ RES: notifikasyon WhatsApp (API), reviews, estòk, PWA POS, jounal odit.
+  - ✅ REVIEWS (avis kliyan): tab `tagtoa_reviews` (polimòfik via subject_type+subject_id:
+    menu/booking/site/event). `ReviewService` (average/clampRating/distribution = lojik pi
+    teste; submit idempotan via client_uuid, note bòne 1..5, stati `pending`). Soumèt piblik
+    (`POST /reviews`, tenant_id+alias dérivés sèvè anti-spoof), seksyon piblik reutilizab
+    `partials/reviews.blade.php` (rezime+etwal+fòm) branche sou paj menu+booking. Moderasyon
+    dashboard `/tagtoa/reviews` (pibliye/rejte/reponn/efase, filtre pa stati). Demo reviews.
+  - ⏳ RES: notifikasyon WhatsApp (API), estòk, PWA POS, jounal odit.
 
 ## 6. Deplwaman & URL
 - App sèvi nan `public/`: base = **https://tagtoa.com/tapbiz/public**

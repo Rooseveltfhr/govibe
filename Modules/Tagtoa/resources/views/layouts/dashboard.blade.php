@@ -103,6 +103,7 @@
             <span class="sep">{{ __('Compte') }}</span>
             <a href="{{ url('/tagtoa/analytics') }}" class="{{ request()->is('tagtoa/analytics*') ? 'on' : '' }}"><i class="fa-solid fa-chart-line"></i> {{ __('Analytics') }}</a>
             <a href="{{ url('/tagtoa/customers') }}" class="{{ request()->is('tagtoa/customers*') ? 'on' : '' }}"><i class="fa-solid fa-users"></i> {{ __('Clients') }}</a>
+            <a href="{{ url('/tagtoa/reviews') }}" class="{{ request()->is('tagtoa/reviews*') ? 'on' : '' }}"><i class="fa-solid fa-star"></i> {{ __('Avis clients') }}</a>
             <a href="{{ url('/tagtoa/qr') }}" class="{{ request()->is('tagtoa/qr*') ? 'on' : '' }}"><i class="fa-solid fa-qrcode"></i> {{ __('QR & Partage') }}</a>
             <a href="{{ url('/tagtoa/plan') }}" class="{{ request()->is('tagtoa/plan*') ? 'on' : '' }}"><i class="fa-solid fa-crown"></i> {{ __('Abonnement') }}</a>
             <a href="{{ url('/tagtoa/billing') }}" class="{{ request()->is('tagtoa/billing*') ? 'on' : '' }}"><i class="fa-solid fa-wallet"></i> {{ __('Revenu & forfait') }}</a>
