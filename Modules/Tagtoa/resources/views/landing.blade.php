@@ -167,6 +167,30 @@
         .pfeat li i{color:var(--green);font-size:13px;margin-top:3px}
         .pfeat li.off{opacity:.4}.pfeat li.off i{color:var(--muted)}
         .pcard .btn{width:100%;justify-content:center}
+        /* Feature showcase (présentation détaillée) */
+        .feat-row{display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:center;margin-top:52px}
+        .feat-row.rev .fviz{order:2}
+        .feat-row .ftag{display:inline-flex;align-items:center;gap:8px;font:700 11px var(--fh);letter-spacing:.1em;text-transform:uppercase;color:var(--green-d);background:var(--green-l);padding:6px 12px;border-radius:999px}
+        .feat-row h3{font:700 clamp(22px,2.7vw,31px) var(--fh);letter-spacing:-.02em;margin:14px 0 10px}
+        .feat-row p{color:var(--muted);margin-bottom:16px;font-size:15px;max-width:460px}
+        .flist{list-style:none;display:flex;flex-direction:column;gap:11px}
+        .flist li{display:flex;gap:10px;font-size:14.5px;color:rgba(13,20,12,.82)}
+        .flist li i{color:var(--green);margin-top:3px}
+        .fviz{background:linear-gradient(160deg,var(--green-l),#fff);border:1px solid var(--bd);border-radius:24px;padding:30px;min-height:280px;display:flex;flex-direction:column;justify-content:center;gap:12px;position:relative;overflow:hidden}
+        .fbub{max-width:78%;padding:11px 15px;border-radius:16px;font-size:14px;box-shadow:0 4px 14px rgba(13,20,12,.06)}
+        .fbub.in{background:#fff;border:1px solid var(--bd);border-bottom-left-radius:5px}
+        .fbub.out{background:var(--wa);color:#fff;align-self:flex-end;border-bottom-right-radius:5px}
+        .fprod{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:12px;display:flex;align-items:center;gap:12px;box-shadow:0 6px 18px rgba(13,20,12,.06)}
+        .fprod .fph{width:46px;height:46px;border-radius:11px;background:var(--green-l);color:var(--green-d);display:flex;align-items:center;justify-content:center;font-size:20px}
+        .fprod .fpn{font:700 14px var(--fh)}.fprod .fpp{color:var(--green-d);font:700 13px var(--fh)}
+        .fchips{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+        .fchip{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:14px 8px;text-align:center;font-size:20px}
+        .fbars{display:flex;align-items:flex-end;gap:12px;height:150px;padding:10px 6px}
+        .fbars .bar{flex:1;background:var(--green);border-radius:8px 8px 0 0;opacity:.85}
+        .fkpi{display:flex;gap:10px;flex-wrap:wrap}
+        .fkpi .k{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:10px 14px;font:700 13px var(--fh)}
+        .fkpi .k b{color:var(--green-d);font-size:18px;display:block}
+        @media(max-width:960px){.feat-row{grid-template-columns:1fr;gap:26px}.feat-row.rev .fviz{order:0}}
         /* Testimonials */
         .tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px}
         .tcard{background:#fff;border:1px solid var(--bd);border-radius:18px;padding:26px;transition:transform .16s,box-shadow .2s}
@@ -305,6 +329,79 @@
         <div class="pr">
             <div class="big">-100%</div>
             <div class="small">{{ __('pendant 3 mois') }}</div>
+        </div>
+    </div>
+</div></section>
+
+<section><div class="wrap">
+    <div class="center">
+        <span class="ey reveal">{{ __('La plateforme en détail') }}</span>
+        <h2 class="reveal d1">{{ __('Tout ce dont votre business a besoin pour vendre') }}</h2>
+    </div>
+
+    {{-- Boutique WhatsApp --}}
+    <div class="feat-row reveal">
+        <div class="fviz">
+            <div class="fbub in">{{ __('Bonjou, èske pwodwi a disponib?') }}</div>
+            <div class="fprod"><div class="fph"><i class="fa-solid fa-bag-shopping"></i></div><div><div class="fpn">{{ __('Produit vedette') }}</div><div class="fpp">1,200 HTG</div></div></div>
+            <div class="fbub out">{{ __('Wi! Klike pou kòmande.') }}</div>
+        </div>
+        <div>
+            <span class="ftag"><i class="fa-brands fa-whatsapp"></i> {{ __('Boutique WhatsApp') }}</span>
+            <h3>{{ __('Vendez sur WhatsApp, sans friction') }}</h3>
+            <p>{{ __('Vos clients parcourent votre catalogue, commandent et paient — tout depuis la conversation WhatsApp qu\'ils utilisent déjà.') }}</p>
+            <ul class="flist">
+                <li><i class="fa-solid fa-check"></i> {{ __('Catalogue en ligne prêt en 2 minutes') }}</li>
+                <li><i class="fa-solid fa-check"></i> {{ __('Commandes reçues directement sur WhatsApp') }}</li>
+                <li><i class="fa-solid fa-check"></i> {{ __('Paiement intégré et confirmation automatique') }}</li>
+            </ul>
+        </div>
+    </div>
+
+    {{-- Paiements --}}
+    <div class="feat-row rev reveal">
+        <div class="fviz">
+            <div class="fchips">
+                <div class="fchip" style="color:#E2001A"><i class="fa-solid fa-mobile-screen-button"></i></div>
+                <div class="fchip" style="color:#00A859"><i class="fa-solid fa-mobile-screen"></i></div>
+                <div class="fchip" style="color:#1A1F71"><i class="fa-brands fa-cc-visa"></i></div>
+                <div class="fchip" style="color:#003087"><i class="fa-brands fa-paypal"></i></div>
+                <div class="fchip" style="color:#F7931A"><i class="fa-brands fa-bitcoin"></i></div>
+                <div class="fchip" style="color:#1D9E75"><i class="fa-solid fa-money-bill-wave"></i></div>
+            </div>
+            <div class="fprod" style="margin-top:6px"><div class="fph" style="background:var(--wa);color:#fff"><i class="fa-solid fa-circle-check"></i></div><div><div class="fpn">{{ __('Paiement reçu') }}</div><div class="fpp">2,400 HTG · 2.1s</div></div></div>
+        </div>
+        <div>
+            <span class="ftag"><i class="fa-solid fa-money-bill-transfer"></i> {{ __('Paiements') }}</span>
+            <h3>{{ __('Encaissez par tous les moyens') }}</h3>
+            <p>{{ __('MonCash, NatCash, cartes, PayPal et crypto réunis derrière un seul lien et un seul QR. L\'argent arrive en quelques secondes.') }}</p>
+            <ul class="flist">
+                <li><i class="fa-solid fa-check"></i> {{ __('10+ méthodes locales et internationales') }}</li>
+                <li><i class="fa-solid fa-check"></i> {{ __('Preuve de paiement et validation') }}</li>
+                <li><i class="fa-solid fa-check"></i> {{ __('Prix imposés côté serveur (anti-fraude)') }}</li>
+            </ul>
+        </div>
+    </div>
+
+    {{-- Pilotage / Analytics --}}
+    <div class="feat-row reveal">
+        <div class="fviz">
+            <div class="fbars">
+                <div class="bar" style="height:45%"></div><div class="bar" style="height:70%"></div>
+                <div class="bar" style="height:55%"></div><div class="bar" style="height:88%"></div>
+                <div class="bar" style="height:66%"></div><div class="bar" style="height:100%"></div>
+            </div>
+            <div class="fkpi"><div class="k">{{ __('Revenu') }} <b>184k HTG</b></div><div class="k">{{ __('Commandes') }} <b>312</b></div><div class="k">{{ __('Clients') }} <b>97</b></div></div>
+        </div>
+        <div>
+            <span class="ftag"><i class="fa-solid fa-chart-line"></i> {{ __('Pilotage') }}</span>
+            <h3>{{ __('Pilotez votre business en temps réel') }}</h3>
+            <p>{{ __('Suivez vos revenus, vos commandes et vos clients depuis un tableau de bord clair — et fidélisez avec le CRM intégré.') }}</p>
+            <ul class="flist">
+                <li><i class="fa-solid fa-check"></i> {{ __('Analytics : revenus, ventes, visites') }}</li>
+                <li><i class="fa-solid fa-check"></i> {{ __('CRM : base clients automatique') }}</li>
+                <li><i class="fa-solid fa-check"></i> {{ __('Avis clients, stock et journal d\'audit') }}</li>
+            </ul>
         </div>
     </div>
 </div></section>
