@@ -166,6 +166,9 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::delete('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Review\DashboardController::class, 'destroy'])->name('destroy');
     });
 
+    // AUDIT (journal — lecture seule)
+    Route::get('/audit', [\Modules\Tagtoa\App\Http\Controllers\Audit\DashboardController::class, 'index'])->name('tagtoa.audit.index');
+
     // ANALYTICS & CRM
     Route::get('/analytics', [\Modules\Tagtoa\App\Http\Controllers\Billing\AnalyticsController::class, 'index'])->name('tagtoa.analytics.index');
     Route::get('/customers', [\Modules\Tagtoa\App\Http\Controllers\Crm\CrmController::class, 'index'])->name('tagtoa.crm.index');

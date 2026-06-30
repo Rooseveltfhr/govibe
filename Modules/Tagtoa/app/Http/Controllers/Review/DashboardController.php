@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Review\Review;
+use Modules\Tagtoa\App\Services\Audit\AuditService;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -40,6 +41,10 @@ class DashboardController extends Controller
         $data = $request->validate(['status' => ['required', Rule::in(Review::STATUSES)]]);
         $review->update(['status' => $data['status']]);
 
+        if (in_array($data['status'], ['approved', 'rejected'], true)) {
+            app(AuditService::class)->log('review.'.$data['status'], $review, $review->author_name);
+        }
+
         return back()->with('success', __('Avis mis à jour.'));
     }
 
@@ -51,6 +56,10 @@ class DashboardController extends Controller
             'reply'      => $data['reply'] ?: null,
             'replied_at' => $data['reply'] ? now() : null,
         ]);
+
+        if ($data['reply']) {
+            app(AuditService::class)->log('review.replied', $review, $review->author_name);
+        }
 
         return back()->with('success', __('Réponse enregistrée.'));
     }
@@ -65,7 +74,9 @@ class DashboardController extends Controller
 
     public function destroy(int $id): RedirectResponse
     {
-        $this->own($id)->delete();
+        $review = $this->own($id);
+        app(AuditService::class)->log('review.deleted', $review, $review->author_name);
+        $review->delete();
 
         return back()->with('success', __('Avis supprimé.'));
     }

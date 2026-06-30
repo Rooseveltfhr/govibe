@@ -116,6 +116,7 @@ $data = $this->validateMenu($request);
     {
         $order = $this->ownOrder($orderId);
         app(MenuOrderService::class)->markPaid($order);
+        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)->log('order.paid', $order, $order->reference);
 
         return back()->with('success', __('Paiement effectué.'));
     }

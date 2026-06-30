@@ -49,6 +49,8 @@ class PlanController extends Controller
             ['plan' => $data['plan'], 'status' => 'active', 'started_at' => now()]
         );
 
+        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)->log('plan.changed', null, $data['plan']);
+
         return back()->with('success', __('Forfait mis à jour.'));
     }
 }

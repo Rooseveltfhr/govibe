@@ -107,6 +107,7 @@
             <a href="{{ url('/tagtoa/qr') }}" class="{{ request()->is('tagtoa/qr*') ? 'on' : '' }}"><i class="fa-solid fa-qrcode"></i> {{ __('QR & Partage') }}</a>
             <a href="{{ url('/tagtoa/plan') }}" class="{{ request()->is('tagtoa/plan*') ? 'on' : '' }}"><i class="fa-solid fa-crown"></i> {{ __('Abonnement') }}</a>
             <a href="{{ url('/tagtoa/billing') }}" class="{{ request()->is('tagtoa/billing*') ? 'on' : '' }}"><i class="fa-solid fa-wallet"></i> {{ __('Revenu & forfait') }}</a>
+            <a href="{{ url('/tagtoa/audit') }}" class="{{ request()->is('tagtoa/audit*') ? 'on' : '' }}"><i class="fa-solid fa-clipboard-list"></i> {{ __('Journal d\'audit') }}</a>
         </nav>
         <div class="sb-foot">TAGTOA · GOVIBE Ecosystem</div>
     </aside>

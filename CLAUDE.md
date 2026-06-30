@@ -102,7 +102,11 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     `stock` nullable sou `tagtoa_menu_items` (migrasyon 000073), kapti nan fòm dashboard
     (chak atik), enpoze + dekremante nan `MenuOrderService` (refize kòmand si ripti),
     badj « Épuisé » + dezaktive sou paj piblik, kont « stock faible » sou lis menu. Demo stòk.
-  - ⏳ RES: notifikasyon WhatsApp (API), PWA POS, jounal odit.
+  - ✅ JOUNAL ODIT (audit): tab `tagtoa_audit_logs`, `AuditService` (log tolerab + actionLabel
+    pi teste). Branche sou aksyon sansib: moderasyon avi (approve/reject/reply/delete),
+    estati randevou (completed/cancelled/confirmed), kòmand menu ankese, billing settle/update,
+    chanjman fòfè. Viewer lekti sèl `/tagtoa/audit` (filtre pa aksyon, pajine).
+  - ⏳ RES: notifikasyon WhatsApp (API), PWA POS.
 
 ## 6. Deplwaman & URL
 - App sèvi nan `public/`: base = **https://tagtoa.com/tapbiz/public**

@@ -52,6 +52,8 @@ class BillingController extends Controller
             ]
         );
 
+        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)->log('billing.updated');
+
         return back()->with('success', __('Modèle de revenu mis à jour.'));
     }
 
@@ -61,6 +63,8 @@ class BillingController extends Controller
         $n = $this->base(Tenant::id())
             ->where('status', Commission::STATUS_ACCRUED)
             ->update(['status' => Commission::STATUS_SETTLED, 'settled_at' => now()]);
+
+        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)->log('billing.settled', null, (string) $n);
 
         return back()->with('success', __('Commissions réglées.').' ('.$n.')');
     }
