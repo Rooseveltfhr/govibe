@@ -167,6 +167,24 @@
         .pfeat li i{color:var(--green);font-size:13px;margin-top:3px}
         .pfeat li.off{opacity:.4}.pfeat li.off i{color:var(--muted)}
         .pcard .btn{width:100%;justify-content:center}
+        /* Testimonials */
+        .tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px}
+        .tcard{background:#fff;border:1px solid var(--bd);border-radius:18px;padding:26px;transition:transform .16s,box-shadow .2s}
+        .tcard:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(13,20,12,.10)}
+        .tstars{color:var(--gold);font-size:13px;margin-bottom:12px}
+        .tquote{font-size:14.5px;color:var(--ink);line-height:1.65}
+        .tu{display:flex;align-items:center;gap:12px;margin-top:18px}
+        .tav{width:44px;height:44px;border-radius:50%;background:var(--green-l);color:var(--green-d);display:flex;align-items:center;justify-content:center;font:700 16px var(--fh)}
+        .tnm{font:700 14px var(--fh)}.tro{font-size:12.5px;color:var(--muted)}
+        /* FAQ */
+        .faq{max-width:760px;margin:40px auto 0}
+        .qa{background:#fff;border:1px solid var(--bd);border-radius:14px;margin-bottom:12px;overflow:hidden}
+        .qa summary{list-style:none;cursor:pointer;padding:18px 22px;font:700 15.5px var(--fh);display:flex;align-items:center;justify-content:space-between;gap:14px}
+        .qa summary::-webkit-details-marker{display:none}
+        .qa summary .ic{flex:0 0 auto;width:26px;height:26px;border-radius:8px;background:var(--green-l);color:var(--green-d);display:flex;align-items:center;justify-content:center;transition:transform .2s}
+        .qa[open] summary .ic{transform:rotate(45deg)}
+        .qa .ans{padding:0 22px 20px;color:var(--muted);font-size:14.5px;line-height:1.65}
+        @media(max-width:960px){.tgrid{grid-template-columns:1fr}}
         /* Final CTA */
         .ctabox{max-width:1140px;margin:0 auto;background:var(--ink);border-radius:28px;padding:60px 32px;text-align:center;position:relative;overflow:hidden;color:#fff}
         .ctabox::before{content:"";position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:420px;height:300px;background:radial-gradient(ellipse,rgba(44,184,9,.22),transparent 70%)}
@@ -367,6 +385,55 @@
             </ul>
             <a class="btn btn-o" href="{{ url('/login') }}">{{ __('Contacter l\'équipe') }}</a>
         </div>
+    </div>
+</div></section>
+
+@php
+    $testimonials = [
+        ['Marc-Antoine Joseph', 'Restaurant · Pétion-Ville', 'Depuis TAGTOA, mes clients commandent par QR et paient en ligne. Mes ventes ont augmenté et je perds moins de temps.'],
+        ['Naïka Pierre', 'Salon de beauté · Cap-Haïtien', 'Ma boutique WhatsApp était prête en quelques minutes. Mes rendez-vous se remplissent tout seuls maintenant.'],
+        ['Frantz Délouis', 'Boutique · Gonaïves', 'Un seul lien pour MonCash, NatCash et cartes. Simple pour moi, simple pour mes clients.'],
+    ];
+    $faqs = [
+        ['Combien de temps pour démarrer ?', 'Quelques minutes. Créez votre compte, ajoutez vos produits et partagez votre lien ou votre QR — c\'est en ligne immédiatement.'],
+        ['Est-ce vraiment gratuit ?', 'Oui, vous pouvez démarrer gratuitement avec une boutique WhatsApp, un menu et un lien de paiement. Une petite commission s\'applique par vente, sans frais de départ.'],
+        ['Quels moyens de paiement sont acceptés ?', 'MonCash, NatCash, cartes Visa/Mastercard, PayPal, virements bancaires, crypto et cash — un seul lien, un seul QR.'],
+        ['Ai-je besoin de connaissances techniques ?', 'Non. Tout se fait sans code, depuis un tableau de bord simple, en créole, français, anglais ou espagnol.'],
+        ['Mes paiements sont-ils sécurisés ?', 'Oui. Les pages sont servies en HTTPS (SSL) et les prix sont toujours imposés côté serveur pour éviter toute fraude.'],
+    ];
+@endphp
+
+<section class="bg2"><div class="wrap">
+    <div class="center">
+        <span class="ey reveal">{{ __('Ils nous font confiance') }}</span>
+        <h2 class="reveal d1">{{ __('Des business qui grandissent avec TAGTOA') }}</h2>
+    </div>
+    <div class="tgrid">
+        @foreach($testimonials as $t)
+            <div class="tcard reveal">
+                <div class="tstars">@for($i=0;$i<5;$i++)<i class="fa-solid fa-star"></i>@endfor</div>
+                <p class="tquote">« {{ __($t[2]) }} »</p>
+                <div class="tu">
+                    <div class="tav">{{ \Illuminate\Support\Str::substr($t[0],0,1) }}</div>
+                    <div><div class="tnm">{{ $t[0] }}</div><div class="tro">{{ __($t[1]) }}</div></div>
+                </div>
+            </div>
+        @endforeach
+    </div>
+</div></section>
+
+<section><div class="wrap">
+    <div class="center">
+        <span class="ey reveal">{{ __('Questions fréquentes') }}</span>
+        <h2 class="reveal d1">{{ __('Tout ce qu\'il faut savoir') }}</h2>
+    </div>
+    <div class="faq reveal d1">
+        @foreach($faqs as $f)
+            <details class="qa">
+                <summary>{{ __($f[0]) }} <span class="ic"><i class="fa-solid fa-plus"></i></span></summary>
+                <div class="ans">{{ __($f[1]) }}</div>
+            </details>
+        @endforeach
     </div>
 </div></section>
 
