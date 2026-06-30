@@ -44,6 +44,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Notifications (e-mail)
+    |--------------------------------------------------------------------------
+    | Opt-in : l'envoi réel n'a lieu que si `enabled` est vrai ET que la config
+    | mail Laravel (SMTP) est en place côté hôte. Sinon, no-op silencieux.
+    | Activer : TAGTOA_NOTIFY=true + MAIL_* configurés sur le VPS.
+    */
+    'notifications' => [
+        'enabled' => env('TAGTOA_NOTIFY', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Internationalisation (i18n)
     |--------------------------------------------------------------------------
     | Langues supportées + devise par défaut associée à chaque langue.
