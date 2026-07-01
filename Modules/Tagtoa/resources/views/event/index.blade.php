@@ -19,6 +19,7 @@
                     <a href="{{ route('tagtoa.event.dashboard.edit',$e->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-pen"></i> {{ __('Modifier') }}</a>
                     <a href="{{ route('tagtoa.event.dashboard.orders',$e->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-chart-line"></i> {{ __('Commandes') }}</a>
                     <a href="{{ route('tagtoa.event.dashboard.scanner',$e->id) }}" class="btn btn-d btn-sm" style="flex:0"><i class="fa-solid fa-qrcode"></i> {{ __('Scanner') }}</a>
+                    <a href="{{ route('tagtoa.event.dashboard.wallet',$e->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-wallet"></i> {{ __('Wallet') }}</a>
                 </div>
             </div>
         @endforeach

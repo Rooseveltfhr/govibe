@@ -26,6 +26,10 @@ class AuditService
         'billing.settled'   => 'Commissions réglées',
         'billing.updated'   => 'Réglages de revenu modifiés',
         'plan.changed'      => 'Forfait modifié',
+        'wallet.top_up'     => 'Recharge wallet',
+        'wallet.purchase'   => 'Achat wallet',
+        'wallet.refund'     => 'Remboursement wallet',
+        'wallet.payout'     => 'Règlement vendeur',
     ];
 
     /** Libellé lisible d'une action (repli = action brute). LOGIQUE PURE. */

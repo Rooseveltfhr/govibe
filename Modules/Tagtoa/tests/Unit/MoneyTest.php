@@ -41,4 +41,23 @@ class MoneyTest extends TestCase
         $this->assertArrayHasKey('HTG', $opts);
         $this->assertArrayHasKey('USD', $opts);
     }
+
+    public function test_to_minor_units(): void
+    {
+        $this->assertSame(200, Money::toMinor(2, 'USD'));   // 2 décimales
+        $this->assertSame(50, Money::toMinor(50, 'HTG'));   // 0 décimale
+        $this->assertSame(1550, Money::toMinor(15.5, 'USD'));
+    }
+
+    public function test_from_minor_units(): void
+    {
+        $this->assertSame(2.0, Money::fromMinor(200, 'USD'));
+        $this->assertSame(50.0, Money::fromMinor(50, 'HTG'));
+    }
+
+    public function test_format_minor(): void
+    {
+        $this->assertSame('$2.00', Money::formatMinor(200, 'USD'));
+        $this->assertSame('50 G', Money::formatMinor(50, 'HTG'));
+    }
 }
