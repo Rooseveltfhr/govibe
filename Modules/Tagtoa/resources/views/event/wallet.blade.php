@@ -25,6 +25,7 @@
         <form method="POST" action="{{ route('tagtoa.event.dashboard.wallet.tag',$event->id) }}">@csrf
             <label class="lbl">{{ __('UID du tag') }}</label><input class="inp" name="uid" placeholder="04:A2:..." required>
             <label class="lbl">{{ __('Nom du porteur') }}</label><input class="inp" name="label" placeholder="{{ __('Client A') }}">
+            <label class="lbl">{{ __('Téléphone (WhatsApp)') }}</label><input class="inp" name="phone" placeholder="+509 0000 0000">
             <label class="lbl">{{ __('Type') }}</label>
             <select class="sel" name="kind">@foreach(['card'=>'Carte','wristband'=>'Bracelet','virtual'=>'Virtuel'] as $k=>$v)<option value="{{ $k }}">{{ __($v) }}</option>@endforeach</select>
             <button class="btn btn-p" style="margin-top:12px"><i class="fa-solid fa-id-card"></i> {{ __('Enregistrer') }}</button>

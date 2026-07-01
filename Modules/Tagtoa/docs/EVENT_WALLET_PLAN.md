@@ -18,8 +18,11 @@
 >   recharge, tags, réconciliation stands, payout, export CSV) et
 >   `event/wallet-terminal.blade.php` (tap Web NFC / UID → solde → encaisser).
 >   Helpers `Money::toMinor/fromMinor/formatMinor` (+ tests Unit).
-> - ⏭️ RESTE : étape 6 (notifications SMS/push — Twilio bloqué) ; top-up par API
->   de paiement réel (drivers PAY bloqués sur credentials). Le reste est utilisable.
+> - ✅ Étape 6 — notifications : canal **email** (existant) + **WhatsApp via Twilio**
+>   (tolérant/opt-in, dormant sans credentials), `Job SendNotification` (queue,
+>   multi-canal), `normalizePhone` (pur, testé). Branché sur booking + wallet
+>   (top-up/achat). Activation : `TAGTOA_WA_NOTIFY=true` + `TAGTOA_TWILIO_*` sur le VPS.
+> - ⏭️ RESTE : top-up par API de paiement réel (drivers PAY bloqués sur credentials).
 
 ---
 
