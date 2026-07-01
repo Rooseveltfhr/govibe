@@ -50,6 +50,32 @@ class Money
         return $out;
     }
 
+    /** Facteur d'unités mineures d'une devise (10^decimals). */
+    public static function factor(string $currency): int
+    {
+        return (int) (10 ** (int) (self::meta($currency)['decimals'] ?? 2));
+    }
+
+    /** Montant majeur → unités mineures entières (2 USD → 200 ; 50 HTG → 50). */
+    public static function toMinor($amount, string $currency): int
+    {
+        return (int) round(((float) $amount) * self::factor($currency));
+    }
+
+    /** Unités mineures → montant majeur (200 USD → 2.0 ; 50 HTG → 50.0). */
+    public static function fromMinor(int $minor, string $currency): float
+    {
+        return $minor / self::factor($currency);
+    }
+
+    /** Formate des unités mineures : 200 + USD → "$2.00" ; 50 + HTG → "50 G". */
+    public static function formatMinor(int $minor, ?string $currency = null): string
+    {
+        $currency = strtoupper($currency ?: 'HTG');
+
+        return self::format(self::fromMinor($minor, $currency), $currency);
+    }
+
     /**
      * Formate un montant : 1500 + USD → "$1,500.00" ; 1500 + HTG → "1,500 G".
      */

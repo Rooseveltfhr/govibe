@@ -13,9 +13,13 @@
 >   `IssueNfcTag`, `ResolveNfcTag`, `TopUpWallet`, `ChargeWallet`, `RefundWallet`,
 >   `PayoutToOrganizer`) + `InsufficientFundsException` + tests Feature
 >   (`WalletFlowTest`, à exécuter dans Biztap). Atomicité, `lockForUpdate`, idempotence.
-> - ⏭️ RESTE : étape 4 (intégration scanner NFC tap→wallet), étape 5 (dashboard
->   recharge/vendeur/réconciliation), étape 6 (notifications). Schéma + code argent
->   **additifs et dormants** (aucun endpoint ne les appelle encore).
+> - ✅ Étape 4-5 — `WalletController` (dashboard organisateur + terminal vendeur),
+>   routes `/tagtoa/event/{id}/wallet/*`, vues `event/wallet.blade.php` (comptes,
+>   recharge, tags, réconciliation stands, payout, export CSV) et
+>   `event/wallet-terminal.blade.php` (tap Web NFC / UID → solde → encaisser).
+>   Helpers `Money::toMinor/fromMinor/formatMinor` (+ tests Unit).
+> - ⏭️ RESTE : étape 6 (notifications SMS/push — Twilio bloqué) ; top-up par API
+>   de paiement réel (drivers PAY bloqués sur credentials). Le reste est utilisable.
 
 ---
 

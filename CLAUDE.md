@@ -32,7 +32,7 @@ Grafe sou yon SaaS vcard achte ki rele **Biztap** (Laravel 10, `nwidart/laravel-
 | PAY (24 metòd, prèv manyèl) | ✅ Bati + live | `/pay/{alias}` | `/tagtoa/pay` |
 | LOYALTY (kat NFC, pwen) | ✅ Bati + live | `/loyalty/card/{token}` | `/tagtoa/loyalty` |
 | LINKS (Linktree + don) | ✅ Bati + live | `/links/{alias}` | `/tagtoa/links` |
-| EVENT (tikè + checkin) | ✅ Bati + live | `/event/{alias}` | `/tagtoa/event` |
+| EVENT (tikè + checkin + wallet NFC) | ✅ Bati + live | `/event/{alias}` | `/tagtoa/event` |
 | BOOKING (rendez-vous) | ✅ Bati + live | `/book/{alias}` | `/tagtoa/booking` |
 | POS (kès offline) | ✅ Bati + live | — | `/tagtoa/pos` |
 | BILLING (revni/komisyon) | ✅ Bati + live | — | `/tagtoa/billing` |
@@ -111,6 +111,15 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     `/tagtoa/pos/`), ikòn SVG (`/tagtoa/pos/icon.svg`), bouton « Installer » (beforeinstallprompt).
     Lavant offline (localStorage queue + sync) te deja egziste — PWA ajoute app shell hors-ligne.
   - ⏳ RES: notifikasyon WhatsApp (API — bloke, bezwen kredansyèl).
+- **EVENT WALLET (closed-loop + NFC)** 🔨 AN KOU (plan: `Modules/Tagtoa/docs/EVENT_WALLET_PLAN.md`):
+  - ✅ 4 tab `tagtoa_ev_*` (nfc_tags UID hashé, wallet_accounts, wallet_txns, wallet_entries).
+    Ledger **double-entry immuab** (`Support/Event/Ledger` pi, teste; Σdébits==Σcrédits,
+    montan an unités mineures). Actions (`PostLedgerTransaction` atomik + `lockForUpdate` +
+    idempotans, `TopUp/Charge/Refund/Payout`, `IssueNfcTag/ResolveNfcTag`,
+    `OpenEventWalletAccounts`). Dashboard `/tagtoa/event/{id}/wallet` (recharge, tags,
+    réconciliation stands, payout, export CSV) + terminal vandè (Web NFC tap → encaisse).
+    `Money::toMinor/fromMinor/formatMinor`. Tès Feature `WalletFlowTest` (kouri nan Biztap).
+  - ⏳ RES: notifikasyon SMS/push (Twilio — bloke), top-up API reyèl (drivers PAY — bloke).
 
 ## 6. Deplwaman & URL
 - App sèvi nan `public/`: base = **https://tagtoa.com/tapbiz/public**
