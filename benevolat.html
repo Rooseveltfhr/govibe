@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Devenir bénévole — TCHEKELA</title>
+<meta name="description" content="Rejoignez la famille TCHEKELA. Inscription rapide et badge de bénévole personnalisé à partager.">
+<meta name="theme-color" content="#003F87">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/tchekela.css">
+<style>
+  .photo-up { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; }
+  .photo-circle { width: 84px; height: 84px; border-radius: 50%; background: var(--off); border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+  .photo-circle img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-circle i { color: var(--muted); font-size: 1.6rem; }
+  .badge-wrap { display: flex; justify-content: center; }
+  #badgeCanvas { width: 100%; max-width: 360px; border-radius: 16px; box-shadow: var(--shadow-lg); }
+  .interests { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .intr { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; background: #fff; cursor: pointer; font-size: .78rem; font-weight: 600; color: var(--dark); transition: all .15s; }
+  .intr.on { border-color: var(--green); background: rgba(13,148,136,.06); color: var(--green); }
+  .intr i { font-size: .85rem; }
+</style>
+</head>
+<body data-shared-chrome data-shared-footer data-page="benevolat">
+
+<section class="page-hero">
+  <div class="glow"></div>
+  <span class="chip"><i class="fas fa-hand-holding-heart"></i> Famille TCHEKELA</span>
+  <h1>Devenez <em>bénévole</em></h1>
+  <p>Un geste simple, un grand impact. Inscrivez-vous en 1 minute et recevez votre badge officiel personnalisé, à partager fièrement sur les réseaux.</p>
+</section>
+
+<section class="section section-light">
+  <div class="wrap-sm">
+    <div class="grid-2" style="align-items:start;">
+
+      <!-- FORM -->
+      <div class="card reveal" id="benForm">
+        <div class="card-head">
+          <div class="ico" style="background:rgba(13,148,136,.1);"><i class="fas fa-user-plus" style="color:var(--green);"></i></div>
+          <div><h3>Inscription bénévole</h3><p>Rapide & facile</p></div>
+        </div>
+
+        <div class="fg"><label>Votre photo <span class="req">*</span></label></div>
+        <div class="photo-up">
+          <div class="photo-circle" id="photoCircle"><i class="fas fa-user"></i></div>
+          <div class="scan-z" style="flex:1;margin:0;padding:14px;">
+            <input type="file" id="benPhoto" accept="image/*" capture="user" onchange="handlePhoto(event)">
+            <div class="sz-ico" style="width:40px;height:40px;background:rgba(13,148,136,.1);"><i class="fas fa-camera" style="color:var(--green);"></i></div>
+            <div class="sz-t" style="font-size:.82rem;">Ajouter ma photo</div>
+            <div class="sz-s">Visage bien visible</div>
+          </div>
+        </div>
+
+        <div class="frow">
+          <div class="fg"><label>Prénom <span class="req">*</span></label><input class="fc" id="benFname" placeholder="Roosevelt" oninput="updateBadge()"></div>
+          <div class="fg"><label>Nom <span class="req">*</span></label><input class="fc" id="benLname" placeholder="Forestal" oninput="updateBadge()"></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Téléphone / WhatsApp <span class="req">*</span></label><input class="fc" id="benPhone" placeholder="+509 ..."></div>
+          <div class="fg"><label>Email</label><input class="fc" id="benEmail" type="email" placeholder="vous@email.com"></div>
+        </div>
+        <div class="fg"><label>Ville <span class="req">*</span></label>
+          <select class="fc" id="benCity" onchange="updateBadge()">
+            <option value="">— Choisir —</option>
+            <option>Port-au-Prince</option><option>Pétionville</option><option>Delmas</option>
+            <option>Cap-Haïtien</option><option>Gonaïves</option><option>Les Cayes</option><option>Jacmel</option><option>Saint-Marc</option><option>Diaspora</option>
+          </select>
+        </div>
+        <div class="fg"><label>Comment souhaitez-vous aider ?</label>
+          <div class="interests" id="interests">
+            <div class="intr on" data-v="terrain" onclick="togIntr(this)"><i class="fas fa-people-carry-box"></i> Sur le terrain</div>
+            <div class="intr" data-v="oni" onclick="togIntr(this)"><i class="fas fa-id-card-clip"></i> Upload cartes ONI</div>
+            <div class="intr" data-v="reseaux" onclick="togIntr(this)"><i class="fas fa-share-nodes"></i> Réseaux sociaux</div>
+            <div class="intr" data-v="logistique" onclick="togIntr(this)"><i class="fas fa-truck"></i> Logistique</div>
+          </div>
+        </div>
+        <div class="chk-g">
+          <input type="checkbox" id="benConsent" checked>
+          <label for="benConsent"><strong>Je rejoins la charte TCHEKELA</strong>Honnêteté, respect de la vie privée et entraide.</label>
+        </div>
+        <button class="btn btn-green" onclick="generateBadge()"><i class="fas fa-id-badge"></i> Générer mon badge</button>
+      </div>
+
+      <!-- BADGE PREVIEW -->
+      <div class="card reveal" id="benBadge">
+        <div class="card-head">
+          <div class="ico" style="background:rgba(201,168,76,.12);"><i class="fas fa-id-badge" style="color:var(--secondary-dark);"></i></div>
+          <div><h3>Mon badge de bénévole</h3><p>Partagez-le sur vos réseaux</p></div>
+        </div>
+        <div class="badge-wrap">
+          <canvas id="badgeCanvas" width="720" height="1040"></canvas>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button class="btn btn-gold" onclick="downloadBadge()"><i class="fas fa-download"></i> Télécharger</button>
+          <button class="btn btn-outline" onclick="shareBadge()"><i class="fas fa-share-nodes"></i> Partager</button>
+        </div>
+        <div class="ib ib-green" style="margin-top:12px;margin-bottom:0;">
+          <i class="fas fa-circle-check"></i>
+          <span>Votre badge est généré localement et téléchargeable en image (PNG). Renseignez vos infos puis cliquez sur « Générer mon badge ».</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<script src="assets/tchekela.js"></script>
+<script>
+let benPhotoImg = null;
+let benId = '';
+
+function handlePhoto(e) {
+  const f = e.target.files[0]; if (!f) return;
+  fileToDataURL(f).then(url => {
+    const c = document.getElementById('photoCircle');
+    c.innerHTML = `<img src="${url}" alt="photo">`;
+    benPhotoImg = new Image();
+    benPhotoImg.onload = updateBadge;
+    benPhotoImg.src = url;
+  });
+}
+function togIntr(el){ el.classList.toggle('on'); }
+
+function drawBadge() {
+  const cv = document.getElementById('badgeCanvas');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0,0,W,H);
+
+  // Background gradient
+  const g = ctx.createLinearGradient(0,0,W,H);
+  g.addColorStop(0,'#003F87'); g.addColorStop(1,'#002D61');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  // Gold top band
+  const gb = ctx.createLinearGradient(0,0,W,0);
+  gb.addColorStop(0,'#C9A84C'); gb.addColorStop(1,'#a88a3a');
+  ctx.fillStyle = gb; ctx.fillRect(0,0,W,150);
+
+  // Header text
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.font = '800 64px "Barlow Condensed", sans-serif';
+  ctx.fillText('TCHEKELA', W/2, 78);
+  ctx.font = '600 26px "Barlow Condensed", sans-serif';
+  ctx.fillStyle = 'rgba(0,45,97,.85)';
+  ctx.fillText('BÉNÉVOLE OFFICIEL · 2026', W/2, 118);
+
+  // Photo circle
+  const cx = W/2, cy = 360, r = 150;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r+8, 0, Math.PI*2);
+  ctx.fillStyle = '#C9A84C'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.closePath(); ctx.clip();
+  if (benPhotoImg && benPhotoImg.complete) {
+    const img = benPhotoImg;
+    const ratio = Math.max((2*r)/img.width, (2*r)/img.height);
+    const dw = img.width*ratio, dh = img.height*ratio;
+    ctx.drawImage(img, cx-dw/2, cy-dh/2, dw, dh);
+  } else {
+    ctx.fillStyle = '#e5e7eb'; ctx.fillRect(cx-r, cy-r, 2*r, 2*r);
+    ctx.fillStyle = '#9ca3af'; ctx.font = '120px "Font Awesome 6 Free"';
+    ctx.textAlign='center'; ctx.fillText('', cx, cy+40);
+  }
+  ctx.restore();
+
+  // Name
+  const fname = (document.getElementById('benFname').value || '').trim();
+  const lname = (document.getElementById('benLname').value || '').trim();
+  const full = (fname + ' ' + lname).trim() || 'Votre Nom';
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+  ctx.font = '700 56px "Cormorant Garamond", serif';
+  ctx.fillText(full, W/2, 620);
+
+  // City
+  const city = document.getElementById('benCity').value || 'Haïti';
+  ctx.fillStyle = '#e0c87a'; ctx.font = '600 30px "Barlow Condensed", sans-serif';
+  ctx.fillText('\u{1F4CD} ' + city, W/2, 668);
+
+  // Role chip
+  ctx.fillStyle = 'rgba(201,168,76,.2)';
+  roundRect(ctx, W/2-180, 706, 360, 60, 30); ctx.fill();
+  ctx.strokeStyle = 'rgba(201,168,76,.5)'; ctx.lineWidth = 2;
+  roundRect(ctx, W/2-180, 706, 360, 60, 30); ctx.stroke();
+  ctx.fillStyle = '#e0c87a'; ctx.font = '700 28px "Barlow Condensed", sans-serif';
+  ctx.fillText('MEMBRE DE LA FAMILLE', W/2, 746);
+
+  // ID
+  ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = '500 24px "Inter", sans-serif';
+  ctx.fillText('ID: ' + (benId || 'TCH-BEN-XXXXX'), W/2, 824);
+
+  // Motto
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = 'italic 600 30px "Cormorant Garamond", serif';
+  ctx.fillText('« Soyons solidaires, retrouvons ensemble »', W/2, 900);
+
+  // Footer
+  ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.font = '500 22px "Inter", sans-serif';
+  ctx.fillText('tchekela.com · powered by GOVIBE', W/2, 990);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+function updateBadge() { if (benId) drawBadge(); }
+
+function generateBadge() {
+  const fname = document.getElementById('benFname').value.trim();
+  const lname = document.getElementById('benLname').value.trim();
+  const phone = document.getElementById('benPhone').value.trim();
+  const city = document.getElementById('benCity').value;
+  if (!benPhotoImg) return toast('<i class="fas fa-triangle-exclamation"></i> Ajoutez votre photo');
+  if (!fname || !lname || !phone || !city) return toast('<i class="fas fa-triangle-exclamation"></i> Champs * obligatoires');
+
+  benId = ref('TCH-BEN');
+  const interests = [...document.querySelectorAll('.intr.on')].map(x => x.dataset.v);
+  TKStore.push('volunteers', {
+    id: benId, fname, lname, phone, city,
+    email: document.getElementById('benEmail').value.trim(),
+    interests, photo: benPhotoImg.src,
+    date: new Date().toISOString(), status: 'active'
+  });
+  drawBadge();
+  toast('<i class="fas fa-check-circle"></i> Bienvenue dans la famille TCHEKELA ! 🎉');
+  document.getElementById('benBadge').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function downloadBadge() {
+  if (!benId) return toast('<i class="fas fa-triangle-exclamation"></i> Générez d\'abord votre badge');
+  const cv = document.getElementById('badgeCanvas');
+  const a = document.createElement('a');
+  a.download = 'badge-tchekela-' + benId + '.png';
+  a.href = cv.toDataURL('image/png');
+  a.click();
+  toast('<i class="fas fa-download"></i> Badge téléchargé');
+}
+
+async function shareBadge() {
+  if (!benId) return toast('<i class="fas fa-triangle-exclamation"></i> Générez d\'abord votre badge');
+  const cv = document.getElementById('badgeCanvas');
+  try {
+    const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
+    const file = new File([blob], 'badge-tchekela.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Je suis bénévole TCHEKELA', text: 'Je rejoins la famille TCHEKELA 🇭🇹 #TCHEKELA' });
+    } else { downloadBadge(); toast('<i class="fas fa-circle-info"></i> Badge téléchargé — partagez-le sur vos réseaux'); }
+  } catch (e) { downloadBadge(); }
+}
+
+// Initial empty badge
+drawBadge();
+// Redraw once webfonts are ready (for proper fonts on canvas)
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawBadge);
+</script>
+</body>
+</html>

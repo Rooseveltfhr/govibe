@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Nos partenaires — TCHEKELA</title>
+<meta name="description" content="Entreprises et institutions : devenez partenaire TCHEKELA. Point de collecte, partenariat financier, média.">
+<meta name="theme-color" content="#003F87">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/tchekela.css">
+<style>
+  .ptypes { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 14px; }
+  @media (min-width: 600px) { .ptypes { grid-template-columns: 1fr 1fr; } }
+  .ptype { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 1.5px solid var(--border); border-radius: 12px; background: #fff; cursor: pointer; transition: all .15s; }
+  .ptype.on { border-color: var(--primary); background: rgba(0,63,135,.04); box-shadow: 0 0 0 3px rgba(0,63,135,.08); }
+  .ptype .pt-ico { width: 42px; height: 42px; border-radius: 11px; background: rgba(0,63,135,.08); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+  .ptype.on .pt-ico { background: var(--primary); color: #fff; }
+  .ptype h4 { font-size: .9rem; font-weight: 700; color: var(--dark); margin-bottom: 2px; }
+  .ptype p { font-size: .72rem; color: var(--muted); line-height: 1.45; }
+  .ptype .pt-check { margin-left: auto; color: var(--primary); opacity: 0; }
+  .ptype.on .pt-check { opacity: 1; }
+  .logo-prev { width: 64px; height: 64px; border-radius: 12px; object-fit: contain; border: 1px solid var(--border); background: var(--off); display: none; }
+  .partners-wall { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (min-width: 600px) { .partners-wall { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 900px) { .partners-wall { grid-template-columns: repeat(4, 1fr); } }
+  .pw-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 18px 12px; text-align: center; box-shadow: var(--shadow-sm); position: relative; }
+  .pw-logo { width: 56px; height: 56px; border-radius: 14px; margin: 0 auto 10px; object-fit: contain; background: var(--off); display: flex; align-items: center; justify-content: center; }
+  .pw-logo i { font-size: 1.5rem; color: var(--primary); }
+  .pw-card .pw-name { font-family: var(--font-b); font-weight: 700; font-size: .85rem; color: var(--dark); }
+  .pw-card .pw-type { font-size: .62rem; color: var(--muted); margin-top: 3px; }
+  .pw-badge { position: absolute; top: 8px; right: 8px; }
+</style>
+</head>
+<body data-shared-chrome data-shared-footer data-page="partenaires">
+
+<section class="page-hero">
+  <div class="glow"></div>
+  <span class="chip"><i class="fas fa-handshake"></i> Partenariats</span>
+  <h1>Devenez <em>partenaire</em> TCHEKELA</h1>
+  <p>Entreprises, banques, institutions, églises, commerces : unissez-vous à nous pour rendre Haïti plus solidaire. Votre logo s'affiche sur la plateforme après approbation.</p>
+</section>
+
+<!-- ===== Partner wall ===== -->
+<section class="section section-off">
+  <div class="wrap">
+    <div class="s-head reveal">
+      <span class="chip chip-gold"><i class="fas fa-star"></i>Ils nous soutiennent</span>
+      <h2>Nos <em style="color:var(--secondary-dark);">partenaires</em></h2>
+      <p>Merci à ces institutions qui rendent TCHEKELA possible</p>
+    </div>
+    <div class="partners-wall reveal" id="partnersWall"></div>
+  </div>
+</section>
+
+<!-- ===== Become a partner ===== -->
+<section class="section section-light">
+  <div class="wrap-sm">
+    <div class="s-head reveal">
+      <span class="chip chip-blue"><i class="fas fa-pen-to-square"></i>Inscription</span>
+      <h2>Rejoindre en tant que <em>partenaire</em></h2>
+      <p>Remplissez ce formulaire. Notre équipe vous contacte sous 48h.</p>
+    </div>
+
+    <div class="card reveal">
+      <div class="fg"><label>Type de partenariat <span class="req">*</span> (plusieurs possibles)</label>
+        <div class="ptypes" id="ptypes">
+          <div class="ptype on" data-v="collecte" onclick="togType(this)">
+            <div class="pt-ico"><i class="fas fa-box-archive"></i></div>
+            <div><h4>Point de collecte</h4><p>Accueillir une boîte TCHEKELA dans votre institution comme point de dépôt/récupération.</p></div>
+            <i class="fas fa-circle-check pt-check"></i>
+          </div>
+          <div class="ptype" data-v="financier" onclick="togType(this)">
+            <div class="pt-ico"><i class="fas fa-hand-holding-dollar"></i></div>
+            <div><h4>Partenaire financier</h4><p>Soutenir financièrement la plateforme et la formation des bénévoles.</p></div>
+            <i class="fas fa-circle-check pt-check"></i>
+          </div>
+          <div class="ptype" data-v="media" onclick="togType(this)">
+            <div class="pt-ico"><i class="fas fa-bullhorn"></i></div>
+            <div><h4>Partenaire média</h4><p>Relayer nos campagnes de sensibilisation (radio, TV, réseaux).</p></div>
+            <i class="fas fa-circle-check pt-check"></i>
+          </div>
+          <div class="ptype" data-v="technique" onclick="togType(this)">
+            <div class="pt-ico"><i class="fas fa-gears"></i></div>
+            <div><h4>Partenaire technique</h4><p>Apporter des compétences, du matériel ou des services techniques.</p></div>
+            <i class="fas fa-circle-check pt-check"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="frow">
+        <div class="fg"><label>Nom de l'institution <span class="req">*</span></label><input class="fc" id="pName" placeholder="Ex: Unibank"></div>
+        <div class="fg"><label>Secteur</label>
+          <select class="fc" id="pSector">
+            <option value="">— Choisir —</option>
+            <option>Banque / Finance</option><option>Télécom</option><option>Commerce / Détail</option>
+            <option>Église / ONG</option><option>Santé / Pharmacie</option><option>Média</option>
+            <option>Éducation</option><option>Administration</option><option>Autre</option>
+          </select>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>Personne de contact <span class="req">*</span></label><input class="fc" id="pContact" placeholder="Nom complet"></div>
+        <div class="fg"><label>Fonction</label><input class="fc" id="pRole" placeholder="Ex: Directeur RSE"></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>Téléphone / WhatsApp <span class="req">*</span></label><input class="fc" id="pPhone" placeholder="+509 ..."></div>
+        <div class="fg"><label>Email <span class="req">*</span></label><input class="fc" id="pEmail" type="email" placeholder="contact@institution.com"></div>
+      </div>
+      <div class="fg"><label>Ville</label>
+        <select class="fc" id="pCity">
+          <option value="">— Choisir —</option>
+          <option>Port-au-Prince</option><option>Pétionville</option><option>Delmas</option>
+          <option>Cap-Haïtien</option><option>Gonaïves</option><option>Les Cayes</option><option>Jacmel</option><option>Saint-Marc</option>
+        </select>
+      </div>
+      <div class="fg"><label>Adresse / point de collecte proposé</label><input class="fc" id="pAddr" placeholder="Adresse physique"></div>
+      <div class="fg"><label>Message (optionnel)</label><textarea class="fc" id="pMsg" placeholder="Présentez votre institution et votre motivation…"></textarea></div>
+
+      <div class="fg"><label>Logo de l'institution</label></div>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+        <img class="logo-prev" id="logoPrev" alt="Logo">
+        <div class="scan-z" style="flex:1;margin:0;padding:16px;">
+          <input type="file" id="pLogo" accept="image/*" onchange="handleLogo(event)">
+          <div class="sz-ico" style="width:42px;height:42px;"><i class="fas fa-image"></i></div>
+          <div class="sz-t" style="font-size:.82rem;">Téléverser le logo</div>
+          <div class="sz-s">PNG transparent recommandé</div>
+        </div>
+      </div>
+
+      <div class="chk-g">
+        <input type="checkbox" id="pConsent" checked>
+        <label for="pConsent"><strong>J'autorise l'affichage</strong>Notre logo et notre nom pourront être affichés sur le site après approbation.</label>
+      </div>
+      <button class="btn btn-primary" onclick="submitPartner()"><i class="fas fa-paper-plane"></i> Envoyer ma demande</button>
+      <div class="ib ib-gold" style="margin-top:12px;margin-bottom:0;">
+        <i class="fas fa-circle-info"></i>
+        <span>Votre demande est <b>en attente d'approbation</b> par l'admin. Une fois approuvée, votre logo apparaît automatiquement sur le mur des partenaires.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="assets/tchekela.js"></script>
+<script>
+const SEED_PARTNERS = [
+  { name: 'Unibank', sector: 'Banque / Finance', types:['financier'], icon: 'fa-building-columns', status: 'approved' },
+  { name: 'Digicel Foundation', sector: 'Télécom', types:['media','financier'], icon: 'fa-tower-cell', status: 'approved' },
+  { name: 'Sogebank', sector: 'Banque / Finance', types:['financier'], icon: 'fa-landmark', status: 'approved' },
+  { name: 'Église Sainte-Anne', sector: 'Église / ONG', types:['collecte'], icon: 'fa-church', status: 'approved' },
+  { name: 'Pharmacie du Peuple', sector: 'Santé / Pharmacie', types:['collecte'], icon: 'fa-prescription-bottle-medical', status: 'approved' },
+  { name: 'Radio Métropole', sector: 'Média', types:['media'], icon: 'fa-radio', status: 'approved' },
+];
+
+function getPartners() {
+  let p = TKStore.get('partners', null);
+  if (!p) { p = SEED_PARTNERS.slice(); TKStore.set('partners', p); }
+  return p;
+}
+const TYPE_LBL = { collecte:'Point de collecte', financier:'Financier', media:'Média', technique:'Technique' };
+
+function renderWall() {
+  const approved = getPartners().filter(p => p.status === 'approved');
+  const wall = document.getElementById('partnersWall');
+  if (!approved.length) { wall.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--muted);">Bientôt nos premiers partenaires…</p>'; return; }
+  wall.innerHTML = approved.map(p => `
+    <div class="pw-card">
+      <div class="pw-badge"><span class="status-pill sp-gold"><i class="fas fa-check"></i></span></div>
+      <div class="pw-logo">${p.logo ? `<img src="${p.logo}" alt="${escapeHtml(p.name)}" style="width:100%;height:100%;object-fit:contain;border-radius:14px;">` : `<i class="fas ${p.icon || 'fa-building'}"></i>`}</div>
+      <div class="pw-name">${escapeHtml(p.name)}</div>
+      <div class="pw-type">${(p.types||[]).map(t=>TYPE_LBL[t]||t).join(' · ') || p.sector || ''}</div>
+    </div>`).join('');
+}
+
+function togType(el) { el.classList.toggle('on'); }
+let logoData = null;
+function handleLogo(e) {
+  const f = e.target.files[0]; if (!f) return;
+  fileToDataURL(f).then(url => { logoData = url; const p = document.getElementById('logoPrev'); p.src = url; p.style.display = 'block'; });
+}
+
+function submitPartner() {
+  const types = [...document.querySelectorAll('.ptype.on')].map(x => x.dataset.v);
+  const name = document.getElementById('pName').value.trim();
+  const contact = document.getElementById('pContact').value.trim();
+  const phone = document.getElementById('pPhone').value.trim();
+  const email = document.getElementById('pEmail').value.trim();
+  if (!types.length) return toast('<i class="fas fa-triangle-exclamation"></i> Choisissez un type de partenariat');
+  if (!name || !contact || !phone || !email) return toast('<i class="fas fa-triangle-exclamation"></i> Champs * obligatoires');
+
+  TKStore.push('partners', {
+    name, types, sector: document.getElementById('pSector').value,
+    contact, role: document.getElementById('pRole').value.trim(),
+    phone, email, city: document.getElementById('pCity').value,
+    addr: document.getElementById('pAddr').value.trim(),
+    msg: document.getElementById('pMsg').value.trim(),
+    logo: logoData, icon: 'fa-building',
+    status: 'pending', date: new Date().toISOString(), ref: ref('TCH-PART')
+  });
+  toast('<i class="fas fa-check-circle"></i> Demande envoyée ! En attente d\'approbation.');
+  setTimeout(() => {
+    document.querySelectorAll('.card input, .card textarea, .card select').forEach(i => { if(i.type!=='checkbox') i.value=''; });
+    document.getElementById('logoPrev').style.display='none'; logoData=null;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, 1200);
+}
+
+renderWall();
+</script>
+</body>
+</html>
