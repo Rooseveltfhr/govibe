@@ -142,6 +142,8 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
 ## 7. Done demo (pou teste)
 - MENU: `demo-menu` · PAY: `demo` · LINKS: `demo-links` · EVENT: `demo-concert` · BOOKING: `demo-booking`
 - LOYALTY token: `uvcudqvm9xsie6knrkhbdcok` · POS terminal id: `1`
+- EVENT WALLET: tag NFC demo UID `TAGTOA-DEMO-TAG` (solde 1000 G, stand « Bar Demo ») sou
+  `demo-concert` → teste sou `/tagtoa/event/{id}/wallet/terminal` (tape UID a oswa tap NFC).
 - Teste lang: ajoute `?lang=ht|en|es|fr` sou nenpòt paj.
 
 ## 8. Pyèj konnen (gotchas)
