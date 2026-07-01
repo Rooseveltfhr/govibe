@@ -119,7 +119,11 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     `OpenEventWalletAccounts`). Dashboard `/tagtoa/event/{id}/wallet` (recharge, tags,
     réconciliation stands, payout, export CSV) + terminal vandè (Web NFC tap → encaisse).
     `Money::toMinor/fromMinor/formatMinor`. Tès Feature `WalletFlowTest` (kouri nan Biztap).
-  - ⏳ RES: notifikasyon SMS/push (Twilio — bloke), top-up API reyèl (drivers PAY — bloke).
+  - ✅ Notifikasyon: kanal email (egziste) + **WhatsApp via Twilio** (`NotificationService::whatsapp`,
+    tolerab/opt-in, dòman san credentials), `Job SendNotification` (queue, milti-kanal),
+    `normalizePhone` (pi, teste). Branche sou booking + wallet (top-up/achat). Aktive ak
+    `TAGTOA_WA_NOTIFY=true` + `TAGTOA_TWILIO_SID/TOKEN/WHATSAPP_FROM` sou VPS (bezwen itilizatè).
+  - ⏳ RES: top-up API reyèl (drivers PAY — bloke).
 
 ## 6. Deplwaman & URL
 - App sèvi nan `public/`: base = **https://tagtoa.com/tapbiz/public**

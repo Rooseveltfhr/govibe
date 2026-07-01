@@ -62,6 +62,84 @@ class NotificationService
         }
     }
 
+    /** Normalise un numéro en E.164 (défaut Haïti +509). PUR. */
+    public static function normalizePhone(?string $phone, string $defaultCc = '509'): ?string
+    {
+        if ($phone === null) {
+            return null;
+        }
+        $trim = trim($phone);
+        $hasPlus = str_starts_with($trim, '+');
+        $digits = preg_replace('/\D+/', '', $trim) ?? '';
+        if ($digits === '') {
+            return null;
+        }
+        if ($hasPlus) {
+            return '+'.$digits;
+        }
+        if (str_starts_with($digits, $defaultCc)) {
+            return '+'.$digits;
+        }
+        // Numéro local (<= 8 chiffres) → préfixe pays par défaut.
+        if (strlen($digits) <= 8) {
+            return '+'.$defaultCc.$digits;
+        }
+
+        return '+'.$digits;
+    }
+
+    /** WhatsApp activé (flag + credentials présents) ? */
+    public function whatsappEnabled(): bool
+    {
+        $cfg = (array) config('tagtoa.notifications.whatsapp', []);
+
+        return (bool) ($cfg['enabled'] ?? false)
+            && ! empty($cfg['sid']) && ! empty($cfg['token']) && ! empty($cfg['from']);
+    }
+
+    /** Envoi WhatsApp tolérant via Twilio. No-op si désactivé/non configuré. */
+    public function whatsapp(?string $to, string $body): bool
+    {
+        if (! $this->whatsappEnabled()) {
+            return false;
+        }
+        $to = self::normalizePhone($to);
+        if (! $to) {
+            return false;
+        }
+        $cfg = (array) config('tagtoa.notifications.whatsapp', []);
+
+        try {
+            \Illuminate\Support\Facades\Http::withBasicAuth($cfg['sid'], $cfg['token'])
+                ->asForm()
+                ->post('https://api.twilio.com/2010-04-01/Accounts/'.$cfg['sid'].'/Messages.json', [
+                    'From' => 'whatsapp:'.$cfg['from'],
+                    'To'   => 'whatsapp:'.$to,
+                    'Body' => $body,
+                ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            if (function_exists('report')) {
+                report($e);
+            }
+
+            return false;
+        }
+    }
+
+    /** Dispatch découplé (queue) d'une notification multi-canal, tolérant. */
+    public function push(array $payload): void
+    {
+        try {
+            \Modules\Tagtoa\App\Jobs\SendNotification::dispatch($payload);
+        } catch (\Throwable $e) {
+            if (function_exists('report')) {
+                report($e);
+            }
+        }
+    }
+
     /**
      * Notifie un nouveau rendez-vous : alerte au marchand + confirmation au client.
      * Tolérant : aucune exception ne remonte.
@@ -108,6 +186,9 @@ class NotificationService
                 ]
             );
             $this->email($booking->customer_email, $confirm['subject'], $confirm['body']);
+
+            // 3) Confirmation client par WhatsApp (si numéro + canal activé).
+            $this->whatsapp($booking->customer_phone, $confirm['subject']."\n".$confirm['body']);
         } catch (\Throwable $e) {
             if (function_exists('report')) {
                 report($e);

@@ -78,10 +78,12 @@ class WalletController extends Controller
         $data = $request->validate([
             'uid'   => ['required', 'string', 'max:120'],
             'label' => ['nullable', 'string', 'max:120'],
+            'phone' => ['nullable', 'string', 'max:40'],
             'kind'  => ['nullable', Rule::in(\Modules\Tagtoa\App\Models\Event\NfcTag::KINDS)],
         ]);
         app(IssueNfcTag::class)->handle($event, $data['uid'], [
             'label' => $data['label'] ?? null,
+            'phone' => $data['phone'] ?? null,
             'kind'  => $data['kind'] ?? 'card',
         ]);
 
@@ -103,6 +105,14 @@ class WalletController extends Controller
         app(TopUpWallet::class)->handle($participant, Money::toMinor($data['amount'], $participant->currency), [
             'idempotency_key' => 'topup-'.\Illuminate\Support\Str::uuid()->toString(),
             'payment_ref'     => $data['payment_ref'] ?? null,
+        ]);
+
+        $fresh = $participant->fresh();
+        app(\Modules\Tagtoa\App\Services\Notifications\NotificationService::class)->push([
+            'channels' => ['whatsapp'],
+            'phone'    => $fresh->owner_phone,
+            'subject'  => __('Recharge TAGTOA'),
+            'body'     => __('Recharge effectuée.').' '.__('Nouveau solde').' : '.Money::formatMinor((int) $fresh->balance_minor, $fresh->currency),
         ]);
 
         return back()->with('success', __('Recharge effectuée.'));
@@ -183,6 +193,14 @@ class WalletController extends Controller
         }
 
         $fresh = $participant->fresh();
+
+        app(\Modules\Tagtoa\App\Services\Notifications\NotificationService::class)->push([
+            'channels' => ['whatsapp'],
+            'phone'    => $fresh->owner_phone,
+            'subject'  => __('Achat TAGTOA'),
+            'body'     => __('Achat').' : '.Money::formatMinor((int) $txn->amount_minor, $txn->currency)
+                .' — '.$vendor->owner_label.'. '.__('Nouveau solde').' : '.Money::formatMinor((int) $fresh->balance_minor, $fresh->currency),
+        ]);
 
         return response()->json([
             'ok'        => true,

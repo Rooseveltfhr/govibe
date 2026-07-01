@@ -52,6 +52,14 @@ return [
     */
     'notifications' => [
         'enabled' => env('TAGTOA_NOTIFY', false),
+        // WhatsApp via Twilio (opt-in) — no-op tant que les identifiants ne sont
+        // pas définis sur le VPS. Ne JAMAIS mettre les secrets en clair ici.
+        'whatsapp' => [
+            'enabled' => env('TAGTOA_WA_NOTIFY', false),
+            'sid'     => env('TAGTOA_TWILIO_SID'),
+            'token'   => env('TAGTOA_TWILIO_TOKEN'),
+            'from'    => env('TAGTOA_TWILIO_WHATSAPP_FROM'), // ex. +14155238886
+        ],
     ],
 
     /*

@@ -46,4 +46,26 @@ class NotificationTest extends TestCase
         $this->assertFalse(NotificationService::validRecipient('pas-un-email'));
         $this->assertFalse(NotificationService::validRecipient('a@b'));
     }
+
+    public function test_normalize_phone_local_haiti(): void
+    {
+        // Numéro local haïtien -> préfixe +509
+        $this->assertSame('+50934000000', NotificationService::normalizePhone('3400 0000'));
+    }
+
+    public function test_normalize_phone_keeps_plus(): void
+    {
+        $this->assertSame('+15145551234', NotificationService::normalizePhone('+1 (514) 555-1234'));
+    }
+
+    public function test_normalize_phone_existing_country_code(): void
+    {
+        $this->assertSame('+50938001122', NotificationService::normalizePhone('509 3800 1122'));
+    }
+
+    public function test_normalize_phone_empty(): void
+    {
+        $this->assertNull(NotificationService::normalizePhone(null));
+        $this->assertNull(NotificationService::normalizePhone('   '));
+    }
 }
