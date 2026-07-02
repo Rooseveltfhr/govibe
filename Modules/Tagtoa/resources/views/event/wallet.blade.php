@@ -65,6 +65,7 @@
         </div>
         <div class="row">
             <div><label class="lbl">{{ __('Téléphone (WhatsApp)') }}</label><input class="inp" name="phone" placeholder="+509 0000 0000"></div>
+            <div><label class="lbl">{{ __('E-mail (optionnel)') }}</label><input class="inp" type="email" name="email" placeholder="participant@exemple.com"></div>
             <div><label class="lbl">{{ __('Type de billet') }}</label>
                 <select class="sel" name="ticket_type_id"><option value="">{{ __('— Aucun —') }}</option>@foreach($ticketTypes as $tt)<option value="{{ $tt->id }}">{{ $tt->name }}</option>@endforeach</select>
             </div>

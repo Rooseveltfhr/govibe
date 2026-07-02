@@ -31,7 +31,7 @@ class WalletAccount extends Model
 
     protected $fillable = [
         'tenant_id', 'event_id', 'nfc_tag_id', 'ticket_id', 'type',
-        'owner_label', 'owner_phone', 'currency', 'balance_minor', 'status',
+        'owner_label', 'owner_phone', 'owner_email', 'currency', 'balance_minor', 'status',
     ];
 
     protected $casts = [

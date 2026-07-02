@@ -72,6 +72,7 @@
         <h2 id="doneAmt"></h2>
         <div class="sub">{{ __('Nouveau solde') }} : <b id="doneBal"></b></div>
         <div class="sub" id="doneRef" style="opacity:.7;margin-top:4px"></div>
+        <a id="doneReceipt" href="#" target="_blank" rel="noopener" style="display:none;margin-top:14px;background:rgba(255,255,255,.2);color:#fff;border-radius:12px;padding:11px 18px;font:700 14px var(--fh);text-decoration:none"><i class="fa-solid fa-receipt"></i> {{ __('Reçu') }}</a>
         <button onclick="reset()">{{ __('Nouvelle vente') }}</button>
     </div>
 
@@ -108,6 +109,7 @@
             btn.disabled=false;
             if(!res.ok||!res.j.ok){showErr(res.j.message||T.err);if(res.j.balance){el('amt').textContent=res.j.balance;}return;}
             el('doneAmt').textContent=res.j.charged;el('doneBal').textContent=res.j.balance;el('doneRef').textContent=res.j.reference;
+            var rc=el('doneReceipt');if(res.j.receipt_url){rc.href=res.j.receipt_url;rc.style.display='inline-block';}else{rc.style.display='none';}
             el('doneScr').classList.add('show');
         }).catch(function(){btn.disabled=false;showErr(T.err);});
     }
