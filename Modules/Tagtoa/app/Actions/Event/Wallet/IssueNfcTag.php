@@ -39,6 +39,7 @@ class IssueNfcTag
                 'type'          => WalletAccount::TYPE_PARTICIPANT,
                 'owner_label'   => $opts['label'] ?? null,
                 'owner_phone'   => $opts['phone'] ?? null,
+                'owner_email'   => $opts['email'] ?? null,
                 'currency'      => $event->currency ?: 'HTG',
                 'balance_minor' => 0,
                 'status'        => 'active',

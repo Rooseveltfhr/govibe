@@ -9,6 +9,7 @@ use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Event\Order;
 use Modules\Tagtoa\App\Models\Event\Ticket;
+use Modules\Tagtoa\App\Models\Event\WalletTxn;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
 use Modules\Tagtoa\App\Services\Event\TicketService;
 
@@ -28,6 +29,16 @@ class PublicController extends Controller
         $event->incrementQuietly('views');
 
         return view('tagtoa::event.show', ['event' => $event]);
+    }
+
+    /** Reçu public d'une transaction wallet (achat/recharge), par référence. */
+    public function walletReceipt(string $reference): View
+    {
+        $txn = WalletTxn::where('reference', $reference)->firstOrFail();
+        $event = $txn->event_id ? Event::find($txn->event_id) : null;
+        $vendor = $txn->destAccount; // pour un achat : le stand
+
+        return view('tagtoa::event.wallet-receipt', compact('txn', 'event', 'vendor'));
     }
 
     public function buy(Request $request, string $alias): RedirectResponse

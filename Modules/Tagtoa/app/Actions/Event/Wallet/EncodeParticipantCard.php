@@ -39,6 +39,7 @@ class EncodeParticipantCard
             $tag = $this->issue->handle($event, $data['uid'], [
                 'label'     => $data['name'] ?? null,
                 'phone'     => $data['phone'] ?? null,
+                'email'     => $data['email'] ?? null,
                 'ticket_id' => $ticket->id,
                 'kind'      => $data['kind'] ?? 'card',
             ]);

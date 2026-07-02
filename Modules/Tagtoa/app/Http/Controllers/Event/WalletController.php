@@ -62,6 +62,7 @@ class WalletController extends Controller
             'uid'            => ['required', 'string', 'max:120'],
             'name'           => ['required', 'string', 'max:120'],
             'phone'          => ['nullable', 'string', 'max:40'],
+            'email'          => ['nullable', 'email', 'max:160'],
             'ticket_type_id' => ['nullable', 'integer'],
             'amount'         => ['nullable', 'numeric', 'min:0'],
             'kind'           => ['nullable', Rule::in(\Modules\Tagtoa\App\Models\Event\NfcTag::KINDS)],
@@ -155,8 +156,9 @@ class WalletController extends Controller
 
         $fresh = $participant->fresh();
         app(\Modules\Tagtoa\App\Services\Notifications\NotificationService::class)->push([
-            'channels' => ['whatsapp'],
+            'channels' => ['whatsapp', 'email'],
             'phone'    => $fresh->owner_phone,
+            'email'    => $fresh->owner_email,
             'subject'  => __('Recharge TAGTOA'),
             'body'     => __('Recharge effectuée.').' '.__('Nouveau solde').' : '.Money::formatMinor((int) $fresh->balance_minor, $fresh->currency),
         ]);
@@ -239,20 +241,24 @@ class WalletController extends Controller
         }
 
         $fresh = $participant->fresh();
+        $receiptUrl = route('tagtoa.event.wallet.receipt', $txn->reference);
 
         app(\Modules\Tagtoa\App\Services\Notifications\NotificationService::class)->push([
-            'channels' => ['whatsapp'],
+            'channels' => ['whatsapp', 'email'],
             'phone'    => $fresh->owner_phone,
+            'email'    => $fresh->owner_email,
             'subject'  => __('Achat TAGTOA'),
             'body'     => __('Achat').' : '.Money::formatMinor((int) $txn->amount_minor, $txn->currency)
-                .' — '.$vendor->owner_label.'. '.__('Nouveau solde').' : '.Money::formatMinor((int) $fresh->balance_minor, $fresh->currency),
+                .' — '.$vendor->owner_label.'. '.__('Nouveau solde').' : '.Money::formatMinor((int) $fresh->balance_minor, $fresh->currency)
+                .' '.__('Reçu').' : '.$receiptUrl,
         ]);
 
         return response()->json([
-            'ok'        => true,
-            'reference' => $txn->reference,
-            'charged'   => Money::formatMinor((int) $txn->amount_minor, $txn->currency),
-            'balance'   => Money::formatMinor((int) $fresh->balance_minor, $fresh->currency),
+            'ok'          => true,
+            'reference'   => $txn->reference,
+            'charged'     => Money::formatMinor((int) $txn->amount_minor, $txn->currency),
+            'balance'     => Money::formatMinor((int) $fresh->balance_minor, $fresh->currency),
+            'receipt_url' => $receiptUrl,
         ]);
     }
 
