@@ -106,6 +106,19 @@ class TagtoaDemoSeeder extends Seeder
                 $demoTag->walletAccount, 1000, ['idempotency_key' => 'demo-topup-concert', 'payment_ref' => 'DEMO']
             );
         }
+        // Lie un billet au tag démo pour que le check-in NFC fonctionne dès la démo.
+        if (! $demoTag->ticket_id) {
+            $stdType = $event->ticketTypes()->where('name', 'Standard')->first();
+            $demoTicket = \Modules\Tagtoa\App\Models\Event\Ticket::firstOrCreate(
+                ['event_id' => $event->id, 'code' => 'TDEMO0000001'],
+                ['ticket_type_id' => $stdType?->id, 'holder_name' => 'Client Demo',
+                 'holder_phone' => '+509 3000 0000', 'status' => \Modules\Tagtoa\App\Models\Event\Ticket::STATUS_VALID]
+            );
+            $demoTag->update(['ticket_id' => $demoTicket->id]);
+            if ($demoTag->walletAccount && ! $demoTag->walletAccount->ticket_id) {
+                $demoTag->walletAccount->update(['ticket_id' => $demoTicket->id]);
+            }
+        }
 
         // 5) MENU — menu digital démo (lounge/restaurant) + catégories + produits
         $menu = Menu::firstOrCreate(
