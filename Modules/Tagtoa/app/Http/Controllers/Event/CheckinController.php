@@ -78,6 +78,51 @@ class CheckinController extends Controller
         ));
     }
 
+    /* ---------------- Rapport d'entrée temps réel ---------------- */
+
+    public function report(int $id): View
+    {
+        $event = $this->ownEvent($id);
+
+        return view('tagtoa::event.checkin-report', compact('event'));
+    }
+
+    /** Stats live (polling JSON) : compteurs + dernières entrées. */
+    public function stats(int $id): JsonResponse
+    {
+        $event = $this->ownEvent($id);
+
+        $tickets = $event->tickets()->count();
+        $checkedIn = $event->tickets()->where('checked_in', true)->count();
+
+        $recent = \Modules\Tagtoa\App\Models\Event\Checkin::where('event_id', $event->id)
+            ->where('direction', 'in')->with('ticket')
+            ->orderByDesc('id')->limit(30)->get()
+            ->map(fn ($c) => [
+                'name'   => optional($c->ticket)->holder_name ?: __('Participant'),
+                'time'   => optional($c->scanned_at)->format('H:i:s'),
+                'method' => $c->method,
+                'gate'   => $c->gate,
+            ]);
+
+        return response()->json([
+            'tickets'    => $tickets,
+            'checked_in' => $checkedIn,
+            'percent'    => $tickets > 0 ? round($checkedIn * 100 / $tickets) : 0,
+            'recent'     => $recent,
+        ]);
+    }
+
+    /* ---------------- Badges QR imprimables ---------------- */
+
+    public function badges(int $id): View
+    {
+        $event = $this->ownEvent($id);
+        $tickets = $event->tickets()->where('status', 1)->with('ticketType')->limit(500)->get();
+
+        return view('tagtoa::event.badges', compact('event', 'tickets'));
+    }
+
     protected function ownEvent(int $id): Event
     {
         return Event::where('tenant_id', Tenant::id())->findOrFail($id);
