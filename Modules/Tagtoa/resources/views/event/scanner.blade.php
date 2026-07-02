@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
-        :root{--blk:#0A0A0A;--blue:#16A34A;--green:#1D9E75;--red:#E0473E;--orange:#E08A1E;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        :root{--blk:#0A0A0A;--blue:#2cb809;--green:#1D9E75;--red:#E0473E;--orange:#E08A1E;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--fb);background:var(--blk);color:#fff;min-height:100vh}
         .top{padding:16px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,.1)}.top h1{font:600 16px var(--fh);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.top .net{font-size:12px;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.12)}.top .net.off{background:var(--orange)}
         .stats{display:flex;gap:10px;padding:14px 18px}.stat{flex:1;background:rgba(255,255,255,.07);border-radius:12px;padding:12px;text-align:center}.stat b{font:700 22px var(--fh);display:block}.stat span{font-size:11px;opacity:.6}

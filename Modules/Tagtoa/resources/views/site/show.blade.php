@@ -1,7 +1,7 @@
 {{-- TAGTOA SITE — site web public (vitrine). Variables : $site. Sans emoji. --}}
 @php
     $dark = $site->theme === 'dark';
-    $acc = preg_match('/^#[0-9A-Fa-f]{3,8}$/', (string) $site->accent_color) ? $site->accent_color : '#16A34A';
+    $acc = preg_match('/^#[0-9A-Fa-f]{3,8}$/', (string) $site->accent_color) ? $site->accent_color : '#2cb809';
     $bg   = $dark ? '#0A0F0B' : '#FFFFFF';
     $bg2  = $dark ? '#0E1A12' : '#F5F7F5';
     $fg   = $dark ? '#FFFFFF' : '#0A0A0A';

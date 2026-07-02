@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('logo_path')->nullable();
             $table->string('cover_path')->nullable();
             $table->string('theme', 20)->default('light');
-            $table->string('accent_color', 16)->default('#16A34A');
+            $table->string('accent_color', 16)->default('#2cb809');
             $table->string('phone', 40)->nullable();
             $table->string('whatsapp', 40)->nullable();
             $table->string('email')->nullable();

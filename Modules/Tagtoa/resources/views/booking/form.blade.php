@@ -44,7 +44,7 @@
         <div class="h-row"><h2>{{ __('Apparence') }}</h2></div>
         <div class="row">
             <div><label class="lbl">{{ __('Thème') }}</label><select class="sel" name="theme">@foreach(['light'=>'Clair','dark'=>'Sombre'] as $k=>$v)<option value="{{ $k }}" @selected(old('theme',$page->theme ?: 'light')===$k)>{{ __($v) }}</option>@endforeach</select></div>
-            <div><label class="lbl">{{ __('Couleur d\'accent') }}</label><input class="inp" type="color" name="accent_color" value="{{ old('accent_color',$page->accent_color ?: '#16A34A') }}" style="height:48px;padding:6px"></div>
+            <div><label class="lbl">{{ __('Couleur d\'accent') }}</label><input class="inp" type="color" name="accent_color" value="{{ old('accent_color',$page->accent_color ?: '#2cb809') }}" style="height:48px;padding:6px"></div>
         </div>
         <label class="switch"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" @checked(old('is_active',$page->is_active ?? true))> {{ __('Page active (visible au public)') }}</label>
     </div>

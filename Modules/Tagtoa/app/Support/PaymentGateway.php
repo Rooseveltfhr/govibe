@@ -57,10 +57,10 @@ class PaymentGateway
         'binance'     => ['mode' => self::MODE_MANUAL, 'kind' => 'crypto', 'color' => '#F0B90B', 'driver' => null],
         'crypto'      => ['mode' => self::MODE_MANUAL, 'kind' => 'crypto', 'color' => '#8a8a8a', 'driver' => null],
         // TAGTOA
-        'tagtoa_card' => ['mode' => self::MODE_MANUAL, 'kind' => 'card', 'color' => '#16A34A', 'driver' => null],
+        'tagtoa_card' => ['mode' => self::MODE_MANUAL, 'kind' => 'card', 'color' => '#2cb809', 'driver' => null],
     ];
 
-    private const DEFAULT = ['mode' => self::MODE_MANUAL, 'kind' => 'other', 'color' => '#16A34A', 'driver' => null];
+    private const DEFAULT = ['mode' => self::MODE_MANUAL, 'kind' => 'other', 'color' => '#2cb809', 'driver' => null];
 
     /** Métadonnées complètes d'un type : label + icon (METHODS) + mode/kind/color/driver. */
     public static function meta(string $type): array

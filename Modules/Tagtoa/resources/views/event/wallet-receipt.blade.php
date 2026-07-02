@@ -6,10 +6,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ __('Reçu') }} — {{ $txn->reference }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root{--green:#2cb809;--ink:#111;--muted:#666;--bd:rgba(0,0,0,.12);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        h1,.amt{font-family:'Anton',sans-serif!important;font-weight:400!important;letter-spacing:.01em}
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:var(--fb);background:#f4f4f5;color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px}
         .r{background:#fff;border:1px solid var(--bd);border-radius:18px;max-width:400px;width:100%;padding:26px;box-shadow:0 14px 40px rgba(0,0,0,.08)}

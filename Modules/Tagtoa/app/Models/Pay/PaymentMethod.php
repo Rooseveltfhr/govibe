@@ -50,7 +50,7 @@ class PaymentMethod extends Model
 
     public function getBrandColorAttribute(): string
     {
-        return $this->meta['color'] ?? '#16A34A';
+        return $this->meta['color'] ?? '#2cb809';
     }
 
     /** Cette méthode est-elle une passerelle automatique (API) ? */

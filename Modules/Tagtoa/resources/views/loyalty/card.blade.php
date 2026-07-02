@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root{--blk:#0A0A0A;--bg:#F5F5F3;--sf:#fff;--blue:#16A34A;--blue-deep:#15803D;--blue-pale:rgba(22,163,74,.08);--green:#1D9E75;--red:#E0473E;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        :root{--blk:#0A0A0A;--bg:#F5F5F3;--sf:#fff;--blue:#2cb809;--blue-deep:#239406;--blue-pale:rgba(44,184,9,.08);--green:#1D9E75;--red:#E0473E;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:var(--fb);background:var(--bg);color:var(--blk);line-height:1.5}
         .wrap{max-width:480px;margin:0 auto;min-height:100vh;padding:22px 16px 40px}
@@ -16,8 +16,8 @@
         .brand img,.brand .ph{width:38px;height:38px;border-radius:9px;object-fit:cover}
         .brand .ph{background:var(--blk);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px}
         .brand b{font-family:var(--fh);font-weight:700;font-size:16px}.brand span{font-size:12px;color:#888;display:block}
-        .card{position:relative;border-radius:20px;padding:22px;color:#fff;overflow:hidden;background:linear-gradient(135deg,#0A0A0A 0%,#15803D 100%);box-shadow:0 14px 40px rgba(21,128,61,.28)}
-        .card::after{content:"";position:absolute;right:-50px;top:-50px;width:180px;height:180px;background:radial-gradient(circle,rgba(22,163,74,.6),transparent 70%)}
+        .card{position:relative;border-radius:20px;padding:22px;color:#fff;overflow:hidden;background:linear-gradient(135deg,#0A0A0A 0%,#239406 100%);box-shadow:0 14px 40px rgba(35,148,6,.28)}
+        .card::after{content:"";position:absolute;right:-50px;top:-50px;width:180px;height:180px;background:radial-gradient(circle,rgba(44,184,9,.6),transparent 70%)}
         .card .nfc{position:absolute;top:20px;right:20px;font-size:20px;opacity:.85;transform:rotate(90deg)}
         .chip{width:38px;height:28px;border-radius:6px;background:linear-gradient(135deg,#e9c46a,#d4a017);position:absolute;top:54px;left:22px;opacity:.9}
         .lbl{font:600 11px var(--fh);letter-spacing:.14em;text-transform:uppercase;opacity:.7}

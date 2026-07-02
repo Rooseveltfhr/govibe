@@ -23,7 +23,7 @@
         </div>
         <div class="row">
             <div><label class="lbl">{{ __('Thème') }}</label><select class="sel" name="theme">@foreach(['light'=>'Clair','dark'=>'Sombre'] as $k=>$v)<option value="{{ $k }}" @selected(old('theme',$site->theme ?: 'light')===$k)>{{ __($v) }}</option>@endforeach</select></div>
-            <div><label class="lbl">{{ __('Couleur d\'accent') }}</label><input class="inp" type="color" name="accent_color" value="{{ old('accent_color',$site->accent_color ?: '#16A34A') }}" style="height:48px;padding:6px"></div>
+            <div><label class="lbl">{{ __('Couleur d\'accent') }}</label><input class="inp" type="color" name="accent_color" value="{{ old('accent_color',$site->accent_color ?: '#2cb809') }}" style="height:48px;padding:6px"></div>
         </div>
     </div>
 

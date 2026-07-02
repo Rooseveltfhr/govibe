@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('name');
             $table->decimal('price', 10, 2)->default(0);
             $table->string('emoji', 8)->nullable();
-            $table->string('color', 12)->default('#16A34A');
+            $table->string('color', 12)->default('#2cb809');
             $table->integer('stock')->nullable();
             $table->boolean('is_active')->default(true);
             $table->unsignedSmallInteger('sort')->default(0);

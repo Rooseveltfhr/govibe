@@ -33,7 +33,7 @@ class DashboardController extends Controller
     public function create(): View
     {
         return view('tagtoa::site.form', $this->formData(new Site([
-            'theme' => 'light', 'accent_color' => '#16A34A',
+            'theme' => 'light', 'accent_color' => '#2cb809',
         ])));
     }
 
