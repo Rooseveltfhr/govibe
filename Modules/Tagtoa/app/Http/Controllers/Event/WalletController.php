@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Response;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Actions\Event\Wallet\ChargeWallet;
+use Modules\Tagtoa\App\Actions\Event\Wallet\EncodeParticipantCard;
 use Modules\Tagtoa\App\Actions\Event\Wallet\IssueNfcTag;
 use Modules\Tagtoa\App\Actions\Event\Wallet\OpenEventWalletAccounts;
 use Modules\Tagtoa\App\Actions\Event\Wallet\PayoutToOrganizer;
@@ -46,10 +47,55 @@ class WalletController extends Controller
         $loaded = (int) (WalletAccount::where('event_id', $event->id)
             ->where('type', WalletAccount::TYPE_PARTICIPANT)->sum('balance_minor'));
         $txns = WalletTxn::where('event_id', $event->id)->orderByDesc('id')->limit(50)->get();
+        $ticketTypes = $event->ticketTypes()->get();
 
         return view('tagtoa::event.wallet', compact(
-            'event', 'system', 'vendors', 'participantsCount', 'loaded', 'txns'
+            'event', 'system', 'vendors', 'participantsCount', 'loaded', 'txns', 'ticketTypes'
         ));
+    }
+
+    /** Encode une carte NFC : billet (entrée) + wallet + recharge initiale optionnelle. */
+    public function encode(Request $request, int $id): RedirectResponse
+    {
+        $event = $this->own($id);
+        $data = $request->validate([
+            'uid'            => ['required', 'string', 'max:120'],
+            'name'           => ['required', 'string', 'max:120'],
+            'phone'          => ['nullable', 'string', 'max:40'],
+            'ticket_type_id' => ['nullable', 'integer'],
+            'amount'         => ['nullable', 'numeric', 'min:0'],
+            'kind'           => ['nullable', Rule::in(\Modules\Tagtoa\App\Models\Event\NfcTag::KINDS)],
+        ]);
+
+        if (! empty($data['ticket_type_id'])) {
+            $ok = \Modules\Tagtoa\App\Models\Event\TicketType::where('event_id', $event->id)
+                ->whereKey($data['ticket_type_id'])->exists();
+            if (! $ok) {
+                $data['ticket_type_id'] = null;
+            }
+        }
+
+        $res = app(EncodeParticipantCard::class)->handle($event, $data);
+
+        if (! empty($data['amount']) && (float) $data['amount'] > 0 && $res['tag']->walletAccount) {
+            $acct = $res['tag']->walletAccount;
+            app(TopUpWallet::class)->handle($acct, Money::toMinor($data['amount'], $acct->currency), [
+                'idempotency_key' => 'encode-'.\Illuminate\Support\Str::uuid()->toString(),
+                'payment_ref'     => 'ENCODAGE',
+            ]);
+        }
+
+        return back()->with('success', __('Carte encodée.').' '.__('Billet').' : '.$res['ticket']->code);
+    }
+
+    /** Réglages wallet de l'event (e-mail de notification organisateur). */
+    public function settings(Request $request, int $id): RedirectResponse
+    {
+        $event = $this->own($id);
+        $data = $request->validate(['notify_email' => ['nullable', 'email', 'max:160']]);
+        $event->update(['notify_email' => $data['notify_email'] ?: null]);
+
+        return back()->with('success', __('Réglages enregistrés.'));
     }
 
     public function terminal(int $id): View

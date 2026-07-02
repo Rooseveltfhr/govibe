@@ -123,6 +123,10 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     tolerab/opt-in, dòman san credentials), `Job SendNotification` (queue, milti-kanal),
     `normalizePhone` (pi, teste). Branche sou booking + wallet (top-up/achat). Aktive ak
     `TAGTOA_WA_NOTIFY=true` + `TAGTOA_TWILIO_SID/TOKEN/WHATSAPP_FROM` sou VPS (bezwen itilizatè).
+  - ✅ Check-in NFC: `CheckinService::resolveNfcCode` (UID→billet), endpoint `scan-nfc`,
+    bouton NFC nan scanner. Notifikasyon antre: òganizatè pa imèl (`tagtoa_ev_events.notify_email`)
+    + patisipan pa WhatsApp. Encodage kat: `EncodeParticipantCard` (billet+wallet+rechaj) sou
+    dashboard wallet. Gid konplè: `docs/EVENT_NFC_GUIDE.md`.
   - ⏳ RES: top-up API reyèl (drivers PAY — bloke).
 
 ## 6. Deplwaman & URL

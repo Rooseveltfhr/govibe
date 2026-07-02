@@ -130,12 +130,15 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/orders/export', [EventDashboard::class, 'exportOrders'])->name('orders.export');
         Route::get('/{id}/scanner', [EventCheckin::class, 'scanner'])->name('scanner');
         Route::post('/{id}/scan', [EventCheckin::class, 'scan'])->name('scan');
+        Route::post('/{id}/scan-nfc', [EventCheckin::class, 'scanNfc'])->name('scan.nfc');
         Route::post('/{id}/sync', [EventCheckin::class, 'sync'])->name('sync');
         // WALLET closed-loop (double-entry)
         Route::get('/{id}/wallet', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'index'])->name('wallet');
         Route::get('/{id}/wallet/terminal', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'terminal'])->name('wallet.terminal');
         Route::post('/{id}/wallet/vendor', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'addVendor'])->name('wallet.vendor');
         Route::post('/{id}/wallet/tag', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'issueTag'])->name('wallet.tag');
+        Route::post('/{id}/wallet/encode', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'encode'])->name('wallet.encode');
+        Route::post('/{id}/wallet/settings', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'settings'])->name('wallet.settings');
         Route::post('/{id}/wallet/topup', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'topUp'])->name('wallet.topup');
         Route::post('/{id}/wallet/payout', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'payout'])->name('wallet.payout');
         Route::post('/{id}/wallet/resolve', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'resolve'])->name('wallet.resolve');

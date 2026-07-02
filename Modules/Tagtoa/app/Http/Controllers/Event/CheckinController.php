@@ -54,6 +54,30 @@ class CheckinController extends Controller
         return response()->json(['results' => $this->service->sync($event, $data['scans'])]);
     }
 
+    /** Check-in par carte NFC (tap) : UID -> billet -> entrée. */
+    public function scanNfc(Request $request, int $id): JsonResponse
+    {
+        $event = $this->ownEvent($id);
+        $data = $request->validate([
+            'uid'         => ['required', 'string', 'max:120'],
+            'direction'   => ['nullable', 'in:in,out'],
+            'gate'        => ['nullable', 'string', 'max:40'],
+            'client_uuid' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        $code = $this->service->resolveNfcCode($event, $data['uid']);
+        if (! $code) {
+            return response()->json([
+                'valid' => false, 'color' => 'red', 'sound' => 'error',
+                'message' => __('Carte non reconnue.'), 'ticket' => null,
+            ], 404);
+        }
+
+        return response()->json($this->service->processScan(
+            $event, $code, $data['direction'] ?? 'in', 'nfc', $data['gate'] ?? null, $data['client_uuid'] ?? null
+        ));
+    }
+
     protected function ownEvent(int $id): Event
     {
         return Event::where('tenant_id', Tenant::id())->findOrFail($id);

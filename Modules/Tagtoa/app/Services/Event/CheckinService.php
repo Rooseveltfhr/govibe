@@ -5,7 +5,9 @@ namespace Modules\Tagtoa\App\Services\Event;
 use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Event\Checkin;
 use Modules\Tagtoa\App\Models\Event\Event;
+use Modules\Tagtoa\App\Models\Event\NfcTag;
 use Modules\Tagtoa\App\Models\Event\Ticket;
+use Modules\Tagtoa\App\Services\Notifications\NotificationService;
 
 /**
  * TAGTOA Event — moteur de check-in (scanner PWA, offline-first).
@@ -14,6 +16,22 @@ use Modules\Tagtoa\App\Models\Event\Ticket;
  */
 class CheckinService
 {
+    public function __construct(protected NotificationService $notifications)
+    {
+    }
+
+    /** Résout un UID de carte NFC -> code du billet (pour check-in par tap). */
+    public function resolveNfcCode(Event $event, string $uid): ?string
+    {
+        $tag = NfcTag::where('event_id', $event->id)
+            ->where('uid_hash', NfcTag::hashUid($uid))
+            ->where('status', 'active')->first();
+
+        return ($tag && $tag->ticket_id)
+            ? optional(Ticket::find($tag->ticket_id))->code
+            : null;
+    }
+
     public function processScan(Event $event, string $code, string $direction = 'in', string $method = 'qr', ?string $gate = null, ?string $clientUuid = null): array
     {
         $ticket = Ticket::where('event_id', $event->id)->where('code', $code)->with('ticketType')->first();
@@ -31,7 +49,8 @@ class CheckinService
             return $this->r(false, 'orange', 'warning', __('Pas encore entré.'), $ticket);
         }
 
-        return DB::transaction(function () use ($event, $ticket, $direction, $method, $gate, $clientUuid) {
+        $entered = false;
+        $result = DB::transaction(function () use ($event, $ticket, $direction, $method, $gate, $clientUuid, &$entered) {
             if ($clientUuid && Checkin::where('ticket_id', $ticket->id)->where('client_uuid', $clientUuid)->exists()) {
                 return $this->r(true, 'green', 'success', __('Déjà synchronisé.'), $ticket);
             }
@@ -45,8 +64,47 @@ class CheckinService
                 'method' => $method, 'gate' => $gate, 'client_uuid' => $clientUuid, 'scanned_at' => now(),
             ]);
 
+            $entered = ($direction === 'in');
+
             return $this->r(true, 'green', 'success', $direction === 'in' ? __('Bienvenue!') : __('Sortie enregistrée.'), $ticket->fresh('ticketType'));
         });
+
+        // Notifications hors transaction (tolérant) : organisateur + participant à l'entrée.
+        if ($entered) {
+            $this->notifyEntry($event, $ticket);
+        }
+
+        return $result;
+    }
+
+    /** Alerte organisateur (email) + confirmation participant (WhatsApp) à l'entrée. */
+    protected function notifyEntry(Event $event, Ticket $ticket): void
+    {
+        try {
+            $name = $ticket->holder_name ?: __('Participant');
+
+            if ($event->notify_email) {
+                $this->notifications->push([
+                    'channels' => ['email'],
+                    'email'    => $event->notify_email,
+                    'subject'  => __('Entrée check-in').' — '.$event->title,
+                    'body'     => __('Participant entré').' : '.$name.' — '.now()->format('H:i'),
+                ]);
+            }
+
+            if ($ticket->holder_phone) {
+                $this->notifications->push([
+                    'channels' => ['whatsapp'],
+                    'phone'    => $ticket->holder_phone,
+                    'subject'  => $event->title,
+                    'body'     => __('Bienvenue!').' '.__('Votre entrée est confirmée.').' — '.$name,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            if (function_exists('report')) {
+                report($e);
+            }
+        }
     }
 
     public function sync(Event $event, array $scans): array
