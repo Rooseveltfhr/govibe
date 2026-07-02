@@ -27,6 +27,7 @@
     <div class="toggle"><button id="dir-in" class="on" onclick="setDir('in')"><i class="fa-solid fa-right-to-bracket"></i> {{ __('Entrée') }}</button><button id="dir-out" onclick="setDir('out')"><i class="fa-solid fa-right-from-bracket"></i> {{ __('Sortie') }}</button></div>
     <div id="reader"></div>
     <div class="manual"><input id="m-code" placeholder="{{ __('Code billet (manuel)') }}"><button onclick="manual()">{{ __('OK') }}</button></div>
+    <div class="manual" style="padding-top:0"><button style="flex:1;background:var(--blue);color:#fff;border:0;border-radius:10px;padding:12px;font:600 13px var(--fh);cursor:pointer" onclick="startNfc()"><i class="fa-solid fa-wifi"></i> {{ __('Check-in NFC (tap)') }}</button><span id="nfc-hint" style="align-self:center;font-size:12px;opacity:.6"></span></div>
     <p class="pending" id="pending-txt"></p>
     <div class="result" id="result"><i id="r-ic"></i><h2 id="r-msg"></h2><p id="r-sub"></p></div>
 <script>
@@ -46,6 +47,9 @@ function handle(code){var now=Date.now();if(now-lastScan<1200)return;lastScan=no
 function enq(p){var a=q();a.push(p);setQ(a);}
 function flush(){var a=q();if(!a.length)return;fetch(SYNC_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify({scans:a})}).then(function(r){return r.json();}).then(function(){setQ([]);}).catch(function(){});}
 function manual(){var c=document.getElementById('m-code').value.trim();if(c){handle(c);document.getElementById('m-code').value='';}}
+var SCAN_NFC_URL="{{ route('tagtoa.event.dashboard.scan.nfc', $event->id) }}";
+function handleNfc(uid){var now=Date.now();if(now-lastScan<1200)return;lastScan=now;var p={uid:uid,direction:DIR,client_uuid:uuid()};if(navigator.onLine){fetch(SCAN_NFC_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(showR).catch(function(){showR({valid:false,color:'red',sound:'error',message:'{{ __('Réessayez.') }}'});});}else{showR({valid:false,color:'orange',sound:'warning',message:'{{ __('NFC nécessite une connexion.') }}'});}}
+function startNfc(){var h=document.getElementById('nfc-hint');if(!('NDEFReader' in window)){h.textContent='{{ __('NFC non supporté — QR/manuel.') }}';return;}try{var reader=new NDEFReader();h.textContent='{{ __('Approchez le tag…') }}';reader.scan().then(function(){reader.onreading=function(e){if(e.serialNumber)handleNfc(e.serialNumber);};}).catch(function(){h.textContent='{{ __('NFC non supporté — QR/manuel.') }}';});}catch(err){h.textContent='{{ __('NFC non supporté — QR/manuel.') }}';}}
 window.addEventListener('load',function(){setNet();setQ(q());if(window.Html5Qrcode){var qr=new Html5Qrcode('reader');qr.start({facingMode:'environment'},{fps:10,qrbox:230},handle,function(){}).catch(function(){document.getElementById('reader').innerHTML='<p style="padding:20px;opacity:.6;text-align:center">{{ __('Caméra indisponible — saisie manuelle.') }}</p>';});}});
 </script>
 </body>

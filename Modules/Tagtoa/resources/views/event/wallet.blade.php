@@ -54,6 +54,35 @@
     </div>
 </div>
 
+{{-- Encoder une carte participant (billet d'entrée + wallet) --}}
+<div class="card" style="margin-top:16px">
+    <div class="h-row"><h2>{{ __('Encoder une carte (entrée + wallet)') }}</h2></div>
+    <p style="color:var(--muted);font-size:13px;margin-top:-8px">{{ __('Point de vente : tapez une carte vierge, saisissez le participant et son billet. La carte servira à l\'entrée (check-in) ET au paiement.') }}</p>
+    <form method="POST" action="{{ route('tagtoa.event.dashboard.wallet.encode',$event->id) }}">@csrf
+        <div class="row">
+            <div><label class="lbl">{{ __('UID du tag') }}</label><input class="inp" name="uid" placeholder="04:A2:..." required></div>
+            <div><label class="lbl">{{ __('Nom du participant') }}</label><input class="inp" name="name" required></div>
+        </div>
+        <div class="row">
+            <div><label class="lbl">{{ __('Téléphone (WhatsApp)') }}</label><input class="inp" name="phone" placeholder="+509 0000 0000"></div>
+            <div><label class="lbl">{{ __('Type de billet') }}</label>
+                <select class="sel" name="ticket_type_id"><option value="">{{ __('— Aucun —') }}</option>@foreach($ticketTypes as $tt)<option value="{{ $tt->id }}">{{ $tt->name }}</option>@endforeach</select>
+            </div>
+            <div><label class="lbl">{{ __('Recharge initiale') }} ({{ $event->currency }})</label><input class="inp" type="number" step="0.01" min="0" name="amount" placeholder="0"></div>
+        </div>
+        <button class="btn btn-p" style="margin-top:12px"><i class="fa-solid fa-id-card-clip"></i> {{ __('Encoder la carte') }}</button>
+    </form>
+</div>
+
+{{-- Réglages notifications --}}
+<div class="card" style="margin-top:16px">
+    <div class="h-row"><h2>{{ __('Notifications organisateur') }}</h2></div>
+    <form method="POST" action="{{ route('tagtoa.event.dashboard.wallet.settings',$event->id) }}" style="display:flex;gap:8px;align-items:flex-end">@csrf
+        <div style="flex:1"><label class="lbl">{{ __('E-mail organisateur (alerte à chaque entrée)') }}</label><input class="inp" type="email" name="notify_email" value="{{ $event->notify_email }}" placeholder="organisateur@exemple.com"></div>
+        <button class="btn btn-d" style="flex:0"><i class="fa-solid fa-floppy-disk"></i> {{ __('Enregistrer') }}</button>
+    </form>
+</div>
+
 {{-- Réconciliation stands --}}
 <div class="card" style="margin-top:16px">
     <div class="h-row"><h2>{{ __('Réconciliation des stands') }}</h2></div>
