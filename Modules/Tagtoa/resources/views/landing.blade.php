@@ -35,14 +35,15 @@
     <meta name="description" content="{{ __('Site web, boutique WhatsApp, menu, paiements, fidélité et caisse — NFC & QR. La plateforme digitale des entrepreneurs haïtiens.') }}">
     <meta name="theme-color" content="#2cb809">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root{
-            --green:#2cb809;--green-d:#239406;--green-l:#eef9e8;--green-l2:#e1f4d8;
-            --ink:#0d140c;--muted:#5d6b5a;--bg:#ffffff;--bg2:#f5f9f2;--bd:rgba(13,20,12,.10);
-            --wa:#25D366;--gold:#E8A820;
-            --fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif;
+            /* 90% noir & blanc — accents #2cb809 uniquement (boutons + touches de style) */
+            --green:#2cb809;--green-d:#239406;--green-l:#f1f1f1;--green-l2:#e4e4e4;
+            --ink:#111111;--muted:#666666;--bg:#ffffff;--bg2:#f4f4f5;--bd:rgba(0,0,0,.12);
+            --wa:#2cb809;--gold:#2cb809;
+            --fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif;--ft:'Anton',sans-serif;
         }
         *{box-sizing:border-box;margin:0;padding:0}
         html{scroll-behavior:smooth}
@@ -71,7 +72,7 @@
         .nav .sp{flex:1}
         @media(max-width:720px){.nav .hidem{display:none}}
         /* Hero */
-        .hero{padding:70px 0 40px;background:linear-gradient(180deg,var(--green-l),#fff 78%)}
+        .hero{padding:70px 0 40px;background:#fff;border-bottom:1px solid var(--bd)}
         .hero .in{display:grid;grid-template-columns:1.08fr .92fr;gap:50px;align-items:center}
         .pill{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--green-l2);color:var(--green-d);padding:7px 15px;border-radius:999px;font:700 11px var(--fh);letter-spacing:.08em;text-transform:uppercase;box-shadow:0 2px 8px rgba(44,184,9,.08)}
         .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(44,184,9,.18);animation:ping 1.8s ease-in-out infinite}
@@ -98,7 +99,7 @@
         .dots button.on{width:26px;background:var(--green)}
         /* WhatsApp Store band */
         .waband{padding:0 24px}
-        .wabox{max-width:1140px;margin:-30px auto 0;position:relative;z-index:2;background:linear-gradient(120deg,#0d140c,#143a10);border-radius:24px;padding:34px 36px;display:flex;align-items:center;gap:26px;flex-wrap:wrap;box-shadow:0 24px 60px rgba(13,20,12,.22);overflow:hidden}
+        .wabox{max-width:1140px;margin:-30px auto 0;position:relative;z-index:2;background:linear-gradient(120deg,#111,#000);border-radius:24px;padding:34px 36px;display:flex;align-items:center;gap:26px;flex-wrap:wrap;box-shadow:0 24px 60px rgba(0,0,0,.22);overflow:hidden}
         .wabox::after{content:"";position:absolute;right:-40px;top:-40px;width:240px;height:240px;background:radial-gradient(circle,rgba(37,211,102,.22),transparent 70%)}
         .wabox .wi{width:64px;height:64px;border-radius:18px;background:var(--wa);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;flex:0 0 64px;box-shadow:0 8px 24px rgba(37,211,102,.4);animation:bob 3.4s ease-in-out infinite}
         @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
@@ -116,7 +117,7 @@
         /* Stats */
         .statsrow{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:44px}
         .st{background:#fff;border:1px solid var(--bd);border-radius:16px;padding:26px 18px;text-align:center}
-        .st .n{font:700 34px var(--fh);line-height:1;color:var(--green)}.st .k{font-size:13px;color:var(--muted);margin-top:6px}
+        .st .n{font:700 34px var(--fh);line-height:1;color:var(--ink)}.st .k{font-size:13px;color:var(--muted);margin-top:6px}
         /* Services grid */
         .sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:44px}
         .scard{background:#fff;border:1px solid var(--bd);border-radius:18px;padding:24px;transition:transform .16s,box-shadow .2s,border-color .2s;position:relative;overflow:hidden}
@@ -129,7 +130,7 @@
         .scard .go{display:inline-flex;align-items:center;gap:6px;color:var(--green-d);font:700 13px var(--fh);margin-top:8px}
         .ribbon{position:absolute;top:14px;right:14px;background:var(--wa);color:#fff;font:800 9.5px var(--fh);letter-spacing:.06em;padding:4px 10px;border-radius:999px;text-transform:uppercase}
         /* Promotion */
-        .promo{background:linear-gradient(120deg,var(--green),#27a808);border-radius:26px;padding:48px 40px;color:#fff;position:relative;overflow:hidden;display:grid;grid-template-columns:1.4fr .6fr;gap:30px;align-items:center}
+        .promo{background:linear-gradient(120deg,#111,#000);border-radius:26px;padding:48px 40px;color:#fff;position:relative;overflow:hidden;display:grid;grid-template-columns:1.4fr .6fr;gap:30px;align-items:center}
         .promo::before{content:"";position:absolute;left:-60px;bottom:-80px;width:300px;height:300px;background:radial-gradient(circle,rgba(255,255,255,.14),transparent 70%)}
         .promo .pl{position:relative;z-index:1}
         .promo .ptag{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.18);padding:6px 14px;border-radius:999px;font:700 11px var(--fh);letter-spacing:.08em;text-transform:uppercase}
@@ -160,7 +161,7 @@
         .ptier{font:700 12px var(--fh);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
         .pname{font:700 22px var(--fh);margin:4px 0 14px}
         .price{display:flex;align-items:baseline;gap:6px;margin-bottom:6px}
-        .price .a{font:700 34px var(--fh);color:var(--green)}.price .per{color:var(--muted);font-size:13px}
+        .price .a{font:700 34px var(--fh);color:var(--ink)}.price .per{color:var(--muted);font-size:13px}
         .pnote{color:var(--muted);font-size:13px;margin-bottom:20px}
         .pfeat{list-style:none;display:flex;flex-direction:column;gap:11px;margin:20px 0 26px}
         .pfeat li{display:flex;gap:10px;font-size:14px;color:rgba(13,20,12,.82)}
@@ -228,6 +229,11 @@
         .wafab{position:fixed;right:18px;bottom:18px;z-index:60;width:56px;height:56px;border-radius:50%;background:var(--wa);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 10px 28px rgba(37,211,102,.45);animation:bob 3s ease-in-out infinite}
         @media(max-width:960px){.hero .in{grid-template-columns:1fr;gap:34px}.sgrid{grid-template-columns:repeat(2,1fr)}.mgrid{grid-template-columns:repeat(3,1fr)}.hgrid{grid-template-columns:1fr}.pgrid{grid-template-columns:1fr}.statsrow{grid-template-columns:1fr 1fr}.promo{grid-template-columns:1fr;text-align:center}.promo .ptag,.promo .btn{margin-left:auto;margin-right:auto}.fgrid{grid-template-columns:1fr 1fr}}
         @media(max-width:560px){.sgrid{grid-template-columns:1fr}.mgrid{grid-template-columns:1fr 1fr}.fgrid{grid-template-columns:1fr}.wabox{flex-direction:column;text-align:center}.wabox .wcta{width:100%}.wabox .wcta .btn{width:100%;justify-content:center}}
+        /* Tous les titres en Anton (display), noir — accents #2cb809 réservés aux boutons/détails */
+        h1,h2,h3,.pname,.slide h3,.feat-row h3,.promo .big,.st .n,.price .a,.brand b{
+            font-family:var(--ft)!important;font-weight:400!important;letter-spacing:.005em;
+        }
+        h1{line-height:1.02}
         @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}.reveal{opacity:1;transform:none}}
     </style>
 </head>
@@ -245,7 +251,7 @@
     <div>
         <span class="pill reveal in"><span class="dot"></span> NFC · QR · {{ __('Haïti') }}</span>
         <h1 class="reveal in d1">{{ __('Lancez votre business en ligne') }} <span class="grad">{{ __('aujourd\'hui') }}</span></h1>
-        <p class="sub reveal in d2">{{ __('Boutique WhatsApp, site web, menu, paiements, fidélité et caisse — réunis dans une seule plateforme NFC & QR. En créole, français, anglais et espagnol.') }}</p>
+        <p class="sub reveal in d2">{{ __('Gérez vos paiements, créez des boutiques WhatsApp, partagez des cartes de visite NFC, organisez des événements, connectez-vous avec vos clients et développez votre business avec TAGTOA.') }}</p>
         <div class="cta reveal in d2">
             <a class="btn btn-wa btn-lg" href="{{ $store }}"><i class="fa-brands fa-whatsapp"></i> {{ __('Créer ma boutique gratuite') }}</a>
             <a class="btn btn-o btn-lg" href="{{ url('/menu/demo-menu') }}"><i class="fa-solid fa-play"></i> {{ __('Voir la démo') }}</a>
