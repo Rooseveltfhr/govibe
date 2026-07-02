@@ -23,7 +23,7 @@
         <input name="products[IDX][name]" class="inp" placeholder="{{ __('Nom') }}" style="max-width:170px">
         <input name="products[IDX][price]" type="number" step="0.01" class="inp" placeholder="{{ __('Prix') }}" style="max-width:100px">
         <input name="products[IDX][stock]" type="number" class="inp" placeholder="{{ __('Stock') }}" style="max-width:90px">
-        <input name="products[IDX][color]" type="color" value="#16A34A" style="width:42px;height:42px;border:1px solid var(--bd);border-radius:8px">
+        <input name="products[IDX][color]" type="color" value="#2cb809" style="width:42px;height:42px;border:1px solid var(--bd);border-radius:8px">
         <label class="switch" style="flex:0"><input type="checkbox" name="products[IDX][is_active]" value="1" checked></label>
         <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.prow').remove()"><i class="fa-solid fa-trash"></i></button>
     </div>
@@ -32,7 +32,7 @@
 <script>
 var pIdx=0;
 function addP(d){var h=document.getElementById('ptpl').innerHTML.replace(/IDX/g,pIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('plist').appendChild(r);
-    if(d){r.querySelector('[name$="[emoji]"]').value=d.emoji||'';r.querySelector('[name$="[name]"]').value=d.name||'';r.querySelector('[name$="[price]"]').value=d.price||'';r.querySelector('[name$="[stock]"]').value=d.stock==null?'':d.stock;r.querySelector('[name$="[color]"]').value=d.color||'#16A34A';r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;var i=document.createElement('input');i.type='hidden';i.name='products['+pIdx+'][id]';i.value=d.id;r.appendChild(i);}
+    if(d){r.querySelector('[name$="[emoji]"]').value=d.emoji||'';r.querySelector('[name$="[name]"]').value=d.name||'';r.querySelector('[name$="[price]"]').value=d.price||'';r.querySelector('[name$="[stock]"]').value=d.stock==null?'':d.stock;r.querySelector('[name$="[color]"]').value=d.color||'#2cb809';r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;var i=document.createElement('input');i.type='hidden';i.name='products['+pIdx+'][id]';i.value=d.id;r.appendChild(i);}
     pIdx++;}
 var ex=@json($terminal->products->map(fn($p)=>['id'=>$p->id,'emoji'=>$p->emoji,'name'=>$p->name,'price'=>$p->price,'stock'=>$p->stock,'color'=>$p->color,'is_active'=>$p->is_active]));
 if(ex.length){ex.forEach(addP);}else{addP();}

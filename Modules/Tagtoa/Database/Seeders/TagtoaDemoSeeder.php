@@ -115,7 +115,7 @@ class TagtoaDemoSeeder extends Seeder
                 'tagline' => 'Cuisine créole • Cocktails • Ambiance lounge',
                 'description' => 'Scannez, commandez, payez. Le menu digital TAGTOA.',
                 'currency' => 'HTG', 'whatsapp' => '+509 3000 0000',
-                'pay_page_id' => $pay->id, 'accent_color' => '#16A34A', 'theme' => 'dark',
+                'pay_page_id' => $pay->id, 'accent_color' => '#2cb809', 'theme' => 'dark',
                 'show_prices' => true, 'ordering_enabled' => true, 'is_active' => true,
             ]
         );
@@ -177,7 +177,7 @@ class TagtoaDemoSeeder extends Seeder
                 'name' => 'TAGTOA Lounge', 'tagline' => 'Restaurant • Lounge • Événements à Gonaïves',
                 'about' => "Bienvenue chez TAGTOA Lounge. Cuisine créole raffinée, cocktails signature et ambiance lounge. "
                     ."Réservez, commandez et payez en ligne — simplement.",
-                'theme' => 'dark', 'accent_color' => '#16A34A',
+                'theme' => 'dark', 'accent_color' => '#2cb809',
                 'phone' => '+509 3000 0000', 'whatsapp' => '+509 3000 0000',
                 'email' => 'bonjou@tagtoa.com', 'address' => 'Rue Egalité, Gonaïves, Haïti',
                 'services' => [
@@ -207,7 +207,7 @@ class TagtoaDemoSeeder extends Seeder
             [
                 'name' => 'TAGTOA Studio Demo', 'tagline' => 'Coiffure • Soins • Sur rendez-vous',
                 'about' => 'Réservez votre rendez-vous en ligne en quelques secondes.',
-                'theme' => 'light', 'accent_color' => '#16A34A',
+                'theme' => 'light', 'accent_color' => '#2cb809',
                 'phone' => '+509 3000 0000', 'whatsapp' => '+509 3000 0000',
                 'email' => 'studio@tagtoa.com', 'address' => 'Rue Egalité, Gonaïves, Haïti',
                 'currency' => 'HTG', 'pay_page_id' => $pay->id ?? null, 'is_active' => true,
@@ -255,7 +255,7 @@ class TagtoaDemoSeeder extends Seeder
         // 6) POS — caisse démo + produits
         $terminal = Terminal::firstOrCreate(['name' => 'Caisse Demo'], ['currency' => 'HTG', 'is_active' => true]);
         foreach ([
-            ['Café', 100, '☕', '#16A34A'],
+            ['Café', 100, '☕', '#2cb809'],
             ['Sandwich', 250, '🥪', '#1D9E75'],
             ['Jus', 150, '🧃', '#E08A1E'],
         ] as $i => [$name, $price, $emoji, $color]) {

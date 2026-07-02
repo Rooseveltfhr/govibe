@@ -1,7 +1,7 @@
 {{-- TAGTOA MENU — page publique (NFC/QR). Variables : $menu, $categories --}}
 @php
     $dark = $menu->theme === 'dark';
-    $accent = preg_match('/^#[0-9A-Fa-f]{3,8}$/', (string) $menu->accent_color) ? $menu->accent_color : '#16A34A';
+    $accent = preg_match('/^#[0-9A-Fa-f]{3,8}$/', (string) $menu->accent_color) ? $menu->accent_color : '#2cb809';
     $bg   = $dark ? '#0A0A0A' : '#F5F5F3';
     $fg   = $dark ? '#FFFFFF' : '#0A0A0A';
     $surf = $dark ? '#161616' : '#FFFFFF';

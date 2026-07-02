@@ -3,7 +3,7 @@
     $themes = [
         'dark'=>['bg'=>'#0A0A0A','fg'=>'#fff','card'=>'rgba(255,255,255,.08)','cfg'=>'#fff','mut'=>'rgba(255,255,255,.6)'],
         'light'=>['bg'=>'#F5F5F3','fg'=>'#0A0A0A','card'=>'#fff','cfg'=>'#0A0A0A','mut'=>'#888'],
-        'blue'=>['bg'=>'linear-gradient(160deg,#15803D,#0A0A0A)','fg'=>'#fff','card'=>'rgba(255,255,255,.12)','cfg'=>'#fff','mut'=>'rgba(255,255,255,.7)'],
+        'blue'=>['bg'=>'linear-gradient(160deg,#239406,#0A0A0A)','fg'=>'#fff','card'=>'rgba(255,255,255,.12)','cfg'=>'#fff','mut'=>'rgba(255,255,255,.7)'],
     ];
     $t = $themes[$page->theme] ?? $themes['dark'];
     $social = ['facebook','instagram','tiktok','youtube','twitter','linkedin','telegram','whatsapp','snapchat','twitch','pinterest','discord','spotify'];
@@ -18,7 +18,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root{--blue:#16A34A;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif;--bg:{{ $t['bg'] }};--fg:{{ $t['fg'] }};--card:{{ $t['card'] }};--cfg:{{ $t['cfg'] }};--mut:{{ $t['mut'] }}}
+        :root{--blue:#2cb809;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif;--bg:{{ $t['bg'] }};--fg:{{ $t['fg'] }};--card:{{ $t['card'] }};--cfg:{{ $t['cfg'] }};--mut:{{ $t['mut'] }}}
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:var(--fb);background:var(--bg);color:var(--fg);min-height:100vh}
         .wrap{max-width:480px;margin:0 auto;padding:40px 20px 60px;min-height:100vh}
@@ -28,7 +28,7 @@
         .bio{text-align:center;color:var(--mut);font-size:14.5px;margin:8px auto 0;max-width:340px}
         .links{margin-top:28px;display:flex;flex-direction:column;gap:12px}
         .lnk{display:flex;align-items:center;gap:14px;background:var(--card);color:var(--cfg);border:1px solid rgba(128,128,128,.12);border-radius:15px;padding:15px 18px;font:600 15px var(--fh);transition:transform .2s,box-shadow .2s}
-        .lnk:active{transform:scale(.98)}.lnk:hover{box-shadow:0 6px 22px rgba(22,163,74,.18)}
+        .lnk:active{transform:scale(.98)}.lnk:hover{box-shadow:0 6px 22px rgba(44,184,9,.18)}
         .lnk i{font-size:20px;width:24px;text-align:center;color:var(--blue)}
         .lnk.feat{background:var(--blue);color:#fff;border-color:transparent}.lnk.feat i{color:#fff}
         .lnk .chev{margin-left:auto;opacity:.4;font-size:13px}

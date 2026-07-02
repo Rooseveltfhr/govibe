@@ -6,10 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $event->title }} — {{ __('Terminal') }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root{--green:#2cb809;--ink:#0d140c;--bg:#f5f9f2;--surf:#fff;--bd:rgba(13,20,12,.10);--mut:#5d6b5a;--red:#E0473E;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        .top h1,.bal .amt,.done h2{font-family:'Anton',sans-serif!important;font-weight:400!important;letter-spacing:.01em}
         *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
         body{font-family:var(--fb);background:var(--bg);color:var(--ink);min-height:100vh}
         .top{background:var(--ink);color:#fff;padding:12px 18px;display:flex;align-items:center;gap:10px}

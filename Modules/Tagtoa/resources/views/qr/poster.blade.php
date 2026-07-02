@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Nunito:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root{--green:#16A34A;--ink:#0A0A0A;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        :root{--green:#2cb809;--ink:#0A0A0A;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:var(--fb);background:#eef0ee;color:var(--ink);display:flex;flex-direction:column;align-items:center;padding:24px}
         .bar{display:flex;gap:10px;margin-bottom:18px}

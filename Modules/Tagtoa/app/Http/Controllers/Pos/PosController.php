@@ -124,7 +124,7 @@ class PosController extends Controller
                 'name'      => $row['name'],
                 'price'     => (float) ($row['price'] ?? 0),
                 'emoji'     => $row['emoji'] ?? null,
-                'color'     => $row['color'] ?? '#16A34A',
+                'color'     => $row['color'] ?? '#2cb809',
                 'stock'     => ($row['stock'] ?? '') === '' ? null : (int) $row['stock'],
                 'is_active' => ! empty($row['is_active']),
                 'sort'      => (int) ($row['sort'] ?? $i),
@@ -154,7 +154,7 @@ class PosController extends Controller
             'display'          => 'standalone',
             'orientation'      => 'portrait-primary',
             'background_color' => '#0A0A0A',
-            'theme_color'      => '#16A34A',
+            'theme_color'      => '#2cb809',
             'lang'             => app()->getLocale(),
             'icons'            => [
                 ['src' => route('tagtoa.pos.icon'), 'sizes' => 'any', 'type' => 'image/svg+xml', 'purpose' => 'any maskable'],
@@ -166,7 +166,7 @@ class PosController extends Controller
     public function icon()
     {
         $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">'
-            .'<rect width="512" height="512" rx="96" fill="#16A34A"/>'
+            .'<rect width="512" height="512" rx="96" fill="#2cb809"/>'
             .'<path d="M300 96 154 288h86l-28 128 160-208h-92z" fill="#fff"/>'
             .'</svg>';
 

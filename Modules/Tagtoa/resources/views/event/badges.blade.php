@@ -6,9 +6,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ __('Badges') }} — {{ $event->title }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root{--green:#2cb809;--ink:#111;--bd:rgba(0,0,0,.14);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        .bar h1,.badge .nm{font-family:'Anton',sans-serif!important;font-weight:400!important;letter-spacing:.01em}
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:var(--fb);color:var(--ink);background:#f4f4f5;padding:16px}
         .bar{max-width:900px;margin:0 auto 14px;display:flex;gap:10px;align-items:center}

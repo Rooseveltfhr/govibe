@@ -39,7 +39,7 @@
 <div class="grid g3">
     @foreach($plans as $key=>$p)
         @php $isCur = $key === $current; @endphp
-        <div class="card" style="{{ $key==='pro' ? 'border-color:var(--blue);box-shadow:0 6px 22px rgba(22,163,74,.12)' : '' }}">
+        <div class="card" style="{{ $key==='pro' ? 'border-color:var(--blue);box-shadow:0 6px 22px rgba(44,184,9,.12)' : '' }}">
             <div style="display:flex;justify-content:space-between;align-items:center">
                 <b style="font-family:var(--fh);font-size:18px">{{ $p['label'] ?? ucfirst($key) }}</b>
                 @if($key==='pro')<span class="pill a">{{ __('Populaire') }}</span>@endif

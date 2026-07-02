@@ -37,7 +37,7 @@ class DashboardController extends Controller
     public function create(): View
     {
         return view('tagtoa::booking.form', [
-            'page'     => new BookingPage(['theme' => 'light', 'accent_color' => '#16A34A', 'currency' => Locale::currencyFor()]),
+            'page'     => new BookingPage(['theme' => 'light', 'accent_color' => '#2cb809', 'currency' => Locale::currencyFor()]),
             'vcards'   => $this->vcards(),
             'payPages' => $this->payPages(),
         ]);

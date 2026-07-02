@@ -7,10 +7,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root{--blk:#0A0A0A;--blue:#16A34A;--bg:#F5F5F3;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        :root{--blk:#0A0A0A;--blue:#2cb809;--bg:#F5F5F3;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--fb);background:var(--bg);color:var(--blk);line-height:1.5}
         .wrap{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);padding-bottom:90px}
-        .cover{height:200px;background:linear-gradient(135deg,#0A0A0A,#15803D);position:relative;overflow:hidden}.cover img{width:100%;height:100%;object-fit:cover}
+        .cover{height:200px;background:linear-gradient(135deg,#0A0A0A,#239406);position:relative;overflow:hidden}.cover img{width:100%;height:100%;object-fit:cover}
         .tb{position:absolute;top:14px;left:14px;background:var(--blue);color:#fff;font:600 11px var(--fh);letter-spacing:.1em;text-transform:uppercase;padding:5px 11px;border-radius:999px}
         .body{padding:20px 18px}h1{font:700 23px var(--fh)}
         .meta{display:flex;flex-direction:column;gap:8px;margin:14px 0;color:#555;font-size:14px}.meta i{color:var(--blue);width:18px}

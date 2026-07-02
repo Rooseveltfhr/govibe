@@ -7,7 +7,7 @@
     <title>{{ $terminal->name }} — TAGTOA POS</title>
     {{-- PWA : installable + hors ligne --}}
     <link rel="manifest" href="{{ route('tagtoa.pos.manifest',$terminal->id) }}">
-    <meta name="theme-color" content="#16A34A">
+    <meta name="theme-color" content="#2cb809">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -15,7 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root{--blk:#0A0A0A;--blue:#16A34A;--green:#1D9E75;--red:#E0473E;--bg:#F5F5F3;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        :root{--blk:#0A0A0A;--blue:#2cb809;--green:#1D9E75;--red:#E0473E;--bg:#F5F5F3;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
         body{font-family:var(--fb);background:var(--bg);color:var(--blk);height:100vh;overflow:hidden}
         .app{display:grid;grid-template-columns:1fr 320px;height:100vh}
@@ -29,7 +29,7 @@
         .pay{display:block;width:100%;background:var(--green);color:#fff;border:0;border-radius:14px;padding:15px;font:600 16px var(--fh);cursor:pointer;margin-top:8px}.pay:disabled{background:#bcd;cursor:not-allowed}
         .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;z-index:50}.modal.show{display:flex}
         .sheet{background:#fff;width:100%;max-width:480px;margin:0 auto;border-radius:22px 22px 0 0;padding:18px;max-height:88vh;overflow-y:auto}.sheet h3{font-family:var(--fh);margin-bottom:6px}
-        .methods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.m{border:1.5px solid var(--bd);border-radius:12px;padding:10px 6px;text-align:center;cursor:pointer;font-size:12px;background:#fff}.m.on{border-color:var(--blue);background:rgba(22,163,74,.08);color:var(--blue);font-weight:700}
+        .methods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.m{border:1.5px solid var(--bd);border-radius:12px;padding:10px 6px;text-align:center;cursor:pointer;font-size:12px;background:#fff}.m.on{border-color:var(--blue);background:rgba(44,184,9,.08);color:var(--blue);font-weight:700}
         .split{font-size:13px;color:#666;margin:8px 0}.split input{width:90px;padding:6px;border:1px solid var(--bd);border-radius:8px;text-align:right}
         .field{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius:10px;margin:6px 0;font:15px var(--fb)}
         .done{position:fixed;inset:0;background:var(--green);color:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:60;text-align:center;padding:20px}.done.show{display:flex}.done i{font-size:64px}.done h2{font:700 24px var(--fh);margin:12px 0 4px}.done .acts{display:flex;gap:10px;margin-top:20px}.done .acts a,.done .acts button{background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:12px;padding:12px 18px;font:600 14px var(--fh);text-decoration:none;cursor:pointer}

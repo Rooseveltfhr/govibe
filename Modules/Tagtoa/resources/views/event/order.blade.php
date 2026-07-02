@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root{--blk:#0A0A0A;--blue:#16A34A;--green:#1D9E75;--bg:#F5F5F3;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        :root{--blk:#0A0A0A;--blue:#2cb809;--green:#1D9E75;--bg:#F5F5F3;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--fb);background:var(--bg);color:var(--blk)}
         .wrap{max-width:480px;margin:0 auto;min-height:100vh;padding:24px 18px}
         .ok{text-align:center;padding:18px}.ok i{font-size:46px;color:var(--green)}.ok h1{font:700 22px var(--fh);margin-top:10px}.ok p{color:#666;font-size:14px;margin-top:4px}

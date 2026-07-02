@@ -9,16 +9,18 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title','TAGTOA') · TAGTOA</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root{
-            --blk:#0A0A0A;--white:#fff;--bg:#F5F5F3;--surface:#fff;--blue:#16A34A;--blue-deep:#15803D;
-            --blue-pale:rgba(22,163,74,.08);--green:#1D9E75;--red:#E0473E;--amber:#E08A1E;
+            --blk:#0A0A0A;--white:#fff;--bg:#F5F5F3;--surface:#fff;--blue:#2cb809;--blue-deep:#239406;
+            --blue-pale:rgba(44,184,9,.08);--green:#1D9E75;--red:#E0473E;--amber:#E08A1E;
             --bd:rgba(0,0,0,.08);--muted:#8a8a8a;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif;
-            --sb:248px;
+            --ft:'Anton',sans-serif;--sb:248px;
         }
         *{box-sizing:border-box;margin:0;padding:0}
+        /* Titres en Anton (display) */
+        .brand b,.top h1,.h-row h2,.stat .v,.card>h2,h1.pg{font-family:var(--ft)!important;font-weight:400!important;letter-spacing:.01em}
         body{font-family:var(--fb);background:var(--bg);color:var(--blk);line-height:1.55;-webkit-font-smoothing:antialiased}
         a{color:inherit;text-decoration:none}
         /* Sidebar */

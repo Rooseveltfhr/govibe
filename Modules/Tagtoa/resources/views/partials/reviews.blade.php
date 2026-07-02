@@ -1,7 +1,7 @@
 {{-- TAGTOA REVIEWS — section publique réutilisable.
      Variables attendues : $subjectType, $subjectId, $subjectAlias (nullable),
      $reviews (collection d'avis approuvés), $summary (count/average/distribution).
-     Utilise les variables CSS de la page hôte avec repli (var(--acc,#16A34A)…). --}}
+     Utilise les variables CSS de la page hôte avec repli (var(--acc,#2cb809)…). --}}
 @php
     $rvAvg = $summary['average'] ?? 0;
     $rvCount = $summary['count'] ?? 0;
@@ -9,25 +9,25 @@
 <section class="sec tg-reviews" id="reviews" style="padding:22px 16px 4px">
     <style>
         .tg-reviews .rv-head{display:flex;align-items:center;gap:14px;margin-bottom:14px}
-        .tg-reviews .rv-avg{font:700 30px var(--fh,sans-serif);color:var(--acc,#16A34A);line-height:1}
-        .tg-reviews .rv-stars i{color:var(--acc,#16A34A);font-size:14px}
+        .tg-reviews .rv-avg{font:700 30px var(--fh,sans-serif);color:var(--acc,#2cb809);line-height:1}
+        .tg-reviews .rv-stars i{color:var(--acc,#2cb809);font-size:14px}
         .tg-reviews .rv-stars i.off{color:var(--bd,#ddd)}
         .tg-reviews .rv-count{color:var(--mut,#888);font-size:13px}
         .tg-reviews .rv-item{background:var(--surf,#fff);border:1.5px solid var(--bd,rgba(0,0,0,.08));border-radius:14px;padding:14px;margin-bottom:10px}
         .tg-reviews .rv-item .nm{font:700 14.5px var(--fh,sans-serif)}
         .tg-reviews .rv-item .cm{color:var(--mut,#888);font-size:14px;margin-top:6px;white-space:pre-line}
-        .tg-reviews .rv-reply{margin-top:10px;padding:10px 12px;border-left:3px solid var(--acc,#16A34A);background:rgba(0,0,0,.03);border-radius:8px;font-size:13.5px}
+        .tg-reviews .rv-reply{margin-top:10px;padding:10px 12px;border-left:3px solid var(--acc,#2cb809);background:rgba(0,0,0,.03);border-radius:8px;font-size:13.5px}
         .tg-reviews .rv-reply b{font-family:var(--fh,sans-serif)}
         .tg-reviews .rate{display:flex;flex-direction:row-reverse;justify-content:flex-end;gap:4px;margin:6px 0 10px}
         .tg-reviews .rate input{display:none}
         .tg-reviews .rate label{font-size:30px;color:var(--bd,#ddd);cursor:pointer;transition:color .12s}
         .tg-reviews .rate label:hover,.tg-reviews .rate label:hover ~ label,
-        .tg-reviews .rate input:checked ~ label{color:var(--acc,#16A34A)}
+        .tg-reviews .rate input:checked ~ label{color:var(--acc,#2cb809)}
         .tg-reviews .rv-cin{width:100%;padding:12px 14px;border:1.5px solid var(--bd,rgba(0,0,0,.08));border-radius:12px;font:15px var(--fb,sans-serif);background:var(--surf,#fff);color:var(--fg,#0a0a0a);margin-bottom:10px}
-        .tg-reviews .rv-cin:focus{outline:0;border-color:var(--acc,#16A34A)}
-        .tg-reviews .rv-btn{width:100%;border:0;background:var(--acc,#16A34A);color:#fff;border-radius:13px;padding:14px;font:700 15px var(--fh,sans-serif);cursor:pointer}
+        .tg-reviews .rv-cin:focus{outline:0;border-color:var(--acc,#2cb809)}
+        .tg-reviews .rv-btn{width:100%;border:0;background:var(--acc,#2cb809);color:#fff;border-radius:13px;padding:14px;font:700 15px var(--fh,sans-serif);cursor:pointer}
         .tg-reviews .rv-btn:disabled{opacity:.6}
-        .tg-reviews .rv-thanks{display:none;background:var(--surf,#fff);border:1.5px solid var(--acc,#16A34A);border-radius:13px;padding:16px;text-align:center;color:var(--fg,#0a0a0a)}
+        .tg-reviews .rv-thanks{display:none;background:var(--surf,#fff);border:1.5px solid var(--acc,#2cb809);border-radius:13px;padding:16px;text-align:center;color:var(--fg,#0a0a0a)}
     </style>
 
     <h2 style="font:700 18px var(--fh,sans-serif);margin-bottom:14px">{{ __('Avis clients') }}</h2>
@@ -73,7 +73,7 @@
         <textarea class="rv-cin" id="rvComment" rows="3" maxlength="1000" placeholder="{{ __('Votre commentaire (optionnel)') }}"></textarea>
         <button type="submit" class="rv-btn" id="rvBtn">{{ __('Envoyer mon avis') }}</button>
     </form>
-    <div class="rv-thanks" id="rvThanks"><i class="fa-solid fa-circle-check" style="color:var(--acc,#16A34A)"></i> {{ __('Merci ! Votre avis sera publié après validation.') }}</div>
+    <div class="rv-thanks" id="rvThanks"><i class="fa-solid fa-circle-check" style="color:var(--acc,#2cb809)"></i> {{ __('Merci ! Votre avis sera publié après validation.') }}</div>
 </section>
 
 <script>
