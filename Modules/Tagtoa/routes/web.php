@@ -132,6 +132,9 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/{id}/scan', [EventCheckin::class, 'scan'])->name('scan');
         Route::post('/{id}/scan-nfc', [EventCheckin::class, 'scanNfc'])->name('scan.nfc');
         Route::post('/{id}/sync', [EventCheckin::class, 'sync'])->name('sync');
+        Route::get('/{id}/checkin-report', [EventCheckin::class, 'report'])->name('checkin.report');
+        Route::get('/{id}/checkin-stats', [EventCheckin::class, 'stats'])->name('checkin.stats');
+        Route::get('/{id}/badges', [EventCheckin::class, 'badges'])->name('badges');
         // WALLET closed-loop (double-entry)
         Route::get('/{id}/wallet', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'index'])->name('wallet');
         Route::get('/{id}/wallet/terminal', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'terminal'])->name('wallet.terminal');
