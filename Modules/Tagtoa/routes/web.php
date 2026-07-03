@@ -30,7 +30,10 @@ use Modules\Tagtoa\App\Http\Controllers\Site\PublicController as SitePublic;
 
 // ---------- PUBLIC (NFC / QR, pas d'auth) ----------
 // Page d'accueil TAGTOA à la racine (remplace l'accueil par défaut).
-Route::get('/', [LandingController::class, 'index'])->name('tagtoa.landing');
+// La landing TAGTOA remplace l'accueil Biztap sur `/`. On CONSERVE le nom `home`
+// (un seul route sur `/`) pour ne pas casser les `route('home')` du back-office
+// Biztap (ex. page de login qui plantait avec « Route [home] not defined »).
+Route::get('/', [LandingController::class, 'index'])->name('home');
 Route::get('/pay/{alias}', [PayPublic::class, 'show'])->name('tagtoa.pay.show');
 Route::post('/pay/{alias}/submit-proof', [PayPublic::class, 'submitProof'])->name('tagtoa.pay.submit-proof');
 Route::get('/pay/{alias}/checkout/{method}', [PayPublic::class, 'checkout'])->name('tagtoa.pay.checkout');
