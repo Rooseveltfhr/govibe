@@ -56,7 +56,12 @@ var ttIdx=0;
 function addTT(d){var h=document.getElementById('tttpl').innerHTML.replace(/IDX/g,ttIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('ttlist').appendChild(r);
     if(d){r.querySelector('[name$="[name]"]').value=d.name||'';r.querySelector('[name$="[price]"]').value=d.price||'';r.querySelector('[name$="[quantity]"]').value=d.quantity==null?'':d.quantity;r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;var i=document.createElement('input');i.type='hidden';i.name='ticket_types['+ttIdx+'][id]';i.value=d.id;r.appendChild(i);}
     ttIdx++;}
-var ex=@json($event->relationLoaded('ticketTypes') ? $event->ticketTypes->map(fn($t)=>['id'=>$t->id,'name'=>$t->name,'price'=>$t->price,'quantity'=>$t->quantity,'is_active'=>$t->is_active]) : []);
+@php
+    $ttData = $event->relationLoaded('ticketTypes')
+        ? $event->ticketTypes->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'price' => $t->price, 'quantity' => $t->quantity, 'is_active' => $t->is_active])->values()
+        : [];
+@endphp
+var ex=@json($ttData);
 if(ex.length){ex.forEach(addTT);}else{addTT();}
 </script>
 @endpush

@@ -94,9 +94,15 @@ function addSvc(d){
     return row;
 }
 
-var existing = @json($page->relationLoaded('services') ? $page->services->map(fn($s)=>[
-    'id'=>$s->id,'name'=>$s->name,'duration_min'=>$s->duration_min,'price'=>$s->price,'description'=>$s->description,'is_active'=>$s->is_active,
-]) : []);
+@php
+    $svcData = $page->relationLoaded('services')
+        ? $page->services->map(fn ($s) => [
+            'id' => $s->id, 'name' => $s->name, 'duration_min' => $s->duration_min,
+            'price' => $s->price, 'description' => $s->description, 'is_active' => $s->is_active,
+        ])->values()
+        : [];
+@endphp
+var existing = @json($svcData);
 
 if (existing.length){ existing.forEach(addSvc); }
 else { addSvc(); }
