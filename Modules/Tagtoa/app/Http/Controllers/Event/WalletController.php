@@ -54,11 +54,10 @@ class WalletController extends Controller
         ));
     }
 
-    /** Encode une carte NFC : billet (entrée) + wallet + recharge initiale optionnelle. */
-    public function encode(Request $request, int $id): RedirectResponse
+    /** Règles de validation d'un encodage de carte. */
+    protected function encodeRules(): array
     {
-        $event = $this->own($id);
-        $data = $request->validate([
+        return [
             'uid'            => ['required', 'string', 'max:120'],
             'name'           => ['required', 'string', 'max:120'],
             'phone'          => ['nullable', 'string', 'max:40'],
@@ -66,8 +65,12 @@ class WalletController extends Controller
             'ticket_type_id' => ['nullable', 'integer'],
             'amount'         => ['nullable', 'numeric', 'min:0'],
             'kind'           => ['nullable', Rule::in(\Modules\Tagtoa\App\Models\Event\NfcTag::KINDS)],
-        ]);
+        ];
+    }
 
+    /** Coeur d'encodage : billet + tag + wallet + recharge initiale. Retourne [ticket, tag]. */
+    protected function doEncode(Event $event, array $data): array
+    {
         if (! empty($data['ticket_type_id'])) {
             $ok = \Modules\Tagtoa\App\Models\Event\TicketType::where('event_id', $event->id)
                 ->whereKey($data['ticket_type_id'])->exists();
@@ -86,7 +89,42 @@ class WalletController extends Controller
             ]);
         }
 
+        return $res;
+    }
+
+    /** Encode une carte NFC : billet (entrée) + wallet + recharge initiale optionnelle. */
+    public function encode(Request $request, int $id): RedirectResponse
+    {
+        $event = $this->own($id);
+        $res = $this->doEncode($event, $request->validate($this->encodeRules()));
+
         return back()->with('success', __('Carte encodée.').' '.__('Billet').' : '.$res['ticket']->code);
+    }
+
+    /** Page d'encodage en masse (tap successif rapide). */
+    public function massEncode(int $id): View
+    {
+        $event = $this->own($id);
+        $ticketTypes = $event->ticketTypes()->get();
+
+        return view('tagtoa::event.wallet-mass-encode', compact('event', 'ticketTypes'));
+    }
+
+    /** Encodage via AJAX (retour JSON) pour la boucle d'encodage en masse. */
+    public function encodeJson(Request $request, int $id): JsonResponse
+    {
+        $event = $this->own($id);
+        try {
+            $res = $this->doEncode($event, $request->validate($this->encodeRules()));
+        } catch (\Throwable $e) {
+            return response()->json(['ok' => false, 'message' => __('Réessayez.')], 422);
+        }
+
+        return response()->json([
+            'ok'     => true,
+            'name'   => $res['ticket']->holder_name,
+            'code'   => $res['ticket']->code,
+        ]);
     }
 
     /** Réglages wallet de l'event (e-mail de notification organisateur). */

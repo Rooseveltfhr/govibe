@@ -56,7 +56,9 @@
 
 {{-- Encoder une carte participant (billet d'entrée + wallet) --}}
 <div class="card" style="margin-top:16px">
-    <div class="h-row"><h2>{{ __('Encoder une carte (entrée + wallet)') }}</h2></div>
+    <div class="h-row"><h2>{{ __('Encoder une carte (entrée + wallet)') }}</h2>
+        <a href="{{ route('tagtoa.event.dashboard.wallet.mass-encode',$event->id) }}" target="_blank" class="btn btn-d btn-sm" style="flex:0"><i class="fa-solid fa-layer-group"></i> {{ __('Encodage en masse') }}</a>
+    </div>
     <p style="color:var(--muted);font-size:13px;margin-top:-8px">{{ __('Point de vente : tapez une carte vierge, saisissez le participant et son billet. La carte servira à l\'entrée (check-in) ET au paiement.') }}</p>
     <form method="POST" action="{{ route('tagtoa.event.dashboard.wallet.encode',$event->id) }}">@csrf
         <div class="row">
