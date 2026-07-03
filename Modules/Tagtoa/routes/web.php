@@ -145,6 +145,8 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/{id}/wallet/vendor', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'addVendor'])->name('wallet.vendor');
         Route::post('/{id}/wallet/tag', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'issueTag'])->name('wallet.tag');
         Route::post('/{id}/wallet/encode', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'encode'])->name('wallet.encode');
+        Route::get('/{id}/wallet/mass-encode', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'massEncode'])->name('wallet.mass-encode');
+        Route::post('/{id}/wallet/encode-json', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'encodeJson'])->name('wallet.encode-json');
         Route::post('/{id}/wallet/settings', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'settings'])->name('wallet.settings');
         Route::post('/{id}/wallet/topup', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'topUp'])->name('wallet.topup');
         Route::post('/{id}/wallet/payout', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'payout'])->name('wallet.payout');
