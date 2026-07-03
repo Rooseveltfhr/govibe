@@ -45,7 +45,12 @@ var lIdx=0;
 function addL(d){var h=document.getElementById('ltpl').innerHTML.replace(/IDX/g,lIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('llist').appendChild(r);
     if(d){r.querySelector('[name$="[label]"]').value=d.label||'';r.querySelector('[name$="[url]"]').value=d.url||'';r.querySelector('[name$="[is_featured]"]').checked=!!d.is_featured;var i=document.createElement('input');i.type='hidden';i.name='links['+lIdx+'][id]';i.value=d.id;r.appendChild(i);}
     lIdx++;}
-var ex=@json($page->relationLoaded('links') ? $page->links->map(fn($l)=>['id'=>$l->id,'label'=>$l->label,'url'=>$l->url,'is_featured'=>$l->is_featured]) : []);
+@php
+    $linkData = $page->relationLoaded('links')
+        ? $page->links->map(fn ($l) => ['id' => $l->id, 'label' => $l->label, 'url' => $l->url, 'is_featured' => $l->is_featured])->values()
+        : [];
+@endphp
+var ex=@json($linkData);
 if(ex.length){ex.forEach(addL);}else{addL();}
 </script>
 @endpush

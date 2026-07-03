@@ -34,7 +34,10 @@ var pIdx=0;
 function addP(d){var h=document.getElementById('ptpl').innerHTML.replace(/IDX/g,pIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('plist').appendChild(r);
     if(d){r.querySelector('[name$="[emoji]"]').value=d.emoji||'';r.querySelector('[name$="[name]"]').value=d.name||'';r.querySelector('[name$="[price]"]').value=d.price||'';r.querySelector('[name$="[stock]"]').value=d.stock==null?'':d.stock;r.querySelector('[name$="[color]"]').value=d.color||'#2cb809';r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;var i=document.createElement('input');i.type='hidden';i.name='products['+pIdx+'][id]';i.value=d.id;r.appendChild(i);}
     pIdx++;}
-var ex=@json($terminal->products->map(fn($p)=>['id'=>$p->id,'emoji'=>$p->emoji,'name'=>$p->name,'price'=>$p->price,'stock'=>$p->stock,'color'=>$p->color,'is_active'=>$p->is_active]));
+@php
+    $productData = $terminal->products->map(fn ($p) => ['id' => $p->id, 'emoji' => $p->emoji, 'name' => $p->name, 'price' => $p->price, 'stock' => $p->stock, 'color' => $p->color, 'is_active' => $p->is_active])->values();
+@endphp
+var ex=@json($productData);
 if(ex.length){ex.forEach(addP);}else{addP();}
 </script>
 @endpush

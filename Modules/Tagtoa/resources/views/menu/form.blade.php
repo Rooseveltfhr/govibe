@@ -133,10 +133,15 @@ function addCat(d){
     return block;
 }
 
-var existing = @json($menu->relationLoaded('categories') ? $menu->categories->map(fn($c)=>[
-    'id'=>$c->id,'name'=>$c->name,'icon'=>$c->icon,
-    'items'=>$c->items->map(fn($i)=>['id'=>$i->id,'name'=>$i->name,'emoji'=>$i->emoji,'price'=>$i->price,'description'=>$i->description,'badge'=>$i->badge,'is_available'=>$i->is_available,'is_featured'=>$i->is_featured,'stock'=>$i->stock]),
-]) : []);
+@php
+    $catData = $menu->relationLoaded('categories')
+        ? $menu->categories->map(fn ($c) => [
+            'id' => $c->id, 'name' => $c->name, 'icon' => $c->icon,
+            'items' => $c->items->map(fn ($i) => ['id' => $i->id, 'name' => $i->name, 'emoji' => $i->emoji, 'price' => $i->price, 'description' => $i->description, 'badge' => $i->badge, 'is_available' => $i->is_available, 'is_featured' => $i->is_featured, 'stock' => $i->stock])->values(),
+        ])->values()
+        : [];
+@endphp
+var existing = @json($catData);
 
 if (existing.length){ existing.forEach(addCat); }
 else { var c = addCat(); addItem(c); }

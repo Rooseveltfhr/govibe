@@ -54,7 +54,12 @@ var mIdx=0;
 function addM(d){var h=document.getElementById('mtpl').innerHTML.replace(/IDX/g,mIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('mlist').appendChild(r);
     if(d){r.querySelector('[name$="[type]"]').value=d.type;r.querySelector('[name$="[label]"]').value=d.label||'';r.querySelector('[name$="[account_holder]"]').value=d.account_holder||'';r.querySelector('[name$="[institution]"]').value=d.institution||'';r.querySelector('[name$="[account_number]"]').value=d.account_number||'';r.querySelector('[name$="[instructions]"]').value=d.instructions||'';r.querySelector('[name$="[requires_proof]"]').checked=!!d.requires_proof;r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;var i=document.createElement('input');i.type='hidden';i.name='methods['+mIdx+'][id]';i.value=d.id;r.appendChild(i);}
     mIdx++;}
-var ex=@json($page->relationLoaded('methods') ? $page->methods->map(fn($m)=>['id'=>$m->id,'type'=>$m->type,'label'=>$m->label,'account_holder'=>$m->account_holder,'institution'=>$m->institution,'account_number'=>$m->account_number,'instructions'=>$m->instructions,'requires_proof'=>$m->requires_proof,'is_active'=>$m->is_active]) : []);
+@php
+    $methodData = $page->relationLoaded('methods')
+        ? $page->methods->map(fn ($m) => ['id' => $m->id, 'type' => $m->type, 'label' => $m->label, 'account_holder' => $m->account_holder, 'institution' => $m->institution, 'account_number' => $m->account_number, 'instructions' => $m->instructions, 'requires_proof' => $m->requires_proof, 'is_active' => $m->is_active])->values()
+        : [];
+@endphp
+var ex=@json($methodData);
 if(ex.length){ex.forEach(addM);}else{addM();}
 </script>
 @endpush
