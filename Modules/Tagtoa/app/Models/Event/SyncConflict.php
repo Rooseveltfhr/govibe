@@ -6,15 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * TAGTOA Event — enregistrement de check-in / check-out.
+ * TAGTOA EVENT — conflit de synchronisation offline (ex. double check-in).
  */
-class Checkin extends Model
+class SyncConflict extends Model
 {
-    protected $table = 'tagtoa_ev_checkins';
+    protected $table = 'tagtoa_ev_sync_conflicts';
 
-    protected $fillable = ['event_id', 'ticket_id', 'direction', 'method', 'gate', 'staff_id', 'client_uuid', 'scanned_at'];
+    protected $fillable = ['event_id', 'kind', 'client_uuid', 'ticket_id', 'staff_id', 'payload', 'resolved'];
 
-    protected $casts = ['scanned_at' => 'datetime'];
+    protected $casts = ['payload' => 'array', 'resolved' => 'boolean'];
 
     public function ticket(): BelongsTo
     {
