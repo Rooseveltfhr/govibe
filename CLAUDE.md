@@ -128,10 +128,28 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     + patisipan pa WhatsApp. Encodage kat: `EncodeParticipantCard` (billet+wallet+rechaj) sou
     dashboard wallet. Gid konplè: `docs/EVENT_NFC_GUIDE.md`.
   - ⏳ RES: top-up API reyèl (drivers PAY — bloke).
+- **EVENT STAFF + BIYÈT HYBRIDE** ✅ FÈT (PR #42/#44/#45, patèn « Festival Couleur » adapte multi-tenant):
+  - Tab: `tagtoa_ev_staff` (scoped event_id, wòl admin|vente|checkin, pin_hash bcrypt),
+    `tagtoa_ev_sync_conflicts`, `staff_id` sou checkins, `checkin_mode` (qr|nfc|both) sou events.
+  - Lojik pi teste: `StaffPinService` (PIN 4-6 chif, matris wòl→ekran), `SyncReconciler`
+    (dedoub client_uuid + doub antre). Nan `tests/bootstrap.php`.
+  - Òganizatè `/tagtoa/event/{id}/staff`: CRUD staff (limit pa fòfè: free=0/pro=10/ent=∞,
+    kle `staff` nan config plans), konfli sync, export CSV check-ins pa staff. Tout odite.
+  - Terminal teren `/event/staff/{alias}` (san login Laravel): PIN + rate-limit 8/min,
+    ekran pa wòl — check-in (kod/UID + Web NFC, **offline IndexedDB** + sync pa lo),
+    vant (WhatsApp obligatwa, kat NFC oswa e-biyè QR), retrè kat (lye biyè an liy → UID,
+    refize si kòmand pa peye), suivi admin. Demo: Admin/1234, Vente/2222, Checkin/3333.
+  - Kòmand an liy: bouton « Encaisser » (`orders.paid`) → markPaid + komisyon + odit.
 
 ## 6. Deplwaman & URL
 - App sèvi nan `public/`: base = **https://tagtoa.com/tapbiz/public**
-- Login admin: `/tapbiz/public/login`
+- ⚠️ **RESTRUKTIRASYON VPS AN KOU** (jiyè 2026): itilizatè a deplase app la soti
+  `public_html/tapbiz/` → sib final: app nan `/home/admin/domains/tagtoa.com/laravel/`,
+  docroot = `public_html/` (kontni `public/`). **Deplwaman KASE** jiskaske secret GitHub
+  `VPS_APP_PATH` mete ajou (= `/home/admin/domains/tagtoa.com/laravel`) — rsync echwe
+  (`mkdir .../Modules/Tagtoa failed`). Tout merge depi #41 (fix crash Blade create/edit)
+  poko live. `.env` te ekspoze piblik: DB_PASSWORD dwe woule, APP_DEBUG=false obligatwa.
+- Login admin: `/tapbiz/public/login` (ap chanje apre restrukturasyon)
 - **Paj akèy piblik** (`LandingController` → `landing.blade.php`) sou wout rasin `/`
   (modil la override akèy Biztap la — wout anrejistre apre). Parèt sou `<base>/`.
   Pou l parèt sou **bare tagtoa.com**: pwente docroot domèn nan sou dosye `public/`
@@ -157,3 +175,7 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
 - `route:list` kase sou VPS akoz yon GooglePlayService Biztap (pa pwoblèm TAGTOA).
 - Tès Unit = `PHPUnit\Framework\TestCase` pi (san Laravel) → klas teste yo dwe
   tolerab (gade `Money`).
+- **PA JANM** mete `fn(...)=>[...]` (fonksyon flèch + tablo) andedan `@json(...)` oswa
+  lòt direktiv Blade — parser la kase (« Unclosed '[' ») e paj la crash an prod (PR #41).
+  Mete lojik la nan `@php ... @endphp` (san `use` — non konplè klas), pase yon varyab senp.
+  AVAN chak push vue: konpile ak vrè konpilatè Blade (illuminate/view) + `php -l` rezilta a.
