@@ -3,6 +3,22 @@
    Palette : Noir · Blanc · Or   |   Display : Anton   |   Body : Inter
    ============================================================ */
 
+/* Polices auto-hébergées — aucun service externe requis */
+@font-face {
+  font-family: "Anton";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/anton-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../fonts/inter-var.woff2") format("woff2");
+}
+
 :root {
   --black: #0b0b0c;
   --ink: #121214;

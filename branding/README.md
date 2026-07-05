@@ -1,6 +1,7 @@
 # rooseveltforestal.com — Site de personal branding
 
 Site statique premium (Noir · Blanc · Or, titres **Anton**, corps **Inter**).
+Polices **auto-hébergées** dans `assets/fonts/` (aucune dépendance Google Fonts).
 Aucun build, aucune dépendance : HTML + CSS + JS vanilla. Prêt pour n'importe quel
 hébergement (DirectAdmin, cPanel, Netlify, GitHub Pages…).
 
