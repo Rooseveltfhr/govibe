@@ -87,6 +87,23 @@ $data = $this->validateEvent($request);
         return view('tagtoa::event.orders', compact('event', 'orders', 'analytics'));
     }
 
+    /** Encaisse une commande en attente (preuve manuelle validée hors-ligne). */
+    public function markOrderPaid(Request $request, int $id, int $orderId): RedirectResponse
+    {
+        $event = $this->own($id);
+        $order = $event->orders()->findOrFail($orderId);
+
+        if (! $order->isPaid()) {
+            app(\Modules\Tagtoa\App\Services\Event\TicketService::class)->markPaid($order, 'manual');
+            app(\Modules\Tagtoa\App\Services\Billing\RevenueService::class)
+                ->record('event_order', $order->id, 'event', (float) $order->total, $event->tenant_id, $order->currency);
+            app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)
+                ->log('event_order_paid', $order, $order->reference.' — '.$order->total.' '.$order->currency);
+        }
+
+        return back()->with('success', __('Commande encaissée.'));
+    }
+
     public function exportOrders(int $id): StreamedResponse
     {
         $event = $this->own($id);

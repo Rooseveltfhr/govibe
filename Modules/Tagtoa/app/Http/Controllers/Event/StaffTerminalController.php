@@ -220,6 +220,47 @@ class StaffTerminalController extends Controller
         return response()->json(['ok' => true, 'code' => $ticket->code, 'name' => $ticket->holder_name]);
     }
 
+    /* ---------------- Retrait carte NFC (billet acheté en ligne → UID) ---------------- */
+
+    public function pickup(Request $request, string $alias): JsonResponse
+    {
+        $event = $this->eventByAlias($alias);
+        $staff = $this->requireRole($event, 'pickup');
+        if ($staff instanceof JsonResponse) {
+            return $staff;
+        }
+
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:64'],
+            'uid'  => ['required', 'string', 'max:120'],
+        ]);
+
+        $ticket = Ticket::where('event_id', $event->id)->where('code', trim($data['code']))->first();
+        if (! $ticket || ! $ticket->isValid()) {
+            return response()->json(['ok' => false, 'message' => __('Billet introuvable.')], 200);
+        }
+        // Billet en ligne : payé seulement (une commande en attente ne donne pas accès).
+        if ($ticket->order_id) {
+            $order = \Modules\Tagtoa\App\Models\Event\Order::find($ticket->order_id);
+            if ($order && ! $order->isPaid()) {
+                return response()->json(['ok' => false, 'message' => __('Commande non payée.')], 200);
+            }
+        }
+
+        try {
+            app(\Modules\Tagtoa\App\Actions\Event\Wallet\IssueNfcTag::class)->handle($event, $data['uid'], [
+                'label'     => $ticket->holder_name,
+                'phone'     => $ticket->holder_phone,
+                'ticket_id' => $ticket->id,
+                'kind'      => 'card',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json(['ok' => false, 'message' => __('Réessayez.')], 422);
+        }
+
+        return response()->json(['ok' => true, 'code' => $ticket->code, 'name' => $ticket->holder_name]);
+    }
+
     /* ---------------- Helpers ---------------- */
 
     protected function eventByAlias(string $alias): Event

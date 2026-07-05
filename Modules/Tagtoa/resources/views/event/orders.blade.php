@@ -27,7 +27,13 @@
                 <tr><td><b>{{ $o->reference }}</b></td><td>{{ $o->buyer_name }}<div style="color:var(--muted);font-size:12px">{{ $o->buyer_phone }}</div></td>
                     <td>{{ number_format($o->total,2) }}</td><td>{{ $o->tickets_count }}</td>
                     <td><span class="pill {{ $o->status===1?'g':($o->status===0?'a':'n') }}">{{ [0=>__('En attente'),1=>__('Payé'),2=>__('Annulé')][$o->status] ?? '' }}</span></td>
-                    <td style="color:var(--muted)">{{ $o->created_at->format('d/m/y H:i') }}</td></tr>
+                    <td style="color:var(--muted)">{{ $o->created_at->format('d/m/y H:i') }}
+                        @if($o->status === 0)
+                        <form method="POST" action="{{ route('tagtoa.event.dashboard.orders.paid', [$event->id, $o->id]) }}" style="display:inline">@csrf
+                            <button class="btn btn-p btn-sm"><i class="fa-solid fa-check"></i> {{ __('Encaisser') }}</button>
+                        </form>
+                        @endif
+                    </td></tr>
             @endforeach
             </tbody>
         </table>
