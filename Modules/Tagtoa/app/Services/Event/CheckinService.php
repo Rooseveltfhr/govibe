@@ -32,7 +32,7 @@ class CheckinService
             : null;
     }
 
-    public function processScan(Event $event, string $code, string $direction = 'in', string $method = 'qr', ?string $gate = null, ?string $clientUuid = null): array
+    public function processScan(Event $event, string $code, string $direction = 'in', string $method = 'qr', ?string $gate = null, ?string $clientUuid = null, ?int $staffId = null): array
     {
         $ticket = Ticket::where('event_id', $event->id)->where('code', $code)->with('ticketType')->first();
 
@@ -50,7 +50,7 @@ class CheckinService
         }
 
         $entered = false;
-        $result = DB::transaction(function () use ($event, $ticket, $direction, $method, $gate, $clientUuid, &$entered) {
+        $result = DB::transaction(function () use ($event, $ticket, $direction, $method, $gate, $clientUuid, $staffId, &$entered) {
             if ($clientUuid && Checkin::where('ticket_id', $ticket->id)->where('client_uuid', $clientUuid)->exists()) {
                 return $this->r(true, 'green', 'success', __('Déjà synchronisé.'), $ticket);
             }
@@ -61,7 +61,8 @@ class CheckinService
 
             Checkin::create([
                 'event_id' => $event->id, 'ticket_id' => $ticket->id, 'direction' => $direction,
-                'method' => $method, 'gate' => $gate, 'client_uuid' => $clientUuid, 'scanned_at' => now(),
+                'method' => $method, 'gate' => $gate, 'staff_id' => $staffId,
+                'client_uuid' => $clientUuid, 'scanned_at' => now(),
             ]);
 
             $entered = ($direction === 'in');
