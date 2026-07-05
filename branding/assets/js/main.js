@@ -5,7 +5,7 @@
 
 /* ---- CONFIG : mettre à jour ici uniquement ---- */
 const RF = {
-  calendly: "https://calendly.com/rooseveltforestal", // ← remplacer par votre vrai lien Calendly
+  calendly: "https://calendly.com/rooseveltforestal", // lien officiel confirmé
   whatsapp: "https://wa.me/message/5FJZXWSPZRJHB1",
   facebook: "https://www.facebook.com/share/1ELxgXJDTx/",
   linkedin: "https://www.linkedin.com/in/roosevelt-forestal-530864145",

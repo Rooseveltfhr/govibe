@@ -30,7 +30,7 @@ Tout est dans `assets/js/main.js`, bloc `RF` en haut du fichier :
 
 ```js
 const RF = {
-  calendly: "https://calendly.com/rooseveltforestal", // ← REMPLACER par votre vrai lien Calendly
+  calendly: "https://calendly.com/rooseveltforestal", // ✅ lien officiel confirmé
   whatsapp: "https://wa.me/message/5FJZXWSPZRJHB1",
   facebook: "https://www.facebook.com/share/1ELxgXJDTx/",
   linkedin: "https://www.linkedin.com/in/roosevelt-forestal-530864145",
@@ -39,10 +39,9 @@ const RF = {
 ```
 
 **À faire avant la mise en ligne :**
-1. Remplacer `calendly` par votre lien Calendly réel (sinon le widget affichera une page vide).
-2. Vérifier l'adresse `email` (utilisée par le formulaire de contact).
-3. Ajuster les **statistiques** (`data-count` dans `index.html` et `about.html`) avec vos vrais chiffres.
-4. Remplacer les **témoignages** d'exemple (`index.html` + `media.html`) par de vrais témoignages
+1. Vérifier l'adresse `email` (utilisée par le formulaire de contact).
+2. Ajuster les **statistiques** (`data-count` dans `index.html` et `about.html`) avec vos vrais chiffres.
+3. Remplacer les **témoignages** d'exemple (`index.html` + `media.html`) par de vrais témoignages
    dès que vous les avez — les cartes actuelles sont des gabarits.
 
 ## 📸 Photos — noms de fichiers attendus
