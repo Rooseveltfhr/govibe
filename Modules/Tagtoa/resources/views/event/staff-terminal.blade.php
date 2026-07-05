@@ -119,6 +119,17 @@
                 <div class="okc" id="slOk"><h2>{{ __('Billet émis') }}</h2><div class="code" id="slCode"></div><div style="color:var(--mut);font-size:13px" id="slWho"></div></div>
                 <div class="flash" id="slErr" style="display:none;margin-top:12px"></div>
             </div>
+
+            {{-- Retrait : lier un billet acheté EN LIGNE à une carte NFC physique --}}
+            <div class="card">
+                <label style="margin-top:0">{{ __('Retrait carte (billet acheté en ligne)') }}</label>
+                <input class="inp" id="pkCode" autocomplete="off" placeholder="{{ __('Code billet (TCK…)') }}">
+                <label>{{ __('UID carte NFC') }}</label>
+                <input class="inp" id="pkUid" autocomplete="off" placeholder="04:A2:...">
+                <button class="btn btn-o" id="pkBtn" type="button"><i class="fa-solid fa-link"></i> {{ __('Lier la carte au billet') }}</button>
+                <div class="okc" id="pkOk"><h2>{{ __('Carte liée') }}</h2><div class="code" id="pkRes"></div></div>
+                <div class="flash" id="pkErr" style="display:none;margin-top:12px"></div>
+            </div>
         </div>
         @endif
 
@@ -141,6 +152,7 @@
     var URL_CK=@json(route('tagtoa.event.staff.checkin',$event->alias));
     var URL_SYNC=@json(route('tagtoa.event.staff.sync',$event->alias));
     var URL_SELL=@json(route('tagtoa.event.staff.sell',$event->alias));
+    var URL_PICK=@json(route('tagtoa.event.staff.pickup',$event->alias));
     var T={off:@json(__('Hors-ligne : enregistré, sera synchronisé.')),err:@json(__('Réessayez.')),read:@json(__('Approchez le tag…')),nfcNo:@json(__('NFC non supporté sur cet appareil — saisissez l\'UID.')),need:@json(__('Nom et WhatsApp requis.'))};
 
     function el(id){return document.getElementById(id);}
@@ -205,6 +217,17 @@
             if(!j.ok){errB.textContent=j.message||T.err;errB.style.display='block';return;}
             el('slCode').textContent=j.code;el('slWho').textContent=j.name;el('slOk').classList.add('show');
             el('slName').value='';el('slPhone').value='';el('slEmail').value='';el('slUid').value='';el('slName').focus();
+        }).catch(function(){btn.disabled=false;errB.textContent=T.err;errB.style.display='block';});
+    });
+    el('pkBtn').addEventListener('click',function(){
+        var code=el('pkCode').value.trim(),uid=el('pkUid').value.trim();
+        var errB=el('pkErr');errB.style.display='none';el('pkOk').classList.remove('show');
+        if(!code||!uid){errB.textContent=T.err;errB.style.display='block';return;}
+        var btn=el('pkBtn');btn.disabled=true;
+        post(URL_PICK,{code:code,uid:uid}).then(function(j){btn.disabled=false;
+            if(!j.ok){errB.textContent=j.message||T.err;errB.style.display='block';return;}
+            el('pkRes').textContent=j.code+' — '+(j.name||'');el('pkOk').classList.add('show');
+            el('pkCode').value='';el('pkUid').value='';
         }).catch(function(){btn.disabled=false;errB.textContent=T.err;errB.style.display='block';});
     });
     @endif

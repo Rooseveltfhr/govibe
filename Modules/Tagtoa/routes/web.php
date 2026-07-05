@@ -57,6 +57,7 @@ Route::prefix('event/staff/{alias}')->name('tagtoa.event.staff.')->group(functio
     Route::post('/checkin', [$staffTerminal, 'checkin'])->name('checkin');
     Route::post('/sync', [$staffTerminal, 'sync'])->name('sync');
     Route::post('/sell', [$staffTerminal, 'sell'])->name('sell');
+    Route::post('/pickup', [$staffTerminal, 'pickup'])->name('pickup');
 });
 Route::get('/book/{alias}', [BookingPublic::class, 'show'])->name('tagtoa.booking.show');
 Route::post('/book/{alias}/reserve', [BookingPublic::class, 'reserve'])->name('tagtoa.booking.reserve');
@@ -142,6 +143,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::put('/{id}', [EventDashboard::class, 'update'])->name('update');
         Route::get('/{id}/orders', [EventDashboard::class, 'orders'])->name('orders');
         Route::get('/{id}/orders/export', [EventDashboard::class, 'exportOrders'])->name('orders.export');
+        Route::post('/{id}/orders/{orderId}/paid', [EventDashboard::class, 'markOrderPaid'])->name('orders.paid');
         Route::get('/{id}/scanner', [EventCheckin::class, 'scanner'])->name('scanner');
         Route::post('/{id}/scan', [EventCheckin::class, 'scan'])->name('scan');
         Route::post('/{id}/scan-nfc', [EventCheckin::class, 'scanNfc'])->name('scan.nfc');
