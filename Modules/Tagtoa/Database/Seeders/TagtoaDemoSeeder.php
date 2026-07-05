@@ -120,6 +120,19 @@ class TagtoaDemoSeeder extends Seeder
             }
         }
 
+        // 4c) EVENT STAFF — comptes terrain démo (PIN : admin 1234, vente 2222, checkin 3333)
+        foreach ([
+            ['name' => 'Admin Demo',   'role' => 'admin',   'pin' => '1234'],
+            ['name' => 'Vente Demo',   'role' => 'vente',   'pin' => '2222'],
+            ['name' => 'Checkin Demo', 'role' => 'checkin', 'pin' => '3333'],
+        ] as $s) {
+            \Modules\Tagtoa\App\Models\Event\Staff::firstOrCreate(
+                ['event_id' => $event->id, 'name' => $s['name']],
+                ['role' => $s['role'], 'active' => true,
+                 'pin_hash' => \Modules\Tagtoa\App\Services\Event\StaffPinService::hashPin($s['pin'])]
+            );
+        }
+
         // 5) MENU — menu digital démo (lounge/restaurant) + catégories + produits
         $menu = Menu::firstOrCreate(
             ['alias' => 'demo-menu'],

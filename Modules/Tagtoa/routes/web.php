@@ -48,6 +48,16 @@ Route::post('/event/{alias}/buy', [EventPublic::class, 'buy'])->name('tagtoa.eve
 Route::get('/event/order/{reference}', [EventPublic::class, 'order'])->name('tagtoa.event.order');
 Route::get('/event/ticket/{code}', [EventPublic::class, 'ticket'])->name('tagtoa.event.ticket');
 Route::get('/event/wallet/receipt/{reference}', [EventPublic::class, 'walletReceipt'])->name('tagtoa.event.wallet.receipt');
+// Terminal STAFF terrain (auth par PIN scopée événement — pas de login Laravel).
+Route::prefix('event/staff/{alias}')->name('tagtoa.event.staff.')->group(function () {
+    $staffTerminal = \Modules\Tagtoa\App\Http\Controllers\Event\StaffTerminalController::class;
+    Route::get('/', [$staffTerminal, 'terminal'])->name('terminal');
+    Route::post('/login', [$staffTerminal, 'login'])->name('login');
+    Route::post('/logout', [$staffTerminal, 'logout'])->name('logout');
+    Route::post('/checkin', [$staffTerminal, 'checkin'])->name('checkin');
+    Route::post('/sync', [$staffTerminal, 'sync'])->name('sync');
+    Route::post('/sell', [$staffTerminal, 'sell'])->name('sell');
+});
 Route::get('/book/{alias}', [BookingPublic::class, 'show'])->name('tagtoa.booking.show');
 Route::post('/book/{alias}/reserve', [BookingPublic::class, 'reserve'])->name('tagtoa.booking.reserve');
 Route::post('/reviews', [\Modules\Tagtoa\App\Http\Controllers\Review\PublicController::class, 'store'])->name('tagtoa.reviews.store');
@@ -153,6 +163,13 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/{id}/wallet/resolve', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'resolve'])->name('wallet.resolve');
         Route::post('/{id}/wallet/charge', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'charge'])->name('wallet.charge');
         Route::get('/{id}/wallet/export', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'export'])->name('wallet.export');
+        // STAFF terrain (création/PIN par l'organisateur uniquement)
+        Route::get('/{id}/staff', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'index'])->name('staff');
+        Route::post('/{id}/staff', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'store'])->name('staff.store');
+        Route::post('/{id}/staff/{staffId}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'toggle'])->name('staff.toggle');
+        Route::post('/{id}/staff/{staffId}/pin', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'resetPin'])->name('staff.pin');
+        Route::post('/{id}/staff/conflicts/{conflictId}/resolve', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'resolveConflict'])->name('staff.conflict.resolve');
+        Route::get('/{id}/staff/export', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'export'])->name('staff.export');
     });
 
     // POS
