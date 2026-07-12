@@ -28,7 +28,7 @@ class MenuOrderService
             return $existing;
         }
 
-        return DB::transaction(function () use ($menu, $payload, $uuid) {
+        $order = DB::transaction(function () use ($menu, $payload, $uuid) {
             // Catalogue autorisé : articles disponibles de ce menu, indexés par id.
             $catalog = $menu->items()->where('is_available', true)->get()->keyBy('id');
 
@@ -91,6 +91,34 @@ class MenuOrderService
 
             return $order;
         });
+
+        // Alerte marchand hors transaction (tolérant, opt-in) : nouvelle commande.
+        $this->notifyMerchant($menu, $order);
+
+        return $order;
+    }
+
+    /** WhatsApp au marchand à chaque nouvelle commande (no-op sans credentials). */
+    protected function notifyMerchant(Menu $menu, Order $order): void
+    {
+        try {
+            if (! $menu->whatsapp) {
+                return;
+            }
+            app(\Modules\Tagtoa\App\Services\Notifications\NotificationService::class)->push([
+                'channels' => ['whatsapp'],
+                'phone'    => $menu->whatsapp,
+                'subject'  => $menu->name,
+                'body'     => __('Nouvelle commande').' '.$order->reference
+                    .' — '.number_format((float) $order->total, 2).' '.$order->currency
+                    .($order->table_label ? ' · '.__('Table').' '.$order->table_label : '')
+                    .($order->customer_name ? ' · '.$order->customer_name : ''),
+            ]);
+        } catch (\Throwable $e) {
+            if (function_exists('report')) {
+                report($e);
+            }
+        }
     }
 
     /** Marque payée + enregistre la commission plateforme (idempotent). */
