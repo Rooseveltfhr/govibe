@@ -3,6 +3,18 @@
 @section('page', __('Bonjour 👋'))
 
 @section('content')
+@if(!empty($isNew))
+{{-- Hero onboarding : marchand sans aucune ressource --}}
+<div class="card" style="background:var(--blk);color:#fff;border:0;display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:20px">
+    <div style="flex:1;min-width:240px">
+        <b style="font-family:var(--ft);font-weight:400;font-size:22px;letter-spacing:.01em">{{ __('Bienvenue sur TAGTOA !') }}</b>
+        <div style="opacity:.8;font-size:14px;margin-top:6px">{{ __('Créez votre première page en 30 secondes : menu, paiement ou liens — puis partagez votre QR.') }}</div>
+    </div>
+    <a class="btn btn-p" href="{{ route('tagtoa.start') }}" style="flex:0"><i class="fa-solid fa-bolt"></i> {{ __('Commencer') }}</a>
+</div>
+@else
+<div style="margin-bottom:14px;text-align:right"><a href="{{ route('tagtoa.start') }}" style="color:var(--blue-deep);font-weight:700;font-size:13.5px"><i class="fa-solid fa-bolt"></i> {{ __('Guide de démarrage') }}</a></div>
+@endif
 <div class="grid g4">
     <div class="stat"><div class="ic"><i class="fa-solid fa-money-bill-transfer"></i></div><div class="v">{{ $stats['pay_pages'] }}</div><div class="k">{{ __('Pages de paiement') }}</div></div>
     <div class="stat"><div class="ic" style="background:#fff5e6;color:#7a5200"><i class="fa-solid fa-bell"></i></div><div class="v">{{ $stats['pay_pending'] }}</div><div class="k">{{ __('Preuves à vérifier') }}</div></div>
