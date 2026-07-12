@@ -22,7 +22,13 @@ class HubController extends Controller
             'events'       => $this->safeCount(\Modules\Tagtoa\App\Models\Event\Event::class),
         ];
 
-        return view('tagtoa::hub.index', compact('stats'));
+        // Nouveau marchand = aucune ressource nulle part → hero « Commencer ».
+        $isNew = array_sum($stats) === 0
+            && $this->safeCount(\Modules\Tagtoa\App\Models\Menu\Menu::class) === 0
+            && $this->safeCount(\Modules\Tagtoa\App\Models\Links\LinkPage::class) === 0
+            && $this->safeCount(\Modules\Tagtoa\App\Models\Site\Site::class) === 0;
+
+        return view('tagtoa::hub.index', compact('stats', 'isNew'));
     }
 
     private function safeCount(string $model, ?callable $scope = null): int

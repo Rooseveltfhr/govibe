@@ -74,6 +74,10 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     Route::get('/', fn () => redirect('/tagtoa/home'));
     Route::get('/home', [HubController::class, 'index'])->name('tagtoa.hub');
 
+    // Onboarding « Commencer » : première page en 30 secondes.
+    Route::get('/start', [\Modules\Tagtoa\App\Http\Controllers\Hub\OnboardingController::class, 'index'])->name('tagtoa.start');
+    Route::post('/start', [\Modules\Tagtoa\App\Http\Controllers\Hub\OnboardingController::class, 'store'])->name('tagtoa.start.store');
+
     // PAY
     Route::prefix('pay')->name('tagtoa.pay.dashboard.')->group(function () {
         Route::get('/', [PayDashboard::class, 'index'])->name('index');
