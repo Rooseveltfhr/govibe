@@ -445,6 +445,11 @@ section { padding: clamp(84px, 11vw, 150px) 0; position: relative; }
   color: var(--gold);
   margin-bottom: 16px;
 }
+.card .thumb {
+  aspect-ratio: 16 / 10;
+  border-radius: 12px;
+  margin-bottom: 22px;
+}
 .card .icon {
   width: 52px;
   height: 52px;

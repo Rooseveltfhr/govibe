@@ -9,7 +9,7 @@ const RF = {
   whatsapp: "https://wa.me/message/5FJZXWSPZRJHB1",
   facebook: "https://www.facebook.com/share/1ELxgXJDTx/",
   linkedin: "https://www.linkedin.com/in/roosevelt-forestal-530864145",
-  email: "contact@rooseveltforestal.com", // ← remplacer si besoin
+  email: "mr@rooseveltforestal.com", // email public officiel
   site: "https://rooseveltforestal.com",
 };
 

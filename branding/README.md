@@ -44,14 +44,14 @@ const RF = {
 3. Remplacer les **témoignages** d'exemple (`index.html` + `media.html`) par de vrais témoignages
    dès que vous les avez — les cartes actuelles sont des gabarits.
 
-## 📸 Photos — noms de fichiers attendus
+## 📸 Photos — intégrées ✅
 
-Le repo [Personal-branding-images](https://github.com/Rooseveltfhr/Personal-branding-images)
-était **vide** au moment de la construction. Le site affiche donc des placeholders élégants
-(monogramme or sur noir). Dès qu'une image existe sous le bon nom dans `assets/img/`,
-elle s'affiche automatiquement — aucun code à changer.
+Les photos du repo [Personal-branding-images](https://github.com/Rooseveltfhr/Personal-branding-images)
+sont intégrées dans `assets/img/` (redimensionnées ~1600px, JPEG optimisé). Pour remplacer
+une photo, il suffit d'écraser le fichier du même nom — aucun code à changer.
+Slots encore en placeholder : `tagtoa.jpg`, `hospify.jpg`, `testimonial-1..3.jpg`.
 
-Déposer les photos dans `assets/img/` avec ces noms (JPEG recommandé, ~1600px max) :
+Correspondance des fichiers :
 
 | Fichier | Emplacement | Format conseillé |
 |---|---|---|
@@ -67,6 +67,8 @@ Déposer les photos dans `assets/img/` avec ces noms (JPEG recommandé, ~1600px 
 | `speaking-stage.jpg` | Speaking — section « Why book » | Sur scène |
 | `speaking-1.jpg` … `speaking-5.jpg` | Speaking — galerie | Carré ok |
 | `gallery-1.jpg` … `gallery-7.jpg` | Media — galerie | Mixte (events, training, lifestyle) |
+| `tchekela.jpg` / `klasyo.jpg` / `hospify.jpg` | Ecosystem — Startup Portfolio | Bannière / produit |
+| `team.jpg` | Réserve (équipe) | Horizontal |
 | `testimonial-1.jpg` … `testimonial-3.jpg` | Témoignages — avatars | Carré, visage |
 | `og-cover.jpg` | Partage réseaux sociaux (Open Graph) | 1200×630 horizontal |
 
