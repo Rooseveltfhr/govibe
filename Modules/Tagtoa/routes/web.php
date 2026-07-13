@@ -35,21 +35,30 @@ use Modules\Tagtoa\App\Http\Controllers\Site\PublicController as SitePublic;
 // Biztap (ex. page de login qui plantait avec « Route [home] not defined »).
 Route::get('/', [LandingController::class, 'index'])->name('home');
 Route::get('/pay/{alias}', [PayPublic::class, 'show'])->name('tagtoa.pay.show');
-Route::post('/pay/{alias}/submit-proof', [PayPublic::class, 'submitProof'])->name('tagtoa.pay.submit-proof');
 Route::get('/pay/{alias}/checkout/{method}', [PayPublic::class, 'checkout'])->name('tagtoa.pay.checkout');
 Route::get('/loyalty/card/{token}', [LoyaltyPublic::class, 'show'])->name('tagtoa.loyalty.card');
 Route::get('/links/{alias}', [LinksPublic::class, 'show'])->name('tagtoa.links.show');
 Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->name('tagtoa.links.go');
 Route::get('/site/{alias}', [SitePublic::class, 'show'])->name('tagtoa.site.show');
 Route::get('/menu/{alias}', [MenuPublic::class, 'show'])->name('tagtoa.menu.show');
-Route::post('/menu/{alias}/order', [MenuPublic::class, 'order'])->name('tagtoa.menu.order');
 Route::get('/event/{alias}', [EventPublic::class, 'show'])->name('tagtoa.event.show');
-Route::post('/event/{alias}/buy', [EventPublic::class, 'buy'])->name('tagtoa.event.buy');
 Route::get('/event/order/{reference}', [EventPublic::class, 'order'])->name('tagtoa.event.order');
 Route::get('/event/ticket/{code}', [EventPublic::class, 'ticket'])->name('tagtoa.event.ticket');
 Route::get('/event/wallet/receipt/{reference}', [EventPublic::class, 'walletReceipt'])->name('tagtoa.event.wallet.receipt');
+Route::get('/book/{alias}', [BookingPublic::class, 'show'])->name('tagtoa.booking.show');
+
+// Écritures publiques : rate-limit (anti-spam / anti-DoS / anti-épuisement disque).
+Route::middleware('throttle:20,1')->group(function () {
+    Route::post('/pay/{alias}/submit-proof', [PayPublic::class, 'submitProof'])->name('tagtoa.pay.submit-proof');
+    Route::post('/menu/{alias}/order', [MenuPublic::class, 'order'])->name('tagtoa.menu.order');
+    Route::post('/event/{alias}/buy', [EventPublic::class, 'buy'])->name('tagtoa.event.buy');
+    Route::post('/book/{alias}/reserve', [BookingPublic::class, 'reserve'])->name('tagtoa.booking.reserve');
+    Route::post('/reviews', [\Modules\Tagtoa\App\Http\Controllers\Review\PublicController::class, 'store'])->name('tagtoa.reviews.store');
+});
+
 // Terminal STAFF terrain (auth par PIN scopée événement — pas de login Laravel).
-Route::prefix('event/staff/{alias}')->name('tagtoa.event.staff.')->group(function () {
+// Rate-limit plus large : le check-in aux portes est intense mais borné par appareil.
+Route::prefix('event/staff/{alias}')->name('tagtoa.event.staff.')->middleware('throttle:120,1')->group(function () {
     $staffTerminal = \Modules\Tagtoa\App\Http\Controllers\Event\StaffTerminalController::class;
     Route::get('/', [$staffTerminal, 'terminal'])->name('terminal');
     Route::post('/login', [$staffTerminal, 'login'])->name('login');
@@ -59,9 +68,6 @@ Route::prefix('event/staff/{alias}')->name('tagtoa.event.staff.')->group(functio
     Route::post('/sell', [$staffTerminal, 'sell'])->name('sell');
     Route::post('/pickup', [$staffTerminal, 'pickup'])->name('pickup');
 });
-Route::get('/book/{alias}', [BookingPublic::class, 'show'])->name('tagtoa.booking.show');
-Route::post('/book/{alias}/reserve', [BookingPublic::class, 'reserve'])->name('tagtoa.booking.reserve');
-Route::post('/reviews', [\Modules\Tagtoa\App\Http\Controllers\Review\PublicController::class, 'store'])->name('tagtoa.reviews.store');
 
 // ---------- DASHBOARD (back-office marchand) ----------
 // Middleware aligné sur le back-office Biztap (confirmé dans routes/web.php) :
