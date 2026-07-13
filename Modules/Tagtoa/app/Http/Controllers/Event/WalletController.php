@@ -180,7 +180,7 @@ class WalletController extends Controller
         $event = $this->own($id);
         $data = $request->validate([
             'uid'         => ['required', 'string', 'max:120'],
-            'amount'      => ['required', 'numeric', 'min:0.01'],
+            'amount'      => ['required', 'numeric', 'min:0.01', 'max:1000000'],
             'payment_ref' => ['nullable', 'string', 'max:120'],
         ]);
         $participant = app(ResolveNfcTag::class)->handle($event, $data['uid']);
@@ -249,7 +249,7 @@ class WalletController extends Controller
         $data = $request->validate([
             'uid'         => ['required', 'string', 'max:120'],
             'vendor_id'   => ['required', 'integer'],
-            'amount'      => ['required', 'numeric', 'min:0.01'],
+            'amount'      => ['required', 'numeric', 'min:0.01', 'max:1000000'],
             'client_uuid' => ['nullable', 'string', 'max:64'],
         ]);
 
