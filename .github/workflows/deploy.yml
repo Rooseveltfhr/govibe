@@ -38,14 +38,19 @@ jobs:
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
           RESOLVED=$(ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
-              for p in "${{ secrets.VPS_APP_PATH }}" \
-                       "$HOME/domains/tagtoa.com/laravel" \
-                       "$HOME/domains/tagtoa.com/public_html" \
-                       "$HOME/domains/tagtoa.com/public_html/tapbiz"; do
-                if [ -n "$p" ] && [ -f "$p/artisan" ]; then printf "%s" "$p"; exit 0; fi
-              done
+              # 1) le secret, s il est bon, gagne
+              p="${{ secrets.VPS_APP_PATH }}"
+              if [ -n "$p" ] && [ -f "$p/artisan" ]; then printf "%s" "$p"; exit 0; fi
+              # 2) scan de tous les comptes (l utilisateur SSH n est pas forcément "admin")
+              hit=$(find /home/*/domains/tagtoa.com "$HOME/domains/tagtoa.com" \
+                      -maxdepth 3 -name artisan -type f 2>/dev/null | head -1)
+              if [ -n "$hit" ]; then printf "%s" "$(dirname "$hit")"; exit 0; fi
+              # 3) diagnostic vers stderr (visible dans le log, jamais dans $RESOLVED)
+              echo "--- diagnostic structure ---" >&2
+              ls -d /home/*/domains/*/ 2>/dev/null >&2 || true
+              ls "$HOME" 2>/dev/null >&2 || true
               exit 42
-            ') || { echo "::error::Aucune app Laravel trouvée (artisan introuvable) — vérifiez VPS_APP_PATH ou la structure du serveur."; exit 1; }
+            ') || { echo "::error::Aucune app Laravel trouvée (artisan introuvable) — voir le diagnostic ci-dessus."; exit 1; }
           echo "path=$RESOLVED" >> "$GITHUB_OUTPUT"
           echo "==> App path résolu."
 
