@@ -28,17 +28,38 @@ jobs:
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
           ssh-keyscan -p "$PORT" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
+      # Le VPS a été restructuré (public_html/tapbiz → laravel/ ou public_html).
+      # On résout le chemin RÉEL de l'app (présence d'artisan) au lieu de faire
+      # aveuglément confiance au secret VPS_APP_PATH — le deploy survit aux
+      # déplacements de dossiers.
+      - name: Resolve app path on VPS
+        id: apppath
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          RESOLVED=$(ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              for p in "${{ secrets.VPS_APP_PATH }}" \
+                       "$HOME/domains/tagtoa.com/laravel" \
+                       "$HOME/domains/tagtoa.com/public_html" \
+                       "$HOME/domains/tagtoa.com/public_html/tapbiz"; do
+                if [ -n "$p" ] && [ -f "$p/artisan" ]; then printf "%s" "$p"; exit 0; fi
+              done
+              exit 42
+            ') || { echo "::error::Aucune app Laravel trouvée (artisan introuvable) — vérifiez VPS_APP_PATH ou la structure du serveur."; exit 1; }
+          echo "path=$RESOLVED" >> "$GITHUB_OUTPUT"
+          echo "==> App path résolu."
+
       - name: Rsync Modules/Tagtoa to VPS
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
           rsync -az --delete \
             -e "ssh -i ~/.ssh/id_deploy -p $PORT -o StrictHostKeyChecking=accept-new" \
             Modules/Tagtoa/ \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_APP_PATH }}/Modules/Tagtoa/"
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ steps.apppath.outputs.path }}/Modules/Tagtoa/"
 
       - name: Run safe deploy on VPS
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
           ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            "bash '${{ secrets.VPS_APP_PATH }}/Modules/Tagtoa/deploy/remote-deploy.sh' '${{ secrets.VPS_APP_PATH }}'"
+            "bash '${{ steps.apppath.outputs.path }}/Modules/Tagtoa/deploy/remote-deploy.sh' '${{ steps.apppath.outputs.path }}'"
