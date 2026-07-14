@@ -1,65 +1,55 @@
 #!/usr/bin/env bash
-# KLASYO — Phase 1 / Semaine 1, passe 3 : DIAGNOSTIC du blocage /school (triangulation).
-# 1) statique  2) PHP minimal  3) Laravel via CLI — pour localiser la couche fautive.
-# Logs publics : aucun secret. Fichier de test supprimé en fin de script.
+# KLASYO — Phase 1 / Semaine 1, passe 4 : isoler la cause du hang PHP dans /school.
+# Le PHP direct dans school/public timeout (000/15s) alors que platform/public répond.
+# On teste : (a) contenu du .htaccess de school/public vs platform/public,
+# (b) réponse PHP quand on met school/public/.htaccess de côté.
+# Logs publics : aucun secret (ces .htaccess ne contiennent pas de secrets).
 set -uo pipefail
 
 ROOT="$HOME/domains/klasyo.org/public_html"
 S="$ROOT/school"
+P="$ROOT/platform"
+STAMP="$(date +%Y%m%d-%H%M%S)"
 
-echo "== T1. Fichier STATIQUE dans school/public (robots.txt) =="
-out=$(curl -sk -o /dev/null -m 10 -w "%{http_code} time=%{time_total}s" "https://klasyo.org/school/public/robots.txt" 2>&1)
-echo "  /school/public/robots.txt -> $out"
-out=$(curl -sk -o /dev/null -m 10 -w "%{http_code} time=%{time_total}s" "https://klasyo.org/school/robots.txt" 2>&1)
-echo "  /school/robots.txt (via rewrite) -> $out"
-
+echo "== A. school/public/.htaccess (intégral) =="
+cat "$S/public/.htaccess" 2>/dev/null || echo "(absent)"
 echo
-echo "== T2. PHP MINIMAL dans school/public =="
-TESTF="$S/public/klasyo_diag_$(date +%s).php"
-echo '<?php echo "OK-PHP-".PHP_VERSION;' > "$TESTF"
-BN=$(basename "$TESTF")
-out=$(curl -sk -m 15 -w " [%{http_code} time=%{time_total}s]" "https://klasyo.org/school/public/$BN" 2>&1 | head -c 120)
-echo "  /school/public/$BN -> $out"
-rm -f "$TESTF"
+echo "== B. platform/public/.htaccess (intégral, référence qui marche) =="
+cat "$P/public/.htaccess" 2>/dev/null || echo "(absent)"
 
 echo
-echo "== T3. Même PHP minimal dans platform/public (référence qui marche) =="
-TESTP="$ROOT/platform/public/klasyo_diag_$(date +%s).php"
-echo '<?php echo "OK-PHP-".PHP_VERSION;' > "$TESTP"
-BNP=$(basename "$TESTP")
-out=$(curl -sk -m 15 -w " [%{http_code} time=%{time_total}s]" "https://klasyo.org/platform/public/$BNP" 2>&1 | head -c 120)
-echo "  /platform/public/$BNP -> $out"
-rm -f "$TESTP"
+echo "== C. Test décisif : PHP direct SANS le .htaccess de school/public =="
+DIAG="$S/public/klasyo_diag2.php"
+echo '<?php echo "OK-NOHTA-".PHP_VERSION;' > "$DIAG"
+if [ -f "$S/public/.htaccess" ]; then
+  mv "$S/public/.htaccess" "$S/public/.htaccess.OFF-$STAMP"
+  echo "  .htaccess mis de côté (.htaccess.OFF-$STAMP)"
+fi
+out=$(curl -sk -m 15 -w " [%{http_code} time=%{time_total}s]" "https://klasyo.org/school/public/klasyo_diag2.php" 2>&1 | head -c 100)
+echo "  résultat SANS .htaccess -> $out"
+# Restaurer immédiatement
+if [ -f "$S/public/.htaccess.OFF-$STAMP" ]; then
+  mv "$S/public/.htaccess.OFF-$STAMP" "$S/public/.htaccess"
+  echo "  .htaccess restauré."
+fi
+rm -f "$DIAG"
 
 echo
-echo "== T4. Laravel school exécuté DIRECTEMENT en CLI (simulate GET /) =="
-cd "$S/public"
-START=$(date +%s)
-timeout 30 php -d display_errors=1 -r '
-  $_SERVER["REQUEST_URI"] = "/school/";
-  $_SERVER["REQUEST_METHOD"] = "GET";
-  $_SERVER["HTTP_HOST"] = "klasyo.org";
-  $_SERVER["SCRIPT_NAME"] = "/school/public/index.php";
-  $_SERVER["SCRIPT_FILENAME"] = __DIR__ . "/index.php";
-  require "index.php";
-' > /tmp/klasyo_school_cli.html 2>&1
-RC=$?
-END=$(date +%s)
-echo "  exit=$RC durée=$((END-START))s taille=$(wc -c < /tmp/klasyo_school_cli.html) octets"
-echo "  --- premiers 200 caractères de la réponse :"
-head -c 200 /tmp/klasyo_school_cli.html | tr -d '\r' | head -5
-echo
-echo "  --- indices d'erreur éventuels :"
-grep -oiE '(fatal|exception|error|timed? ?out|curl|guzzle|connection)[^<]{0,80}' /tmp/klasyo_school_cli.html | head -5 || echo "  (aucun)"
-rm -f /tmp/klasyo_school_cli.html
+echo "== D. Comparaison des handlers PHP (school vs platform) au niveau du domaine =="
+echo "  --- lignes PHP/handler dans TOUS les .htaccess de school :"
+grep -rniE 'php|handler|fcgi|lsapi|application/x-httpd' "$S"/.htaccess "$S"/public/.htaccess 2>/dev/null | head -15 || echo "  (rien)"
+echo "  --- idem platform (référence) :"
+grep -rniE 'php|handler|fcgi|lsapi|application/x-httpd' "$P"/.htaccess "$P"/public/.htaccess 2>/dev/null | head -15 || echo "  (rien)"
 
 echo
-echo "== T5. Config PHP par répertoire (sélecteur DirectAdmin) =="
-for f in "$S/.user.ini" "$S/public/.user.ini" "$S/php.ini" "$ROOT/.htaccess"; do
-  [ -f "$f" ] && { echo "  --- $f :"; head -10 "$f"; } || echo "  (absent) $f"
+echo "== E. Différence de permissions / propriété entre les deux public/ =="
+stat -c '%A %U:%G %n' "$S/public" "$S/public/index.php" "$P/public" "$P/public/index.php" 2>/dev/null
+
+echo
+echo "== F. .htaccess éventuels plus haut dans l'arborescence (hériteraient sur school) =="
+for d in "$ROOT" "$HOME"; do
+  [ -f "$d/.htaccess" ] && { echo "  --- $d/.htaccess :"; grep -niE 'php|handler|rewrite|deny|require' "$d/.htaccess" | head -10; } || echo "  (pas de .htaccess dans $d)"
 done
-echo "  --- Handlers/SetHandler dans les .htaccess school :"
-grep -riE 'sethandler|addhandler|php' "$S/.htaccess" "$S/public/.htaccess" 2>/dev/null | head -10 || echo "  (rien)"
 
 echo
-echo "== FIN diagnostic passe 3 =="
+echo "== FIN passe 4 =="
