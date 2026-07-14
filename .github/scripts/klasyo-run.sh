@@ -1,123 +1,104 @@
 #!/usr/bin/env bash
-# KLASYO — Phase 1 / Semaine 1 : correctifs P0 sécurité + réparation de /school.
-# Exécuté sur le VPS via GitHub Actions (klasyo-ops.yml : ssh ... bash -s < ce script).
-#
-# SÉCURITÉ (les logs Actions sont PUBLICS) :
-# - ne jamais afficher le contenu de .env, de clés ni de credentials
-# - toute modification est précédée d'un backup ; rien n'est supprimé (déplacé vers ~/backups_klasyo)
-# - idempotent : ré-exécutable sans danger
+# KLASYO — Phase 1 / Semaine 1, passe 2 : réparer le routing de /school (.htaccess)
+# + vérifier le format APP_KEY de platform.
+# Exécuté sur le VPS via GitHub Actions (klasyo-ops.yml). Logs publics : aucun secret.
+# Idempotent ; backups avant toute écriture.
 set -uo pipefail
 
 ROOT="$HOME/domains/klasyo.org/public_html"
 P="$ROOT/platform"
 S="$ROOT/school"
-BK="$HOME/backups_klasyo"
 STAMP="$(date +%Y%m%d-%H%M%S)"
-mkdir -p "$BK"
 
 echo "########################################"
-echo "== ÉTAPE 1 : zips de code source hors du web =="
+echo "== ÉTAPE 1 : .htaccess de /school (boucle de réécriture en sous-dossier) =="
 echo "########################################"
-move_out() {
-  local f="$1"
-  if [ -e "$f" ]; then
-    mv "$f" "$BK/" && echo "  DÉPLACÉ -> backups_klasyo/ : $(basename "$f")"
-  else
-    echo "  (déjà absent) $(basename "$f")"
-  fi
-}
-move_out "$P/klasyo.zip"
-move_out "$S/school.zip"
-move_out "$S/source_code.zip"
-move_out "$S/New_Installation_V1.9.3.zip"
-move_out "$S/Update 1.9.2-to-1.9.3.zip"
-move_out "$S/eSchool Sass student web v-1.9.3.zip"
-move_out "$S/eSchool-Saas-V1.9.3"
-# Fichiers parasites / fuite d'identité du script
-move_out "$P/index.html"          # ancien index statique "webetud.com" (parasite)
-move_out "$ROOT/documentation.txt"
-move_out "$ROOT/update_note.json"
-move_out "$P/documentation.txt"
-move_out "$P/update_note.json"
-echo "  Contenu de backups_klasyo (noms seulement) :"
-ls "$BK" | head -20
-
-echo
-echo "########################################"
-echo "== ÉTAPE 2 : correction des .env (backup préalable) =="
-echo "########################################"
-fix_env() {
-  local envfile="$1"; shift
-  [ -f "$envfile" ] || { echo "  (!) introuvable : $envfile"; return; }
-  cp -a "$envfile" "$envfile.bak-$STAMP"
-  echo "  backup : $(basename "$envfile").bak-$STAMP"
-  while [ $# -gt 0 ]; do
-    local key="${1%%=*}"
-    if grep -q "^${key}=" "$envfile"; then
-      sed -i "s|^${key}=.*|${1}|" "$envfile"
-    else
-      printf '%s\n' "$1" >> "$envfile"
-    fi
-    shift
-  done
-}
-fix_env "$P/.env" "APP_ENV=production" "APP_DEBUG=false" "APP_URL=https://klasyo.org/platform"
-fix_env "$S/.env" "APP_ENV=production" "APP_DEBUG=false" "APP_URL=https://klasyo.org/school"
-
-echo "  Vérification (clés non sensibles uniquement) :"
-echo "  --- platform :"; grep -E '^(APP_ENV|APP_DEBUG|APP_URL)=' "$P/.env"
-echo "  --- school   :"; grep -E '^(APP_ENV|APP_DEBUG|APP_URL)=' "$S/.env"
-
-echo
-echo "########################################"
-echo "== ÉTAPE 3 : APP_KEY de school =="
-echo "########################################"
-if grep -q '^APP_KEY=base64:.\+' "$S/.env"; then
-  echo "  APP_KEY déjà présente (non affichée)."
+if grep -q 'KLASYO-SUBDIR-SAFE' "$S/.htaccess" 2>/dev/null; then
+  echo "  Déjà remplacé (marqueur présent) — rien à faire."
 else
-  echo "  APP_KEY absente -> génération…"
-  (cd "$S" && php artisan key:generate --force 2>&1 | grep -iv 'base64') || echo "  (!) échec key:generate"
-  grep -q '^APP_KEY=base64:.\+' "$S/.env" && echo "  APP_KEY générée avec succès (non affichée)."
+  cp -a "$S/.htaccess" "$S/.htaccess.bak-$STAMP" 2>/dev/null && echo "  backup : .htaccess.bak-$STAMP"
+  cat > "$S/.htaccess" <<'HTA'
+# KLASYO-SUBDIR-SAFE — Laravel servi depuis le sous-dossier /school/
+# (l'original, prévu pour une racine de domaine, bouclait sur public/public/…)
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    # 1) Ce qui est déjà sous public/ n'est PAS réécrit (stoppe la boucle)
+    RewriteRule ^public/ - [L]
+
+    # 2) Fichier statique existant dans public/ -> le servir
+    RewriteCond %{DOCUMENT_ROOT}/school/public/$1 -f
+    RewriteRule ^(.*)$ public/$1 [L]
+
+    # 3) Tout le reste -> front controller Laravel
+    RewriteRule ^ public/index.php [L]
+
+    # En-tête Authorization pour l'API
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    # En-tête school-code (multi-écoles eSchool)
+    RewriteCond %{HTTP:school-code} ^(.*)
+    RewriteRule .* - [E=HTTP_SCHOOL_CODE:%1]
+</IfModule>
+HTA
+  echo "  Nouveau .htaccess écrit."
 fi
-# Platform : contrôle seulement
-grep -q '^APP_KEY=base64:.\+' "$P/.env" && echo "  APP_KEY platform : présente." || echo "  (!) APP_KEY platform ABSENTE"
+echo "  --- public/.htaccess de school présent ? "
+[ -f "$S/public/.htaccess" ] && echo "  oui ($(wc -c < "$S/public/.htaccess") octets)" || echo "  (!) NON — front controller sans réécriture interne"
 
 echo
 echo "########################################"
-echo "== ÉTAPE 4 : purge des caches Laravel =="
+echo "== ÉTAPE 2 : APP_KEY de platform (contrôle de format, valeur jamais affichée) =="
 echo "########################################"
-for APPDIR in "$P" "$S"; do
-  echo "  --- $(basename "$APPDIR") :"
-  (cd "$APPDIR" && php artisan config:clear 2>&1 | tail -1)
-  (cd "$APPDIR" && php artisan route:clear  2>&1 | tail -1)
-  (cd "$APPDIR" && php artisan view:clear   2>&1 | tail -1)
-  (cd "$APPDIR" && php artisan cache:clear  2>&1 | tail -1) || true
-done
-echo "  Version PHP CLI : $(php -r 'echo PHP_VERSION;')"
+if grep -q '^APP_KEY=.\+' "$P/.env"; then
+  KEYLEN=$(grep '^APP_KEY=' "$P/.env" | head -1 | cut -d= -f2- | tr -d '"' | wc -c)
+  if grep -q '^APP_KEY=base64:' "$P/.env"; then
+    echo "  APP_KEY présente au format base64 (longueur $KEYLEN)."
+  else
+    echo "  APP_KEY présente au format LEGACY (longueur $KEYLEN) — fonctionnelle, ne pas régénérer."
+  fi
+else
+  echo "  (!) APP_KEY réellement vide — génération…"
+  cp -a "$P/.env" "$P/.env.bak-key-$STAMP"
+  (cd "$P" && php artisan key:generate --force 2>&1 | grep -iv 'base64')
+fi
 
 echo
 echo "########################################"
-echo "== ÉTAPE 5 : vérification HTTP (codes seulement) =="
+echo "== ÉTAPE 3 : santé de school côté CLI (sans secrets) =="
 echo "########################################"
-for u in "https://klasyo.org/" \
+(cd "$S" && php artisan about 2>/dev/null | grep -E 'Environment|Debug Mode|Cache|Laravel Version' | head -6) \
+  || echo "  (artisan about indisponible)"
+
+echo
+echo "########################################"
+echo "== ÉTAPE 4 : vérification HTTP (codes + redirections) =="
+echo "########################################"
+for u in "https://klasyo.org/school" \
+         "https://klasyo.org/school/" \
+         "https://klasyo.org/school/public/index.php" \
+         "https://klasyo.org/school/login" \
          "https://klasyo.org/platform/index.php" \
-         "https://klasyo.org/platform/public/" \
-         "https://klasyo.org/school" \
-         "https://klasyo.org/school/public/index.php" ; do
-  code=$(curl -skL -o /dev/null -m 12 -w "%{http_code}" "$u")
-  echo "  $u -> $code"
+         "https://klasyo.org/" ; do
+  out=$(curl -sk -o /dev/null -m 12 -w "%{http_code} redir=%{redirect_url}" "$u" 2>&1)
+  echo "  $u -> $out"
 done
-echo "  -- exposition (on veut 403/404 partout) :"
-for u in "https://klasyo.org/platform/.env" "https://klasyo.org/school/.env" \
-         "https://klasyo.org/platform/klasyo.zip" "https://klasyo.org/school/school.zip"; do
-  code=$(curl -sk -o /dev/null -m 10 -r 0-0 -w "%{http_code}" "$u")
-  echo "  $u -> $code"
-done
+echo "  -- avec suivi de redirections :"
+out=$(curl -skL -o /dev/null -m 15 -w "final=%{http_code} url=%{url_effective} redirs=%{num_redirects}" "https://klasyo.org/school/" 2>&1)
+echo "  /school/ -> $out"
 
 echo
-echo "== Dernière erreur Laravel school (si encore en panne, message tronqué sans données) =="
+echo "== ÉTAPE 5 : nouvelles erreurs Laravel school depuis aujourd'hui (messages tronqués) =="
 L=$(ls -t "$S"/storage/logs/*.log 2>/dev/null | head -1)
-[ -n "$L" ] && grep -oE '^\[[0-9 :-]+\] \w+\.\w+: [^{]{0,120}' "$L" | tail -3 || echo "(pas de log)"
+if [ -n "$L" ]; then
+  grep -oE "^\[$(date +%Y-%m-%d)[0-9 :]*\] \w+\.\w+: [^{]{0,120}" "$L" | tail -5 || echo "  (aucune erreur aujourd'hui)"
+else
+  echo "  (pas de log)"
+fi
 
 echo
-echo "== FIN Phase 1 / Semaine 1 (P0) =="
+echo "== FIN passe 2 =="
