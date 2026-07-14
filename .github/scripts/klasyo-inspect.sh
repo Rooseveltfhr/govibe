@@ -1,74 +1,13 @@
 #!/usr/bin/env bash
-# Inspection LECTURE SEULE v3 : frontend LMSZAI (platform), routing web, marque KLASYO.
-# Exécuté via GitHub Actions (klasyo-ops.yml) : ssh ... bash -s < ce_script
-#
-# SÉCURITÉ (logs publics) : jamais de contenu .env / credentials / clés.
-# Les tests HTTP n'affichent QUE des codes de statut.
+# Inspection LECTURE SEULE v4 : thème actif LMSZAI + diagnostic /school/ qui ne répond pas.
+# Exécuté via GitHub Actions (klasyo-ops.yml). Logs publics : jamais de secrets.
 set -uo pipefail
 
 ROOT="$HOME/domains/klasyo.org/public_html"
 P="$ROOT/platform"
 S="$ROOT/school"
 
-echo "== 1. Tests HTTP depuis le VPS (codes de statut seulement) =="
-for u in "https://klasyo.org/" "https://klasyo.org/platform/" "https://klasyo.org/platform/public/" \
-         "https://klasyo.org/school/" "https://klasyo.org/school/public/" ; do
-  code=$(curl -sk -o /dev/null -m 15 -w "%{http_code}" "$u")
-  echo "  $u -> $code"
-done
-echo "  -- exposition potentielle (on veut 403/404 partout ici) :"
-for u in "https://klasyo.org/platform/.env" "https://klasyo.org/school/.env" \
-         "https://klasyo.org/platform/klasyo.zip" "https://klasyo.org/school/school.zip" \
-         "https://klasyo.org/school/source_code.zip"; do
-  code=$(curl -sk -o /dev/null -m 15 -r 0-0 -w "%{http_code}" "$u")
-  echo "  $u -> $code"
-done
-
-echo
-echo "== 2. Réécriture d'URL (comment /platform est servi) =="
-echo "--- $ROOT/.htaccess :"
-cat "$ROOT/.htaccess" 2>/dev/null || echo "(absent)"
-echo "--- $P/.htaccess :"
-cat "$P/.htaccess" 2>/dev/null || echo "(absent)"
-echo "--- titre de $P/index.html (fichier statique à la racine platform) :"
-grep -o -m1 '<title>[^<]*</title>' "$P/index.html" 2>/dev/null || echo "(pas de title)"
-
-echo
-echo "== 3. Marque KLASYO (extraite de la landing racine) =="
-echo "--- Couleurs les plus utilisées :"
-grep -oE '#[0-9a-fA-F]{6}\b' "$ROOT/index.html" | tr 'A-F' 'a-f' | sort | uniq -c | sort -rn | head -12
-echo "--- Variables CSS :"
-grep -oE '\-\-[a-z0-9-]+:\s*[^;}]{1,60}' "$ROOT/index.html" | sort -u | head -25
-echo "--- Polices :"
-grep -oE 'font-family:[^;}]{1,80}' "$ROOT/index.html" | sort -u | head -8
-grep -oE 'fonts.googleapis.com/css2?\?family=[^"'\'' ]*' "$ROOT/index.html" | sort -u | head -5
-
-echo
-echo "== 4. Structure frontend LMSZAI (platform) =="
-echo "--- resources/views (niveau 1) :"
-ls "$P/resources/views" 2>/dev/null
-echo "--- resources/views/frontend (si présent) :"
-ls "$P/resources/views/frontend" 2>/dev/null | head -40
-echo "--- thèmes éventuels :"
-ls -d "$P"/resources/views/*/ 2>/dev/null | head -20
-echo "--- public/ (niveau 1) :"
-ls "$P/public" 2>/dev/null
-echo "--- public/frontend (assets du thème) :"
-ls "$P/public/frontend" 2>/dev/null | head -30
-
-echo
-echo "== 5. Routing LMSZAI (60 premières lignes de routes/web.php) =="
-head -60 "$P/routes/web.php" 2>/dev/null
-
-echo
-echo "== 6. Page d'accueil LMSZAI : quel contrôleur/vue ? =="
-grep -rn "function index" "$P/app/Http/Controllers/Frontend"*.php 2>/dev/null | head -5 || true
-ls "$P/app/Http/Controllers" 2>/dev/null | head -25
-echo "--- vues home probables :"
-find "$P/resources/views" -maxdepth 3 -iname '*home*' -o -maxdepth 3 -iname '*landing*' -o -maxdepth 3 -iname '*index*' 2>/dev/null | grep -v vendor | head -15
-
-echo
-echo "== 7. Réglages d'apparence stockés en DB (LMSZAI settings) =="
+echo "== 1. Réglages d'apparence LMSZAI (option_key/option_value) =="
 PHPTMP="$(mktemp /tmp/klasyo_settings_XXXX.php)"
 cat > "$PHPTMP" <<'PHPEOF'
 <?php
@@ -86,22 +25,45 @@ foreach (file("$dir/.env", FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES) as $l) {
 mysqli_report(MYSQLI_REPORT_OFF);
 $m = @mysqli_connect($host, $user, $pass, $db);
 if (!$m) { echo "DB: connexion impossible\n"; exit(0); }
-// tables de réglages fréquentes dans LMSZAI
-foreach (['settings','general_settings','home_settings','theme_settings'] as $t) {
-    $r = @mysqli_query($m, "SHOW COLUMNS FROM `$t`");
-    if (!$r) continue;
-    $cols = [];
-    while ($c = mysqli_fetch_assoc($r)) $cols[] = $c['Field'];
-    echo "table `$t`: ".implode(', ', array_slice($cols,0,20))."\n";
-    // n'afficher que des clés/valeurs d'apparence, jamais de secrets
-    if (in_array('key', $cols) && in_array('value', $cols)) {
-        $q = mysqli_query($m, "SELECT `key`, LEFT(`value`,80) v FROM `$t` WHERE `key` REGEXP 'logo|color|colour|theme|title|name|favicon|font' LIMIT 25");
-        while ($row = mysqli_fetch_assoc($q)) echo "    {$row['key']} = {$row['v']}\n";
-    }
-}
+$q = mysqli_query($m, "SELECT option_key, LEFT(option_value,70) v FROM settings WHERE option_key REGEXP 'theme|logo|color|colour|title|site|name|favicon|font|version' ORDER BY option_key LIMIT 40");
+if ($q) while ($row = mysqli_fetch_assoc($q)) echo "  {$row['option_key']} = {$row['v']}\n";
 PHPEOF
-php "$PHPTMP" "$P" 2>&1 | head -60
+php "$PHPTMP" "$P" 2>&1 | head -50
 rm -f "$PHPTMP"
 
 echo
-echo "== Fin de l'inspection v3 =="
+echo "== 2. Diagnostic /school/ (ne répond pas) =="
+echo "--- $S/.htaccess :"
+cat "$S/.htaccess" 2>/dev/null || echo "(absent)"
+echo "--- $S/public (niveau 1, 20 max) :"
+ls "$S/public" 2>/dev/null | head -20
+echo "--- Test HTTP avec suivi de redirections (codes + URL finale, max 8s) :"
+for u in "https://klasyo.org/school/public/index.php" "https://klasyo.org/school/index.php"; do
+  out=$(curl -sk -o /dev/null -m 8 -w "%{http_code} redir=%{redirect_url}" "$u" 2>&1)
+  echo "  $u -> $out"
+done
+echo "--- Dernières erreurs Laravel school (message seulement, 5 lignes) :"
+L=$(ls -t "$S"/storage/logs/*.log 2>/dev/null | head -1)
+if [ -n "$L" ]; then
+  grep -oE '^\[[0-9 :-]+\] \w+\.\w+: [^{]{0,140}' "$L" | tail -5
+else
+  echo "(pas de log)"
+fi
+
+echo
+echo "== 3. Diagnostic /platform/ (000) : test avec redirections =="
+out=$(curl -sk -o /dev/null -m 8 -w "%{http_code} redir=%{redirect_url}" "https://klasyo.org/platform/index.php" 2>&1)
+echo "  /platform/index.php -> $out"
+out=$(curl -skL -o /dev/null -m 12 -w "final=%{http_code} url=%{url_effective} redirs=%{num_redirects}" "https://klasyo.org/platform/public/" 2>&1)
+echo "  /platform/public/ (suivi) -> $out"
+
+echo
+echo "== 4. Layout frontend LMSZAI : où le CSS est chargé =="
+for f in "$P/resources/views/frontend/layouts/app.blade.php" "$P/resources/views/frontend/layouts/master.blade.php" "$P/resources/views/layouts/app.blade.php"; do
+  [ -f "$f" ] && { echo "--- $f (balises link/css, 15 max) :"; grep -oE '<link[^>]{0,140}' "$f" | head -15; }
+done
+echo "--- fichiers layout frontend disponibles :"
+ls "$P/resources/views/frontend/layouts" 2>/dev/null | head -15
+
+echo
+echo "== Fin de l'inspection v4 =="
