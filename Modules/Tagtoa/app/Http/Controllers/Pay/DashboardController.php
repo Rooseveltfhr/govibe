@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Models\Pay\PaymentProof;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -90,6 +91,20 @@ $data = $this->validatePage($request);
         $proofs = $page->proofs()->with('method')->paginate(20);
 
         return view('tagtoa::pay.dashboard.proofs', compact('page', 'proofs'));
+    }
+
+    /** Sert l'image d'une preuve — UNIQUEMENT au tenant propriétaire (disque privé). */
+    public function proofImage(int $id): StreamedResponse
+    {
+        $proof = PaymentProof::whereHas('page', fn ($q) => $q->where('tenant_id', Tenant::id()))->findOrFail($id);
+        abort_unless($proof->proof_path, 404);
+
+        // Fichier sur le disque privé (nouvelles preuves) ; repli sur 'public'
+        // pour d'éventuelles preuves héritées de l'ancien stockage.
+        $disk = \Illuminate\Support\Facades\Storage::disk('local')->exists($proof->proof_path) ? 'local' : 'public';
+        abort_unless(\Illuminate\Support\Facades\Storage::disk($disk)->exists($proof->proof_path), 404);
+
+        return \Illuminate\Support\Facades\Storage::disk($disk)->response($proof->proof_path);
     }
 
     public function approveProof(int $id): RedirectResponse

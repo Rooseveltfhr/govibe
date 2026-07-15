@@ -51,7 +51,8 @@ class PaymentProof extends Model
 
     public function getImageUrlAttribute(): ?string
     {
-        return $this->proof_path ? Storage::url($this->proof_path) : null;
+        // Route authentifiée + scopée tenant (le fichier vit sur un disque PRIVÉ).
+        return $this->proof_path ? route('tagtoa.pay.dashboard.proof.image', $this->id) : null;
     }
 
     public function isPending(): bool
