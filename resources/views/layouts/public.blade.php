@@ -289,31 +289,27 @@
 
     <ul class="gv-nav-menu" id="nav-menu">
       <li><a href="{{ route('home') }}" data-i18n="nav_home">Accueil</a></li>
+      <li><a href="{{ route('about') }}" data-i18n="nav_about">À propos</a></li>
 
       <li class="gv-dropdown">
-        <a href="#" class="gv-dropdown-toggle" data-i18n="nav_services">Services <i class="fas fa-chevron-down fa-xs"></i></a>
+        <a href="{{ route('services') }}" class="gv-dropdown-toggle" data-i18n="nav_all_services">Nos Services <i class="fas fa-chevron-down fa-xs"></i></a>
         <ul class="gv-dropdown-menu">
-          <li><a href="{{ route('coworking') }}"><i class="fas fa-building"></i> Coworking Space</a></li>
-          <li><a href="{{ route('startup-lab') }}"><i class="fas fa-code"></i> Startup Lab</a></li>
-          <li><a href="https://1207.3cx.cloud/supporttechnical" target="_blank" rel="noopener"><i class="fas fa-headset"></i> Call Center</a></li>
-          <li class="gv-dropdown-sub">
-            <a href="{{ route('startup-lab') }}"><i class="fas fa-laptop-code"></i> Solutions Digitales <i class="fas fa-chevron-right fa-xs"></i></a>
-            <ul class="gv-dropdown-submenu">
-              <li><a href="{{ route('startup-lab') }}#web">Développement Web</a></li>
-              <li><a href="{{ route('startup-lab') }}#mobile">Applications Mobiles</a></li>
-              <li><a href="{{ route('startup-lab') }}#erp">ERP / CRM</a></li>
-              <li><a href="{{ route('startup-lab') }}#cyber">Cybersécurité</a></li>
-            </ul>
-          </li>
+          <li><a href="{{ route('services') }}#media"><i class="fas fa-bullhorn"></i> Media & Digital</a></li>
+          <li><a href="{{ route('services') }}#dev"><i class="fas fa-code"></i> Développement & IA</a></li>
+          <li><a href="{{ route('services') }}#academy-cat"><i class="fas fa-graduation-cap"></i> Academy & Formations</a></li>
+          <li><a href="{{ route('services') }}#coworking-cat"><i class="fas fa-building"></i> Coworking Space</a></li>
+          <li><a href="{{ route('services') }}#startup"><i class="fas fa-rocket"></i> Accompagnement Startups</a></li>
+          <li><a href="{{ route('services') }}#solutions"><i class="fas fa-layer-group"></i> Nos Solutions SaaS</a></li>
         </ul>
       </li>
 
       <li class="gv-dropdown">
         <a href="#" class="gv-dropdown-toggle" data-i18n="nav_ecosystem">Écosystème <i class="fas fa-chevron-down fa-xs"></i></a>
         <ul class="gv-dropdown-menu">
-          <li><a href="{{ route('about') }}"><i class="fas fa-info-circle"></i> À propos de GOVIBE</a></li>
-          <li><a href="{{ route('about') }}#team"><i class="fas fa-users"></i> Notre Équipe</a></li>
-          <li><a href="{{ route('about') }}#clients"><i class="fas fa-handshake"></i> Nos Clients</a></li>
+          <li><a href="{{ route('coworking') }}"><i class="fas fa-building"></i> Coworking Space</a></li>
+          <li><a href="{{ route('startup-lab') }}"><i class="fas fa-flask"></i> Startup Lab</a></li>
+          <li><a href="{{ route('academy') }}"><i class="fas fa-graduation-cap"></i> GOVIBE Academy</a></li>
+          <li><a href="https://1207.3cx.cloud/supporttechnical" target="_blank" rel="noopener"><i class="fas fa-headset"></i> Call Center</a></li>
         </ul>
       </li>
 
@@ -330,13 +326,12 @@
       <li class="gv-dropdown">
         <a href="#" class="gv-dropdown-toggle" data-i18n="nav_programmes">Programmes <i class="fas fa-chevron-down fa-xs"></i></a>
         <ul class="gv-dropdown-menu">
-          <li><a href="{{ route('home') }}#programmes"><i class="fas fa-rocket"></i> Incubation Startup</a></li>
-          <li><a href="{{ route('academy') }}"><i class="fas fa-book"></i> Formations</a></li>
+          <li><a href="{{ route('home') }}#programmes"><i class="fas fa-seedling"></i> Incubation Startup</a></li>
+          <li><a href="{{ route('inscription.create') }}"><i class="fas fa-book"></i> S'inscrire à une formation</a></li>
           <li><a href="{{ route('home') }}#programmes"><i class="fas fa-credit-card"></i> Crédit Digital</a></li>
         </ul>
       </li>
 
-      <li><a href="{{ route('about') }}" data-i18n="nav_about">À propos</a></li>
       <li><a href="{{ route('home') }}#reservation" data-i18n="nav_contact">Contact</a></li>
     </ul>
 
@@ -371,12 +366,14 @@
       </div>
     </div>
     <div class="gv-footer-col">
-      <h4><i class="fas fa-cog"></i> Services</h4>
+      <h4><i class="fas fa-cog"></i> Nos Services</h4>
       <ul>
+        <li><a href="{{ route('services') }}"><i class="fas fa-th-large fa-xs"></i> Tous les services</a></li>
+        <li><a href="{{ route('services') }}#media"><i class="fas fa-bullhorn fa-xs"></i> Media & Digital</a></li>
+        <li><a href="{{ route('services') }}#dev"><i class="fas fa-code fa-xs"></i> Développement & IA</a></li>
         <li><a href="{{ route('coworking') }}"><i class="fas fa-building fa-xs"></i> Coworking Space</a></li>
-        <li><a href="{{ route('startup-lab') }}"><i class="fas fa-code fa-xs"></i> Startup Lab</a></li>
+        <li><a href="{{ route('startup-lab') }}"><i class="fas fa-flask fa-xs"></i> Startup Lab</a></li>
         <li><a href="https://1207.3cx.cloud/supporttechnical" target="_blank" rel="noopener"><i class="fas fa-headset fa-xs"></i> Call Center</a></li>
-        <li><a href="{{ route('startup-lab') }}#ai"><i class="fas fa-robot fa-xs"></i> IA & Automatisation</a></li>
       </ul>
     </div>
     <div class="gv-footer-col">
@@ -384,15 +381,21 @@
       <ul>
         <li><a href="{{ route('academy') }}"><i class="fas fa-book fa-xs"></i> GOVIBE Academy</a></li>
         <li><a href="{{ route('inscription.create') }}"><i class="fas fa-user-plus fa-xs"></i> S'inscrire</a></li>
-        <li><a href="{{ route('home') }}#programmes"><i class="fas fa-rocket fa-xs"></i> Incubation</a></li>
+        <li><a href="{{ route('home') }}#programmes"><i class="fas fa-seedling fa-xs"></i> Incubation</a></li>
         <li><a href="{{ route('home') }}#programmes"><i class="fas fa-credit-card fa-xs"></i> Crédit Digital</a></li>
+        <li><a href="{{ route('about') }}"><i class="fas fa-info-circle fa-xs"></i> À propos</a></li>
+        <li><a href="#"><i class="fas fa-newspaper fa-xs"></i> News & Blog</a></li>
+        <li><a href="#"><i class="fas fa-briefcase fa-xs"></i> Jobs & Carrières</a></li>
       </ul>
     </div>
     <div class="gv-footer-col">
-      <h4><i class="fas fa-map-marker-alt"></i> Contact</h4>
+      <h4><i class="fas fa-map-marker-alt"></i> Contact & Réseaux</h4>
       <ul>
         <li><a href="mailto:contact@govibeht.com"><i class="fas fa-envelope fa-xs"></i> contact@govibeht.com</a></li>
         <li><a href="tel:+50933988754"><i class="fas fa-phone fa-xs"></i> +509 3398-8754</a></li>
+        <li><a href="https://wa.me/50948174124" target="_blank" rel="noopener"><i class="fab fa-whatsapp fa-xs"></i> WhatsApp</a></li>
+        <li><a href="https://facebook.com/govibe" target="_blank" rel="noopener"><i class="fab fa-facebook-f fa-xs"></i> Facebook</a></li>
+        <li><a href="https://instagram.com/govibeht" target="_blank" rel="noopener"><i class="fab fa-instagram fa-xs"></i> Instagram</a></li>
         <li><a href="{{ route('erp.login') }}"><i class="fas fa-sign-in-alt fa-xs"></i> ERP Login</a></li>
         <li><a href="{{ route('admin.login') }}"><i class="fas fa-user-shield fa-xs"></i> Admin Academy</a></li>
       </ul>
@@ -421,28 +424,24 @@
 /* ── TRANSLATIONS ─────────────────────────────────── */
 const GV_TRANSLATIONS = {
   fr: {
-    nav_home:'Accueil', nav_services:'Services', nav_ecosystem:'Écosystème',
-    nav_saas:'Plateformes SaaS', nav_programmes:'Programmes',
-    nav_about:'À propos', nav_contact:'Contact',
-    nav_callcenter:'Call Center', nav_start:'Commencer',
+    nav_home:'Accueil', nav_about:'À propos', nav_all_services:'Nos Services',
+    nav_ecosystem:'Écosystème', nav_saas:'Plateformes SaaS', nav_programmes:'Programmes',
+    nav_contact:'Contact', nav_callcenter:'Call Center', nav_start:'Commencer',
   },
   en: {
-    nav_home:'Home', nav_services:'Services', nav_ecosystem:'Ecosystem',
-    nav_saas:'SaaS Platforms', nav_programmes:'Programs',
-    nav_about:'About', nav_contact:'Contact',
-    nav_callcenter:'Call Center', nav_start:'Get Started',
+    nav_home:'Home', nav_about:'About', nav_all_services:'Our Services',
+    nav_ecosystem:'Ecosystem', nav_saas:'SaaS Platforms', nav_programmes:'Programs',
+    nav_contact:'Contact', nav_callcenter:'Call Center', nav_start:'Get Started',
   },
   cr: {
-    nav_home:'Akèy', nav_services:'Sèvis', nav_ecosystem:'Ekosistèm',
-    nav_saas:'Platfòm SaaS', nav_programmes:'Pwogram',
-    nav_about:'Sou Nou', nav_contact:'Kontakt',
-    nav_callcenter:'Sant Apèl', nav_start:'Kòmanse',
+    nav_home:'Akèy', nav_about:'Sou Nou', nav_all_services:'Sèvis Nou Yo',
+    nav_ecosystem:'Ekosistèm', nav_saas:'Platfòm SaaS', nav_programmes:'Pwogram',
+    nav_contact:'Kontakt', nav_callcenter:'Sant Apèl', nav_start:'Kòmanse',
   },
   es: {
-    nav_home:'Inicio', nav_services:'Servicios', nav_ecosystem:'Ecosistema',
-    nav_saas:'Plataformas SaaS', nav_programmes:'Programas',
-    nav_about:'Acerca de', nav_contact:'Contacto',
-    nav_callcenter:'Call Center', nav_start:'Comenzar',
+    nav_home:'Inicio', nav_about:'Acerca de', nav_all_services:'Nuestros Servicios',
+    nav_ecosystem:'Ecosistema', nav_saas:'Plataformas SaaS', nav_programmes:'Programas',
+    nav_contact:'Contacto', nav_callcenter:'Call Center', nav_start:'Comenzar',
   }
 };
 

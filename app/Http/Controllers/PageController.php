@@ -11,6 +11,11 @@ class PageController extends Controller
         return view('about');
     }
 
+    public function services()
+    {
+        return view('services.index');
+    }
+
     public function coworking()
     {
         return view('services.coworking');
