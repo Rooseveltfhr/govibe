@@ -1,41 +1,36 @@
 # =============================================================================
-# TAGTOA — servir le site sur le domaine NU (https://tagtoa.com)
+# TAGTOA — .htaccess pour le DOCROOT (public_html/) servant le site sur
+# https://tagtoa.com   [structure actuelle : app dans ../laravel, public_html
+# contient le contenu du dossier public/ de Laravel]
 # =============================================================================
-# L'application Laravel/Biztap est servie depuis :  public_html/tapbiz/public/
-# Ce fichier permet d'afficher TAGTOA directement sur https://tagtoa.com.
+# >>> OÙ LE METTRE : /domains/tagtoa.com/public_html/.htaccess
+#     (à la RACINE de public_html, à côté de index.php).
+#     C'est un fichier CACHÉ (commence par un point) : activez
+#     « Show Hidden Files » dans le gestionnaire de fichiers DirectAdmin.
 #
-# >>> OÙ LE METTRE : /domains/tagtoa.com/public_html/.htaccess  (à la RACINE de
-#     public_html, PAS dans tapbiz/). Créez-le via DirectAdmin → Gestionnaire
-#     de fichiers, ou par FTP.
-#
-# Deux options ci-dessous. Choisissez-en UNE (décommentez le bloc voulu).
-# -----------------------------------------------------------------------------
+# C'est le .htaccess STANDARD Laravel : il envoie toutes les URL vers
+# index.php (le « front controller »). SANS lui, seule la page d'accueil
+# marche et toutes les autres URL renvoient « 404 Not Found ».
+# =============================================================================
 
-# -----------------------------------------------------------------------------
-# OPTION A — REDIRECTION (le plus simple, aucun risque pour Biztap)
-# L'URL affichée deviendra https://tagtoa.com/tapbiz/public/ après redirection.
-# -----------------------------------------------------------------------------
-RewriteEngine On
-RewriteRule ^$ /tapbiz/public/ [L,R=302]
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
 
-# -----------------------------------------------------------------------------
-# OPTION B — RÉÉCRITURE INTERNE (URL propre : reste https://tagtoa.com/...)
-# Décommentez ce bloc ET commentez l'Option A ci-dessus.
-# IMPORTANT : nécessite de définir, dans le .env Laravel (tapbiz/) :
-#     APP_URL=https://tagtoa.com
-# Sinon les liens internes pointeront encore vers /tapbiz/public.
-# -----------------------------------------------------------------------------
-# RewriteEngine On
-# RewriteCond %{REQUEST_URI} !^/tapbiz/public/
-# RewriteCond %{REQUEST_FILENAME} !-f
-# RewriteCond %{REQUEST_FILENAME} !-d
-# RewriteRule ^(.*)$ /tapbiz/public/$1 [L]
-# RewriteRule ^$ /tapbiz/public/ [L]
+    RewriteEngine On
 
-# -----------------------------------------------------------------------------
-# OPTION C (recommandée, la plus propre) — sans ce fichier :
-# Dans DirectAdmin, pointez le « Document Root » du domaine tagtoa.com vers
-# le dossier  public_html/tapbiz/public  (Domain Setup → tagtoa.com →
-# Document Root / « Private HTML »). L'URL reste https://tagtoa.com et aucun
-# .htaccess racine n'est nécessaire.
-# -----------------------------------------------------------------------------
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send Requests To Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
