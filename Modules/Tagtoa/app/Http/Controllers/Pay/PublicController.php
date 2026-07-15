@@ -63,8 +63,10 @@ class PublicController extends Controller
             return back()->withInput()->withErrors(['proof' => __('Une preuve (capture) est requise pour cette méthode.')]);
         }
 
+        // Disque PRIVÉ (pas 'public') : une preuve de paiement ne doit pas être
+        // accessible par URL. Elle est servie via une route authentifiée+scopée.
         $path = $request->hasFile('proof')
-            ? $request->file('proof')->store('tagtoa/pay-proofs', 'public')
+            ? $request->file('proof')->store('tagtoa/pay-proofs')
             : null;
 
         $proof = PaymentProof::create([
