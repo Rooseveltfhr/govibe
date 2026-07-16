@@ -1,46 +1,40 @@
 #!/usr/bin/env bash
-# KLASYO — Diagnostic L : (1) trouver la cause du 500 sur /register,
-# (2) chercher un outil de capture d'écran sur le VPS, (3) reconfirmer le login OK.
-# Logs publics : aucun secret.
+# KLASYO — Étape M : annuler le hack register=>true (mauvais mécanisme : LMSZAI n'a pas de
+# vue auth.register -> 500). LMSZAI a sa propre inscription native, qui fonctionnera une fois
+# l'app servie à la racine (sous-domaine). On restaure register=>false (état propre, pas de 500).
 set -uo pipefail
 
 ROOT="$HOME/domains/klasyo.org/public_html"
 P="$ROOT/platform"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+WEB="$P/routes/web.php"
 
-echo "== L1. Cause du 500 sur /register (exécution CLI, erreurs affichées) =="
-cd "$P/public"
-timeout 30 php -d display_errors=1 -d error_reporting=E_ALL -r '
-  $_SERVER["REQUEST_URI"]="/register";
-  $_SERVER["REQUEST_METHOD"]="GET";
-  $_SERVER["HTTP_HOST"]="klasyo.org";
-  $_SERVER["SCRIPT_NAME"]="/platform/public/index.php";
-  $_SERVER["SCRIPT_FILENAME"]=__DIR__."/index.php";
-  require "index.php";
-' > /tmp/kl_reg.html 2>&1
-echo "  taille réponse: $(wc -c < /tmp/kl_reg.html)o"
-echo "  --- erreurs/exception détectées :"
-grep -oiE '(Fatal error|ParseError|Exception|Error:|Undefined|Call to|View \[[^]]*\] not found|Class .* not found|SQLSTATE|does not exist|Trait|Target class)[^<]{0,120}' /tmp/kl_reg.html | head -8 || echo "  (aucune ligne d'erreur évidente)"
-echo "  --- titre rendu :"
-grep -oiE '<title>[^<]*</title>' /tmp/kl_reg.html | head -1
-echo "  --- dernières lignes du log Laravel platform (messages) :"
-L=$(ls -t "$P"/storage/logs/*.log 2>/dev/null | head -1)
-[ -n "$L" ] && grep -oE '^\[[0-9 :-]+\] \w+\.\w+: [^{]{0,140}' "$L" | tail -4 || echo "  (pas de log)"
-rm -f /tmp/kl_reg.html
+echo "== Ligne actuelle :"
+grep -n "Auth::routes" "$WEB"
+if grep -q "Auth::routes(\['register' => true\])" "$WEB"; then
+  cp -a "$WEB" "$WEB.bak-M-$STAMP"
+  sed -i "s/Auth::routes(\['register' => true\])/Auth::routes(['register' => false])/" "$WEB"
+  echo "  -> restauré register=>false (plus de 500 sur /register)."
+else
+  echo "  (déjà register=>false ou motif absent)"
+fi
+grep -n "Auth::routes" "$WEB"
+(cd "$P" && php artisan route:clear 2>&1 | tail -1)
+(cd "$P" && php artisan config:clear 2>&1 | tail -1)
 
 echo
-echo "== L2. Outils de capture d'écran disponibles sur le VPS ? =="
-for t in chromium chromium-browser google-chrome google-chrome-stable wkhtmltoimage cutycapt; do
-  p=$(command -v "$t" 2>/dev/null) && echo "  TROUVÉ: $t -> $p" || echo "  absent: $t"
-done
-echo "  (node/npx pour puppeteer ?) : $(command -v node 2>/dev/null || echo 'node absent') / $(command -v npx 2>/dev/null || echo 'npx absent')"
+echo "== Chercher le flux d'inscription NATIF de LMSZAI (routes signup/register) =="
+grep -rniE "register|sign.?up|signup|enroll" "$P/routes/web.php" 2>/dev/null | grep -viE 'Auth::routes|verification|version' | head -12 || echo "  (aucune route register native évidente dans web.php)"
+echo "  --- vues d'inscription présentes ?"
+find "$P/resources/views" -iname '*register*' -o -iname '*signup*' 2>/dev/null | grep -v vendor | head -10 || echo "  (aucune vue register/signup)"
+echo "  --- lien d'inscription dans la page login (frontend) :"
+grep -rniE "href=.*(register|signup|sign-up)" "$P/resources/views/frontend" 2>/dev/null | head -5 || echo "  (aucun lien évident)"
 
 echo
-echo "== L3. Reconfirmation login (doit rester OK) =="
-for u in "https://klasyo.org/platform/public/login" "https://klasyo.org/school/public/login"; do
-  code=$(curl -sk -o /dev/null -m 12 -w '%{http_code}' "$u")
-  title=$(curl -sk -m 12 "$u" 2>/dev/null | grep -oiE '<title>[^<]*</title>' | head -1)
-  echo "  $u -> [$code] $title"
-done
+echo "== État final (un seul appel HTTP, pour éviter le throttling firewall) =="
+sleep 2
+code=$(curl -sk -o /dev/null -m 20 -w '%{http_code}' "https://klasyo.org/platform/public/login" 2>/dev/null)
+echo "  /platform/public/login -> [$code]"
 
 echo
-echo "== FIN diagnostic L =="
+echo "== FIN étape M =="
