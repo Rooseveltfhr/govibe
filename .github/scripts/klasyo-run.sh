@@ -1,39 +1,35 @@
 #!/usr/bin/env bash
-# KLASYO — Étape G : LA vraie cause. <FilesMatch "\.php$">SetHandler ne s'applique qu'aux
-# URLs finissant par .php. Les URLs propres (/platform/login) réécrites en interne vers
-# index.php n'exécutent pas -> PHP servi en SOURCE. Fix : AddHandler (clé sur l'extension
-# du FICHIER servi, pas l'URL). On corrige platform ET school, et on VALIDE le corps HTML.
+# KLASYO — Étape H : platform/public/.htaccess garde le bloc LMSZAI d'origine
+# <FilesMatch ...>SetHandler application/x-lsphp80</FilesMatch> (PHP 8.0 = inactif ici),
+# qui prime sur mon AddHandler lsphp83 -> source. On convertit TOUTE référence lsphpNN
+# en lsphp83 dans les .htaccess de platform. Validation du corps HTML.
 set -uo pipefail
 
 ROOT="$HOME/domains/klasyo.org/public_html"
+P="$ROOT/platform"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
-apply_addhandler() { # $1 = fichier .htaccess ; $2 = version lsphp
-  local f="$1" v="$2"
-  [ -f "$f" ] || { echo "  (absent) $f"; return; }
-  cp -a "$f" "$f.bak-G-$STAMP"
-  # Retire l'ancien bloc KLASYO handler (FilesMatch/SetHandler) posé précédemment
-  sed -i '/# KLASYO-PHP-HANDLER/,/<\/FilesMatch>/d' "$f" 2>/dev/null || true
-  # Retire d'éventuelles lignes AddHandler/SetHandler lsphp existantes pour repartir propre
-  sed -i -E '/AddHandler +application\/x-lsphp[0-9]+/d' "$f" 2>/dev/null || true
-  # Ajoute AddHandler (s'applique au fichier résolu, y compris index.php après rewrite)
-  cat >> "$f" <<EOF
-# KLASYO-PHP-HANDLER-ADD
-AddHandler application/x-lsphp${v} .php .phtml
-EOF
-  echo "  AddHandler lsphp${v} -> $(basename "$(dirname "$f")")/.htaccess"
-}
+echo "== Références lsphp AVANT (platform) =="
+grep -rniE 'lsphp[0-9]+' "$P/.htaccess" "$P/public/.htaccess" 2>/dev/null || echo "  (aucune)"
 
-# platform (Laravel 9) et school (Laravel 10) : PHP 8.3 est le seul handler qui exécute ici
-for APP in platform school; do
-  apply_addhandler "$ROOT/$APP/.htaccess" 83
-  apply_addhandler "$ROOT/$APP/public/.htaccess" 83
-  (cd "$ROOT/$APP" && php artisan config:clear 2>&1 | tail -1)
-  (cd "$ROOT/$APP" && php artisan view:clear 2>&1 | tail -1)
+for f in "$P/.htaccess" "$P/public/.htaccess"; do
+  [ -f "$f" ] || continue
+  cp -a "$f" "$f.bak-H-$STAMP"
+  # Toute version lsphpNN -> lsphp83 (corrige le bloc FilesMatch LMSZAI d'origine)
+  sed -i -E 's#(application/x-lsphp)[0-9]+#\183#g' "$f"
+  echo "  corrigé : $(basename "$(dirname "$f")")/.htaccess"
 done
 
+echo "== Références lsphp APRÈS (platform, doivent toutes être 83) =="
+grep -rniE 'lsphp[0-9]+' "$P/.htaccess" "$P/public/.htaccess" 2>/dev/null
+
 echo
-echo "== VALIDATION — le CORPS doit être du HTML, jamais du source PHP =="
+echo "== Purge caches platform =="
+(cd "$P" && php artisan config:clear 2>&1 | tail -1)
+(cd "$P" && php artisan view:clear   2>&1 | tail -1)
+
+echo
+echo "== VALIDATION (corps HTML, jamais du source) =="
 check() {
   local url="$1"
   local body; body=$(curl -skL -m 15 "$url" 2>/dev/null)
@@ -46,19 +42,19 @@ check() {
     echo "  $url -> [$code] ? $(printf '%s' "$body" | head -c 45 | tr -d '\n\r')"
   fi
 }
-echo "--- PLATFORM :"
 check "https://klasyo.org/platform/"
 check "https://klasyo.org/platform/login"
 check "https://klasyo.org/platform/register"
-echo "--- SCHOOL :"
-check "https://klasyo.org/school/"
-check "https://klasyo.org/school/login"
-echo "--- LANDING :"
-check "https://klasyo.org/"
 
 echo
-echo "== Rebrand KLASYO visible ? (page login platform) =="
-curl -skL -m 15 "https://klasyo.org/platform/login" 2>/dev/null | grep -oiE 'KLASYO|LMSzai' | sort -u | head -3 || echo "  (ni KLASYO ni LMSzai trouvés)"
+echo "== Rebrand : KLASYO / LMSzai dans la page d'accueil platform =="
+curl -skL -m 15 "https://klasyo.org/platform/" 2>/dev/null | grep -oiE 'KLASYO|LMSzai' | sort -u | head -3 || echo "  (aucun des deux)"
 
 echo
-echo "== FIN étape G =="
+echo "== Non-régression =="
+for u in "https://klasyo.org/" "https://klasyo.org/school/login"; do
+  echo "  $u -> $(curl -skL -o /dev/null -m 12 -w '%{http_code}' "$u")"
+done
+
+echo
+echo "== FIN étape H =="
