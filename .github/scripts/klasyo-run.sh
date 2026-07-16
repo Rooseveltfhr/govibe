@@ -1,92 +1,86 @@
 #!/usr/bin/env bash
-# KLASYO — Étape D : CORRIGER platform — server.php était servi en SOURCE (pas exécuté).
-# Cause : le .htaccess racine rewrite vers server.php + un SetHandler mal appliqué -> code source
-# renvoyé en texte (bug fonctionnel + divulgation de code). Fix : router vers public/index.php
-# (patron "subdir-safe" identique à school, dont le public/.htaccess a déjà le handler lsphp80).
-# On VALIDE le CONTENU (HTML réel, pas du source PHP), pas seulement le code HTTP.
+# KLASYO — Étape E : platform sert le PHP en SOURCE car son handler lsphp80 n'exécute pas
+# (PHP 8.0 non enregistré sur ce LiteSpeed). School marche avec lsphp83.
+# On DÉTECTE le handler qui EXÉCUTE réellement (on valide le CORPS, pas le code HTTP),
+# on l'applique à platform/public/.htaccess, puis on valide que les pages rendent du HTML.
 set -uo pipefail
 
 ROOT="$HOME/domains/klasyo.org/public_html"
 P="$ROOT/platform"
+PUB="$P/public"
 STAMP="$(date +%Y%m%d-%H%M%S)"
-RHTA="$P/.htaccess"
+PHTA="$PUB/.htaccess"
 
-cp -a "$RHTA" "$RHTA.bak-D-$STAMP" && echo "backup: platform/.htaccess.bak-D-$STAMP"
+cp -a "$PHTA" "$PHTA.bak-E-$STAMP" && echo "backup: platform/public/.htaccess.bak-E-$STAMP"
 
-echo "== .htaccess racine platform AVANT :"
-sed -n '1,60p' "$RHTA"
+# Fichier diag qui, s'il EXÉCUTE, imprime un marqueur unique + la version PHP
+DIAG="$PUB/klasyo_exec.php"
+echo '<?php echo "LSPHPEXEC-".PHP_VERSION;' > "$DIAG"
 
-# Nouveau .htaccess racine : route tout vers public/ (front controller public/index.php),
-# PAS de SetHandler ici (c'est public/.htaccess qui porte le handler lsphp80).
-cat > "$RHTA" <<'HTA'
-# KLASYO-SUBDIR-SAFE — platform (LMSZAI) servi depuis /platform/, routé vers public/
-# (server.php était renvoyé en SOURCE ; on passe par public/index.php comme school)
-<IfModule mod_rewrite.c>
-    <IfModule mod_negotiation.c>
-        Options -MultiViews -Indexes
-    </IfModule>
+echo "== Handler actuel dans platform/public/.htaccess :"
+grep -niE 'sethandler|lsphp' "$PHTA" || echo "  (aucun)"
 
-    RewriteEngine On
+WINNER=""
+for V in 83 82 81 80; do
+  # Remplace toute valeur x-lsphpNN existante par la version testée
+  if grep -qiE 'x-lsphp[0-9]+' "$PHTA"; then
+    sed -i -E "s#application/x-lsphp[0-9]+#application/x-lsphp${V}#g" "$PHTA"
+  else
+    # pas de SetHandler -> on en ajoute un (bloc KLASYO), nettoyé à chaque tour
+    sed -i '/# KLASYO-PHP-HANDLER/,/<\/FilesMatch>/d' "$PHTA" 2>/dev/null || true
+    printf '# KLASYO-PHP-HANDLER\n<FilesMatch "\\.(php|phtml)$">\nSetHandler application/x-lsphp%s\n</FilesMatch>\n' "$V" >> "$PHTA"
+  fi
+  body=$(curl -sk -m 12 "https://klasyo.org/platform/public/klasyo_exec.php" 2>/dev/null | head -c 60)
+  if printf '%s' "$body" | grep -q "LSPHPEXEC-"; then
+    WINNER="$V"
+    echo "  lsphp${V} -> EXÉCUTE : ${body}"
+    break
+  else
+    echo "  lsphp${V} -> pas d'exécution (début: $(printf '%s' "$body" | head -c 25))"
+  fi
+done
+rm -f "$DIAG"
 
-    # Ne pas re-réécrire ce qui est déjà sous public/ (stoppe toute boucle)
-    RewriteRule ^public/ - [L]
-
-    # Fichier statique existant dans public/ -> le servir directement
-    RewriteCond %{DOCUMENT_ROOT}/platform/public/$1 -f
-    RewriteRule ^(.*)$ public/$1 [L]
-
-    # Tout le reste -> front controller Laravel (public/index.php porte le handler lsphp80)
-    RewriteRule ^ public/index.php [L]
-
-    # En-tête Authorization pour l'API
-    RewriteCond %{HTTP:Authorization} .
-    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-</IfModule>
-HTA
-echo "  Nouveau .htaccess racine écrit (route vers public/, sans SetHandler)."
+if [ -z "$WINNER" ]; then
+  echo "  (!) Aucun handler n'exécute — restauration + il faudra fixer la version PHP dans DirectAdmin."
+  cp -a "$PHTA.bak-E-$STAMP" "$PHTA"
+else
+  echo "  ==> Handler lsphp${WINNER} appliqué à platform/public/.htaccess."
+fi
 
 echo
 echo "== Purge caches =="
 (cd "$P" && php artisan config:clear 2>&1 | tail -1)
 (cd "$P" && php artisan view:clear   2>&1 | tail -1)
-(cd "$P" && php artisan route:clear  2>&1 | tail -1)
 
 echo
-echo "== VALIDATION DU CONTENU (pas seulement le code HTTP) =="
+echo "== VALIDATION FINALE — le corps doit être du HTML, jamais du source PHP =="
 check() {
   local url="$1"
   local body; body=$(curl -skL -m 15 "$url" 2>/dev/null)
   local code; code=$(curl -skL -o /dev/null -m 15 -w "%{http_code}" "$url" 2>/dev/null)
-  local first; first=$(printf '%s' "$body" | head -c 40 | tr -d '\n\r')
-  local verdict="?"
-  if printf '%s' "$body" | grep -qiE 'Taylor Otwell|mod_rewrite|require_once __DIR__|A PHP Framework'; then
-    verdict="!!! SOURCE PHP EXPOSÉE"
+  if printf '%s' "$body" | grep -qiE '<\?php|Illuminate\\Contracts|Taylor Otwell|require_once __DIR__'; then
+    echo "  $url -> [$code] !!! SOURCE PHP"
   elif printf '%s' "$body" | grep -qiE '<!doctype html|<html'; then
-    verdict="OK (HTML rendu)"
-  elif [ -z "$body" ]; then
-    verdict="(vide)"
+    echo "  $url -> [$code] OK HTML | $(printf '%s' "$body" | grep -oiE '<title>[^<]*</title>' | head -1)"
   else
-    verdict="autre"
+    echo "  $url -> [$code] ? ($(printf '%s' "$body" | head -c 30 | tr -d '\n\r'))"
   fi
-  echo "  $url -> [$code] $verdict | début: ${first}"
 }
 check "https://klasyo.org/platform/"
 check "https://klasyo.org/platform/login"
 check "https://klasyo.org/platform/register"
-check "https://klasyo.org/platform/index.php"
 
 echo
-echo "== Titre + présence de 'KLASYO' dans la page login (rebrand) =="
-LOGIN=$(curl -skL -m 15 "https://klasyo.org/platform/login" 2>/dev/null)
-printf '%s' "$LOGIN" | grep -oiE '<title>[^<]*</title>' | head -1 || echo "  (pas de title)"
-printf '%s' "$LOGIN" | grep -oiE 'KLASYO' | head -1 && echo "  -> 'KLASYO' présent" || echo "  -> 'KLASYO' absent (vérifier logo/nom dans les vues)"
+echo "== 'KLASYO' présent dans la page login ? =="
+curl -skL -m 15 "https://klasyo.org/platform/login" 2>/dev/null | grep -oiE 'KLASYO' | head -1 && echo "  -> présent" || echo "  -> absent"
 
 echo
-echo "== Confirmation école (ne pas régresser) =="
-for u in "https://klasyo.org/school/" "https://klasyo.org/school/login" "https://klasyo.org/"; do
-  code=$(curl -skL -o /dev/null -m 12 -w "%{http_code}" "$u")
-  echo "  $u -> $code"
+echo "== École (non-régression) + reste public/ propre =="
+for u in "https://klasyo.org/school/login" "https://klasyo.org/"; do
+  echo "  $u -> $(curl -skL -o /dev/null -m 12 -w '%{http_code}' "$u")"
 done
+find "$PUB" -maxdepth 1 -name 'klasyo_*' 2>/dev/null && echo "  (fichiers diag restants ci-dessus)" || echo "  public/ propre (aucun diag)"
 
 echo
-echo "== FIN étape D =="
+echo "== FIN étape E =="
