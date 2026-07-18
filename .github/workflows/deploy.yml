@@ -36,6 +36,22 @@ jobs:
         id: apppath
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          # Diagnostic : structure réelle du domaine (aide à situer docroot vs app).
+          echo "::group::Structure serveur (diagnostic)"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              D=$(ls -d /home/*/domains/tagtoa.com 2>/dev/null | head -1)
+              echo "domaine: $D"
+              echo "--- $D ---";                ls -la "$D" 2>/dev/null
+              echo "--- $D/public_html ---";    ls -la "$D/public_html" 2>/dev/null
+              echo "--- $D/public_html/laravel (head) ---"; ls -la "$D/public_html/laravel" 2>/dev/null | head -20
+              echo "--- $D/public_html/laravel/public ---"; ls -la "$D/public_html/laravel/public" 2>/dev/null
+              echo "--- $D/laravel (head) ---"; ls -la "$D/laravel" 2>/dev/null | head -20
+              echo "--- DocumentRoot déclaré ---"
+              grep -rhi "documentroot" /usr/local/directadmin/data/users/*/httpd.conf 2>/dev/null | grep -i tagtoa || \
+              grep -rhi "documentroot.*tagtoa" /etc/httpd/conf* /etc/apache2 2>/dev/null | head
+            ' || true
+          echo "::endgroup::"
           RESOLVED=$(ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
               # 1) le secret, s il est bon, gagne
