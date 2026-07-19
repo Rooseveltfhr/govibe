@@ -10,6 +10,10 @@ on:
         description: "Restructurer le docroot (déplacer laravel hors de public_html) — une seule fois"
         type: boolean
         default: false
+      harden_env:
+        description: "Durcir .env : APP_ENV=production, APP_DEBUG=false, DEBUGBAR off, APP_URL sans slash"
+        type: boolean
+        default: false
   push:
     branches: ["main"]
     paths: ["Modules/Tagtoa/**"]
@@ -39,6 +43,28 @@ jobs:
       #  - ne clobbere jamais un fichier/dossier existant (biztap/menu/profil saufs) ;
       #  - se saute tout seul si déjà restructuré ;
       #  - abandonne proprement si l'app n'est pas là où on l'attend.
+      - name: Harden .env (on demand)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.harden_env }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          D=$(ls -d /home/*/domains/tagtoa.com 2>/dev/null | head -1)
+          ENVF="$D/laravel/.env"; [ -f "$ENVF" ] || ENVF="$D/public_html/laravel/.env"
+          [ -f "$ENVF" ] || { echo ".env introuvable"; exit 1; }
+          cp "$ENVF" "$ENVF.bak" 2>/dev/null || true
+          # clés NON sensibles uniquement (jamais DB_PASSWORD/APP_KEY)
+          grep -q '^APP_ENV=' "$ENVF"          && sed -i 's/^APP_ENV=.*/APP_ENV=production/' "$ENVF"       || echo 'APP_ENV=production' >> "$ENVF"
+          grep -q '^APP_DEBUG=' "$ENVF"        && sed -i 's/^APP_DEBUG=.*/APP_DEBUG=false/' "$ENVF"        || echo 'APP_DEBUG=false' >> "$ENVF"
+          grep -q '^DEBUGBAR_ENABLED=' "$ENVF" && sed -i 's/^DEBUGBAR_ENABLED=.*/DEBUGBAR_ENABLED=false/' "$ENVF" || echo 'DEBUGBAR_ENABLED=false' >> "$ENVF"
+          sed -i 's#^APP_URL=https://tagtoa.com/*$#APP_URL=https://tagtoa.com#' "$ENVF"
+          echo "=== .env après durcissement ==="
+          grep -E '^(APP_ENV|APP_DEBUG|APP_URL|DEBUGBAR_ENABLED)=' "$ENVF"
+          ( cd "$(dirname "$ENVF")" && php artisan config:clear >/dev/null 2>&1; php artisan optimize:clear >/dev/null 2>&1 ) || true
+          echo "Durcissement .env OK."
+          EOSSH
+
       - name: Restructure docroot (on demand)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.restructure }}
         run: |
