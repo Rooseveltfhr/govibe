@@ -112,6 +112,16 @@ jobs:
               echo "--- DocumentRoot déclaré ---"
               grep -rhi "documentroot" /usr/local/directadmin/data/users/*/httpd.conf 2>/dev/null | grep -i tagtoa || \
               grep -rhi "documentroot.*tagtoa" /etc/httpd/conf* /etc/apache2 2>/dev/null | head
+              echo "--- HTTP local (app en direct, sans DNS/CDN) ---"
+              for U in "http://127.0.0.1/" "https://127.0.0.1/"; do
+                curl -skS -m 12 -o /dev/null -w "  $U -> code=%{http_code} time=%{time_total}s\n" -H "Host: tagtoa.com" "$U" || echo "  $U -> curl échec/timeout"
+              done
+              echo "--- maintenance mode ? ---"
+              ls -la "$D/laravel/storage/framework/down" 2>/dev/null && echo "EN MAINTENANCE" || echo "pas en maintenance"
+              echo "--- .env (clés non sensibles) ---"
+              grep -E "^(APP_ENV|APP_DEBUG|APP_URL|SESSION_DRIVER|CACHE_DRIVER|QUEUE_CONNECTION|DB_HOST|REDIS_HOST|DEBUGBAR_ENABLED)=" "$D/laravel/.env" 2>/dev/null
+              echo "--- laravel.log (30 dernières lignes) ---"
+              tail -30 "$D/laravel/storage/logs/laravel.log" 2>/dev/null || echo "pas de log"
             ' || true
           echo "::endgroup::"
           RESOLVED=$(ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
