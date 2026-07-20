@@ -27,6 +27,7 @@
     @foreach([
         ['site','Site web','fa-globe','Site web professionnel par abonnement : vitrine, services, contact, galerie.'],
         ['menu','Menu','fa-utensils','Menu digital NFC/QR : restaurant, club, lounge, hôtel… vendez produits & services.'],
+        ['store','Boutique','fa-bag-shopping','Boutique en ligne : catalogue, panier, commande WhatsApp + paiement.'],
         ['pay','Paiements','fa-money-bill-transfer','Page de paiement (MonCash, NatCash, Zelle, PayPal…) + preuves.'],
         ['loyalty','Fidélité','fa-id-card','Cartes NFC de fidélité : solde, points, récompenses.'],
         ['links','Liens','fa-link','Page de liens style Linktree + don.'],

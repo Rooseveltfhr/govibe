@@ -41,6 +41,7 @@ Route::get('/links/{alias}', [LinksPublic::class, 'show'])->name('tagtoa.links.s
 Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->name('tagtoa.links.go');
 Route::get('/site/{alias}', [SitePublic::class, 'show'])->name('tagtoa.site.show');
 Route::get('/menu/{alias}', [MenuPublic::class, 'show'])->name('tagtoa.menu.show');
+Route::get('/store/{alias}', [\Modules\Tagtoa\App\Http\Controllers\Store\PublicController::class, 'show'])->name('tagtoa.store.show');
 Route::get('/event/{alias}', [EventPublic::class, 'show'])->name('tagtoa.event.show');
 Route::get('/event/order/{reference}', [EventPublic::class, 'order'])->name('tagtoa.event.order');
 Route::get('/event/ticket/{code}', [EventPublic::class, 'ticket'])->name('tagtoa.event.ticket');
@@ -54,6 +55,7 @@ Route::middleware('throttle:20,1')->group(function () {
     Route::post('/event/{alias}/buy', [EventPublic::class, 'buy'])->name('tagtoa.event.buy');
     Route::post('/book/{alias}/reserve', [BookingPublic::class, 'reserve'])->name('tagtoa.booking.reserve');
     Route::post('/reviews', [\Modules\Tagtoa\App\Http\Controllers\Review\PublicController::class, 'store'])->name('tagtoa.reviews.store');
+    Route::post('/store/{alias}/order', [\Modules\Tagtoa\App\Http\Controllers\Store\PublicController::class, 'order'])->name('tagtoa.store.order');
 });
 
 // Terminal STAFF terrain (auth par PIN scopée événement — pas de login Laravel).
@@ -106,6 +108,20 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/edit', [SiteDashboard::class, 'edit'])->name('edit');
         Route::put('/{id}', [SiteDashboard::class, 'update'])->name('update');
         Route::delete('/{id}', [SiteDashboard::class, 'destroy'])->name('destroy');
+    });
+
+    // STORE (boutique en ligne / e-commerce)
+    Route::prefix('store')->name('tagtoa.store.dashboard.')->group(function () {
+        $storeDash = \Modules\Tagtoa\App\Http\Controllers\Store\DashboardController::class;
+        Route::get('/', [$storeDash, 'index'])->name('index');
+        Route::get('/create', [$storeDash, 'create'])->name('create');
+        Route::post('/', [$storeDash, 'store'])->name('store');
+        Route::get('/{id}/edit', [$storeDash, 'edit'])->name('edit');
+        Route::put('/{id}', [$storeDash, 'update'])->name('update');
+        Route::delete('/{id}', [$storeDash, 'destroy'])->name('destroy');
+        Route::get('/{id}/orders', [$storeDash, 'orders'])->name('orders');
+        Route::post('/orders/{orderId}/status', [$storeDash, 'setStatus'])->name('orders.status');
+        Route::post('/orders/{orderId}/paid', [$storeDash, 'markPaid'])->name('orders.paid');
     });
 
     // MENU (restaurant, club, lounge, hôtel, bar, café…)

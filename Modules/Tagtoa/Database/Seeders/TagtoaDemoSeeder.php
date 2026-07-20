@@ -278,6 +278,27 @@ class TagtoaDemoSeeder extends Seeder
             );
         }
 
+        // 5c) STORE — boutique en ligne démo + produits
+        $store = \Modules\Tagtoa\App\Models\Store\Store::firstOrCreate(
+            ['alias' => 'demo-boutik'],
+            ['name' => 'TAGTOA Boutik Demo', 'tagline' => 'Mode • Accessoires • Livraison Ayiti',
+             'description' => 'Achte an liy, resevwa sou WhatsApp, peye ak MonCash. Boutik demo TAGTOA.',
+             'currency' => 'HTG', 'whatsapp' => '+509 3000 0000', 'delivery_note' => 'Livraison Port-au-Prince 250 G',
+             'is_published' => true]
+        );
+        foreach ([
+            ['T-shirt TAGTOA', 800, 1000, 'Vêtements', '★'],
+            ['Casquette NFC', 650, null, 'Accessoires', ''],
+            ['Tote bag', 450, null, 'Accessoires', ''],
+            ['Bracelet NFC', 300, 400, 'Accessoires', '★'],
+        ] as $i => [$name, $price, $cmp, $cat, $feat]) {
+            \Modules\Tagtoa\App\Models\Store\Product::firstOrCreate(
+                ['store_id' => $store->id, 'name' => $name],
+                ['price' => $price, 'compare_price' => $cmp, 'category' => $cat,
+                 'is_available' => true, 'is_featured' => $feat === '★', 'sort' => $i]
+            );
+        }
+
         // 6) POS — caisse démo + produits
         $terminal = Terminal::firstOrCreate(['name' => 'Caisse Demo'], ['currency' => 'HTG', 'is_active' => true]);
         foreach ([
