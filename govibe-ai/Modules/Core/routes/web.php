@@ -1,8 +1,4 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Modules\Core\Http\Controllers\CoreController;
-
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::resource('cores', CoreController::class)->names('core');
-});
+// Le module Core n'expose pas encore de routes web propres.
+// La négociation de langue (SetLocale) est branchée globalement dans bootstrap/app.php.
