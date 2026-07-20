@@ -1,7 +1,7 @@
 {{-- TAGTOA — page d'accueil premium (landing). Thème clair, blocs, animations.
      Couleur principale #2cb809. Multilingue, sans emoji (icônes uniquement). --}}
 @php
-    $store = 'https://store.tagtoa.com';
+    $store = url('/tagtoa/store'); // Boutique désormais NATIVE dans TAGTOA
     $slides = [
         ['fa-bolt',     'Transformez chaque tap en vente',          'Site, menu, paiements et fidélité réunis — un seul tap NFC, un seul QR.'],
         ['fa-bag-shopping', 'Votre boutique WhatsApp en 2 minutes',  'Créez une boutique en ligne gratuite et vendez directement sur WhatsApp.'],
