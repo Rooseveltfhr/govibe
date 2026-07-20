@@ -179,3 +179,16 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
   lòt direktiv Blade — parser la kase (« Unclosed '[' ») e paj la crash an prod (PR #41).
   Mete lojik la nan `@php ... @endphp` (san `use` — non konplè klas), pase yon varyab senp.
   AVAN chak push vue: konpile ak vrè konpilatè Blade (illuminate/view) + `php -l` rezilta a.
+
+## 9. GOVIBE AI (nouvo platfòm — an devlopman)
+- Platfòm SaaS IA (gateway multi-fournisseur + apps IA + ajan sektoryèl).
+  Plan konplè: `docs/govibe-ai/ARCHITECTURE.md` (+ ADR nan `docs/govibe-ai/adr/`).
+- Kòd la nan **`govibe-ai/`** (Laravel 13 + PHP 8.4, `nwidart/laravel-modules`,
+  Postgres+pgvector, Redis, Pest, PHPStan/larastan, Pint, Docker compose dev).
+- Branch devlopman: `claude/govibe-ai-architecture-kyhgvp` (PR #62).
+- CI separe: `.github/workflows/govibe-ai-ci.yml` (path-filtered `govibe-ai/**`).
+- **Faz 0 ✅**: skeleton + modil Core, i18n fr/ht/en/es (`LocaleNegotiator` pi +
+  middleware `SetLocale`), `config/govibe.php`, Docker, tès Pest (14), ADR-001.
+- ⚠️ Sandbox sa a: api.github.com bloke → dist composer echwe; enstale ak
+  `env -u GITHUB_TOKEN -u GH_TOKEN composer install --prefer-source` (cache VCS).
+  `phpstan/phpstan` = stub lokal (vrè phar la kouri sèlman nan CI).
