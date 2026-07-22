@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Espace Admin — TCHEKELA</title>
+<meta name="theme-color" content="#003F87">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="assets/fontawesome/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700&family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/tchekela.css">
+<style>
+  .admin-tabs { display: flex; gap: 4px; overflow-x: auto; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 5px; margin-bottom: 18px; scrollbar-width: none; }
+  .admin-tabs::-webkit-scrollbar { display: none; }
+  .atab { flex: 1; min-width: 110px; padding: 11px 8px; border-radius: 9px; font-family: var(--font-b); font-weight: 700; font-size: .74rem; letter-spacing: .03em; color: var(--muted); white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .atab.on { background: var(--primary); color: #fff; }
+  .atab .badge-n { background: var(--red); color: #fff; border-radius: 50px; font-size: .58rem; padding: 1px 6px; font-weight: 800; }
+  .apanel { display: none; }
+  .apanel.on { display: block; }
+  .stat-row { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 18px; }
+  @media (min-width: 640px) { .stat-row { grid-template-columns: repeat(4,1fr); } }
+  .astat { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .astat .an { font-family: var(--font-d); font-size: 1.7rem; font-weight: 700; color: var(--primary); line-height: 1; }
+  .astat .al { font-size: .6rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-family: var(--font-b); font-weight: 700; margin-top: 4px; }
+  .item { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+  .item-head { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin-bottom: 8px; }
+  .item-title { font-weight: 700; font-size: .9rem; color: var(--dark); }
+  .item-meta { font-size: .72rem; color: var(--muted); line-height: 1.5; }
+  .item-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .item-acts .btn { width: auto; flex: none; padding: 8px 14px; font-size: .76rem; }
+  .thumb { width: 56px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; }
+  .empty { text-align: center; color: var(--muted); padding: 30px; font-size: .85rem; }
+  .login-box { max-width: 380px; margin: 40px auto; }
+  .lightbox { display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,.9); align-items:center; justify-content:center; padding:20px; }
+  .lightbox.open { display:flex; } .lightbox img { max-width:100%; max-height:90vh; border-radius:10px; }
+</style>
+</head>
+<body data-shared-chrome data-page="admin" data-no-ai>
+
+<!-- LOGIN -->
+<section class="section section-light" id="loginView">
+  <div class="login-box card">
+    <div class="card-head"><div class="ico"><i class="fas fa-user-shield"></i></div><div><h3>Espace administrateur</h3><p>Accès réservé à l'équipe</p></div></div>
+    <div class="fg"><label>Mot de passe</label><input class="fc" id="admPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()"></div>
+    <button class="btn btn-primary" onclick="login()"><i class="fas fa-lock-open"></i> Se connecter</button>
+    <div class="ib ib-gold" style="margin-top:12px;margin-bottom:0;"><i class="fas fa-circle-info"></i><span>Démo : mot de passe <b>tchekela2026</b>. En production, l'authentification doit se faire côté serveur.</span></div>
+  </div>
+</section>
+
+<!-- DASHBOARD -->
+<section class="section section-off" id="dashView" style="display:none;">
+  <div class="wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+      <div><h2 style="font-family:var(--font-d);font-size:1.6rem;font-weight:700;">Tableau de bord</h2><p style="font-size:.8rem;color:var(--muted);">Gestion TCHEKELA</p></div>
+      <button class="btn btn-outline btn-inline" onclick="logout()"><i class="fas fa-right-from-bracket"></i> Déconnexion</button>
+    </div>
+
+    <div class="stat-row">
+      <div class="astat"><div class="an" id="stDon">0</div><div class="al">Dons reçus</div></div>
+      <div class="astat"><div class="an" id="stPart">0</div><div class="al">Partenaires</div></div>
+      <div class="astat"><div class="an" id="stVol">0</div><div class="al">Bénévoles</div></div>
+      <div class="astat"><div class="an" id="stCard">0</div><div class="al">Cartes ONI</div></div>
+    </div>
+
+    <div class="admin-tabs">
+      <button class="atab on" onclick="showTab('don',this)"><i class="fas fa-hand-holding-dollar"></i> Dons <span class="badge-n" id="bnDon" style="display:none;">0</span></button>
+      <button class="atab" onclick="showTab('part',this)"><i class="fas fa-handshake"></i> Partenaires <span class="badge-n" id="bnPart" style="display:none;">0</span></button>
+      <button class="atab" onclick="showTab('vol',this)"><i class="fas fa-hand-holding-heart"></i> Bénévoles</button>
+      <button class="atab" onclick="showTab('card',this)"><i class="fas fa-id-card-clip"></i> Cartes ONI</button>
+    </div>
+
+    <!-- DONS -->
+    <div class="apanel on" id="pDon"><div id="donList"></div></div>
+
+    <!-- PARTENAIRES -->
+    <div class="apanel" id="pPart">
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-head"><div class="ico"><i class="fas fa-plus"></i></div><div><h3>Ajouter un partenaire manuellement</h3><p>Approuvé directement</p></div></div>
+        <div class="frow">
+          <div class="fg"><label>Nom</label><input class="fc" id="apName" placeholder="Institution"></div>
+          <div class="fg"><label>Secteur</label><input class="fc" id="apSector" placeholder="Banque, ONG…"></div>
+        </div>
+        <div class="fg"><label>Logo (optionnel)</label><input class="fc" id="apLogo" type="file" accept="image/*"></div>
+        <button class="btn btn-primary" onclick="addPartner()"><i class="fas fa-check"></i> Ajouter & approuver</button>
+      </div>
+      <div id="partList"></div>
+    </div>
+
+    <!-- BENEVOLES -->
+    <div class="apanel" id="pVol"><div id="volList"></div></div>
+
+    <!-- CARTES ONI -->
+    <div class="apanel" id="pCard">
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-head"><div class="ico" style="background:rgba(13,148,136,.1);"><i class="fas fa-upload" style="color:var(--green);"></i></div><div><h3>Téléverser une carte ONI</h3><p>Réservé aux bénévoles en bureau</p></div></div>
+        <div class="frow">
+          <div class="fg"><label>N° de dossier <span class="req">*</span></label><input class="fc" id="ocRef" placeholder="ONI-2026-04582"></div>
+          <div class="fg"><label>Nom du propriétaire <span class="req">*</span></label><input class="fc" id="ocName" placeholder="Nom complet"></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Type</label><select class="fc" id="ocType"><option value="cin">CIN</option><option value="passeport">Passeport</option><option value="permis">Permis</option></select></div>
+          <div class="fg"><label>Bureau</label><select class="fc" id="ocBureau">
+            <option value="oni-pap">ONI Port-au-Prince</option><option value="oni-delmas">ONI Delmas</option>
+            <option value="oni-petionville">ONI Pétionville</option><option value="oni-cap">ONI Cap-Haïtien</option>
+            <option value="oni-gonaives">ONI Gonaïves</option><option value="immigr-pap">Immigration PAP</option><option value="circulation-pap">Direction Circulation</option>
+          </select></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Statut</label><select class="fc" id="ocStatus"><option value="ready">Prêt au retrait</option><option value="printed">Imprimé</option><option value="processing">En traitement</option></select></div>
+          <div class="fg"><label>Date d'arrivée</label><input class="fc" id="ocDate" type="date"></div>
+        </div>
+        <div class="fg"><label>Photo de la carte imprimée</label>
+          <div class="scan-z">
+            <input type="file" id="ocPic" accept="image/*" capture="environment" onchange="ocPreview(event)">
+            <div class="sz-ico" style="background:rgba(13,148,136,.1);"><i class="fas fa-camera" style="color:var(--green);"></i></div>
+            <div class="sz-t">Photographier la carte</div><div class="sz-s">Le propriétaire la verra dans « Vérifier ma carte »</div>
+          </div>
+          <div class="scan-prev" id="ocPrev"><img id="ocImg" src="" alt=""></div>
+        </div>
+        <button class="btn btn-green" onclick="uploadCard()"><i class="fas fa-upload"></i> Téléverser</button>
+      </div>
+      <div id="cardList"></div>
+    </div>
+  </div>
+</section>
+
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('open')"><img id="lbImg" src=""></div>
+
+<script src="assets/tchekela.js"></script>
+<script>
+const ADMIN_PASS = 'tchekela2026';
+function login(){
+  if(document.getElementById('admPass').value === ADMIN_PASS){
+    sessionStorage.setItem('tch_admin','1'); showDash();
+  } else toast('<i class="fas fa-triangle-exclamation"></i> Mot de passe incorrect');
+}
+function logout(){ sessionStorage.removeItem('tch_admin'); location.reload(); }
+function showDash(){
+  document.getElementById('loginView').style.display='none';
+  document.getElementById('dashView').style.display='';
+  renderAll();
+}
+function showTab(t,btn){
+  document.querySelectorAll('.atab').forEach(x=>x.classList.remove('on')); btn.classList.add('on');
+  document.querySelectorAll('.apanel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('p'+t.charAt(0).toUpperCase()+t.slice(1)).classList.add('on');
+}
+function lightbox(src){ document.getElementById('lbImg').src=src; document.getElementById('lightbox').classList.add('open'); }
+
+const METHOD_LBL={moncash:'MonCash',natcash:'NatCash',paypal:'PayPal',zelle:'Zelle',bank:'Virement',crypto:'Crypto'};
+const TYPE_LBL={collecte:'Point de collecte',financier:'Financier',media:'Média',technique:'Technique'};
+const BUREAU={'oni-pap':'ONI PAP','oni-delmas':'ONI Delmas','oni-petionville':'ONI Pétionville','oni-cap':'ONI Cap','oni-gonaives':'ONI Gonaïves','immigr-pap':'Immigration','circulation-pap':'Circulation'};
+
+function renderAll(){
+  renderDon(); renderPart(); renderVol(); renderCard(); renderStats();
+}
+function renderStats(){
+  document.getElementById('stDon').textContent = TKStore.get('donations',[]).length;
+  document.getElementById('stPart').textContent = TKStore.get('partners',[]).filter(p=>p.status==='approved').length;
+  document.getElementById('stVol').textContent = TKStore.get('volunteers',[]).length;
+  document.getElementById('stCard').textContent = TKStore.get('oni_cards',[]).length;
+  const pendDon = TKStore.get('donations',[]).filter(d=>d.status==='pending').length;
+  const pendPart = TKStore.get('partners',[]).filter(p=>p.status==='pending').length;
+  toggleBadge('bnDon',pendDon); toggleBadge('bnPart',pendPart);
+}
+function toggleBadge(id,n){ const e=document.getElementById(id); if(n>0){ e.style.display=''; e.textContent=n; } else e.style.display='none'; }
+
+/* ---- DONS ---- */
+function renderDon(){
+  const list=TKStore.get('donations',[]); const el=document.getElementById('donList');
+  if(!list.length){ el.innerHTML='<div class="empty">Aucun don pour le moment.</div>'; return; }
+  el.innerHTML=list.map((d,i)=>`
+    <div class="item">
+      <div class="item-head">
+        <div class="item-title">${Number(d.amount).toLocaleString('fr-FR')} ${d.cur} <span class="status-pill ${d.status==='confirmed'?'sp-green':'sp-gold'}">${d.status==='confirmed'?'Confirmé':'En attente'}</span></div>
+        ${d.proof?`<img class="thumb" src="${d.proof}" onclick="lightbox('${d.proof}')">`:''}
+      </div>
+      <div class="item-meta">
+        <b>${d.anon?'Anonyme':escapeHtml(d.name)}</b> · ${escapeHtml(d.phone||'')}<br>
+        ${METHOD_LBL[d.method]||d.method}${d.crypto?(' · '+d.crypto):''} · ${d.recurring?'Mensuel':'Ponctuel'} · Réf ${d.ref}<br>
+        ${d.txn?('Txn: '+escapeHtml(d.txn)+' · '):''}${new Date(d.date).toLocaleString('fr-FR')}
+      </div>
+      <div class="item-acts">
+        ${d.status!=='confirmed'?`<button class="btn btn-green" onclick="confirmDon(${i})"><i class="fas fa-check"></i> Valider</button>`:''}
+        <button class="btn btn-outline" style="border-color:var(--red);color:var(--red);" onclick="delItem('donations',${i})"><i class="fas fa-trash"></i> Suppr.</button>
+      </div>
+    </div>`).join('');
+}
+function confirmDon(i){ const l=TKStore.get('donations',[]); l[i].status='confirmed'; TKStore.set('donations',l); renderDon(); renderStats(); toast('<i class="fas fa-check-circle"></i> Don confirmé'); }
+
+/* ---- PARTENAIRES ---- */
+function renderPart(){
+  const list=TKStore.get('partners',[]); const el=document.getElementById('partList');
+  if(!list.length){ el.innerHTML='<div class="empty">Aucun partenaire.</div>'; return; }
+  el.innerHTML=list.map((p,i)=>`
+    <div class="item">
+      <div class="item-head">
+        <div class="item-title">${escapeHtml(p.name)} <span class="status-pill ${p.status==='approved'?'sp-green':(p.status==='rejected'?'sp-red':'sp-gold')}">${p.status==='approved'?'Approuvé':(p.status==='rejected'?'Rejeté':'En attente')}</span></div>
+        ${p.logo?`<img class="thumb" src="${p.logo}" onclick="lightbox('${p.logo}')">`:''}
+      </div>
+      <div class="item-meta">
+        ${(p.types||[]).map(t=>TYPE_LBL[t]||t).join(' · ')||p.sector||''}<br>
+        ${p.contact?('Contact: '+escapeHtml(p.contact)+' · '):''}${escapeHtml(p.phone||'')} ${p.email?('· '+escapeHtml(p.email)):''}<br>
+        ${p.city?escapeHtml(p.city):''} ${p.addr?('· '+escapeHtml(p.addr)):''}
+      </div>
+      <div class="item-acts">
+        ${p.status!=='approved'?`<button class="btn btn-green" onclick="setPart(${i},'approved')"><i class="fas fa-check"></i> Approuver</button>`:''}
+        ${p.status!=='rejected'?`<button class="btn btn-outline" onclick="setPart(${i},'rejected')"><i class="fas fa-xmark"></i> Rejeter</button>`:''}
+        <button class="btn btn-outline" style="border-color:var(--red);color:var(--red);" onclick="delItem('partners',${i})"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>`).join('');
+}
+function setPart(i,s){ const l=TKStore.get('partners',[]); l[i].status=s; TKStore.set('partners',l); renderPart(); renderStats(); toast('<i class="fas fa-check"></i> Statut: '+s); }
+function addPartner(){
+  const name=document.getElementById('apName').value.trim(); if(!name) return toast('<i class="fas fa-triangle-exclamation"></i> Nom requis');
+  const file=document.getElementById('apLogo').files[0];
+  const save=(logo)=>{ TKStore.push('partners',{name,sector:document.getElementById('apSector').value.trim(),types:[],logo,icon:'fa-building',status:'approved',date:new Date().toISOString(),ref:ref('TCH-PART')}); document.getElementById('apName').value=''; document.getElementById('apSector').value=''; document.getElementById('apLogo').value=''; renderPart(); renderStats(); toast('<i class="fas fa-check-circle"></i> Partenaire ajouté'); };
+  if(file) fileToDataURL(file).then(save); else save(null);
+}
+
+/* ---- BENEVOLES ---- */
+function renderVol(){
+  const list=TKStore.get('volunteers',[]); const el=document.getElementById('volList');
+  if(!list.length){ el.innerHTML='<div class="empty">Aucun bénévole inscrit.</div>'; return; }
+  el.innerHTML=list.map((v,i)=>`
+    <div class="item">
+      <div class="item-head">
+        <div class="item-title">${escapeHtml(v.fname)} ${escapeHtml(v.lname)} <span class="status-pill sp-green">${escapeHtml(v.id)}</span></div>
+        ${v.photo?`<img class="thumb" style="border-radius:50%;width:40px;height:40px;" src="${v.photo}" onclick="lightbox('${v.photo}')">`:''}
+      </div>
+      <div class="item-meta">${escapeHtml(v.phone||'')} ${v.email?('· '+escapeHtml(v.email)):''}<br>${escapeHtml(v.city||'')} · ${(v.interests||[]).join(', ')||'—'} · ${new Date(v.date).toLocaleDateString('fr-FR')}</div>
+      <div class="item-acts"><button class="btn btn-outline" style="border-color:var(--red);color:var(--red);" onclick="delItem('volunteers',${i})"><i class="fas fa-trash"></i> Suppr.</button></div>
+    </div>`).join('');
+}
+
+/* ---- CARTES ONI ---- */
+let ocImgData=null;
+function ocPreview(e){ const f=e.target.files[0]; if(!f) return; fileToDataURL(f).then(url=>{ ocImgData=url; document.getElementById('ocImg').src=url; document.getElementById('ocPrev').style.display='block'; }); }
+function uploadCard(){
+  const ref_=document.getElementById('ocRef').value.trim().toUpperCase();
+  const name=document.getElementById('ocName').value.trim();
+  if(!ref_||!name) return toast('<i class="fas fa-triangle-exclamation"></i> Référence et nom requis');
+  TKStore.push('oni_cards',{ ref:ref_, name, type:document.getElementById('ocType').value, bureau:document.getElementById('ocBureau').value, status:document.getElementById('ocStatus').value, dateArrivee:document.getElementById('ocDate').value||new Date().toISOString().split('T')[0], dateDemande:null, cardImage:ocImgData, uploadedAt:new Date().toISOString() });
+  ['ocRef','ocName','ocDate'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ocPrev').style.display='none'; ocImgData=null; document.getElementById('ocPic').value='';
+  renderCard(); renderStats(); toast('<i class="fas fa-check-circle"></i> Carte téléversée — visible par le propriétaire');
+}
+function renderCard(){
+  const list=TKStore.get('oni_cards',[]); const el=document.getElementById('cardList');
+  if(!list.length){ el.innerHTML='<div class="empty">Aucune carte téléversée.</div>'; return; }
+  el.innerHTML=list.map((c,i)=>`
+    <div class="item">
+      <div class="item-head">
+        <div class="item-title">${escapeHtml(c.ref)} <span class="status-pill ${c.status==='ready'?'sp-green':(c.status==='processing'?'sp-gold':'sp-blue')}">${c.status}</span></div>
+        ${c.cardImage?`<img class="thumb" src="${c.cardImage}" onclick="lightbox('${c.cardImage}')">`:''}
+      </div>
+      <div class="item-meta">${escapeHtml(c.name)} · ${c.type.toUpperCase()} · ${BUREAU[c.bureau]||c.bureau}<br>Arrivée: ${fmtDate(c.dateArrivee)} · Téléversé: ${new Date(c.uploadedAt).toLocaleString('fr-FR')}</div>
+      <div class="item-acts"><button class="btn btn-outline" style="border-color:var(--red);color:var(--red);" onclick="delItem('oni_cards',${i})"><i class="fas fa-trash"></i> Suppr.</button></div>
+    </div>`).join('');
+}
+
+function delItem(key,i){ if(!confirm('Supprimer cet élément ?')) return; const l=TKStore.get(key,[]); l.splice(i,1); TKStore.set(key,l); renderAll(); }
+
+/* init */
+if(sessionStorage.getItem('tch_admin')==='1') showDash();
+document.getElementById('ocDate') && (document.getElementById('ocDate').value=new Date().toISOString().split('T')[0]);
+</script>
+</body>
+</html>

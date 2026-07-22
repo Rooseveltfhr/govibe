@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Vérifier ma carte — TCHEKELA</title>
+<meta name="description" content="Vérifiez si votre CIN, passeport ou permis est prêt à l'ONI. Aperçu de la carte téléversée par nos bénévoles.">
+<meta name="theme-color" content="#003F87">
+<link rel="stylesheet" href="assets/fontawesome/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/tchekela.css">
+<style>
+  .vtypes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .vtype { background: var(--off); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 6px; text-align: center; transition: all .2s; }
+  .vtype.on { border-color: var(--green); background: rgba(13,148,136,.06); }
+  .vtype i { font-size: 1.3rem; color: var(--muted); margin-bottom: 5px; display: block; }
+  .vtype.on i { color: var(--green); }
+  .vtype span { font-size: .68rem; font-weight: 600; color: var(--dark); }
+  .vstatus { display: none; border-radius: var(--rl); padding: 18px; margin-top: 16px; animation: popIn .35s ease both; }
+  .vstatus.show { display: block; }
+  .vs-ready { background: linear-gradient(135deg, var(--green), #0f766e); color: #fff; }
+  .vs-pending { background: linear-gradient(135deg, var(--secondary), var(--secondary-dark)); color: var(--primary-dark); }
+  .vs-nf { background: #fff; border: 1px solid var(--border); }
+  .vs-ico { width: 48px; height: 48px; border-radius: 14px; background: rgba(255,255,255,.2); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+  .vs-nf .vs-ico { background: rgba(220,38,38,.08); }
+  .vs-ico i { font-size: 1.3rem; }
+  .vs-nf .vs-ico i { color: var(--red); }
+  .vs-title { font-family: var(--font-d); font-size: 1.45rem; font-weight: 700; margin-bottom: 4px; line-height: 1.1; }
+  .vs-sub { font-size: .85rem; opacity: .92; line-height: 1.55; margin-bottom: 14px; }
+  .vtl { display: flex; gap: 4px; margin-bottom: 14px; }
+  .vtl-s { flex: 1; padding: 8px 4px; background: rgba(255,255,255,.12); border-radius: 6px; text-align: center; font-size: .54rem; font-family: var(--font-b); font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+  .vtl-s.done { background: rgba(255,255,255,.28); }
+  .vtl-s.current { background: #fff; color: var(--green); }
+  .vs-pending .vtl-s.current { color: var(--secondary-dark); }
+  .vtl-s i { display: block; font-size: .85rem; margin-bottom: 3px; }
+  .vinfo { background: rgba(255,255,255,.16); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+  .vs-nf .vinfo { background: var(--off); }
+  .vinfo-row { display: flex; gap: 8px; padding: 4px 0; font-size: .82rem; }
+  .vinfo-k { min-width: 96px; font-weight: 600; font-size: .56rem; text-transform: uppercase; letter-spacing: .08em; opacity: .8; flex-shrink: 0; padding-top: 3px; }
+  .vinfo-v { font-weight: 600; flex: 1; }
+  .card-photo { border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,.4); margin-bottom: 12px; background:#0f172a; }
+  .card-photo img { width: 100%; max-height: 220px; object-fit: contain; }
+  .card-photo .cp-cap { font-size: .66rem; padding: 7px 10px; background: rgba(0,0,0,.25); color:#fff; display:flex; align-items:center; gap:6px; }
+  .vacts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .vacts .btn { width: auto; flex: 1; min-width: 140px; padding: 11px; }
+</style>
+</head>
+<body data-shared-chrome data-shared-footer data-page="verifier">
+
+<section class="page-hero">
+  <div class="glow"></div>
+  <span class="chip"><i class="fas fa-id-card-clip"></i> Vérification ONI</span>
+  <h1>Votre carte est-elle <em>prête</em> ?</h1>
+  <p>Nos bénévoles téléversent les cartes arrivées au bureau ONI. Vérifiez le statut et voyez l'aperçu de votre carte imprimée — sans vous déplacer pour rien.</p>
+</section>
+
+<section class="section section-light">
+  <div class="wrap-sm">
+    <div class="card reveal">
+      <div class="card-head">
+        <div class="ico" style="background:rgba(13,148,136,.1);"><i class="fas fa-clipboard-check" style="color:var(--green);"></i></div>
+        <div><h3>Vérifier mon dossier</h3><p>Statut en temps réel</p></div>
+      </div>
+
+      <div class="fg"><label>Type de document <span class="req">*</span></label>
+        <div class="vtypes">
+          <div class="vtype on" data-type="cin" onclick="selType(this,'cin')"><i class="fas fa-id-card"></i><span>CIN / NIF</span></div>
+          <div class="vtype" data-type="passeport" onclick="selType(this,'passeport')"><i class="fas fa-passport"></i><span>Passeport</span></div>
+          <div class="vtype" data-type="permis" onclick="selType(this,'permis')"><i class="fas fa-car"></i><span>Permis</span></div>
+        </div>
+      </div>
+
+      <div class="frow">
+        <div class="fg"><label>Numéro de dossier <span class="req">*</span></label><input class="fc" id="vRef" placeholder="Ex: ONI-2026-04582" value="ONI-2026-04582"></div>
+        <div class="fg"><label>Date de demande</label><input class="fc" id="vDate" type="date"></div>
+      </div>
+      <div class="fg"><label>Bureau de demande <span class="req">*</span></label>
+        <select class="fc" id="vBureau">
+          <option value="oni-pap">ONI Port-au-Prince (Bicentenaire)</option>
+          <option value="oni-delmas">ONI Delmas</option>
+          <option value="oni-petionville">ONI Pétionville</option>
+          <option value="oni-cap">ONI Cap-Haïtien</option>
+          <option value="oni-gonaives">ONI Gonaïves</option>
+          <option value="dgi-pap">DGI Port-au-Prince</option>
+          <option value="immigr-pap">Service Immigration (Passeport)</option>
+          <option value="circulation-pap">Direction Circulation (Permis)</option>
+        </select>
+      </div>
+      <button class="btn btn-green" onclick="doVerify()"><i class="fas fa-clipboard-check"></i> Vérifier le statut</button>
+
+      <div class="vstatus" id="vResult"></div>
+    </div>
+
+    <div class="ib ib-blue reveal" style="margin-top:16px;">
+      <i class="fas fa-circle-info"></i>
+      <span><strong>Comment ça marche ?</strong> Nos bénévoles présents dans les bureaux ONI scannent et téléversent les cartes imprimées. Dès que la vôtre arrive, vous la voyez ici et recevez une notification WhatsApp. Les bénévoles téléversent depuis l'<a href="admin.html" style="color:var(--primary);font-weight:700;">espace dédié</a>.</span>
+    </div>
+
+    <div class="ib ib-gold reveal">
+      <i class="fas fa-shield-halved"></i>
+      <span><strong>Confidentialité.</strong> L'aperçu de la carte n'est visible qu'avec le bon numéro de dossier. Aucune donnée n'est partagée publiquement.</span>
+    </div>
+  </div>
+</section>
+
+<script src="assets/tchekela.js"></script>
+<script>
+let curType = 'cin';
+function selType(el, t) { document.querySelectorAll('.vtype').forEach(x=>x.classList.remove('on')); el.classList.add('on'); curType = t; }
+
+const BUREAU = {
+  'oni-pap':'ONI Port-au-Prince','oni-delmas':'ONI Delmas','oni-petionville':'ONI Pétionville',
+  'oni-cap':'ONI Cap-Haïtien','oni-gonaives':'ONI Gonaïves','dgi-pap':'DGI Port-au-Prince',
+  'immigr-pap':'Immigration PAP','circulation-pap':'Direction Circulation'
+};
+
+/* Seed records (also fed by volunteers via admin.html → tch_oni_cards) */
+const SEED = {
+  'ONI-2026-04582': { type:'cin', name:'Roosevelt Forestal', bureau:'oni-pap', status:'ready', dateDemande:'2026-04-15', dateArrivee:'2026-06-08', cardImage:null },
+  'ONI-2026-08291': { type:'cin', name:'Marie Joseph', bureau:'oni-delmas', status:'processing', dateDemande:'2026-05-20', dateArrivee:null, queue:47 },
+  'IMM-2026-12453': { type:'passeport', name:'Carl Antoine', bureau:'immigr-pap', status:'ready', dateDemande:'2026-03-10', dateArrivee:'2026-06-01', cardImage:null },
+  'CIRC-2026-7821': { type:'permis', name:'Sophie Louis', bureau:'circulation-pap', status:'printed', dateDemande:'2026-05-01', dateArrivee:'2026-06-10', cardImage:null }
+};
+
+function getRecord(ref) {
+  const up = TKStore.get('oni_cards', []);
+  const found = up.find(r => (r.ref || '').toUpperCase() === ref);
+  if (found) return found;
+  return SEED[ref] || null;
+}
+
+function doVerify() {
+  const ref = document.getElementById('vRef').value.trim().toUpperCase();
+  const bureau = document.getElementById('vBureau').value;
+  if (!ref) return toast('<i class="fas fa-triangle-exclamation"></i> Saisissez votre numéro de dossier');
+
+  const el = document.getElementById('vResult');
+  el.classList.remove('show');
+  toast('<i class="fas fa-spinner fa-spin"></i> Vérification…', 1200);
+
+  setTimeout(() => {
+    const r = getRecord(ref);
+    let html = '';
+    if (r && (r.status === 'ready' || r.status === 'printed')) {
+      const cardImg = r.cardImage ? `
+        <div class="card-photo">
+          <img src="${r.cardImage}" alt="Aperçu carte">
+          <div class="cp-cap"><i class="fas fa-circle-check" style="color:#4ade80;"></i> Carte imprimée — téléversée par un bénévole TCHEKELA</div>
+        </div>` : `
+        <div class="ib" style="background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.2);"><i class="fas fa-image"></i><span>Carte prête au bureau. L'aperçu photo sera ajouté par un bénévole sous peu.</span></div>`;
+      html = `
+        <div class="vs-ready">
+          <div class="vs-ico"><i class="fas fa-circle-check"></i></div>
+          <div class="vs-title">Votre carte est prête ! ✅</div>
+          <div class="vs-sub">${escapeHtml(r.name)}, votre ${r.type.toUpperCase()} est disponible pour retrait au bureau.</div>
+          <div class="vtl">
+            <div class="vtl-s done"><i class="fas fa-check"></i>Demande</div>
+            <div class="vtl-s done"><i class="fas fa-check"></i>Traitement</div>
+            <div class="vtl-s done"><i class="fas fa-print"></i>Imprimé</div>
+            <div class="vtl-s current"><i class="fas fa-flag"></i>Prêt</div>
+          </div>
+          ${cardImg}
+          <div class="vinfo">
+            <div class="vinfo-row"><span class="vinfo-k">Référence</span><span class="vinfo-v">${ref}</span></div>
+            <div class="vinfo-row"><span class="vinfo-k">Bureau</span><span class="vinfo-v">${BUREAU[r.bureau]||r.bureau}</span></div>
+            <div class="vinfo-row"><span class="vinfo-k">Demande</span><span class="vinfo-v">${fmtDate(r.dateDemande)}</span></div>
+            <div class="vinfo-row"><span class="vinfo-k">Disponible</span><span class="vinfo-v">${fmtDate(r.dateArrivee)}</span></div>
+            <div class="vinfo-row"><span class="vinfo-k">Horaires</span><span class="vinfo-v">Lun-Ven 8h-15h</span></div>
+          </div>
+          <div class="vacts">
+            <button class="btn" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.35);" onclick="toast('<i class=\\'fas fa-bell\\'></i> Rappel WhatsApp activé')"><i class="fas fa-bell"></i> Recevoir un rappel</button>
+            <a class="btn" style="background:#fff;color:var(--dark);" href="https://maps.google.com/?q=ONI+Haiti" target="_blank"><i class="fas fa-route"></i> Itinéraire</a>
+          </div>
+        </div>`;
+    } else if (r && r.status === 'processing') {
+      html = `
+        <div class="vs-pending">
+          <div class="vs-ico" style="background:rgba(0,0,0,.1);"><i class="fas fa-hourglass-half"></i></div>
+          <div class="vs-title">En cours de traitement</div>
+          <div class="vs-sub">Votre dossier avance. Position approximative dans la file : <strong>#${r.queue||'—'}</strong></div>
+          <div class="vtl">
+            <div class="vtl-s done" style="background:rgba(0,0,0,.15);"><i class="fas fa-check"></i>Demande</div>
+            <div class="vtl-s current"><i class="fas fa-gears"></i>Traitement</div>
+            <div class="vtl-s" style="background:rgba(0,0,0,.06);"><i class="fas fa-print"></i>Impression</div>
+            <div class="vtl-s" style="background:rgba(0,0,0,.06);"><i class="fas fa-flag"></i>Prêt</div>
+          </div>
+          <div class="vinfo" style="background:rgba(0,0,0,.08);">
+            <div class="vinfo-row"><span class="vinfo-k">Référence</span><span class="vinfo-v">${ref}</span></div>
+            <div class="vinfo-row"><span class="vinfo-k">Bureau</span><span class="vinfo-v">${BUREAU[r.bureau]||r.bureau}</span></div>
+            <div class="vinfo-row"><span class="vinfo-k">Demande</span><span class="vinfo-v">${fmtDate(r.dateDemande)}</span></div>
+            <div class="vinfo-row"><span class="vinfo-k">Délai estimé</span><span class="vinfo-v">~ 2 semaines</span></div>
+          </div>
+          <div class="vacts"><button class="btn" style="background:rgba(0,0,0,.15);color:var(--primary-dark);" onclick="toast('<i class=\\'fas fa-bell\\'></i> Notification activée')"><i class="fas fa-bell"></i> Me prévenir quand prêt</button></div>
+        </div>`;
+    } else {
+      html = `
+        <div class="vs-nf">
+          <div class="vs-ico"><i class="fas fa-circle-question"></i></div>
+          <div class="vs-title" style="color:var(--dark);">Référence introuvable</div>
+          <div class="vs-sub" style="color:var(--muted);">Cette référence n'est pas encore dans notre système. Vérifiez le numéro ou contactez le bureau. Un bénévole peut la téléverser dès réception.</div>
+          <div class="vinfo">
+            <div class="vinfo-row"><span class="vinfo-k" style="color:var(--muted);">Saisi</span><span class="vinfo-v" style="color:var(--dark);">${escapeHtml(ref)}</span></div>
+            <div class="vinfo-row"><span class="vinfo-k" style="color:var(--muted);">Bureau</span><span class="vinfo-v" style="color:var(--dark);">${BUREAU[bureau]||bureau}</span></div>
+          </div>
+          <div class="vacts">
+            <button class="btn btn-outline" onclick="document.getElementById('vRef').value='ONI-2026-04582';doVerify();"><i class="fas fa-rotate"></i> Essayer une démo</button>
+            <a class="btn btn-outline" href="tel:+50922221111"><i class="fas fa-phone"></i> Appeler le bureau</a>
+          </div>
+        </div>`;
+    }
+    el.innerHTML = html;
+    el.classList.add('show');
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 700);
+}
+
+document.getElementById('vDate').value = '2026-04-15';
+</script>
+</body>
+</html>
