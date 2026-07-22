@@ -42,14 +42,27 @@ class PlanController extends Controller
         $data = $request->validate([
             'plan' => ['required', Rule::in(array_keys((array) config('tagtoa.plans', [])))],
         ]);
+        $plan = $data['plan'];
+        $price = (float) (config('tagtoa.plans.'.$plan.'.price') ?? 0);
 
-        // Self-service pour l'instant (le paiement du forfait viendra avec PAY auto).
+        // Forfait PAYANT + passerelle active → paiement avant activation.
+        if ($price > 0) {
+            $url = app(\Modules\Tagtoa\App\Services\Pay\CheckoutService::class)
+                ->startSubscription(Tenant::id(), $plan);
+            if ($url) {
+                return redirect()->away($url); // le forfait s'active au retour de paiement (confirm)
+            }
+            // Pas de passerelle configurée : on n'accorde pas un forfait payant gratuitement.
+            return back()->with('error', __('Le paiement en ligne n\'est pas encore activé. Contactez-nous pour souscrire.'));
+        }
+
+        // Forfait gratuit → self-service immédiat.
         Subscription::updateOrCreate(
             ['tenant_id' => Tenant::id()],
-            ['plan' => $data['plan'], 'status' => 'active', 'started_at' => now()]
+            ['plan' => $plan, 'status' => 'active', 'started_at' => now(), 'expires_at' => null]
         );
 
-        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)->log('plan.changed', null, $data['plan']);
+        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)->log('plan.changed', null, $plan);
 
         return back()->with('success', __('Forfait mis à jour.'));
     }
