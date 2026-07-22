@@ -6,7 +6,9 @@
     <title>{{ __('Scanner') }} — {{ $event->title }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    {{-- Librairie de scan auto-hébergée (pas de CDN) : le scan de billets doit
+         marcher même si le wifi du lieu ne joint aucun tiers. --}}
+    <script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}"></script>
     <style>
         :root{--blk:#0A0A0A;--blue:#2cb809;--green:#1D9E75;--red:#E0473E;--orange:#E08A1E;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--fb);background:var(--blk);color:#fff;min-height:100vh}

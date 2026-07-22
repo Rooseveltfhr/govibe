@@ -53,6 +53,11 @@ Route::get('/event/ticket/{code}', [EventPublic::class, 'ticket'])->name('tagtoa
 Route::get('/event/wallet/receipt/{reference}', [EventPublic::class, 'walletReceipt'])->name('tagtoa.event.wallet.receipt');
 Route::get('/book/{alias}', [BookingPublic::class, 'show'])->name('tagtoa.booking.show');
 
+// Assets tiers auto-hébergés (souverains) — servis depuis notre origine, pas
+// de CDN. Public : le scanner et le terminal staff en ont besoin sans auth.
+Route::get('/tagtoa-asset/{file}', [\Modules\Tagtoa\App\Http\Controllers\Asset\AssetController::class, 'vendor'])
+    ->where('file', '[A-Za-z0-9._-]+')->name('tagtoa.asset');
+
 // Écritures publiques : rate-limit (anti-spam / anti-DoS / anti-épuisement disque).
 Route::middleware('throttle:20,1')->group(function () {
     Route::post('/pay/{alias}/submit-proof', [PayPublic::class, 'submitProof'])->name('tagtoa.pay.submit-proof');
