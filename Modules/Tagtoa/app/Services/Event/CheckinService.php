@@ -42,8 +42,18 @@ class CheckinService
         if (! $ticket->isValid()) {
             return $this->r(false, 'red', 'error', __('Billet annulé.'), $ticket);
         }
-        if ($direction === 'in' && $ticket->checked_in) {
-            return $this->r(false, 'orange', 'warning', __('Déjà entré à :t', ['t' => optional($ticket->checked_in_at)->format('H:i')]), $ticket);
+        // Anti double-entrée PAR JOUR (multi-jour) : on bloque une 2ᵉ entrée le
+        // même jour, mais on autorise l'entrée un autre jour (ex. Pass 2 jours).
+        // Rétro-compatible : un événement d'un seul jour ⇒ une entrée unique.
+        if ($direction === 'in') {
+            $today = now()->toDateString();
+            $enteredToday = Checkin::where('ticket_id', $ticket->id)
+                ->where('direction', 'in')
+                ->whereDate('scanned_at', $today)
+                ->exists();
+            if ($enteredToday) {
+                return $this->r(false, 'orange', 'warning', __('Déjà entré aujourd\'hui.'), $ticket);
+            }
         }
         if ($direction === 'out' && ! $ticket->checked_in) {
             return $this->r(false, 'orange', 'warning', __('Pas encore entré.'), $ticket);

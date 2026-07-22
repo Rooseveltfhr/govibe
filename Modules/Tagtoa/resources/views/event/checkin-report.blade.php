@@ -15,6 +15,9 @@
     <div class="stat"><div class="ic" style="background:#fff5e6;color:#7a5200"><i class="fa-solid fa-percent"></i></div><div class="v" id="s-pct">—</div><div class="k">{{ __('Taux d\'entrée') }}</div></div>
 </div>
 
+{{-- Entrées par jour (événement multi-jour : Jour 1 / Jour 2…). Masqué si 1 seul jour. --}}
+<div class="grid g3" id="byDay" style="margin-top:12px;display:none"></div>
+
 <div class="card" style="margin-top:16px">
     <div class="h-row"><h2>{{ __('Dernières entrées') }}</h2></div>
     <table>
@@ -32,6 +35,8 @@ function load(){
         document.getElementById('s-in').textContent=d.checked_in;
         document.getElementById('s-tickets').textContent=d.tickets;
         document.getElementById('s-pct').textContent=d.percent+'%';
+        var bd=(d.by_day||[]),bdEl=document.getElementById('byDay');
+        if(bd.length>1){bdEl.style.display='';bdEl.innerHTML=bd.map(function(x){return '<div class="stat"><div class="ic" style="background:#eef2ff;color:#3344aa"><i class="fa-solid fa-calendar-day"></i></div><div class="v">'+x.count+'</div><div class="k">'+esc(x.label)+'</div></div>';}).join('');}else{bdEl.style.display='none';}
         var rows=(d.recent||[]);
         var tb=document.getElementById('rows');
         tb.innerHTML=rows.length?rows.map(function(x){return '<tr><td><b style="font-family:var(--fh)">'+esc(x.name)+'</b></td><td style="color:var(--muted)">'+esc(x.time)+'</td><td>'+esc(x.method||'')+'</td><td>'+esc(x.gate||'—')+'</td></tr>';}).join(''):'<tr><td colspan="4" class="empty" style="padding:24px">{{ __('Aucune entrée pour le moment.') }}</td></tr>';
