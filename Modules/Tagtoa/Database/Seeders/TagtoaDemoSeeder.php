@@ -87,13 +87,18 @@ class TagtoaDemoSeeder extends Seeder
             ]);
         }
 
-        // 4) EVENT — concert démo (gratuit) + 1 type de billet
+        // 4) EVENT — festival démo MULTI-JOUR (gratuit) + types de billets.
+        //    2 jours pour démontrer le check-in « une entrée par jour » (Jour 1/Jour 2).
         $event = Event::firstOrCreate(
             ['alias' => 'demo-concert'],
             ['title' => 'TAGTOA Live Demo', 'type' => 'concert', 'venue' => 'BANJ, Gonaïves',
-             'starts_at' => now()->addDays(7)->setTime(19, 0), 'currency' => 'HTG', 'is_free' => true, 'is_published' => true]
+             'currency' => 'HTG', 'is_free' => true, 'is_published' => true]
         );
+        // Dates roulantes (toujours à venir) + fin = lendemain → événement 2 jours.
+        $demoStart = now()->addDays(7)->setTime(19, 0);
+        $event->update(['starts_at' => $demoStart, 'ends_at' => $demoStart->copy()->addDay()->setTime(23, 0)]);
         $event->ticketTypes()->firstOrCreate(['name' => 'Standard'], ['price' => 0, 'quantity' => 200, 'is_active' => true]);
+        $event->ticketTypes()->firstOrCreate(['name' => 'Pass 2 jours'], ['price' => 0, 'quantity' => 200, 'is_active' => true]);
 
         // 4b) EVENT WALLET — démo testable avec un tag NFC (UID: TAGTOA-DEMO-TAG)
         app(\Modules\Tagtoa\App\Actions\Event\Wallet\OpenEventWalletAccounts::class)->handle($event);
