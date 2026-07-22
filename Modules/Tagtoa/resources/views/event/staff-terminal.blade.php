@@ -9,6 +9,8 @@
     <title>{{ $event->title }} — {{ __('Staff') }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    {{-- Scanner QR auto-hébergé (pas de CDN) : check-in par caméra même sans réseau tiers. --}}
+    <script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}"></script>
     <style>
         :root{--green:#2cb809;--ink:#0d140c;--bg:#f5f9f2;--surf:#fff;--bd:rgba(13,20,12,.10);--mut:#5d6b5a;--red:#E0473E;--amber:#E08A1E;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         .top h1,.res .msg,.okc h2{font-family:'Anton',sans-serif!important;font-weight:400!important;letter-spacing:.01em}
@@ -100,7 +102,9 @@
                 </div>
                 <input class="inp" id="ckInput" autocomplete="off" placeholder="TCK... / 04:A2:..." style="margin-top:8px">
                 <button class="btn btn-p" id="ckBtn" type="button"><i class="fa-solid fa-check"></i> {{ __('Valider l\'entrée') }}</button>
+                <button class="btn btn-o" id="qrBtn" type="button"><i class="fa-solid fa-qrcode"></i> {{ __('Scanner QR (caméra)') }}</button>
                 <button class="btn btn-o" id="nfcBtn" type="button"><i class="fa-solid fa-wifi"></i> {{ __('Lire le tag NFC') }}</button>
+                <div id="ckReader" style="margin-top:10px;border-radius:12px;overflow:hidden;display:none"></div>
                 <div class="nfc" id="nfcHint"></div>
             </div>
         </div>
@@ -115,6 +119,7 @@
                 <label>{{ __('Type de billet') }}</label>
                 <select id="slType"><option value="">{{ __('— Aucun —') }}</option>@foreach($ticketTypes as $tt)<option value="{{ $tt->id }}">{{ $tt->name }}</option>@endforeach</select>
                 <label>{{ __('UID carte NFC (vide = e-billet QR)') }}</label><input class="inp" id="slUid" autocomplete="off" placeholder="04:A2:...">
+                <label>{{ __('Crédit initial (wallet)') }}</label><input class="inp" id="slCredit" inputmode="decimal" placeholder="0">
                 <button class="btn btn-p" id="slBtn" type="button"><i class="fa-solid fa-cart-shopping"></i> {{ __('Activer la carte / émettre le billet') }}</button>
                 <div class="okc" id="slOk"><h2>{{ __('Billet émis') }}</h2><div class="code" id="slCode"></div><div style="color:var(--mut);font-size:13px" id="slWho"></div></div>
                 <div class="flash" id="slErr" style="display:none;margin-top:12px"></div>
@@ -153,7 +158,7 @@
     var URL_SYNC=@json(route('tagtoa.event.staff.sync',$event->alias));
     var URL_SELL=@json(route('tagtoa.event.staff.sell',$event->alias));
     var URL_PICK=@json(route('tagtoa.event.staff.pickup',$event->alias));
-    var T={off:@json(__('Hors-ligne : enregistré, sera synchronisé.')),err:@json(__('Réessayez.')),read:@json(__('Approchez le tag…')),nfcNo:@json(__('NFC non supporté sur cet appareil — saisissez l\'UID.')),need:@json(__('Nom et WhatsApp requis.'))};
+    var T={off:@json(__('Hors-ligne : enregistré, sera synchronisé.')),err:@json(__('Réessayez.')),read:@json(__('Approchez le tag…')),nfcNo:@json(__('NFC non supporté sur cet appareil — saisissez l\'UID.')),need:@json(__('Nom et WhatsApp requis.')),qrNo:@json(__('Caméra/QR indisponible — saisissez le code.'))};
 
     function el(id){return document.getElementById(id);}
     function showScr(k){['Ck','Sl','Ad'].forEach(function(s){var scr=el('scr'+s),tab=el('tab'+s);if(scr){scr.classList.toggle('on',s.toLowerCase()===k);}if(tab){tab.classList.toggle('on',s.toLowerCase()===k);}});}
@@ -201,6 +206,19 @@
             rd.scan().then(function(){rd.onreading=function(e){var id=e.serialNumber||'';if(id){el('ckInput').value=id;el('nfcHint').textContent=id;doCheckin();}};})
             .catch(function(){el('nfcHint').textContent=T.nfcNo;});
         }catch(err){el('nfcHint').textContent=T.nfcNo;}});
+
+    /* ---------- Scan QR par caméra (html5-qrcode auto-hébergé) ---------- */
+    var _qr=null,_qrOn=false;
+    function stopQr(){_qrOn=false;el('ckReader').style.display='none';
+        if(_qr){try{_qr.stop().then(function(){try{_qr.clear();}catch(e){}}).catch(function(){});}catch(e){}}}
+    el('qrBtn').addEventListener('click',function(){
+        if(_qrOn){stopQr();return;}
+        if(!window.Html5Qrcode){el('nfcHint').textContent=T.qrNo;return;}
+        var rd=el('ckReader');rd.style.display='block';_qr=new Html5Qrcode('ckReader');
+        _qr.start({facingMode:'environment'},{fps:10,qrbox:220},function(txt){
+            el('ckInput').value=(txt||'').trim();stopQr();doCheckin();
+        },function(){}).then(function(){_qrOn=true;}).catch(function(){el('nfcHint').textContent=T.qrNo;rd.style.display='none';});
+    });
     @endif
 
     /* ---------- Vente ---------- */
@@ -212,11 +230,12 @@
         var btn=el('slBtn');btn.disabled=true;
         post(URL_SELL,{name:name,phone:phone,email:el('slEmail').value.trim()||null,
             ticket_type_id:el('slType').value?Number(el('slType').value):null,
-            uid:el('slUid').value.trim()||null})
+            uid:el('slUid').value.trim()||null,
+            credit:el('slCredit').value.trim()?Number(el('slCredit').value):null})
         .then(function(j){btn.disabled=false;
             if(!j.ok){errB.textContent=j.message||T.err;errB.style.display='block';return;}
             el('slCode').textContent=j.code;el('slWho').textContent=j.name;el('slOk').classList.add('show');
-            el('slName').value='';el('slPhone').value='';el('slEmail').value='';el('slUid').value='';el('slName').focus();
+            el('slName').value='';el('slPhone').value='';el('slEmail').value='';el('slUid').value='';el('slCredit').value='';el('slName').focus();
         }).catch(function(){btn.disabled=false;errB.textContent=T.err;errB.style.display='block';});
     });
     el('pkBtn').addEventListener('click',function(){
