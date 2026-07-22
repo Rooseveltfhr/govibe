@@ -241,7 +241,7 @@
             var wa=document.getElementById('okWa');
             if(j.whatsapp_url){ wa.href=j.whatsapp_url; wa.style.display=''; } else { wa.style.display='none'; }
             var pay=document.getElementById('okPay');
-            if(j.pay_url){ pay.href=j.pay_url; pay.style.display=''; } else { pay.style.display='none'; }
+            var payUrl=j.checkout_url||j.pay_url; if(payUrl){ pay.href=payUrl; pay.style.display=''; } else { pay.style.display='none'; }
             document.getElementById('orderForm').style.display='none';
             document.getElementById('orderDone').style.display='';
         }
