@@ -193,7 +193,8 @@
             el('cartView').style.display='none';el('okBox').classList.add('show');
             el('okRef').textContent=j.reference;
             if(j.whatsapp_url){var w=el('waBtn');w.href=j.whatsapp_url;w.style.display='block';}
-            if(j.pay_url){var p=el('payBtn');p.href=j.pay_url;p.style.display='block';}
+            var payUrl=j.checkout_url||j.pay_url; // paiement en ligne (MonCash) prioritaire
+            if(payUrl){var p=el('payBtn');p.href=payUrl;p.style.display='block';}
             cart={};refresh();
         }).catch(function(){btn.disabled=false;btn.textContent=T.confirm;errB.textContent=T.err;errB.classList.add('show');});
     };

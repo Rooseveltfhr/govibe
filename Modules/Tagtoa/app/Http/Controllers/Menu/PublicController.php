@@ -72,6 +72,10 @@ class PublicController extends Controller
             'total'        => Money::format($order->total, $order->currency),
             'whatsapp_url' => $this->whatsappUrl($menu, $order),
             'pay_url'      => $menu->payPage ? url('/pay/'.$menu->payPage->alias) : null,
+            'checkout_url' => (\Modules\Tagtoa\App\Support\GatewayManager::enabled('moncash')
+                && \Modules\Tagtoa\App\Support\Gateways\MonCash::supportsCurrency($order->currency))
+                ? route('tagtoa.pay.online.start', ['gateway' => 'moncash', 'type' => 'menu', 'orderId' => $order->id])
+                : null,
         ]);
     }
 
