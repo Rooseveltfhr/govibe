@@ -26,3 +26,5 @@ require_once $base.'/Support/Gateways/MonCash.php';
 require_once $base.'/Support/Event/Ledger.php';
 require_once $base.'/Support/Money.php';
 require_once $base.'/Support/Dev/RouteNames.php';
+require_once $base.'/Support/Nfc/AesCmac.php';
+require_once $base.'/Support/Nfc/Ntag424.php';

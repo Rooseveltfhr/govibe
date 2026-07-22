@@ -140,6 +140,18 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     vant (WhatsApp obligatwa, kat NFC oswa e-biyè QR), retrè kat (lye biyè an liy → UID,
     refize si kòmand pa peye), suivi admin. Demo: Admin/1234, Vente/2222, Checkin/3333.
   - Kòmand an liy: bouton « Encaisser » (`orders.paid`) → markPaid + komisyon + odit.
+- **ROADMAP KALITE (Faz 4/5/7)** ✅ FÈT (PR #65/#66 + NFC):
+  - **Faz 4 — Tès entegrite wout** (PR #65): `RouteIntegrityTest` + `Support/Dev/RouteNames`
+    (analiz estatik pi) verifye chak `route('tagtoa.*')` nan vi/kontrolè byen defini nan
+    `routes/web.php` — anpeche 500 `RouteNotFoundException` (CI pa bòt Laravel). 153 defini/132 itilize/0 manke.
+  - **Faz 5 — Asèt souveren** (PR #66): scanner biyè a te chaje html5-qrcode depi unpkg (SPOF
+    ekstèn sou chèk-in). Kounye a vendored lokalman + sèvi via `AssetController` (wout piblik
+    `tagtoa.asset`, kach imuab). `resources/assets/vendor/`.
+  - **Faz 7 — Sekirite NFC (anti-klonaj/anti-rejeu)** ⏳ DÒMAN (kòd pi teste): `Support/Nfc/AesCmac`
+    (RFC 4493, pwouve vs vektè ofisyèl) + `Support/Nfc/Ntag424` (SUN/SDM: dérivation kle sesyon SV2,
+    troncature, verif CMAC, ekstrè UID/kontè, anti-rejeu). `AesCmacTest`+`Ntag424Test` (13 tès).
+    Gid aktivasyon: `docs/NFC_SECURITY.md`. **Bezwen aksyon fondatè**: pwovizyone kle NTAG424 +
+    valide SV2 kont tag reyèl AVAN kable nan check-in/wallet (pa modifye kòd live san tès entegrasyon).
 
 ## 6. Deplwaman & URL
 - App sèvi nan `public/`: base = **https://tagtoa.com/tapbiz/public**
