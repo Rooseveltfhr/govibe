@@ -188,6 +188,7 @@ class StaffTerminalController extends Controller
             'email'          => ['nullable', 'email', 'max:160'],
             'uid'            => ['nullable', 'string', 'max:120'],
             'ticket_type_id' => ['nullable', 'integer'],
+            'credit'         => ['nullable', 'numeric', 'min:0', 'max:1000000'], // crédit initial du wallet
         ]);
 
         if (! empty($data['ticket_type_id'])) {
@@ -202,6 +203,18 @@ class StaffTerminalController extends Controller
                 // Carte NFC physique : billet + tag liés (entrée par tap).
                 $res = app(EncodeParticipantCard::class)->handle($event, $data);
                 $ticket = $res['ticket'];
+
+                // Crédit initial optionnel : recharge le wallet de la carte (comme
+                // l'encodage du tableau de bord). Prix côté serveur, idempotent.
+                $credit = (float) ($data['credit'] ?? 0);
+                if ($credit > 0 && $res['tag']->walletAccount) {
+                    $acct = $res['tag']->walletAccount;
+                    app(\Modules\Tagtoa\App\Actions\Event\Wallet\TopUpWallet::class)->handle(
+                        $acct,
+                        \Modules\Tagtoa\App\Support\Money::toMinor($credit, $acct->currency),
+                        ['idempotency_key' => 'staff-encode-'.$ticket->id, 'payment_ref' => 'ENCODAGE-STAFF']
+                    );
+                }
             } else {
                 // Mode QR : e-billet simple, imprimable/partageable (badges).
                 $ticket = Ticket::create([

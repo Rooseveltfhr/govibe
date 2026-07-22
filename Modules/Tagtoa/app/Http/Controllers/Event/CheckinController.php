@@ -105,11 +105,26 @@ class CheckinController extends Controller
                 'gate'   => $c->gate,
             ]);
 
+        // Entrées par jour (multi-jour : ex. « Entrées Jour 1 / Jour 2 »).
+        $days = \Modules\Tagtoa\App\Support\Event\EventDays::list(
+            optional($event->starts_at)->toDateString(),
+            optional($event->ends_at)->toDateString()
+        );
+        $counts = \Modules\Tagtoa\App\Models\Event\Checkin::where('event_id', $event->id)
+            ->where('direction', 'in')
+            ->selectRaw('DATE(scanned_at) as d, COUNT(*) as c')
+            ->groupBy('d')->pluck('c', 'd');
+        $byDay = [];
+        foreach ($days as $i => $d) {
+            $byDay[] = ['day' => $d, 'label' => __('Jour').' '.($i + 1), 'count' => (int) ($counts[$d] ?? 0)];
+        }
+
         return response()->json([
             'tickets'    => $tickets,
             'checked_in' => $checkedIn,
             'percent'    => $tickets > 0 ? round($checkedIn * 100 / $tickets) : 0,
             'recent'     => $recent,
+            'by_day'     => $byDay,
         ]);
     }
 
