@@ -118,7 +118,15 @@
                 <label>{{ __('E-mail (optionnel)') }}</label><input class="inp" id="slEmail" type="email">
                 <label>{{ __('Type de billet') }}</label>
                 <select id="slType"><option value="">{{ __('— Aucun —') }}</option>@foreach($ticketTypes as $tt)<option value="{{ $tt->id }}">{{ $tt->name }}</option>@endforeach</select>
-                <label>{{ __('UID carte NFC (vide = e-billet QR)') }}</label><input class="inp" id="slUid" autocomplete="off" placeholder="04:A2:...">
+                <label>{{ __('Moyen de paiement') }}</label>
+                <select id="slPay">
+                    <option value="Espèces">{{ __('Espèces (cash)') }}</option>
+                    @foreach($payMethods as $pm)<option value="{{ $pm->label }}">{{ $pm->label }}</option>@endforeach
+                </select>
+                @if($payMethods->isEmpty())<div class="nfc" style="text-align:left">{{ __('Astuce : configurez vos moyens dans TAGTOA Pay et liez la page à l\'événement.') }}</div>@endif
+                <label>{{ __('UID carte NFC (vide = e-billet QR)') }}</label>
+                <div style="display:flex;gap:8px"><input class="inp" id="slUid" autocomplete="off" placeholder="04:A2:..." style="flex:1"><button class="btn btn-o" id="slNfcBtn" type="button" style="margin-top:0;flex:0;white-space:nowrap"><i class="fa-solid fa-wifi"></i> {{ __('Lire') }}</button></div>
+                <div class="nfc" id="slNfcHint" style="text-align:left"></div>
                 <label>{{ __('Crédit initial (wallet)') }}</label><input class="inp" id="slCredit" inputmode="decimal" placeholder="0">
                 <button class="btn btn-p" id="slBtn" type="button"><i class="fa-solid fa-cart-shopping"></i> {{ __('Activer la carte / émettre le billet') }}</button>
                 <div class="okc" id="slOk"><h2>{{ __('Billet émis') }}</h2><div class="code" id="slCode"></div><div style="color:var(--mut);font-size:13px" id="slWho"></div></div>
@@ -223,6 +231,13 @@
 
     /* ---------- Vente ---------- */
     @if($canSell)
+    // Lecture NFC de la carte à la vente (valide la carte AU MOMENT de l'émission).
+    el('slNfcBtn').addEventListener('click',function(){
+        if(!('NDEFReader' in window)){el('slNfcHint').textContent=T.nfcNo;return;}
+        try{var rd=new NDEFReader();el('slNfcHint').textContent=T.read;
+            rd.scan().then(function(){rd.onreading=function(e){var id=e.serialNumber||'';if(id){el('slUid').value=id;el('slNfcHint').textContent='✓ '+id;}};})
+            .catch(function(){el('slNfcHint').textContent=T.nfcNo;});
+        }catch(err){el('slNfcHint').textContent=T.nfcNo;}});
     el('slBtn').addEventListener('click',function(){
         var name=el('slName').value.trim(),phone=el('slPhone').value.trim();
         var errB=el('slErr');errB.style.display='none';
@@ -231,6 +246,7 @@
         post(URL_SELL,{name:name,phone:phone,email:el('slEmail').value.trim()||null,
             ticket_type_id:el('slType').value?Number(el('slType').value):null,
             uid:el('slUid').value.trim()||null,
+            payment_method:el('slPay')?el('slPay').value:null,
             credit:el('slCredit').value.trim()?Number(el('slCredit').value):null})
         .then(function(j){btn.disabled=false;
             if(!j.ok){errB.textContent=j.message||T.err;errB.style.display='block';return;}
