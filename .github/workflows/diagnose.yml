@@ -46,28 +46,36 @@ jobs:
           echo "--- /home ---"; ls -la /home 2>&1 | head -40
           echo "::endgroup::"
 
-          # 1) EXPLORER : trouver où l'app Laravel vit RÉELLEMENT sur ce serveur.
-          echo "::group::Recherche large de l'app (artisan / tagtoa.com / public_html)"
-          echo "== dossiers tagtoa.com =="
-          find /home -maxdepth 6 -type d -name 'tagtoa.com' 2>/dev/null | head
-          echo "== fichiers artisan (app Laravel) =="
-          ART=$(find /home -maxdepth 7 -type f -name artisan 2>/dev/null | head -20); echo "${ART:-aucun}"
-          echo "== dossiers public_html =="
-          find /home -maxdepth 5 -type d -name public_html 2>/dev/null | head
-          echo "== fichiers .env =="
-          find /home -maxdepth 7 -type f -name '.env' 2>/dev/null | grep -iE 'tagtoa|laravel|public_html' | head
+          # 1) EXPLORER sous $HOME (/home global n'est pas lisible : le glob
+          #    /home/*/domains échoue → c'est LA cause de « INTROUVABLE »).
+          echo "::group::Domaines du compte ($HOME/domains)"
+          ls -la "$HOME/domains" 2>&1 | head -40
           echo "::endgroup::"
 
-          # 2) Choisir l'app : 1er artisan trouvé (priorité aux chemins tagtoa).
-          D=$(ls -d /home/*/domains/tagtoa.com 2>/dev/null | head -1)
-          echo "Domaine attendu : ${D:-INTROUVABLE}"
+          echo "::group::Structure de tagtoa.com"
+          T="$HOME/domains/tagtoa.com"
+          echo "== $T =="; ls -la "$T" 2>&1 | head -50
+          echo "== $T/public_html =="; ls -la "$T/public_html" 2>&1 | head -60
+          echo "== $T/laravel (si existe) =="; ls -la "$T/laravel" 2>&1 | head -50
+          echo "== $T/public_html/laravel (si existe) =="; ls -la "$T/public_html/laravel" 2>&1 | head -50
+          echo "::endgroup::"
+
+          echo "::group::Recherche des fichiers ESSENTIELS sous tagtoa.com"
+          echo "== artisan =="; ART=$(find "$T" -maxdepth 4 -type f -name artisan 2>/dev/null | head -10); echo "${ART:-aucun}"
+          echo "== .env =="; find "$T" -maxdepth 4 -type f -name '.env' 2>/dev/null | head
+          echo "== dossiers storage / bootstrap / vendor / Modules / public =="
+          for dir in storage bootstrap vendor Modules public; do
+            r=$(find "$T" -maxdepth 4 -type d -name "$dir" 2>/dev/null | head); echo "$dir: ${r:-ABSENT}"
+          done
+          echo "== index.php (docroot) =="; find "$T" -maxdepth 3 -name index.php 2>/dev/null | head
+          echo "::endgroup::"
+
+          # 2) Choisir l'app : artisan sous tagtoa.com en priorité.
+          D="$T"
           L=""
           for c in "$D/laravel" "$D/public_html/laravel" "$D/public_html"; do
             [ -f "$c/artisan" ] && { L="$c"; break; }
           done
-          if [ -z "$L" ]; then
-            L=$(printf '%s\n' "$ART" | grep -iE 'tagtoa' | head -1 | xargs -r dirname)
-          fi
           if [ -z "$L" ]; then
             L=$(printf '%s\n' "$ART" | head -1 | xargs -r dirname)
           fi
