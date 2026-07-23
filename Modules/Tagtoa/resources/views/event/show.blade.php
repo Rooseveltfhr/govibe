@@ -43,6 +43,12 @@
         @if($errors->any())<div class="err">{{ $errors->first() }}</div>@endif
 
         <p class="sec">{{ __('Billets') }}</p>
+        @php $cm = $event->checkin_mode ?? 'qr'; @endphp
+        <div style="font-size:13px;color:#666;margin:-4px 0 12px">
+            @if($cm==='nfc')<i class="fa-solid fa-id-card"></i> {{ __('Accès par carte NFC remise à l\'entrée.') }}
+            @elseif($cm==='both')<i class="fa-solid fa-mobile-screen"></i> {{ __('Billet en ligne (QR) ou carte NFC physique à l\'entrée.') }}
+            @else<i class="fa-solid fa-mobile-screen"></i> {{ __('Billet en ligne — QR reçu sur votre téléphone.') }}@endif
+        </div>
         @forelse($event->activeTicketTypes as $tt)
             <div class="tt">
                 @php

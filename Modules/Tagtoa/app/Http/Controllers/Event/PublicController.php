@@ -22,6 +22,21 @@ class PublicController extends Controller
     {
     }
 
+    /** Vitrine publique : TOUS les événements publiés (annuaire découverte). */
+    public function index(): View
+    {
+        $events = Event::where('is_published', true)
+            ->where(function ($q) {
+                // Masque les événements clairement terminés (fin < hier).
+                $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()->subDay());
+            })
+            ->with('activeTicketTypes')
+            ->orderByRaw('CASE WHEN starts_at IS NULL THEN 1 ELSE 0 END, starts_at ASC')
+            ->paginate(24);
+
+        return view('tagtoa::event.directory', compact('events'));
+    }
+
     public function show(string $alias): View
     {
         $event = Event::where('alias', $alias)->where('is_published', true)
@@ -72,6 +87,8 @@ class PublicController extends Controller
             $this->revenue->record('event_order', $order->id, 'event', (float) $order->total, $event->tenant_id, $order->currency);
         }
 
+        $this->notifyBuyer($event, $order);
+
         return redirect()->route('tagtoa.event.order', $order->reference);
     }
 
@@ -87,5 +104,38 @@ class PublicController extends Controller
         $ticket = Ticket::where('code', $code)->with(['event', 'ticketType'])->firstOrFail();
 
         return view('tagtoa::event.ticket', ['ticket' => $ticket, 'event' => $ticket->event]);
+    }
+
+    /**
+     * Message de confirmation au participant après l'achat en ligne
+     * (WhatsApp + e-mail, opt-in/tolérant — ne bloque jamais la commande).
+     */
+    protected function notifyBuyer(Event $event, Order $order): void
+    {
+        try {
+            $svc = app(\Modules\Tagtoa\App\Services\Notifications\NotificationService::class);
+            $url = route('tagtoa.event.order', $order->reference);
+            $status = $order->isPaid()
+                ? __('Vos billets sont confirmés — présentez le QR à l\'entrée.')
+                : __('Finalisez le paiement pour valider vos billets.');
+            $body = __('Merci :name! Commande :ref pour :event. :status Vos billets : :url', [
+                'name'   => $order->buyer_name,
+                'ref'    => $order->reference,
+                'event'  => $event->title,
+                'status' => $status,
+                'url'    => $url,
+            ]);
+
+            if ($order->buyer_phone) {
+                $svc->push(['channels' => ['whatsapp'], 'phone' => $order->buyer_phone, 'subject' => $event->title, 'body' => $body]);
+            }
+            if ($order->buyer_email) {
+                $svc->push(['channels' => ['email'], 'email' => $order->buyer_email, 'subject' => __('Vos billets').' — '.$event->title, 'body' => $body]);
+            }
+        } catch (\Throwable $e) {
+            if (function_exists('report')) {
+                report($e);
+            }
+        }
     }
 }

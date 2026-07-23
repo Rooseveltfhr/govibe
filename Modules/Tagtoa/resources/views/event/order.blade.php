@@ -35,6 +35,19 @@
     @foreach($order->tickets as $t)
         <a class="tkt" href="{{ route('tagtoa.event.ticket', $t->code) }}"><span class="ic"><i class="fa-solid fa-ticket"></i></span><span class="t"><b>{{ optional($t->ticketType)->name }}</b><span>{{ $t->code }}</span></span><i class="fa-solid fa-qrcode"></i></a>
     @endforeach
+    <div style="background:#eef9e8;border:1px solid var(--green);border-radius:14px;padding:14px;margin-top:14px;font-size:14px;line-height:1.5">
+        @if(($event->checkin_mode ?? 'qr') === 'nfc')
+            <b style="font-family:var(--fh)"><i class="fa-solid fa-id-card"></i> {{ __('Carte NFC') }}</b><br>
+            {{ __('Présentez cette référence à l\'entrée pour retirer votre carte/bracelet NFC.') }}
+        @else
+            <b style="font-family:var(--fh)"><i class="fa-solid fa-mobile-screen"></i> {{ __('Billet sur votre téléphone') }}</b><br>
+            {{ __('Gardez cette page. Présentez le QR code de chaque billet à l\'entrée pour être scanné et vérifié.') }}
+            @if(($event->checkin_mode ?? 'qr') === 'both')<br><span style="color:#666">{{ __('Une carte NFC physique peut aussi vous être remise à l\'entrée.') }}</span>@endif
+        @endif
+    </div>
+    @if($order->buyer_phone || $order->buyer_email)
+        <p style="text-align:center;color:#888;font-size:13px;margin-top:12px"><i class="fa-solid fa-paper-plane"></i> {{ __('Une confirmation vous a été envoyée.') }}</p>
+    @endif
     <div class="foot">{{ __('Propulsé par') }} <b>TAGTOA</b></div>
 </div>
 </body>

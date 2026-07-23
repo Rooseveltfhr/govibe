@@ -47,6 +47,7 @@ Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->name('tagtoa.links.g
 Route::get('/site/{alias}', [SitePublic::class, 'show'])->name('tagtoa.site.show');
 Route::get('/menu/{alias}', [MenuPublic::class, 'show'])->name('tagtoa.menu.show');
 Route::get('/store/{alias}', [\Modules\Tagtoa\App\Http\Controllers\Store\PublicController::class, 'show'])->name('tagtoa.store.show');
+Route::get('/events', [EventPublic::class, 'index'])->name('tagtoa.events.index');
 Route::get('/event/{alias}', [EventPublic::class, 'show'])->name('tagtoa.event.show');
 Route::get('/event/order/{reference}', [EventPublic::class, 'order'])->name('tagtoa.event.order');
 Route::get('/event/ticket/{code}', [EventPublic::class, 'ticket'])->name('tagtoa.event.ticket');
