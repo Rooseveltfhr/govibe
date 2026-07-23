@@ -65,6 +65,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Contact commercial (public) — pour les solutions « sur demande »
+    |--------------------------------------------------------------------------
+    | Numéro WhatsApp (chiffres seulement, ex. 50937123456) + e-mail affichés
+    | sur la vitrine (Identity/Access). À définir sur le VPS via .env.
+    */
+    'contact' => [
+        'whatsapp' => env('TAGTOA_CONTACT_WHATSAPP', ''),
+        'email'    => env('TAGTOA_CONTACT_EMAIL', ''),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Internationalisation (i18n)
     |--------------------------------------------------------------------------
     | Langues supportées + devise par défaut associée à chaque langue.
