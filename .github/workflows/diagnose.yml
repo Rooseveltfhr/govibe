@@ -39,16 +39,56 @@ jobs:
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' bash -s" <<'EOSSH'
           set -uo pipefail
 
-          # 1) Localiser l'app Laravel (artisan) sous le domaine.
-          D=$(ls -d /home/*/domains/tagtoa.com 2>/dev/null | head -1)
+          # 0) QUI/OÙ suis-je ? (le chemin domaine attendu était introuvable)
+          echo "::group::Contexte SSH"
+          echo "whoami : $(whoami)"; echo "HOME : $HOME"; echo "pwd : $(pwd)"
+          echo "--- \$HOME ---"; ls -la "$HOME" 2>&1 | head -40
+          echo "--- /home ---"; ls -la /home 2>&1 | head -40
+          echo "::endgroup::"
+
+          # 1) EXPLORER sous $HOME (/home global n'est pas lisible : le glob
+          #    /home/*/domains échoue → c'est LA cause de « INTROUVABLE »).
+          echo "::group::Domaines du compte ($HOME/domains)"
+          ls -la "$HOME/domains" 2>&1 | head -40
+          echo "::endgroup::"
+
+          echo "::group::Structure de tagtoa.com"
+          T="$HOME/domains/tagtoa.com"
+          echo "== $T =="; ls -la "$T" 2>&1 | head -50
+          echo "== $T/public_html =="; ls -la "$T/public_html" 2>&1 | head -60
+          echo "== $T/laravel (si existe) =="; ls -la "$T/laravel" 2>&1 | head -50
+          echo "== $T/public_html/laravel (si existe) =="; ls -la "$T/public_html/laravel" 2>&1 | head -50
+          echo "::endgroup::"
+
+          echo "::group::Recherche des fichiers ESSENTIELS sous tagtoa.com"
+          echo "== artisan =="; ART=$(find "$T" -maxdepth 4 -type f -name artisan 2>/dev/null | head -10); echo "${ART:-aucun}"
+          echo "== .env =="; find "$T" -maxdepth 4 -type f -name '.env' 2>/dev/null | head
+          echo "== dossiers storage / bootstrap / vendor / Modules / public =="
+          for dir in storage bootstrap vendor Modules public; do
+            r=$(find "$T" -maxdepth 4 -type d -name "$dir" 2>/dev/null | head); echo "$dir: ${r:-ABSENT}"
+          done
+          echo "== index.php (docroot) =="; find "$T" -maxdepth 3 -name index.php 2>/dev/null | head
+          echo "::endgroup::"
+
+          # 2) Choisir l'app : artisan sous tagtoa.com en priorité.
+          D="$T"
           L=""
           for c in "$D/laravel" "$D/public_html/laravel" "$D/public_html"; do
             [ -f "$c/artisan" ] && { L="$c"; break; }
           done
           if [ -z "$L" ]; then
-            L=$(find /home/*/domains/tagtoa.com -maxdepth 3 -name artisan 2>/dev/null | head -1 | xargs -r dirname)
+            L=$(printf '%s\n' "$ART" | head -1 | xargs -r dirname)
           fi
-          [ -n "$L" ] && [ -f "$L/artisan" ] || { echo "::error::App Laravel introuvable sous /home/*/domains/tagtoa.com"; exit 1; }
+          if [ -n "$L" ] && [ -d "$L" ]; then
+            echo "::group::Arborescence de l'app trouvée : $L"
+            ls -la "$L" 2>&1 | head -50
+            echo "::endgroup::"
+          fi
+          if [ -z "$L" ] || [ ! -f "$L/artisan" ]; then
+            echo "::warning::artisan introuvable — l'app Laravel n'est pas déployée correctement. Voir l'arborescence ci-dessus."
+            echo "Diagnostic structurel terminé (pas d'app à inspecter plus loin)."
+            exit 0
+          fi
           echo "App Laravel : $L"
 
           echo "::group::Présence des clés .env (valeurs masquées)"
@@ -78,9 +118,23 @@ jobs:
           ls -la "$L/bootstrap/cache/" 2>&1 || true
           echo "::endgroup::"
 
-          echo "::group::laravel.log — 40 dernières lignes (secrets redactés)"
-          if [ -f "$L/storage/logs/laravel.log" ]; then
-            tail -40 "$L/storage/logs/laravel.log" \
+          echo "::group::Vues login / marque (rebranding TAGTOA)"
+          echo "== fichiers de vues login/auth =="
+          find "$L/resources/views" -maxdepth 3 -iregex '.*\(login\|auth\).*\.blade\.php' 2>/dev/null | head -20
+          echo "== vues contenant l'ancienne marque (biztap) =="
+          grep -rilo 'biztap' "$L/resources/views" 2>/dev/null | head -30
+          echo "== layouts/auth.blade.php (60 premières lignes) =="
+          sed -n '1,60p' "$L/resources/views/layouts/auth.blade.php" 2>/dev/null || echo "absent"
+          echo "::endgroup::"
+
+          echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
+          LOG="$L/storage/logs/laravel.log"
+          if [ -f "$LOG" ]; then
+            echo "--- 8 derniers messages ERROR/CRITICAL (classe + message + fichier:ligne) ---"
+            grep -aE '\.(ERROR|CRITICAL|EMERGENCY):' "$LOG" | tail -8 | cut -c1-500 \
+              | sed -E 's/(password|pwd|secret|token|DB_PASSWORD)([=" :]+)[^ "]+/\1\2[REDACTED]/gi'
+            echo "--- 12 dernières lignes brutes ---"
+            tail -12 "$LOG" | cut -c1-400 \
               | sed -E 's/(password|pwd|secret|token|DB_PASSWORD)([=" :]+)[^ "]+/\1\2[REDACTED]/gi'
           else
             echo "pas de laravel.log"
@@ -88,11 +142,42 @@ jobs:
           echo "::endgroup::"
 
           if [ "${CLEAR:-false}" = "true" ]; then
-            echo "::group::Vidage cache + permissions (sûr, sans DB)"
+            echo "::group::Réparations (sûr, sans DB)"
+
+            # FIX 500 « Mix manifest not found » : mix() cherche le manifeste dans
+            # laravel/public/ mais les assets buildés sont dans public_html/ (docroot).
+            # On relie le manifeste ET les dossiers d'assets manquants vers public_html.
+            PH="$(dirname "$L")/public_html"
+            if [ -d "$PH" ]; then
+              [ -d "$L/public" ] || mkdir -p "$L/public"
+              if [ ! -e "$L/public/mix-manifest.json" ] && [ -f "$PH/mix-manifest.json" ]; then
+                ln -s "$PH/mix-manifest.json" "$L/public/mix-manifest.json" 2>/dev/null \
+                  && echo "mix-manifest.json relié → public_html" \
+                  || { cp "$PH/mix-manifest.json" "$L/public/" && echo "mix-manifest.json copié"; }
+              else
+                echo "mix-manifest.json : déjà présent ou source absente"
+              fi
+              # Relie les dossiers d'assets référencés par mix() (au cas où mix() vérifie le fichier).
+              for a in css js fonts img images assets build web front vendor; do
+                if [ -e "$PH/$a" ] && [ ! -e "$L/public/$a" ]; then
+                  ln -s "$PH/$a" "$L/public/$a" 2>/dev/null && echo "lien public/$a → public_html/$a" || true
+                fi
+              done
+            else
+              echo "public_html introuvable à $PH"
+            fi
+
+            echo "-- vidage cache --"
             rm -f "$L/bootstrap/cache/"*.php 2>/dev/null && echo "bootstrap/cache/*.php supprimés" || true
             rm -f "$L/storage/framework/views/"*.php 2>/dev/null && echo "vues compilées supprimées" || true
             ( cd "$L" && php artisan optimize:clear 2>&1 ) || true
             chmod -R ug+rwX "$L/storage" "$L/bootstrap/cache" 2>/dev/null && echo "permissions storage/bootstrap corrigées" || true
+            # Accélération prod : met le config + vues en cache (évite de relire
+            # ~30 fichiers config + .env à CHAQUE requête → dashboard plus rapide).
+            # (pas de route:cache : Biztap peut avoir des routes en closure.)
+            echo "-- optimisation (config + vues en cache) --"
+            ( cd "$L" && php artisan config:cache 2>&1 ) || true
+            ( cd "$L" && php artisan view:cache 2>&1 ) || true
             echo "::endgroup::"
             echo "→ Rechargez https://tagtoa.com/login"
           fi

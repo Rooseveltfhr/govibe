@@ -8,9 +8,27 @@
     @csrf @if($editing) @method('PUT') @endif
     <div class="card">
         <label class="lbl">{{ __('Titre') }} *</label><input class="inp" name="title" required value="{{ old('title',$event->title) }}">
+        @php
+            $eventTypes = [
+                'concert'   => 'Concert',    'festival' => 'Festival',   'bal'       => 'Bal',
+                'forum'     => 'Forum',      'programme'=> 'Programme',   'cinema'    => 'Cinéma',
+                'formation' => 'Formation',  'seminaire'=> 'Séminaire',   'conference'=> 'Conférence',
+                'expo'      => 'Exposition', 'mariage'  => 'Mariage',     'sport'     => 'Sport',
+                'soiree'    => 'Soirée',     'gala'     => 'Gala',        'autre'     => 'Autre',
+            ];
+            $cm = old('checkin_mode', $event->checkin_mode ?: 'both');
+        @endphp
         <div class="row">
-            <div><label class="lbl">{{ __('Type') }}</label><select class="sel" name="type">@foreach(['concert','expo','mariage','sport','conference','autre'] as $t)<option @selected(old('type',$event->type)===$t)>{{ ucfirst($t) }}</option>@endforeach</select></div>
+            <div><label class="lbl">{{ __('Type') }}</label><select class="sel" name="type">@foreach($eventTypes as $val => $label)<option value="{{ $val }}" @selected(old('type',$event->type)===$val)>{{ $label }}</option>@endforeach</select></div>
             <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(['HTG','USD'] as $c)<option @selected(old('currency',$event->currency ?: 'HTG')===$c)>{{ $c }}</option>@endforeach</select></div>
+        </div>
+        <div class="row">
+            <div><label class="lbl">{{ __('Mode de billet') }}</label><select class="sel" name="checkin_mode">
+                <option value="both" @selected($cm==='both')>{{ __('En ligne (QR) + Carte NFC') }}</option>
+                <option value="qr" @selected($cm==='qr')>{{ __('En ligne (QR) seulement') }}</option>
+                <option value="nfc" @selected($cm==='nfc')>{{ __('Carte NFC seulement') }}</option>
+            </select></div>
+            <div></div>
         </div>
         <div class="row">
             <div><label class="lbl">{{ __('Début') }}</label><input class="inp" type="datetime-local" name="starts_at" value="{{ old('starts_at', optional($event->starts_at)->format('Y-m-d\TH:i')) }}"></div>
@@ -29,23 +47,20 @@
         </div>
     </div>
 
-    @if($editing)
     <div class="card">
         <div class="h-row"><h2>{{ __('Types de billets') }}</h2><button type="button" class="btn btn-d btn-sm" onclick="addTT()"><i class="fa-solid fa-plus"></i> {{ __('Ajouter') }}</button></div>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 10px">{{ __('Nom · Prix · Prix barré (optionnel, pour afficher une réduction) · Quantité (vide = illimité).') }}</p>
         <div id="ttlist"></div>
     </div>
-    @else
-        <p style="color:var(--muted);font-size:14px;margin:10px 0">{{ __('Enregistrez, puis ajoutez les types de billets.') }}</p>
-    @endif
     <button class="btn btn-p"><i class="fa-solid fa-floppy-disk"></i> {{ __('Enregistrer') }}</button>
 </form>
 
-@if($editing)
 <template id="tttpl">
-    <div class="ttrow" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-        <input name="ticket_types[IDX][name]" class="inp" placeholder="{{ __('Nom (VIP…)') }}" style="max-width:160px">
-        <input name="ticket_types[IDX][price]" type="number" step="0.01" class="inp" placeholder="{{ __('Prix') }}" style="max-width:110px">
-        <input name="ticket_types[IDX][quantity]" type="number" class="inp" placeholder="{{ __('Qté (∞)') }}" style="max-width:110px">
+    <div class="ttrow" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <input name="ticket_types[IDX][name]" class="inp" placeholder="{{ __('Nom (VIP…)') }}" style="max-width:150px">
+        <input name="ticket_types[IDX][price]" type="number" step="0.01" min="0" class="inp" placeholder="{{ __('Prix') }}" style="max-width:100px">
+        <input name="ticket_types[IDX][compare_at_price]" type="number" step="0.01" min="0" class="inp" placeholder="{{ __('Prix barré') }}" style="max-width:100px">
+        <input name="ticket_types[IDX][quantity]" type="number" class="inp" placeholder="{{ __('Qté (∞)') }}" style="max-width:90px">
         <label class="switch" style="flex:0"><input type="checkbox" name="ticket_types[IDX][is_active]" value="1" checked></label>
         <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.ttrow').remove()"><i class="fa-solid fa-trash"></i></button>
     </div>
@@ -54,16 +69,15 @@
 <script>
 var ttIdx=0;
 function addTT(d){var h=document.getElementById('tttpl').innerHTML.replace(/IDX/g,ttIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('ttlist').appendChild(r);
-    if(d){r.querySelector('[name$="[name]"]').value=d.name||'';r.querySelector('[name$="[price]"]').value=d.price||'';r.querySelector('[name$="[quantity]"]').value=d.quantity==null?'':d.quantity;r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;var i=document.createElement('input');i.type='hidden';i.name='ticket_types['+ttIdx+'][id]';i.value=d.id;r.appendChild(i);}
+    if(d){r.querySelector('[name$="[name]"]').value=d.name||'';r.querySelector('[name$="[price]"]').value=d.price||'';var cp=r.querySelector('[name$="[compare_at_price]"]');if(cp){cp.value=d.compare_at_price==null?'':d.compare_at_price;}r.querySelector('[name$="[quantity]"]').value=d.quantity==null?'':d.quantity;r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;var i=document.createElement('input');i.type='hidden';i.name='ticket_types['+ttIdx+'][id]';i.value=d.id;r.appendChild(i);}
     ttIdx++;}
 @php
     $ttData = $event->relationLoaded('ticketTypes')
-        ? $event->ticketTypes->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'price' => $t->price, 'quantity' => $t->quantity, 'is_active' => $t->is_active])->values()
+        ? $event->ticketTypes->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'price' => $t->price, 'compare_at_price' => $t->compare_at_price, 'quantity' => $t->quantity, 'is_active' => $t->is_active])->values()
         : [];
 @endphp
 var ex=@json($ttData);
 if(ex.length){ex.forEach(addTT);}else{addTT();}
 </script>
 @endpush
-@endif
 @endsection

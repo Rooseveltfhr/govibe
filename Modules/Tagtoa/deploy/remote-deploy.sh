@@ -66,8 +66,26 @@ if [ "${TAGTOA_SEED_DEMO:-1}" != "0" ]; then
     || echo "WARN: seed démo ignoré (non bloquant)"
 fi
 
-# 5) Caches + réouverture
+# 4.7) Assets « souverains » (auto-réparation). mix()/asset() cherchent le
+#      manifeste + les dossiers dans public/ (public_path), mais le docroot réel
+#      est public_html/. On relie (idempotent) pour éviter le 500 « Mix manifest
+#      not found » après un déplacement de l'app.
+PH="$(dirname "$APP")/public_html"
+if [ -d "$PH" ] && [ -d "$APP/public" ]; then
+  if [ ! -e "$APP/public/mix-manifest.json" ] && [ -f "$PH/mix-manifest.json" ]; then
+    ln -s "$PH/mix-manifest.json" "$APP/public/mix-manifest.json" 2>/dev/null && echo "mix-manifest relié" || true
+  fi
+  for a in css js fonts img images assets build web front vendor; do
+    if [ -e "$PH/$a" ] && [ ! -e "$APP/public/$a" ]; then ln -s "$PH/$a" "$APP/public/$a" 2>/dev/null || true; fi
+  done
+fi
+
+# 5) Caches + réouverture. On vide puis on RECACHE (prod plus rapide : évite de
+#    relire ~30 fichiers config + .env à chaque requête). Pas de route:cache
+#    (Biztap peut avoir des routes en closure).
 php artisan optimize:clear >/dev/null 2>&1 || true
+php artisan config:cache >/dev/null 2>&1 || true
+php artisan view:cache >/dev/null 2>&1 || true
 php artisan up
 
 # 6) Smoke test public (non bloquant). Activer : TAGTOA_SMOKE_BASE=https://tagtoa.com/tapbiz/public
