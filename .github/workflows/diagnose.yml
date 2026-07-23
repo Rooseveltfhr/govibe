@@ -39,34 +39,42 @@ jobs:
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' bash -s" <<'EOSSH'
           set -uo pipefail
 
+          # 0) QUI/OÙ suis-je ? (le chemin domaine attendu était introuvable)
+          echo "::group::Contexte SSH"
+          echo "whoami : $(whoami)"; echo "HOME : $HOME"; echo "pwd : $(pwd)"
+          echo "--- \$HOME ---"; ls -la "$HOME" 2>&1 | head -40
+          echo "--- /home ---"; ls -la /home 2>&1 | head -40
+          echo "::endgroup::"
+
+          # 1) EXPLORER : trouver où l'app Laravel vit RÉELLEMENT sur ce serveur.
+          echo "::group::Recherche large de l'app (artisan / tagtoa.com / public_html)"
+          echo "== dossiers tagtoa.com =="
+          find /home -maxdepth 6 -type d -name 'tagtoa.com' 2>/dev/null | head
+          echo "== fichiers artisan (app Laravel) =="
+          ART=$(find /home -maxdepth 7 -type f -name artisan 2>/dev/null | head -20); echo "${ART:-aucun}"
+          echo "== dossiers public_html =="
+          find /home -maxdepth 5 -type d -name public_html 2>/dev/null | head
+          echo "== fichiers .env =="
+          find /home -maxdepth 7 -type f -name '.env' 2>/dev/null | grep -iE 'tagtoa|laravel|public_html' | head
+          echo "::endgroup::"
+
+          # 2) Choisir l'app : 1er artisan trouvé (priorité aux chemins tagtoa).
           D=$(ls -d /home/*/domains/tagtoa.com 2>/dev/null | head -1)
-          echo "Domaine : ${D:-INTROUVABLE}"
-
-          # 0) STRUCTURE réelle du serveur (pour repérer ce qui manque/où est l'app).
-          echo "::group::Arborescence du domaine (2 niveaux)"
-          [ -n "$D" ] && ls -la "$D" 2>&1 || echo "domaine introuvable"
-          echo "--- public_html/ ---"; ls -la "$D/public_html" 2>&1 | head -60 || true
-          echo "--- public_html/laravel/ (si existe) ---"; ls -la "$D/public_html/laravel" 2>&1 | head -40 || true
-          echo "--- laravel/ (si existe) ---"; ls -la "$D/laravel" 2>&1 | head -40 || true
-          echo "::endgroup::"
-
-          echo "::group::Où sont les fichiers ESSENTIELS ?"
-          for f in artisan .env composer.json; do
-            echo "== $f =="; find "$D" -maxdepth 4 -name "$f" 2>/dev/null || true
-          done
-          for dir in storage bootstrap vendor Modules public; do
-            echo "== dossier $dir =="; find "$D" -maxdepth 4 -type d -name "$dir" 2>/dev/null | head || true
-          done
-          echo "== index.php (docroot) =="; find "$D" -maxdepth 3 -name index.php 2>/dev/null | head || true
-          echo "::endgroup::"
-
-          # 1) Localiser l'app Laravel (artisan) sous le domaine.
+          echo "Domaine attendu : ${D:-INTROUVABLE}"
           L=""
           for c in "$D/laravel" "$D/public_html/laravel" "$D/public_html"; do
             [ -f "$c/artisan" ] && { L="$c"; break; }
           done
           if [ -z "$L" ]; then
-            L=$(find /home/*/domains/tagtoa.com -maxdepth 4 -name artisan 2>/dev/null | head -1 | xargs -r dirname)
+            L=$(printf '%s\n' "$ART" | grep -iE 'tagtoa' | head -1 | xargs -r dirname)
+          fi
+          if [ -z "$L" ]; then
+            L=$(printf '%s\n' "$ART" | head -1 | xargs -r dirname)
+          fi
+          if [ -n "$L" ] && [ -d "$L" ]; then
+            echo "::group::Arborescence de l'app trouvée : $L"
+            ls -la "$L" 2>&1 | head -50
+            echo "::endgroup::"
           fi
           if [ -z "$L" ] || [ ! -f "$L/artisan" ]; then
             echo "::warning::artisan introuvable — l'app Laravel n'est pas déployée correctement. Voir l'arborescence ci-dessus."
