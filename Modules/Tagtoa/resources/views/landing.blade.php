@@ -242,6 +242,7 @@
 <nav class="nav"><div class="wrap in">
     <a href="{{ url('/') }}" class="brand"><span class="lg"><i class="fa-solid fa-bolt"></i></span>TAGTOA</a>
     <span class="sp"></span>
+    <a class="btn btn-o hidem" href="{{ url('/events') }}"><i class="fa-solid fa-ticket"></i> {{ __('Événements') }}</a>
     @include('tagtoa::partials.lang')
     <a class="btn btn-o hidem" href="{{ url('/login') }}"><i class="fa-solid fa-arrow-right-to-bracket"></i> {{ __('Se connecter') }}</a>
     <a class="btn btn-p" href="{{ $store }}"><i class="fa-brands fa-whatsapp"></i> {{ __('Boutique gratuite') }}</a>
@@ -318,6 +319,35 @@
                 <h3>{{ __($s[1]) }}</h3>
                 <p>{{ __($s[2]) }}</p>
                 <span class="go">{{ __('Découvrir') }} <i class="fa-solid fa-arrow-right"></i></span>
+            </a>
+        @endforeach
+    </div>
+</div></section>
+
+{{-- Solutions professionnelles (Identity / Access) — sur demande, contact --}}
+@php
+    $waNum = preg_replace('/\D+/', '', (string) config('tagtoa.contact.whatsapp', ''));
+    $contactEmail = (string) config('tagtoa.contact.email', '');
+    $contactUrl = $waNum !== '' ? 'https://wa.me/'.$waNum : ($contactEmail !== '' ? 'mailto:'.$contactEmail : url('/login'));
+    $solutions = [
+        ['fa-id-badge',  'TAGTOA Identity', 'Cartes de membre, badges employé & étudiant, laissez-passer visiteur, ID numérique — sur carte NFC.'],
+        ['fa-door-open', 'TAGTOA Access',   'Contrôle d\'accès, présence & pointage, gestion des visiteurs, accès parking & hôtel.'],
+    ];
+@endphp
+<section><div class="wrap">
+    <div class="center">
+        <span class="ey reveal">{{ __('Solutions professionnelles') }}</span>
+        <h2 class="reveal d1">{{ __('Identité & accès par NFC') }}</h2>
+        <p class="lead reveal d2">{{ __('Pour entreprises, écoles et institutions — déployées sur mesure. Parlons de votre projet.') }}</p>
+    </div>
+    <div class="sgrid">
+        @foreach($solutions as $sol)
+            <a class="scard reveal" href="{{ $contactUrl }}" @if($waNum !== '') target="_blank" rel="noopener" @endif>
+                <span class="ribbon" style="background:#0d140c">{{ __('Sur demande') }}</span>
+                <div class="si"><i class="fa-solid {{ $sol[0] }}"></i></div>
+                <h3>{{ __($sol[1]) }}</h3>
+                <p>{{ __($sol[2]) }}</p>
+                <span class="go">{{ __('Nous contacter') }} <i class="fa-brands fa-whatsapp"></i></span>
             </a>
         @endforeach
     </div>
