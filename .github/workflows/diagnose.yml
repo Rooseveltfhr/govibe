@@ -118,9 +118,14 @@ jobs:
           ls -la "$L/bootstrap/cache/" 2>&1 || true
           echo "::endgroup::"
 
-          echo "::group::laravel.log — 40 dernières lignes (secrets redactés)"
-          if [ -f "$L/storage/logs/laravel.log" ]; then
-            tail -40 "$L/storage/logs/laravel.log" \
+          echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
+          LOG="$L/storage/logs/laravel.log"
+          if [ -f "$LOG" ]; then
+            echo "--- 8 derniers messages ERROR/CRITICAL (classe + message + fichier:ligne) ---"
+            grep -aE '\.(ERROR|CRITICAL|EMERGENCY):' "$LOG" | tail -8 | cut -c1-500 \
+              | sed -E 's/(password|pwd|secret|token|DB_PASSWORD)([=" :]+)[^ "]+/\1\2[REDACTED]/gi'
+            echo "--- 12 dernières lignes brutes ---"
+            tail -12 "$LOG" | cut -c1-400 \
               | sed -E 's/(password|pwd|secret|token|DB_PASSWORD)([=" :]+)[^ "]+/\1\2[REDACTED]/gi'
           else
             echo "pas de laravel.log"
