@@ -118,6 +118,15 @@ jobs:
           ls -la "$L/bootstrap/cache/" 2>&1 || true
           echo "::endgroup::"
 
+          echo "::group::Vues login / marque (rebranding TAGTOA)"
+          echo "== fichiers de vues login/auth =="
+          find "$L/resources/views" -maxdepth 3 -iregex '.*\(login\|auth\).*\.blade\.php' 2>/dev/null | head -20
+          echo "== vues contenant l'ancienne marque (biztap) =="
+          grep -rilo 'biztap' "$L/resources/views" 2>/dev/null | head -30
+          echo "== layouts/auth.blade.php (60 premières lignes) =="
+          sed -n '1,60p' "$L/resources/views/layouts/auth.blade.php" 2>/dev/null || echo "absent"
+          echo "::endgroup::"
+
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
           LOG="$L/storage/logs/laravel.log"
           if [ -f "$LOG" ]; then
@@ -163,6 +172,12 @@ jobs:
             rm -f "$L/storage/framework/views/"*.php 2>/dev/null && echo "vues compilées supprimées" || true
             ( cd "$L" && php artisan optimize:clear 2>&1 ) || true
             chmod -R ug+rwX "$L/storage" "$L/bootstrap/cache" 2>/dev/null && echo "permissions storage/bootstrap corrigées" || true
+            # Accélération prod : met le config + vues en cache (évite de relire
+            # ~30 fichiers config + .env à CHAQUE requête → dashboard plus rapide).
+            # (pas de route:cache : Biztap peut avoir des routes en closure.)
+            echo "-- optimisation (config + vues en cache) --"
+            ( cd "$L" && php artisan config:cache 2>&1 ) || true
+            ( cd "$L" && php artisan view:cache 2>&1 ) || true
             echo "::endgroup::"
             echo "→ Rechargez https://tagtoa.com/login"
           fi
