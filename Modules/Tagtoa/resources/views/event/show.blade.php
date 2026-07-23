@@ -45,7 +45,13 @@
         <p class="sec">{{ __('Billets') }}</p>
         @forelse($event->activeTicketTypes as $tt)
             <div class="tt">
-                <div class="info"><b>{{ $tt->name }}</b><span>{{ $tt->price > 0 ? number_format($tt->price,2).' '.$event->currency : __('Gratuit') }}@if($tt->remaining !== null) · {{ $tt->remaining }} {{ __('restants') }}@endif</span></div>
+                @php
+                    $priceLabel = $tt->price > 0 ? number_format($tt->price, 2).' '.$event->currency : __('Gratuit');
+                    $remainLabel = $tt->remaining !== null ? ' · '.$tt->remaining.' '.__('restants') : '';
+                @endphp
+                <div class="info"><b>{{ $tt->name }}</b><span>{{ $priceLabel }}{{ $remainLabel }}</span>
+                    @if($tt->hasDiscount())<span style="margin-left:6px"><s style="opacity:.55">{{ number_format($tt->compare_at_price,2) }}</s> <b style="color:#1D9E75">−{{ $tt->discount_percent }}%</b></span>@endif
+                </div>
                 @if($tt->isOnSale())
                     <div class="qty"><button type="button" onclick="ev(-1,{{ $tt->id }})">−</button><input type="number" name="qty[{{ $tt->id }}]" id="q{{ $tt->id }}" value="0" min="0" max="{{ $tt->remaining ?? 50 }}" data-price="{{ $tt->price }}" readonly><button type="button" onclick="ev(1,{{ $tt->id }})">+</button></div>
                 @else<span style="color:#E0473E;font-size:12px;font-weight:600">{{ __('Épuisé') }}</span>@endif

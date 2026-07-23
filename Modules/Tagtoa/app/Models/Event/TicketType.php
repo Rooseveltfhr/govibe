@@ -12,11 +12,27 @@ class TicketType extends Model
 {
     protected $table = 'tagtoa_ev_ticket_types';
 
-    protected $fillable = ['event_id', 'name', 'price', 'quantity', 'sold', 'is_active', 'sort'];
+    protected $fillable = ['event_id', 'name', 'price', 'compare_at_price', 'quantity', 'sold', 'is_active', 'sort'];
 
     protected $casts = [
-        'price' => 'decimal:2', 'quantity' => 'integer', 'sold' => 'integer', 'is_active' => 'boolean',
+        'price' => 'decimal:2', 'compare_at_price' => 'decimal:2', 'quantity' => 'integer', 'sold' => 'integer', 'is_active' => 'boolean',
     ];
+
+    /** Une réduction est active si un prix barré supérieur au prix courant est défini. */
+    public function hasDiscount(): bool
+    {
+        return $this->compare_at_price !== null && (float) $this->compare_at_price > (float) $this->price;
+    }
+
+    /** Pourcentage de réduction (0 si aucune). */
+    public function getDiscountPercentAttribute(): int
+    {
+        if (! $this->hasDiscount()) {
+            return 0;
+        }
+
+        return (int) round((1 - ((float) $this->price / (float) $this->compare_at_price)) * 100);
+    }
 
     public function event(): BelongsTo
     {

@@ -48,6 +48,7 @@ $data = $this->validateEvent($request);
             $event->cover_path = $request->file('cover')->store('tagtoa/event-covers', 'public');
         }
         $event->save();
+        $this->syncTypes($event, $request); // capture les types de billets + prix dès la création
 
         return redirect()->route('tagtoa.event.dashboard.edit', $event->id)->with('success', __('Événement créé.'));
     }
@@ -134,12 +135,16 @@ $data = $this->validateEvent($request);
             if (empty($row['name'])) {
                 continue;
             }
+            $compare = ($row['compare_at_price'] ?? '') === '' ? null : (float) $row['compare_at_price'];
+            $price = (float) ($row['price'] ?? 0);
             $attrs = [
-                'name'      => $row['name'],
-                'price'     => (float) ($row['price'] ?? 0),
-                'quantity'  => ($row['quantity'] ?? '') === '' ? null : (int) $row['quantity'],
-                'is_active' => ! empty($row['is_active']),
-                'sort'      => (int) ($row['sort'] ?? $i),
+                'name'             => $row['name'],
+                'price'            => $price,
+                // Prix barré valide seulement s'il est supérieur au prix courant (sinon pas de « fausse » réduction).
+                'compare_at_price' => ($compare !== null && $compare > $price) ? $compare : null,
+                'quantity'         => ($row['quantity'] ?? '') === '' ? null : (int) $row['quantity'],
+                'is_active'        => ! empty($row['is_active']),
+                'sort'             => (int) ($row['sort'] ?? $i),
             ];
             $t = ! empty($row['id']) ? $event->ticketTypes()->whereKey($row['id'])->first() : null;
             $t ? $t->update($attrs) : $t = $event->ticketTypes()->create($attrs);
@@ -158,6 +163,7 @@ $data = $this->validateEvent($request);
             'title'        => ['required', 'string', 'max:160'],
             'alias'        => ['nullable', 'string', 'max:120', 'alpha_dash', 'unique:tagtoa_ev_events,alias'.($ignoreId ? ','.$ignoreId : '')],
             'type'         => ['nullable', 'string', 'max:30'],
+            'checkin_mode' => ['nullable', Rule::in(['qr', 'nfc', 'both'])], // mode de billet : en ligne (QR) / carte NFC / les deux
             'description'  => ['nullable', 'string', 'max:2000'],
             'venue'        => ['nullable', 'string', 'max:160'],
             'address'      => ['nullable', 'string', 'max:255'],
