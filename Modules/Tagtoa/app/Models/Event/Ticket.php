@@ -17,7 +17,7 @@ class Ticket extends Model
     protected $table = 'tagtoa_ev_tickets';
 
     protected $fillable = [
-        'event_id', 'order_id', 'ticket_type_id', 'code', 'holder_name', 'holder_phone',
+        'event_id', 'order_id', 'ticket_type_id', 'code', 'holder_name', 'holder_phone', 'payment_method',
         'status', 'checked_in', 'checked_in_at',
     ];
 

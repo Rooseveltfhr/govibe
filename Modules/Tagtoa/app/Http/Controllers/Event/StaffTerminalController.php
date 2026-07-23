@@ -41,11 +41,16 @@ class StaffTerminalController extends Controller
 
         $ticketTypes = $event->ticketTypes()->where('is_active', true)->get();
 
+        // Moyens de paiement issus de TAGTOA Pay (page de paiement liée à l'événement).
+        $payMethods = $event->payPage
+            ? $event->payPage->activeMethods()->orderBy('sort')->get(['id', 'label', 'type'])
+            : collect();
+
         $pendingConflicts = $staff && $staff->role === 'admin'
             ? SyncConflict::where('event_id', $event->id)->where('resolved', false)->count()
             : 0;
 
-        return view('tagtoa::event.staff-terminal', compact('event', 'staff', 'roster', 'ticketTypes', 'pendingConflicts'));
+        return view('tagtoa::event.staff-terminal', compact('event', 'staff', 'roster', 'ticketTypes', 'payMethods', 'pendingConflicts'));
     }
 
     /* ---------------- Session PIN ---------------- */
@@ -189,12 +194,24 @@ class StaffTerminalController extends Controller
             'uid'            => ['nullable', 'string', 'max:120'],
             'ticket_type_id' => ['nullable', 'integer'],
             'credit'         => ['nullable', 'numeric', 'min:0', 'max:1000000'], // crédit initial du wallet
+            'payment_method' => ['nullable', 'string', 'max:60'],               // moyen de paiement (TAGTOA Pay)
         ]);
 
         if (! empty($data['ticket_type_id'])) {
             $okType = $event->ticketTypes()->whereKey($data['ticket_type_id'])->exists();
             if (! $okType) {
                 $data['ticket_type_id'] = null;
+            }
+        }
+
+        // Le moyen de paiement doit provenir de TAGTOA Pay (page liée) ou être « Espèces ».
+        $method = trim((string) ($data['payment_method'] ?? ''));
+        if ($method !== '' && $method !== 'Espèces') {
+            $allowed = $event->payPage
+                ? $event->payPage->activeMethods()->pluck('label')->all()
+                : [];
+            if (! in_array($method, $allowed, true)) {
+                $method = ''; // valeur inconnue ignorée (anti-spoof)
             }
         }
 
@@ -228,6 +245,16 @@ class StaffTerminalController extends Controller
             }
         } catch (\Throwable $e) {
             return response()->json(['ok' => false, 'message' => __('Réessayez.')], 422);
+        }
+
+        // Enregistre le moyen de paiement + le revenu (billetterie) dans TAGTOA.
+        $ticket->update(['payment_method' => $method !== '' ? $method : null]);
+        if (! empty($data['ticket_type_id'])) {
+            $tt = $event->ticketTypes()->whereKey($data['ticket_type_id'])->first();
+            if ($tt && (float) $tt->price > 0) {
+                app(\Modules\Tagtoa\App\Services\Billing\RevenueService::class)
+                    ->record('event_ticket', $ticket->id, 'event', (float) $tt->price, $event->tenant_id, $event->currency);
+            }
         }
 
         return response()->json(['ok' => true, 'code' => $ticket->code, 'name' => $ticket->holder_name]);
