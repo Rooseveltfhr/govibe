@@ -118,6 +118,15 @@ jobs:
           ls -la "$L/bootstrap/cache/" 2>&1 || true
           echo "::endgroup::"
 
+          echo "::group::Menu sadmin (pour insérer un lien TAGTOA)"
+          MENUF=$(grep -rilE 'Sell NFC Cards|WhatsApp Stores' "$L/resources/views" 2>/dev/null | head -1)
+          echo "fichier menu: ${MENUF:-introuvable}"
+          if [ -n "$MENUF" ]; then
+            echo "-- extrait (lignes autour de 'Dashboard' / 'vCards') --"
+            grep -nE "Dashboard|vCards|Sell NFC|route\(|href=|menu-item|<li|nav-link" "$MENUF" | head -40
+          fi
+          echo "::endgroup::"
+
           echo "::group::Vues login / marque (rebranding TAGTOA)"
           echo "== fichiers de vues login/auth =="
           find "$L/resources/views" -maxdepth 3 -iregex '.*\(login\|auth\).*\.blade\.php' 2>/dev/null | head -20

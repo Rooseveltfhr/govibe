@@ -35,10 +35,19 @@
     <div class="body">
         <h1>{{ $event->title }}</h1>
         <div class="meta">
-            @if($event->starts_at)<div><i class="fa-regular fa-calendar"></i> {{ $event->starts_at->format('d M Y · H:i') }}</div>@endif
+            @if($event->starts_at)
+                @php $sameDay = $event->ends_at && $event->ends_at->isSameDay($event->starts_at); @endphp
+                <div><i class="fa-regular fa-calendar"></i> {{ $event->starts_at->format('d M Y · H:i') }}@if($event->ends_at && ! $sameDay) → {{ $event->ends_at->format('d M Y') }}@elseif($event->ends_at && $sameDay) – {{ $event->ends_at->format('H:i') }}@endif</div>
+            @endif
             @if($event->venue)<div><i class="fa-solid fa-location-dot"></i> {{ $event->venue }}{{ $event->address ? ', '.$event->address : '' }}</div>@endif
             <div><i class="fa-solid fa-tag"></i> {{ $event->is_free ? __('Gratuit') : __('Billets payants') }}</div>
         </div>
+        <button type="button" onclick="tagShare()" style="background:none;border:1px solid rgba(0,0,0,.15);border-radius:10px;padding:8px 12px;font:600 13px var(--fh,sans-serif);cursor:pointer;margin-top:4px"><i class="fa-solid fa-share-nodes"></i> {{ __('Partager') }}</button>
+        <script>
+        function tagShare(){var u=window.location.href,t=@json($event->title);
+            if(navigator.share){navigator.share({title:t,url:u}).catch(function(){});}
+            else{var w='https://wa.me/?text='+encodeURIComponent(t+' — '+u);window.open(w,'_blank');}}
+        </script>
         @if($event->description)<p class="desc">{{ $event->description }}</p>@endif
         @if($errors->any())<div class="err">{{ $errors->first() }}</div>@endif
 
