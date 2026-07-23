@@ -133,7 +133,32 @@ jobs:
           echo "::endgroup::"
 
           if [ "${CLEAR:-false}" = "true" ]; then
-            echo "::group::Vidage cache + permissions (sûr, sans DB)"
+            echo "::group::Réparations (sûr, sans DB)"
+
+            # FIX 500 « Mix manifest not found » : mix() cherche le manifeste dans
+            # laravel/public/ mais les assets buildés sont dans public_html/ (docroot).
+            # On relie le manifeste ET les dossiers d'assets manquants vers public_html.
+            PH="$(dirname "$L")/public_html"
+            if [ -d "$PH" ]; then
+              [ -d "$L/public" ] || mkdir -p "$L/public"
+              if [ ! -e "$L/public/mix-manifest.json" ] && [ -f "$PH/mix-manifest.json" ]; then
+                ln -s "$PH/mix-manifest.json" "$L/public/mix-manifest.json" 2>/dev/null \
+                  && echo "mix-manifest.json relié → public_html" \
+                  || { cp "$PH/mix-manifest.json" "$L/public/" && echo "mix-manifest.json copié"; }
+              else
+                echo "mix-manifest.json : déjà présent ou source absente"
+              fi
+              # Relie les dossiers d'assets référencés par mix() (au cas où mix() vérifie le fichier).
+              for a in css js fonts img images assets build web front vendor; do
+                if [ -e "$PH/$a" ] && [ ! -e "$L/public/$a" ]; then
+                  ln -s "$PH/$a" "$L/public/$a" 2>/dev/null && echo "lien public/$a → public_html/$a" || true
+                fi
+              done
+            else
+              echo "public_html introuvable à $PH"
+            fi
+
+            echo "-- vidage cache --"
             rm -f "$L/bootstrap/cache/"*.php 2>/dev/null && echo "bootstrap/cache/*.php supprimés" || true
             rm -f "$L/storage/framework/views/"*.php 2>/dev/null && echo "vues compilées supprimées" || true
             ( cd "$L" && php artisan optimize:clear 2>&1 ) || true
