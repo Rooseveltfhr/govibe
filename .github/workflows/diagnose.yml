@@ -39,16 +39,40 @@ jobs:
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' bash -s" <<'EOSSH'
           set -uo pipefail
 
-          # 1) Localiser l'app Laravel (artisan) sous le domaine.
           D=$(ls -d /home/*/domains/tagtoa.com 2>/dev/null | head -1)
+          echo "Domaine : ${D:-INTROUVABLE}"
+
+          # 0) STRUCTURE réelle du serveur (pour repérer ce qui manque/où est l'app).
+          echo "::group::Arborescence du domaine (2 niveaux)"
+          [ -n "$D" ] && ls -la "$D" 2>&1 || echo "domaine introuvable"
+          echo "--- public_html/ ---"; ls -la "$D/public_html" 2>&1 | head -60 || true
+          echo "--- public_html/laravel/ (si existe) ---"; ls -la "$D/public_html/laravel" 2>&1 | head -40 || true
+          echo "--- laravel/ (si existe) ---"; ls -la "$D/laravel" 2>&1 | head -40 || true
+          echo "::endgroup::"
+
+          echo "::group::Où sont les fichiers ESSENTIELS ?"
+          for f in artisan .env composer.json; do
+            echo "== $f =="; find "$D" -maxdepth 4 -name "$f" 2>/dev/null || true
+          done
+          for dir in storage bootstrap vendor Modules public; do
+            echo "== dossier $dir =="; find "$D" -maxdepth 4 -type d -name "$dir" 2>/dev/null | head || true
+          done
+          echo "== index.php (docroot) =="; find "$D" -maxdepth 3 -name index.php 2>/dev/null | head || true
+          echo "::endgroup::"
+
+          # 1) Localiser l'app Laravel (artisan) sous le domaine.
           L=""
           for c in "$D/laravel" "$D/public_html/laravel" "$D/public_html"; do
             [ -f "$c/artisan" ] && { L="$c"; break; }
           done
           if [ -z "$L" ]; then
-            L=$(find /home/*/domains/tagtoa.com -maxdepth 3 -name artisan 2>/dev/null | head -1 | xargs -r dirname)
+            L=$(find /home/*/domains/tagtoa.com -maxdepth 4 -name artisan 2>/dev/null | head -1 | xargs -r dirname)
           fi
-          [ -n "$L" ] && [ -f "$L/artisan" ] || { echo "::error::App Laravel introuvable sous /home/*/domains/tagtoa.com"; exit 1; }
+          if [ -z "$L" ] || [ ! -f "$L/artisan" ]; then
+            echo "::warning::artisan introuvable — l'app Laravel n'est pas déployée correctement. Voir l'arborescence ci-dessus."
+            echo "Diagnostic structurel terminé (pas d'app à inspecter plus loin)."
+            exit 0
+          fi
           echo "App Laravel : $L"
 
           echo "::group::Présence des clés .env (valeurs masquées)"
