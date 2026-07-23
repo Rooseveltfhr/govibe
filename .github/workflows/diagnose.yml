@@ -1,0 +1,99 @@
+name: Diagnose TAGTOA VPS
+
+# Bouton manuel SÛR (lecture + vidage de cache uniquement) :
+#  - montre la vraie cause d'un 500 (tail du laravel.log, redacté) ;
+#  - vide les caches config/routes/vues obsolètes (cause n°1 d'un 500 après
+#    déplacement de l'app) ;
+#  - NE touche JAMAIS la base de données, ne fait ni migrate ni rsync.
+on:
+  workflow_dispatch:
+    inputs:
+      clear_cache:
+        description: "Vider les caches (config/routes/vues) + corriger les permissions storage"
+        type: boolean
+        default: true
+
+concurrency:
+  group: diagnose-tagtoa
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Read log + clear cache (safe)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh-keyscan -p "$PORT" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Diagnose + clear cache
+        env:
+          CLEAR: ${{ inputs.clear_cache }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' bash -s" <<'EOSSH'
+          set -uo pipefail
+
+          # 1) Localiser l'app Laravel (artisan) sous le domaine.
+          D=$(ls -d /home/*/domains/tagtoa.com 2>/dev/null | head -1)
+          L=""
+          for c in "$D/laravel" "$D/public_html/laravel" "$D/public_html"; do
+            [ -f "$c/artisan" ] && { L="$c"; break; }
+          done
+          if [ -z "$L" ]; then
+            L=$(find /home/*/domains/tagtoa.com -maxdepth 3 -name artisan 2>/dev/null | head -1 | xargs -r dirname)
+          fi
+          [ -n "$L" ] && [ -f "$L/artisan" ] || { echo "::error::App Laravel introuvable sous /home/*/domains/tagtoa.com"; exit 1; }
+          echo "App Laravel : $L"
+
+          echo "::group::Présence des clés .env (valeurs masquées)"
+          ENVF="$L/.env"
+          if [ -f "$ENVF" ]; then
+            for k in APP_ENV APP_DEBUG APP_KEY APP_URL DB_CONNECTION DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD SESSION_DRIVER CACHE_DRIVER; do
+              if grep -q "^$k=" "$ENVF"; then
+                v=$(grep "^$k=" "$ENVF" | head -1 | cut -d= -f2-)
+                case "$k" in
+                  APP_KEY|DB_PASSWORD) [ -n "$v" ] && echo "$k = [présent]" || echo "$k = [VIDE ⚠]";;
+                  *) echo "$k = $v";;
+                esac
+              else
+                echo "$k = [absent ⚠]"
+              fi
+            done
+          else
+            echo "⚠ .env ABSENT à $ENVF"
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Permissions (storage / bootstrap/cache)"
+          ls -ld "$L/storage" "$L/storage/logs" "$L/storage/framework/views" "$L/bootstrap/cache" 2>&1 || true
+          echo "::endgroup::"
+
+          echo "::group::Contenu bootstrap/cache (config/routes en cache = souvent la cause)"
+          ls -la "$L/bootstrap/cache/" 2>&1 || true
+          echo "::endgroup::"
+
+          echo "::group::laravel.log — 40 dernières lignes (secrets redactés)"
+          if [ -f "$L/storage/logs/laravel.log" ]; then
+            tail -40 "$L/storage/logs/laravel.log" \
+              | sed -E 's/(password|pwd|secret|token|DB_PASSWORD)([=" :]+)[^ "]+/\1\2[REDACTED]/gi'
+          else
+            echo "pas de laravel.log"
+          fi
+          echo "::endgroup::"
+
+          if [ "${CLEAR:-false}" = "true" ]; then
+            echo "::group::Vidage cache + permissions (sûr, sans DB)"
+            rm -f "$L/bootstrap/cache/"*.php 2>/dev/null && echo "bootstrap/cache/*.php supprimés" || true
+            rm -f "$L/storage/framework/views/"*.php 2>/dev/null && echo "vues compilées supprimées" || true
+            ( cd "$L" && php artisan optimize:clear 2>&1 ) || true
+            chmod -R ug+rwX "$L/storage" "$L/bootstrap/cache" 2>/dev/null && echo "permissions storage/bootstrap corrigées" || true
+            echo "::endgroup::"
+            echo "→ Rechargez https://tagtoa.com/login"
+          fi
+          EOSSH
