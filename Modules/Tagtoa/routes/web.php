@@ -270,3 +270,9 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     Route::post('/billing/settle', [BillingController::class, 'settle'])->name('tagtoa.billing.settle');
     Route::get('/billing/export', [BillingController::class, 'export'])->name('tagtoa.billing.export');
 });
+
+// ---------- SUPER-ADMIN TAGTOA (fondateur, cross-tenant, role:super_admin) ----------
+// Hors du groupe multi_tenant : la vue plateforme agrège TOUS les tenants.
+Route::middleware(['auth', 'valid.user', 'role:super_admin'])->prefix('tagtoa/admin')->group(function () {
+    Route::get('/', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\DashboardController::class, 'index'])->name('tagtoa.superadmin.index');
+});

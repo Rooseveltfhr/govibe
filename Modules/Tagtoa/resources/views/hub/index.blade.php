@@ -3,6 +3,13 @@
 @section('page', __('Bonjour 👋'))
 
 @section('content')
+@if(!empty($isSuperAdmin))
+<a href="{{ route('tagtoa.superadmin.index') }}" class="card" style="display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#0d140c,#1D9E75);color:#fff;border:0;text-decoration:none;margin-bottom:16px">
+    <i class="fa-solid fa-shield-halved" style="font-size:22px"></i>
+    <div style="flex:1"><b style="font-family:var(--ft,sans-serif)">{{ __('Super-admin — vue plateforme') }}</b><div style="opacity:.85;font-size:13px">{{ __('Revenu global, commissions, abonnements, top marchands.') }}</div></div>
+    <i class="fa-solid fa-arrow-right"></i>
+</a>
+@endif
 @if(!empty($isNew))
 {{-- Hero onboarding : marchand sans aucune ressource --}}
 <div class="card" style="background:var(--blk);color:#fff;border:0;display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:20px">
