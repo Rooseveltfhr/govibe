@@ -154,14 +154,25 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     valide SV2 kont tag reyèl AVAN kable nan check-in/wallet (pa modifye kòd live san tès entegrasyon).
 
 ## 6. Deplwaman & URL
-- App sèvi nan `public/`: base = **https://tagtoa.com/tapbiz/public**
-- ⚠️ **RESTRUKTIRASYON VPS AN KOU** (jiyè 2026): itilizatè a deplase app la soti
-  `public_html/tapbiz/` → sib final: app nan `/home/admin/domains/tagtoa.com/laravel/`,
-  docroot = `public_html/` (kontni `public/`). **Deplwaman KASE** jiskaske secret GitHub
-  `VPS_APP_PATH` mete ajou (= `/home/admin/domains/tagtoa.com/laravel`) — rsync echwe
-  (`mkdir .../Modules/Tagtoa failed`). Tout merge depi #41 (fix crash Blade create/edit)
-  poko live. `.env` te ekspoze piblik: DB_PASSWORD dwe woule, APP_DEBUG=false obligatwa.
-- Login admin: `/tapbiz/public/login` (ap chanje apre restrukturasyon)
+- ✅ **RESTRUKTIRASYON FINI** (jiyè 2026): app la nan
+  `$HOME/domains/tagtoa.com/laravel/`, docroot = `public_html/` (front controller
+  `public_html/index.php` pwente sou `../laravel`). Base = **rasin `https://tagtoa.com/`**.
+  Kont lan se **govibepay.com** (tagtoa.com = addon domain), donk `$HOME` = kont govibepay.
+- ⚠️ **PYÈJ chemen**: `/home` PA lizib → glob `/home/*/domains` **echwe**. Sèvi ak
+  `$HOME/domains/tagtoa.com`. deploy.yml gen yon fallback `$HOME/domains` (li mache).
+- ✅ **500 « Mix manifest not found » REPARE**: `mix()` chèche `laravel/public/mix-manifest.json`
+  men asèt bati yo nan `public_html/`. `remote-deploy.sh` relye otomatikman
+  (mix-manifest + dosye asèt public_html → laravel/public) + `config:cache`+`view:cache`.
+- Zouti dyagnostik/reparasyon: `.github/workflows/diagnose.yml` (bouton, lekti log +
+  vidaj cache + relye asèt, SAN DB). Deklanche via Actions (input `clear_cache`).
+- ⚠️ Aksyon itilizatè toujou: woule `DB_PASSWORD` (te ekspoze), `TAGTOA_CONTACT_WHATSAPP`
+  (bouton Solutions), `TAGTOA_TWILIO_*` (WhatsApp), kle NTAG424 (Faz 7).
+- Login admin: `https://tagtoa.com/login` (rasin). Konekte → LandingController redirije
+  otomatik sou `/tagtoa/home` (hub TAGTOA). `/sadmin` = admin platfòm Biztap (apa).
+- **Event (kontinye jiyè 2026, PR #71-75)**: kreyasyon anrichi (type elaji, mode biyè
+  qr/nfc/both, prix vizib depi kreyasyon, discount `compare_at_price`), vente staff
+  (metòd peman TAGTOA Pay + li NFC), annuaire piblik `/events`, konfimasyon achte
+  (WhatsApp/email), dat fen + partage. Landing: seksyon Solutions (Identity/Access + kontak).
 - **Paj akèy piblik** (`LandingController` → `landing.blade.php`) sou wout rasin `/`
   (modil la override akèy Biztap la — wout anrejistre apre). Parèt sou `<base>/`.
   Pou l parèt sou **bare tagtoa.com**: pwente docroot domèn nan sou dosye `public/`
