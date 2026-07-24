@@ -132,8 +132,10 @@ jobs:
           find "$L/resources/views" -maxdepth 3 -iregex '.*\(login\|auth\).*\.blade\.php' 2>/dev/null | head -20
           echo "== vues contenant l'ancienne marque (biztap) =="
           grep -rilo 'biztap' "$L/resources/views" 2>/dev/null | head -30
-          echo "== layouts/auth.blade.php (60 premières lignes) =="
-          sed -n '1,60p' "$L/resources/views/layouts/auth.blade.php" 2>/dev/null || echo "absent"
+          echo "== route(s) login (web.php) =="
+          grep -nE "login|Login" "$L/routes/web.php" 2>/dev/null | head -10
+          echo "== auth/login.blade.php (COMPLET) =="
+          cat "$L/resources/views/auth/login.blade.php" 2>/dev/null || echo "absent"
           echo "::endgroup::"
 
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
