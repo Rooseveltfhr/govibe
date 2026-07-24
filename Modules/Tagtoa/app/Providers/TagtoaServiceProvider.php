@@ -15,8 +15,27 @@ class TagtoaServiceProvider extends ServiceProvider
     {
         $this->registerConfig();
         $this->registerViews();
+        $this->overrideAuthViews();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/migrations'));
         $this->loadJsonTranslationsFrom(module_path($this->moduleName, 'resources/lang'));
+    }
+
+    /**
+     * Remplace certaines vues du cœur (ex. auth/login) par les versions TAGTOA,
+     * de façon VERSIONNÉE et réversible : on prépend un chemin de vues, donc
+     * `view('auth.login')` résout d'abord `resources/views/overrides/auth/login`.
+     * Les vues non présentes dans overrides retombent sur le cœur (sûr).
+     */
+    protected function overrideAuthViews(): void
+    {
+        try {
+            $override = module_path($this->moduleName, 'resources/views/overrides');
+            if (is_dir($override)) {
+                view()->getFinder()->prependLocation($override);
+            }
+        } catch (\Throwable $e) {
+            // en cas d'échec, on garde la vue du cœur (login jamais cassé)
+        }
     }
 
     public function register(): void
