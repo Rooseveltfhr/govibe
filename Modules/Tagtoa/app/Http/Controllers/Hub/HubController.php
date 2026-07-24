@@ -28,7 +28,16 @@ class HubController extends Controller
             && $this->safeCount(\Modules\Tagtoa\App\Models\Links\LinkPage::class) === 0
             && $this->safeCount(\Modules\Tagtoa\App\Models\Site\Site::class) === 0;
 
-        return view('tagtoa::hub.index', compact('stats', 'isNew'));
+        // Le fondateur (super_admin) voit un accès au panneau plateforme.
+        $isSuperAdmin = false;
+        try {
+            $u = Tenant::user() ?: auth()->user();
+            $isSuperAdmin = $u && method_exists($u, 'hasRole') && $u->hasRole('super_admin');
+        } catch (\Throwable $e) {
+            // rôle indisponible → pas de lien (comportement sûr)
+        }
+
+        return view('tagtoa::hub.index', compact('stats', 'isNew', 'isSuperAdmin'));
     }
 
     private function safeCount(string $model, ?callable $scope = null): int
