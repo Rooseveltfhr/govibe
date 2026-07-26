@@ -28,8 +28,10 @@ class CheckoutService
     protected function driver(string $gateway): ?GatewayDriver
     {
         return match ($gateway) {
-            'moncash' => new MonCashDriver,
-            default   => null,
+            'moncash'      => new MonCashDriver,
+            'paypal'       => new \Modules\Tagtoa\App\Support\Gateways\PayPalDriver,
+            'coinpayments' => new \Modules\Tagtoa\App\Support\Gateways\CoinPaymentsDriver,
+            default        => null,
         };
     }
 

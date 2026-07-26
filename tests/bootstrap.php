@@ -23,6 +23,8 @@ require_once $base.'/Services/Event/StaffPinService.php';
 require_once $base.'/Services/Event/SyncReconciler.php';
 require_once $base.'/Support/Store/Cart.php';
 require_once $base.'/Support/Gateways/MonCash.php';
+require_once $base.'/Support/Gateways/PayPal.php';
+require_once $base.'/Support/Gateways/CoinPayments.php';
 require_once $base.'/Support/Event/Ledger.php';
 require_once $base.'/Support/Event/EventDays.php';
 require_once $base.'/Support/Money.php';
