@@ -47,6 +47,7 @@ function escapeHtml(s) {
 function injectTopbar(active) {
   const links = [
     { href: 'index.html', label: 'Accueil', id: 'home' },
+    { href: 'points-depot.html', label: 'Bwat / Dépôt', id: 'depot' },
     { href: 'verifier-carte.html', label: 'Vérifier carte', id: 'verifier' },
     { href: 'documents.html', label: 'Documents', id: 'documents' },
     { href: 'partenaires.html', label: 'Partenaires', id: 'partenaires' },
@@ -82,6 +83,7 @@ function injectFooter() {
         </div>
         <div class="ft-col"><h5>Services</h5><ul>
           <li><a href="index.html"><i class="fas fa-house"></i>Accueil</a></li>
+          <li><a href="points-depot.html"><i class="fas fa-box-archive"></i>Points de dépôt (Bwat)</a></li>
           <li><a href="verifier-carte.html"><i class="fas fa-id-card-clip"></i>Vérifier ma carte</a></li>
           <li><a href="documents.html"><i class="fas fa-folder-open"></i>Mes documents</a></li>
           <li><a href="don.html"><i class="fas fa-heart"></i>Faire un don</a></li>
@@ -117,6 +119,8 @@ const AI_KB = [
   { k: ['benevole', 'bénévole', 'benevolat', 'bénévolat', 'rejoindre', 'badge', 'volontaire', 'famille'], a: "Bienvenue dans la famille TCHEKELA ! Inscrivez-vous sur la page <a href='benevolat.html'>Bénévolat</a>. Le formulaire est rapide et génère automatiquement un badge avec votre photo, à partager sur les réseaux." },
   { k: ['document', 'portefeuille', 'wallet', 'numérique', 'stocker', 'sauvegarder'], a: "La page <a href='documents.html'>Mes documents</a> vous permet de stocker vos cartes de façon chiffrée sur votre appareil, générer un QR de partage et exporter une sauvegarde." },
   { k: ['déclarer', 'declarer', 'trouvé', 'trouve', 'perdu', 'rechercher', 'chercher'], a: "Vous avez trouvé un document ? Déclarez-le depuis l'accueil (bouton <b>Déclarer</b>). Vous cherchez le vôtre ? Utilisez la section <a href='index.html#rechercher'>Rechercher</a>." },
+  { k: ['bwat', 'boite', 'boîte', 'depoze', 'déposer', 'depot', 'dépôt', 'point de dépôt', 'kote pou depoze', 'nearest', 'proche'], a: "Vous avez trouvé un document ? Scannez-le et déposez-le dans la <a href='points-depot.html'>boîte TCHEKELA la plus proche</a> (commissariat, mairie ou partenaire). L'app trouve la boîte la plus proche et génère un bordereau de dépôt avec QR." },
+  { k: ['gadyen', 'gardien', 'inspecter', 'inspeksyon', 'vider', 'vide bwat'], a: "Les boîtes sont inspectées par nos <b>gardiens bénévoles</b>. Pour devenir gardien de boîte, inscrivez-vous sur la page <a href='benevolat.html'>Bénévolat</a> et choisissez « Gadyen bwat »." },
   { k: ['contact', 'téléphone', 'telephone', 'whatsapp', 'email', 'joindre'], a: "Contactez-nous sur WhatsApp <a href='https://wa.me/50933988754'>+509 3398 8754</a> ou par email <a href='mailto:info@tchekela.com'>info@tchekela.com</a>." },
   { k: ['gratuit', 'prix', 'coût', 'cout', 'payant'], a: "TCHEKELA est 100% gratuit. La plateforme vit grâce aux dons et aux partenaires. 🇭🇹" },
 ];

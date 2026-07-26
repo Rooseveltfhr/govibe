@@ -62,6 +62,7 @@
       <div class="astat"><div class="an" id="stPart">0</div><div class="al">Partenaires</div></div>
       <div class="astat"><div class="an" id="stVol">0</div><div class="al">Bénévoles</div></div>
       <div class="astat"><div class="an" id="stCard">0</div><div class="al">Cartes ONI</div></div>
+      <div class="astat"><div class="an" id="stDepot">0</div><div class="al">Dépôts bwat</div></div>
     </div>
 
     <div class="admin-tabs">
@@ -69,10 +70,17 @@
       <button class="atab" onclick="showTab('part',this)"><i class="fas fa-handshake"></i> Partenaires <span class="badge-n" id="bnPart" style="display:none;">0</span></button>
       <button class="atab" onclick="showTab('vol',this)"><i class="fas fa-hand-holding-heart"></i> Bénévoles</button>
       <button class="atab" onclick="showTab('card',this)"><i class="fas fa-id-card-clip"></i> Cartes ONI</button>
+      <button class="atab" onclick="showTab('depot',this)"><i class="fas fa-box-archive"></i> Dépôts / Bwat <span class="badge-n" id="bnDepot" style="display:none;">0</span></button>
     </div>
 
     <!-- DONS -->
     <div class="apanel on" id="pDon"><div id="donList"></div></div>
+
+    <!-- DÉPÔTS / BWAT (gadyen) -->
+    <div class="apanel" id="pDepot">
+      <div class="ib ib-blue" style="max-width:none;"><i class="fas fa-hand-holding-heart"></i><span><strong>Gadyen bwat.</strong> Dokiman moun depoze nan bwat yo parèt isit la. Enspekte bwat la, epi make yo « ranmase » lè w pran yo, epi « restitue » lè pwopriyetè a resevwa yo.</span></div>
+      <div id="depotList"></div>
+    </div>
 
     <!-- PARTENAIRES -->
     <div class="apanel" id="pPart">
@@ -154,16 +162,18 @@ const TYPE_LBL={collecte:'Point de collecte',financier:'Financier',media:'Média
 const BUREAU={'oni-pap':'ONI PAP','oni-delmas':'ONI Delmas','oni-petionville':'ONI Pétionville','oni-cap':'ONI Cap','oni-gonaives':'ONI Gonaïves','immigr-pap':'Immigration','circulation-pap':'Circulation'};
 
 function renderAll(){
-  renderDon(); renderPart(); renderVol(); renderCard(); renderStats();
+  renderDon(); renderPart(); renderVol(); renderCard(); renderDepot(); renderStats();
 }
 function renderStats(){
   document.getElementById('stDon').textContent = TKStore.get('donations',[]).length;
   document.getElementById('stPart').textContent = TKStore.get('partners',[]).filter(p=>p.status==='approved').length;
   document.getElementById('stVol').textContent = TKStore.get('volunteers',[]).length;
   document.getElementById('stCard').textContent = TKStore.get('oni_cards',[]).length;
+  document.getElementById('stDepot').textContent = TKStore.get('deposits',[]).length;
   const pendDon = TKStore.get('donations',[]).filter(d=>d.status==='pending').length;
   const pendPart = TKStore.get('partners',[]).filter(p=>p.status==='pending').length;
-  toggleBadge('bnDon',pendDon); toggleBadge('bnPart',pendPart);
+  const pendDepot = TKStore.get('deposits',[]).filter(d=>(d.status||'deposited')==='deposited').length;
+  toggleBadge('bnDon',pendDon); toggleBadge('bnPart',pendPart); toggleBadge('bnDepot',pendDepot);
 }
 function toggleBadge(id,n){ const e=document.getElementById(id); if(n>0){ e.style.display=''; e.textContent=n; } else e.style.display='none'; }
 
@@ -234,6 +244,30 @@ function renderVol(){
       <div class="item-acts"><button class="btn btn-outline" style="border-color:var(--red);color:var(--red);" onclick="delItem('volunteers',${i})"><i class="fas fa-trash"></i> Suppr.</button></div>
     </div>`).join('');
 }
+
+/* ---- DÉPÔTS / BWAT ---- */
+const DEPOT_STATUS={ deposited:{lbl:'Déposé',cls:'sp-gold'}, collected:{lbl:'Ranmase',cls:'sp-blue'}, restituted:{lbl:'Restitué',cls:'sp-green'} };
+function renderDepot(){
+  const list=TKStore.get('deposits',[]); const el=document.getElementById('depotList');
+  if(!list.length){ el.innerHTML='<div class="empty">Okenn depo nan bwat yo poko.</div>'; return; }
+  el.innerHTML=list.map((d,i)=>{ const st=DEPOT_STATUS[d.status||'deposited']; return `
+    <div class="item">
+      <div class="item-head">
+        <div class="item-title">${escapeHtml(d.type)} · ${escapeHtml(d.name)} <span class="status-pill ${st.cls}">${st.lbl}</span></div>
+      </div>
+      <div class="item-meta">
+        Réf ${d.ref} · N° ${escapeHtml(d.num)||'—'}<br>
+        <i class="fas fa-box-archive"></i> ${escapeHtml(d.boxName||'')} (${escapeHtml(d.boxId||'')}) · ${escapeHtml(d.boxAddr||'')}<br>
+        ${d.finder?('Jwenn pa: '+escapeHtml(d.finder)+' '):''}${d.phone?('· '+escapeHtml(d.phone)+' '):''}· ${new Date(d.date).toLocaleString('fr-FR')}
+      </div>
+      <div class="item-acts">
+        ${(d.status||'deposited')==='deposited'?`<button class="btn btn-primary" onclick="setDepot(${i},'collected')"><i class="fas fa-hand"></i> Ranmase</button>`:''}
+        ${d.status==='collected'?`<button class="btn btn-green" onclick="setDepot(${i},'restituted')"><i class="fas fa-circle-check"></i> Restitue</button>`:''}
+        <button class="btn btn-outline" style="border-color:var(--red);color:var(--red);" onclick="delItem('deposits',${i})"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>`; }).join('');
+}
+function setDepot(i,s){ const l=TKStore.get('deposits',[]); l[i].status=s; TKStore.set('deposits',l); renderDepot(); renderStats(); toast('<i class="fas fa-check"></i> Estati: '+s); }
 
 /* ---- CARTES ONI ---- */
 let ocImgData=null;

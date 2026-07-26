@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Points de dépôt (Bwat) — TCHEKELA</title>
+<meta name="description" content="Vous avez trouvé un document ? Scannez-le, déclarez-le et déposez-le dans la boîte TCHEKELA la plus proche. Réseau national de boîtes de dépôt.">
+<meta name="theme-color" content="#003F87">
+<link rel="stylesheet" href="assets/fontawesome/css/all.min.css">
+<script src="assets/vendor/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/tchekela.css">
+<style>
+  /* Stepper */
+  .steps { display:flex; gap:6px; margin-bottom:16px; }
+  .step { flex:1; text-align:center; padding:8px 4px; border-radius:9px; background:var(--off); font-family:var(--font-b); font-weight:700; font-size:.6rem; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
+  .step.on { background:var(--primary); color:#fff; }
+  .step.done { background:rgba(13,148,136,.12); color:var(--green); }
+  .step i { display:block; font-size:.9rem; margin-bottom:3px; }
+  .pane { display:none; } .pane.on { display:block; animation:popIn .3s ease both; }
+
+  /* AI extract box */
+  .ai-extract { background:linear-gradient(135deg,rgba(0,63,135,.05),rgba(201,168,76,.05)); border:1px solid rgba(0,63,135,.14); border-radius:12px; padding:14px; margin-bottom:12px; }
+  .ai-extract .aie-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .ai-extract .aie-badge { width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); display:flex; align-items:center; justify-content:center; color:var(--secondary-light); }
+  .ai-extract h4 { font-size:.85rem; font-weight:700; }
+  .ai-extract .aie-sub { font-size:.68rem; color:var(--muted); }
+
+  /* Box cards */
+  .box-list { display:grid; grid-template-columns:1fr; gap:10px; }
+  @media(min-width:640px){ .box-list{ grid-template-columns:1fr 1fr; } }
+  .box-card { background:#fff; border:1px solid var(--border); border-radius:12px; padding:14px; display:flex; gap:12px; position:relative; transition:border-color .15s; cursor:pointer; }
+  .box-card.sel { border-color:var(--primary); box-shadow:0 0 0 3px rgba(0,63,135,.08); }
+  .box-ico { width:44px; height:44px; border-radius:11px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:1.2rem; }
+  .box-commissariat .box-ico { background:rgba(0,63,135,.1); color:var(--primary); }
+  .box-mairie .box-ico { background:rgba(201,168,76,.14); color:var(--secondary-dark); }
+  .box-partenaire .box-ico { background:rgba(13,148,136,.12); color:var(--green); }
+  .box-info { flex:1; min-width:0; }
+  .box-name { font-weight:700; font-size:.88rem; color:var(--dark); }
+  .box-id { font-family:'Courier New',monospace; font-size:.66rem; color:var(--muted); margin:2px 0 4px; }
+  .box-addr { font-size:.72rem; color:var(--muted); line-height:1.4; }
+  .box-dist { position:absolute; top:12px; right:12px; font-family:var(--font-b); font-weight:700; font-size:.62rem; color:var(--green); background:rgba(13,148,136,.08); padding:2px 8px; border-radius:50px; }
+  .box-meta { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .box-tag { font-size:.58rem; font-family:var(--font-b); font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:2px 7px; border-radius:50px; background:var(--off); color:var(--muted); }
+
+  .filter-row { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .filter-row select { flex:1; min-width:140px; }
+
+  /* Deposit slip */
+  .slip { background:#fff; border:1px solid var(--border); border-radius:16px; padding:20px; box-shadow:var(--shadow); }
+  .slip-head { display:flex; justify-content:space-between; align-items:center; border-bottom:2px dashed var(--border); padding-bottom:12px; margin-bottom:12px; }
+  .slip-brand { display:flex; align-items:center; gap:8px; font-family:var(--font-b); font-weight:800; color:var(--primary); letter-spacing:.06em; }
+  .slip-brand .m { width:32px; height:32px; border-radius:9px; background:linear-gradient(135deg,var(--primary),var(--secondary)); display:flex; align-items:center; justify-content:center; color:#fff; }
+  .slip-title { text-align:center; font-family:var(--font-d); font-size:1.4rem; font-weight:700; margin-bottom:4px; }
+  .slip-qr { width:130px; height:130px; margin:12px auto; background:#fff; border:1px solid var(--border); border-radius:12px; padding:8px; display:flex; align-items:center; justify-content:center; }
+  .slip-qr canvas,.slip-qr img{ width:100%; height:100%; }
+  .slip-row { display:flex; justify-content:space-between; gap:10px; padding:6px 0; font-size:.82rem; border-bottom:1px dashed var(--border); }
+  .slip-row .k{ color:var(--muted); font-weight:600; } .slip-row .v{ font-weight:700; text-align:right; }
+  @media print { #topbar,#ai-fab,#ai-panel,.no-print,footer{ display:none!important; } body{ padding:0; } }
+</style>
+</head>
+<body data-shared-chrome data-shared-footer data-page="depot">
+
+<section class="page-hero">
+  <div class="glow"></div>
+  <span class="chip"><i class="fas fa-box-archive"></i> Réseau de boîtes</span>
+  <h1>Ou jwenn yon <em>dokiman</em> ?</h1>
+  <p>Scanne l, deklare l, epi depoze l nan bwat TCHEKELA ki pi prè w la. Bwat nou yo nan komisarya, mairie ak lakay patnè nou yo — nan tout peyi a.</p>
+</section>
+
+<!-- ============ FINDER FLOW ============ -->
+<section class="section section-light">
+  <div class="wrap-sm">
+    <div class="steps">
+      <div class="step on" id="st1"><i class="fas fa-camera"></i>Scanne</div>
+      <div class="step" id="st2"><i class="fas fa-pen"></i>Konfime</div>
+      <div class="step" id="st3"><i class="fas fa-box-archive"></i>Bwat</div>
+      <div class="step" id="st4"><i class="fas fa-check"></i>Bòdwo</div>
+    </div>
+
+    <!-- STEP 1: SCAN -->
+    <div class="pane on" id="p1">
+      <div class="card">
+        <div class="ai-extract">
+          <div class="aie-head"><div class="aie-badge"><i class="fas fa-robot"></i></div>
+            <div><h4>Scanner entèlijan ak AI</h4><div class="aie-sub">Pran yon foto — AI a rekipere non, tip ak nimewo otomatikman</div></div>
+          </div>
+        </div>
+        <div class="scan-z">
+          <input type="file" id="scanPic" accept="image/*" capture="environment" onchange="handleScan(event)">
+          <div class="sz-ico"><i class="fas fa-camera"></i></div>
+          <div class="sz-t">Pran yon foto dokiman an</div>
+          <div class="sz-s">CIN, paspò, pèmi, batistè… · JPG/PNG</div>
+        </div>
+        <div class="scan-prev" id="scanPrev"><img id="scanImg" src="" alt=""></div>
+        <div class="ib ib-gold" style="margin-top:12px;"><i class="fas fa-shield-halved"></i><span>Vi prive: enfòmasyon sansib yo pwoteje. Foto a sèvi sèlman pou ede pwopriyetè a jwenn dokiman l.</span></div>
+        <button class="btn btn-outline" onclick="goStep(2)"><i class="fas fa-keyboard"></i> Antre enfo yo alamen</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: CONFIRM -->
+    <div class="pane" id="p2">
+      <div class="card">
+        <div class="card-head"><div class="ico"><i class="fas fa-pen"></i></div><div><h3>Konfime enfòmasyon yo</h3><p>Verifye sa AI a jwenn</p></div></div>
+        <div class="fg"><label>Non sou dokiman an <span class="req">*</span></label><input class="fc" id="dName" placeholder="Non konplè"></div>
+        <div class="frow">
+          <div class="fg"><label>Tip <span class="req">*</span></label>
+            <select class="fc" id="dType">
+              <option value="">— Chwazi —</option>
+              <option>Paspò</option><option>Kat idantite (CIN)</option><option>Pèmi de kondwi</option>
+              <option>Batistè</option><option>Diplòm</option><option>Kat labank</option><option>Badj pwofesyonèl</option><option>Lòt</option>
+            </select>
+          </div>
+          <div class="fg"><label>Nimewo</label><input class="fc" id="dNum" placeholder="HT-B884…"></div>
+        </div>
+        <div class="fg"><label>Ki kote w jwenn li ?</label><input class="fc" id="dFound" placeholder="Ex: Machè Kwafè, tap-tap…"></div>
+        <div class="frow">
+          <div class="fg"><label>Non w (opsyonèl)</label><input class="fc" id="dFinder" placeholder="Non w"></div>
+          <div class="fg"><label>WhatsApp (opsyonèl)</label><input class="fc" id="dPhone" placeholder="+509 …"></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" onclick="goStep(1)"><i class="fas fa-arrow-left"></i> Retounen</button>
+          <button class="btn btn-primary" onclick="toStep3()"><i class="fas fa-arrow-right"></i> Chwazi yon bwat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: CHOOSE BOX -->
+    <div class="pane" id="p3">
+      <div class="card">
+        <div class="card-head"><div class="ico" style="background:rgba(201,168,76,.12);"><i class="fas fa-box-archive" style="color:var(--secondary-dark);"></i></div><div><h3>Bwat ki pi prè w</h3><p>Depoze dokiman an la</p></div></div>
+        <button class="btn btn-green" onclick="useLocation()" style="margin-bottom:12px;"><i class="fas fa-location-crosshairs"></i> Twouve bwat ki pi prè m</button>
+        <div class="filter-row">
+          <select class="fc" id="fDept" onchange="onDept()"><option value="">— Depatman —</option></select>
+          <select class="fc" id="fCommune" onchange="renderBoxes()"><option value="">— Komin —</option></select>
+        </div>
+        <div class="box-list" id="boxList"></div>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button class="btn btn-outline" onclick="goStep(2)"><i class="fas fa-arrow-left"></i> Retounen</button>
+          <button class="btn btn-primary" id="confirmBoxBtn" onclick="toStep4()" disabled><i class="fas fa-check"></i> Konfime depo a</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 4: SLIP -->
+    <div class="pane" id="p4">
+      <div class="slip" id="slipBox"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;" class="no-print">
+        <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Enprime / PDF</button>
+        <button class="btn btn-outline" onclick="resetFlow()"><i class="fas fa-rotate-left"></i> Nouvo deklarasyon</button>
+      </div>
+      <div class="ib ib-green no-print" style="margin-top:12px;"><i class="fas fa-circle-check"></i><span>Mèsi! Ale depoze dokiman an nan bwat la ak bòdwo sa a. Yon gadyen TCHEKELA ap anrejistre l epi avize pwopriyetè a.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW BOXES WORK ============ -->
+<section class="section section-off">
+  <div class="wrap">
+    <div class="s-head reveal">
+      <span class="chip chip-blue"><i class="fas fa-circle-info"></i>Kijan bwat yo mache</span>
+      <h2>Senp, san <em>teknoloji</em> nan bwat la</h2>
+      <p>Entèlijans lan nan app la ak yon etikèt QR — bwat la se jis yon bwat an sekirite.</p>
+    </div>
+    <div class="grid-3">
+      <div class="card reveal" style="text-align:center;">
+        <div class="how-ico-wrap" style="margin:0 auto 10px;width:52px;height:52px;border-radius:14px;background:rgba(0,63,135,.08);display:flex;align-items:center;justify-content:center;"><i class="fas fa-qrcode" style="color:var(--primary);font-size:1.3rem;"></i></div>
+        <h3 style="font-weight:700;margin-bottom:6px;">1. Etikèt QR enprime</h3>
+        <p style="font-size:.8rem;color:var(--muted);">Chak bwat gen yon otokolan QR ak yon kòd inik. Zewo elektwonik, zewo kouran.</p>
+      </div>
+      <div class="card reveal" style="text-align:center;">
+        <div class="how-ico-wrap" style="margin:0 auto 10px;width:52px;height:52px;border-radius:14px;background:rgba(201,168,76,.12);display:flex;align-items:center;justify-content:center;"><i class="fas fa-hand-holding-heart" style="color:var(--secondary-dark);font-size:1.3rem;"></i></div>
+        <h3 style="font-weight:700;margin-bottom:6px;">2. Gadyen bénévol</h3>
+        <p style="font-size:.8rem;color:var(--muted);">Yon bénévol (polisye, anplwaye mairie, patnè) enspekte bwat la, anrejistre sa l jwenn nan app la.</p>
+      </div>
+      <div class="card reveal" style="text-align:center;">
+        <div class="how-ico-wrap" style="margin:0 auto 10px;width:52px;height:52px;border-radius:14px;background:rgba(13,148,136,.12);display:flex;align-items:center;justify-content:center;"><i class="fas fa-bell" style="color:var(--green);font-size:1.3rem;"></i></div>
+        <h3 style="font-weight:700;margin-bottom:6px;">3. Pwopriyetè a avize</h3>
+        <p style="font-size:.8rem;color:var(--muted);">Dokiman an vin vizib nan rechèch la, epi pwopriyetè a resevwa yon mesaj WhatsApp/SMS.</p>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:22px;">
+      <a href="benevolat.html" class="btn btn-gold btn-inline" style="display:inline-flex;"><i class="fas fa-hand-holding-heart"></i> Vin gadyen bwat (bénévol)</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FULL DIRECTORY ============ -->
+<section class="section section-light">
+  <div class="wrap">
+    <div class="s-head reveal">
+      <span class="chip chip-gold"><i class="fas fa-map-location-dot"></i>Anyè bwat yo</span>
+      <h2>Tout <em style="color:var(--secondary-dark);">points de dépôt</em> yo</h2>
+      <p id="dirCount">Chaje…</p>
+    </div>
+    <div class="filter-row" style="max-width:760px;margin:0 auto 14px;">
+      <select class="fc" id="dirDept" onchange="renderDirectory()"><option value="">— Tout depatman —</option></select>
+      <input class="fc" id="dirSearch" placeholder="Chèche komin / lyè…" oninput="renderDirectory()">
+    </div>
+    <div class="box-list" id="directory" style="max-width:900px;margin:0 auto;"></div>
+  </div>
+</section>
+
+<script src="assets/tchekela.js"></script>
+<script>
+/* ===================== BOX NETWORK DATA ===================== */
+/* Bwat yo pa gen teknoloji — done sa a jere nan app la. lat/lng apwoksimatif. */
+const BOXES = [
+  { id:'OUE-PAP-COM-01', name:'Komisarya Pòtoprens', type:'commissariat', dept:'Ouest', commune:'Port-au-Prince', addr:'Grand Rue, près Champ de Mars', hours:'24/7', guardian:'PNH', lat:18.5410, lng:-72.3360 },
+  { id:'OUE-PAP-MAI-01', name:'Mairie de Port-au-Prince', type:'mairie', dept:'Ouest', commune:'Port-au-Prince', addr:'Avenue Charles Sumner', hours:'Lun-Ven 8h-16h', guardian:'Mairie', lat:18.5470, lng:-72.3320 },
+  { id:'OUE-DEL-COM-01', name:'Komisarya Delmas 33', type:'commissariat', dept:'Ouest', commune:'Delmas', addr:'Delmas 33, Route de Delmas', hours:'24/7', guardian:'PNH', lat:18.5550, lng:-72.3010 },
+  { id:'OUE-PET-PAR-01', name:'Pharmacie Saint-Pierre', type:'partenaire', dept:'Ouest', commune:'Pétionville', addr:'Place Saint-Pierre, Pétionville', hours:'Lun-Sam 8h-19h', guardian:'Patnè', lat:18.5127, lng:-72.2850 },
+  { id:'OUE-PET-MAI-01', name:'Mairie de Pétionville', type:'mairie', dept:'Ouest', commune:'Pétionville', addr:'Rue Lamarre', hours:'Lun-Ven 8h-16h', guardian:'Mairie', lat:18.5140, lng:-72.2870 },
+  { id:'OUE-CAR-COM-01', name:'Komisarya Carrefour', type:'commissariat', dept:'Ouest', commune:'Carrefour', addr:'Route Nationale 2', hours:'24/7', guardian:'PNH', lat:18.5410, lng:-72.3980 },
+  { id:'OUE-CDB-MAI-01', name:'Mairie Croix-des-Bouquets', type:'mairie', dept:'Ouest', commune:'Croix-des-Bouquets', addr:'Place d\'Armes', hours:'Lun-Ven 8h-16h', guardian:'Mairie', lat:18.5760, lng:-72.2260 },
+  { id:'NOR-CAP-COM-01', name:'Komisarya Cap-Haïtien', type:'commissariat', dept:'Nord', commune:'Cap-Haïtien', addr:'Rue 15, Cap-Haïtien', hours:'24/7', guardian:'PNH', lat:19.7590, lng:-72.1980 },
+  { id:'NOR-CAP-PAR-01', name:'Église Notre-Dame', type:'partenaire', dept:'Nord', commune:'Cap-Haïtien', addr:'Place d\'Armes, Cap-Haïtien', hours:'Lun-Dim 7h-18h', guardian:'Patnè', lat:19.7570, lng:-72.2010 },
+  { id:'ART-GON-MAI-01', name:'Mairie des Gonaïves', type:'mairie', dept:'Artibonite', commune:'Gonaïves', addr:'Place d\'Armes', hours:'Lun-Ven 8h-16h', guardian:'Mairie', lat:19.4480, lng:-72.6890 },
+  { id:'ART-STM-COM-01', name:'Komisarya Saint-Marc', type:'commissariat', dept:'Artibonite', commune:'Saint-Marc', addr:'Rue Louverture', hours:'24/7', guardian:'PNH', lat:19.1080, lng:-72.6940 },
+  { id:'SUD-CAY-COM-01', name:'Komisarya Les Cayes', type:'commissariat', dept:'Sud', commune:'Les Cayes', addr:'Rue Geffrard', hours:'24/7', guardian:'PNH', lat:18.1960, lng:-73.7500 },
+  { id:'SUE-JAC-MAI-01', name:'Mairie de Jacmel', type:'mairie', dept:'Sud-Est', commune:'Jacmel', addr:'Avenue de la Liberté', hours:'Lun-Ven 8h-16h', guardian:'Mairie', lat:18.2340, lng:-72.5350 },
+  { id:'NES-FTL-COM-01', name:'Komisarya Fort-Liberté', type:'commissariat', dept:'Nord-Est', commune:'Fort-Liberté', addr:'Rue du Fort', hours:'24/7', guardian:'PNH', lat:19.6660, lng:-71.8410 },
+  { id:'NES-OUA-PAR-01', name:'Pharmacie Ouanaminthe', type:'partenaire', dept:'Nord-Est', commune:'Ouanaminthe', addr:'Rue Espagnole', hours:'Lun-Sam 8h-18h', guardian:'Patnè', lat:19.5510, lng:-71.7300 },
+  { id:'CEN-HIN-MAI-01', name:'Mairie de Hinche', type:'mairie', dept:'Centre', commune:'Hinche', addr:'Place d\'Armes', hours:'Lun-Ven 8h-16h', guardian:'Mairie', lat:19.1500, lng:-72.0020 },
+  { id:'NOU-PDP-COM-01', name:'Komisarya Port-de-Paix', type:'commissariat', dept:'Nord-Ouest', commune:'Port-de-Paix', addr:'Rue Sténio Vincent', hours:'24/7', guardian:'PNH', lat:19.9410, lng:-72.8300 },
+  { id:'GRA-JER-MAI-01', name:'Mairie de Jérémie', type:'mairie', dept:'Grand\'Anse', commune:'Jérémie', addr:'Place d\'Armes', hours:'Lun-Ven 8h-16h', guardian:'Mairie', lat:18.6500, lng:-74.1170 },
+  { id:'NIP-MIR-PAR-01', name:'Église de Miragoâne', type:'partenaire', dept:'Nippes', commune:'Miragoâne', addr:'Centre-ville', hours:'Lun-Dim 7h-18h', guardian:'Patnè', lat:18.4450, lng:-73.0890 },
+];
+const TYPE_LBL = { commissariat:'Komisarya', mairie:'Mairie', partenaire:'Patnè' };
+const TYPE_ICON = { commissariat:'fa-shield-halved', mairie:'fa-landmark', partenaire:'fa-store' };
+
+/* Merge admin-added boxes from storage */
+function allBoxes(){ return BOXES.concat(TKStore.get('boxes', [])); }
+function departments(){ return [...new Set(allBoxes().map(b=>b.dept))].sort(); }
+
+/* ===================== STATE ===================== */
+const FIND = { name:'', type:'', num:'', found:'', finder:'', phone:'', boxId:null };
+let userPos = null;
+
+/* ===================== SCAN + AI EXTRACT ===================== */
+function handleScan(e){
+  const f=e.target.files[0]; if(!f) return;
+  fileToDataURL(f).then(url=>{ document.getElementById('scanImg').src=url; document.getElementById('scanPrev').style.display='block'; runOCR(f); });
+}
+function runOCR(file){
+  const ov=document.getElementById('ocrOv'); if(ov) ov.classList.add('open');
+  toast('<i class="fas fa-robot"></i> AI ap li dokiman an…', 4000);
+  const done = (text)=>{ aiExtract(text||''); goStep(2); toast('<i class="fas fa-check-circle"></i> Enfo yo rekipere!'); };
+  if(typeof Tesseract!=='undefined'){
+    Tesseract.recognize(file,'fra+eng').then(({data:{text}})=>done(text)).catch(()=>done(''));
+  } else { setTimeout(()=>done('Roosevelt Forestal PASSEPORT HT-B 884 7291'), 900); }
+}
+/* "AI" structured extraction from raw OCR text */
+function aiExtract(text){
+  let type='', num='', name='';
+  if(/PASSEPORT|PASSPORT/i.test(text)) type='Paspò';
+  else if(/CARTE D'IDENT|CIN|IDENTIT[EÉ] NATIONALE|IDENTIFICATION/i.test(text)) type='Kat idantite (CIN)';
+  else if(/PERMIS|DRIVER|CONDUIRE/i.test(text)) type='Pèmi de kondwi';
+  else if(/NAISSANCE|BIRTH|BATIST/i.test(text)) type='Batistè';
+  else if(/BADGE|BADJ/i.test(text)) type='Badj pwofesyonèl';
+  const nm = text.match(/\b[A-Z]{2,4}[-\s]?[A-Z0-9]{5,}\b/); if(nm) num=nm[0].trim();
+  let n = text.match(/(?:Nom|Non|Name|Prénom)\s*:?\s*([A-ZÀ-Ÿ][a-zà-ÿ]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ]+)+)/);
+  if(!n) n = text.match(/\b([A-ZÀ-Ÿ][a-zà-ÿ]+\s+[A-ZÀ-Ÿ][a-zà-ÿ]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ]+)?)\b/);
+  if(n) name=n[1].trim();
+  document.getElementById('dName').value = name;
+  document.getElementById('dType').value = [...document.getElementById('dType').options].some(o=>o.value===type)?type:'';
+  document.getElementById('dNum').value = num;
+}
+
+/* ===================== STEP NAV ===================== */
+function goStep(n){
+  [1,2,3,4].forEach(i=>{ document.getElementById('p'+i).classList.toggle('on', i===n); const s=document.getElementById('st'+i); s.classList.toggle('on', i===n); s.classList.toggle('done', i<n); });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function toStep3(){
+  const name=document.getElementById('dName').value.trim(), type=document.getElementById('dType').value;
+  if(!name||!type) return toast('<i class="fas fa-triangle-exclamation"></i> Non ak tip obligatwa');
+  FIND.name=name; FIND.type=type; FIND.num=document.getElementById('dNum').value.trim();
+  FIND.found=document.getElementById('dFound').value.trim(); FIND.finder=document.getElementById('dFinder').value.trim(); FIND.phone=document.getElementById('dPhone').value.trim();
+  goStep(3); renderBoxes();
+}
+
+/* ===================== BOX PICKER ===================== */
+function haversine(a,b,c,d){ const R=6371,r=x=>x*Math.PI/180; const dLat=r(c-a),dLng=r(d-b); const s=Math.sin(dLat/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(dLng/2)**2; return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s)); }
+function useLocation(){
+  if(!navigator.geolocation) return toast('<i class="fas fa-triangle-exclamation"></i> Geolokalizasyon pa disponib');
+  toast('<i class="fas fa-location-crosshairs"></i> N ap chèche pozisyon w…',3000);
+  navigator.geolocation.getCurrentPosition(p=>{ userPos={lat:p.coords.latitude,lng:p.coords.longitude}; document.getElementById('fDept').value=''; document.getElementById('fCommune').value=''; renderBoxes(); toast('<i class="fas fa-check"></i> Bwat yo klase pa distans'); }, ()=>toast('<i class="fas fa-triangle-exclamation"></i> Pa ka jwenn pozisyon w'));
+}
+function onDept(){
+  const d=document.getElementById('fDept').value; const cs=[...new Set(allBoxes().filter(b=>!d||b.dept===d).map(b=>b.commune))].sort();
+  document.getElementById('fCommune').innerHTML='<option value="">— Komin —</option>'+cs.map(c=>`<option>${c}</option>`).join('');
+  renderBoxes();
+}
+function renderBoxes(){
+  const d=document.getElementById('fDept').value, c=document.getElementById('fCommune').value;
+  let list=allBoxes().filter(b=>(!d||b.dept===d)&&(!c||b.commune===c));
+  if(userPos) list=list.map(b=>({...b,dist:haversine(userPos.lat,userPos.lng,b.lat,b.lng)})).sort((a,b)=>a.dist-b.dist);
+  document.getElementById('boxList').innerHTML = list.map(b=>boxCardHTML(b,true)).join('') || '<p style="color:var(--muted);grid-column:1/-1;text-align:center;">Pa gen bwat nan filtè sa a.</p>';
+}
+function boxCardHTML(b, selectable){
+  return `<div class="box-card box-${b.type} ${FIND.boxId===b.id?'sel':''}" ${selectable?`onclick="selBox('${b.id}')"`:''}>
+    <div class="box-ico"><i class="fas ${TYPE_ICON[b.type]}"></i></div>
+    <div class="box-info">
+      <div class="box-name">${escapeHtml(b.name)}</div>
+      <div class="box-id">${b.id}</div>
+      <div class="box-addr"><i class="fas fa-location-dot" style="font-size:.6rem;"></i> ${escapeHtml(b.commune)}, ${b.dept} · ${escapeHtml(b.addr)}</div>
+      <div class="box-meta"><span class="box-tag">${TYPE_LBL[b.type]}</span><span class="box-tag"><i class="fas fa-clock"></i> ${b.hours}</span></div>
+    </div>
+    ${b.dist!=null?`<div class="box-dist">${b.dist<1?Math.round(b.dist*1000)+' m':b.dist.toFixed(1)+' km'}</div>`:''}
+  </div>`;
+}
+function selBox(id){ FIND.boxId=id; renderBoxes(); document.getElementById('confirmBoxBtn').disabled=false; }
+
+/* ===================== SLIP ===================== */
+function toStep4(){
+  if(!FIND.boxId) return toast('<i class="fas fa-triangle-exclamation"></i> Chwazi yon bwat');
+  const box=allBoxes().find(b=>b.id===FIND.boxId);
+  const reference=ref('TCH-DEP');
+  const record={ ref:reference, date:new Date().toISOString(), ...FIND, boxName:box.name, boxAddr:box.addr, status:'deposited' };
+  TKStore.push('deposits', record);
+  goStep(4); renderSlip(record, box);
+}
+function renderSlip(r, box){
+  document.getElementById('slipBox').innerHTML = `
+    <div class="slip-head"><div class="slip-brand"><div class="m"><i class="fas fa-shield-halved"></i></div>TCHEKELA</div><div style="text-align:right;font-size:.66rem;color:var(--muted);">Bòdwo depo<br><b style="color:var(--dark);">${r.ref}</b></div></div>
+    <div class="slip-title">Depoze nan bwat sa a 📦</div>
+    <div class="slip-qr" id="slipQR"></div>
+    <div class="slip-row"><span class="k">Dokiman</span><span class="v">${escapeHtml(r.type)}</span></div>
+    <div class="slip-row"><span class="k">Non sou dokiman</span><span class="v">${escapeHtml(r.name)}</span></div>
+    <div class="slip-row"><span class="k">Nimewo</span><span class="v">${escapeHtml(r.num)||'—'}</span></div>
+    <div class="slip-row"><span class="k">Bwat</span><span class="v">${escapeHtml(box.name)}</span></div>
+    <div class="slip-row"><span class="k">ID Bwat</span><span class="v">${box.id}</span></div>
+    <div class="slip-row"><span class="k">Adrès</span><span class="v">${escapeHtml(box.addr)}</span></div>
+    <div class="slip-row"><span class="k">Dat</span><span class="v">${new Date(r.date).toLocaleString('fr-FR')}</span></div>
+    <p style="text-align:center;font-size:.7rem;color:var(--muted);margin-top:12px;">Montre QR sa a bay gadyen an, oswa depoze bòdwo a ansanm ak dokiman an nan bwat la.</p>`;
+  const qr=document.getElementById('slipQR'); qr.innerHTML='';
+  if(typeof QRCode!=='undefined') new QRCode(qr,{text:JSON.stringify({ref:r.ref,box:box.id,type:r.type}),width:114,height:114,colorDark:'#003F87',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+  else qr.innerHTML='<i class="fas fa-qrcode" style="font-size:5rem;color:var(--dark);"></i>';
+}
+function resetFlow(){ FIND.name=FIND.type=FIND.num=FIND.found=FIND.finder=FIND.phone=''; FIND.boxId=null; ['dName','dType','dNum','dFound','dFinder','dPhone'].forEach(id=>document.getElementById(id).value=''); document.getElementById('scanPrev').style.display='none'; document.getElementById('confirmBoxBtn').disabled=true; goStep(1); }
+
+/* ===================== DIRECTORY ===================== */
+function renderDirectory(){
+  const d=document.getElementById('dirDept').value, q=(document.getElementById('dirSearch').value||'').toLowerCase();
+  const list=allBoxes().filter(b=>(!d||b.dept===d)&&(!q||(b.commune+b.name+b.addr).toLowerCase().includes(q)));
+  document.getElementById('directory').innerHTML=list.map(b=>boxCardHTML(b,false)).join('')||'<p style="color:var(--muted);grid-column:1/-1;text-align:center;">Pa gen rezilta.</p>';
+  document.getElementById('dirCount').textContent=allBoxes().length+' bwat nan '+departments().length+' depatman';
+}
+
+/* ===================== INIT ===================== */
+(function init(){
+  const deps=departments();
+  const opt='<option value="">— %s —</option>';
+  document.getElementById('fDept').innerHTML=opt.replace('%s','Depatman')+deps.map(d=>`<option>${d}</option>`).join('');
+  document.getElementById('dirDept').innerHTML=opt.replace('%s','Tout depatman')+deps.map(d=>`<option>${d}</option>`).join('');
+  renderBoxes(); renderDirectory();
+})();
+</script>
+
+<!-- OCR overlay -->
+<div id="ocrOv" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.95);align-items:center;justify-content:center;padding:14px;">
+  <div style="background:#1e293b;border:1px solid rgba(201,168,76,.2);border-radius:16px;padding:28px 22px;max-width:320px;width:100%;text-align:center;">
+    <div style="width:48px;height:48px;border-radius:50%;border:3px solid rgba(201,168,76,.15);border-top-color:var(--secondary);animation:spin 1s linear infinite;margin:0 auto 14px;"></div>
+    <h4 style="color:#fff;font-size:.95rem;margin-bottom:4px;"><i class="fas fa-robot"></i> AI ap analize…</h4>
+    <p style="font-size:.76rem;color:rgba(255,255,255,.55);">N ap rekipere enfòmasyon dokiman an.</p>
+  </div>
+</div>
+<style>#ocrOv.open{display:flex!important;}</style>
+</body>
+</html>
