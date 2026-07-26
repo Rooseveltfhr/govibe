@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Faire un don — TCHEKELA</title>
+<meta name="description" content="Soutenez TCHEKELA. MonCash, NatCash, PayPal, Zelle, crypto (USDT, BTC, ETH), Unibank, Sogebank. Téléversez votre preuve et recevez un reçu.">
+<meta name="theme-color" content="#003F87">
+<link rel="stylesheet" href="assets/fontawesome/css/all.min.css">
+<script src="assets/vendor/qrcode.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Inter:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/tchekela.css">
+<style>
+  /* Donation-specific */
+  .amount-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .amount-btn { padding: 14px 6px; border-radius: 12px; border: 1.5px solid var(--border); background: #fff; text-align: center; transition: all .15s; }
+  .amount-btn.on { border-color: var(--secondary); background: rgba(201,168,76,.08); }
+  .amount-btn .ab-n { font-family: var(--font-d); font-size: 1.15rem; font-weight: 700; color: var(--dark); line-height: 1; }
+  .amount-btn .ab-l { font-size: .58rem; color: var(--muted); font-family: var(--font-b); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-top: 4px; }
+  .cur-tog { display: flex; gap: 4px; background: var(--off); padding: 3px; border-radius: 10px; margin-bottom: 12px; }
+  .cur-tog button { flex: 1; padding: 8px; border-radius: 8px; font-family: var(--font-b); font-weight: 700; font-size: .8rem; color: var(--muted); }
+  .cur-tog button.on { background: #fff; color: var(--primary); box-shadow: var(--shadow-sm); }
+
+  .pay-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (min-width: 560px) { .pay-grid { grid-template-columns: repeat(3, 1fr); } }
+  .pay-m { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 8px; border-radius: 12px; border: 1.5px solid var(--border); background: #fff; text-align: center; transition: all .15s; }
+  .pay-m.on { border-color: var(--primary); background: rgba(0,63,135,.05); box-shadow: 0 0 0 3px rgba(0,63,135,.08); }
+  .pay-m .pm-ico { width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+  .pay-m .pm-name { font-family: var(--font-b); font-weight: 700; font-size: .72rem; color: var(--dark); letter-spacing: .02em; line-height: 1.1; }
+  .pay-m .pm-tag { font-size: .54rem; color: var(--muted); }
+  .pm-moncash .pm-ico { background: rgba(220,38,38,.1); color: var(--red); }
+  .pm-natcash .pm-ico { background: rgba(13,148,136,.1); color: var(--green); }
+  .pm-paypal .pm-ico { background: rgba(0,63,135,.1); color: #0070ba; }
+  .pm-zelle .pm-ico { background: rgba(124,58,237,.12); color: #7c3aed; }
+  .pm-crypto .pm-ico { background: rgba(201,168,76,.14); color: var(--secondary-dark); }
+  .pm-bank .pm-ico { background: rgba(0,63,135,.1); color: var(--primary); }
+
+  .pay-detail { display: none; margin-top: 14px; }
+  .pay-detail.show { display: block; animation: popIn .3s ease both; }
+  .pd-acct { background: var(--off); border: 1px dashed var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .pd-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(0,0,0,.05); }
+  .pd-row:last-child { border-bottom: none; }
+  .pd-k { font-family: var(--font-b); font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .pd-v { font-weight: 700; font-size: .9rem; color: var(--dark); display: flex; align-items: center; gap: 8px; word-break: break-all; }
+  .copy-btn { width: 28px; height: 28px; border-radius: 7px; background: rgba(0,63,135,.08); color: var(--primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: .72rem; }
+  .crypto-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .crypto-tab { flex: 1; padding: 9px; border-radius: 9px; border: 1.5px solid var(--border); background: #fff; font-family: var(--font-b); font-weight: 700; font-size: .72rem; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 5px; }
+  .crypto-tab.on { border-color: var(--secondary-dark); color: var(--secondary-dark); background: rgba(201,168,76,.07); }
+  .crypto-qr { width: 150px; height: 150px; margin: 0 auto 12px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 8px; display: flex; align-items: center; justify-content: center; }
+  .crypto-qr canvas, .crypto-qr img { width: 100%; height: 100%; }
+
+  /* Receipt */
+  .receipt { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 22px; box-shadow: var(--shadow); }
+  .rcpt-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 14px; border-bottom: 2px solid var(--primary); margin-bottom: 14px; }
+  .rcpt-brand { display: flex; align-items: center; gap: 8px; font-family: var(--font-b); font-weight: 800; font-size: 1.1rem; color: var(--primary); letter-spacing: .06em; }
+  .rcpt-brand .m { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; color: #fff; }
+  .rcpt-title { text-align: center; font-family: var(--font-d); font-size: 1.5rem; font-weight: 700; color: var(--dark); margin-bottom: 2px; }
+  .rcpt-amount { text-align: center; font-family: var(--font-d); font-size: 2.4rem; font-weight: 800; color: var(--green); margin: 10px 0; }
+  .rcpt-row { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; font-size: .85rem; border-bottom: 1px dashed var(--border); }
+  .rcpt-row .k { color: var(--muted); font-weight: 600; }
+  .rcpt-row .v { font-weight: 700; color: var(--dark); text-align: right; }
+  .rcpt-foot { margin-top: 14px; text-align: center; font-size: .72rem; color: var(--muted); }
+  .rcpt-stamp { display: inline-flex; align-items: center; gap: 6px; border: 2px solid var(--green); color: var(--green); font-family: var(--font-b); font-weight: 800; letter-spacing: .1em; padding: 6px 14px; border-radius: 8px; transform: rotate(-4deg); text-transform: uppercase; font-size: .8rem; margin: 8px 0; }
+  @media print {
+    #topbar, #ai-fab, #ai-panel, .no-print, footer { display: none !important; }
+    body { padding: 0; background: #fff; }
+    .receipt { border: none; box-shadow: none; }
+  }
+</style>
+</head>
+<body data-shared-chrome data-shared-footer data-page="don">
+
+<!-- ===== Hero ===== -->
+<section class="page-hero">
+  <div class="glow"></div>
+  <span class="chip"><i class="fas fa-heart"></i> Soutenir TCHEKELA</span>
+  <h1>Votre don <em>change des vies</em></h1>
+  <p>100% gratuit pour tous grâce à vous. Choisissez un montant, un moyen de paiement, téléversez votre preuve — et recevez un reçu officiel.</p>
+</section>
+
+<!-- ===== Impact ===== -->
+<section class="section section-light" style="padding-top:28px;padding-bottom:8px;">
+  <div class="wrap-sm">
+    <div class="grid-3">
+      <div class="card" style="text-align:center;padding:14px;">
+        <div style="font-family:var(--font-d);font-size:1.3rem;font-weight:700;color:var(--secondary-dark);">500 HTG</div>
+        <div style="font-size:.7rem;color:var(--muted);">10 SMS d'alerte envoyés</div>
+      </div>
+      <div class="card" style="text-align:center;padding:14px;">
+        <div style="font-family:var(--font-d);font-size:1.3rem;font-weight:700;color:var(--secondary-dark);">2 500 HTG</div>
+        <div style="font-size:.7rem;color:var(--muted);">1 mois de serveur</div>
+      </div>
+      <div class="card" style="text-align:center;padding:14px;">
+        <div style="font-family:var(--font-d);font-size:1.3rem;font-weight:700;color:var(--secondary-dark);">10 000 HTG</div>
+        <div style="font-size:.7rem;color:var(--muted);">1 bénévole formé</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Donation flow ===== -->
+<section class="section section-light" style="padding-top:18px;">
+  <div class="wrap-sm">
+
+    <!-- STEP 1: Amount -->
+    <div class="card reveal" style="margin-bottom:16px;" id="stepAmount">
+      <div class="card-head">
+        <div class="ico"><i class="fas fa-coins"></i></div>
+        <div><h3>1. Montant du don</h3><p>Choisissez ou saisissez librement</p></div>
+      </div>
+      <div class="cur-tog">
+        <button class="on" data-cur="HTG" onclick="setCur('HTG',this)">Gourdes (HTG)</button>
+        <button data-cur="USD" onclick="setCur('USD',this)">Dollars (USD)</button>
+      </div>
+      <div class="amount-grid" id="amountGrid"></div>
+      <div class="fg">
+        <label>Ou montant personnalisé</label>
+        <input class="fc" id="customAmount" type="number" min="1" placeholder="Saisir un montant" oninput="onCustomAmount()">
+      </div>
+      <div class="chk-g" style="margin-bottom:0;">
+        <input type="checkbox" id="recurring">
+        <label for="recurring"><strong>Don mensuel récurrent</strong>Renouveler automatiquement chaque mois (vous pouvez annuler à tout moment)</label>
+      </div>
+    </div>
+
+    <!-- STEP 2: Method -->
+    <div class="card reveal" style="margin-bottom:16px;" id="stepMethod">
+      <div class="card-head">
+        <div class="ico"><i class="fas fa-credit-card"></i></div>
+        <div><h3>2. Moyen de paiement</h3><p>Local, international ou crypto</p></div>
+      </div>
+      <div class="pay-grid">
+        <button class="pay-m pm-moncash" onclick="selPay('moncash',this)">
+          <div class="pm-ico"><i class="fas fa-mobile-screen-button"></i></div>
+          <div class="pm-name">MonCash</div><div class="pm-tag">Digicel</div>
+        </button>
+        <button class="pay-m pm-natcash" onclick="selPay('natcash',this)">
+          <div class="pm-ico"><i class="fas fa-mobile-screen-button"></i></div>
+          <div class="pm-name">NatCash</div><div class="pm-tag">Natcom</div>
+        </button>
+        <button class="pay-m pm-paypal" onclick="selPay('paypal',this)">
+          <div class="pm-ico"><i class="fab fa-paypal"></i></div>
+          <div class="pm-name">PayPal</div><div class="pm-tag">Carte / solde</div>
+        </button>
+        <button class="pay-m pm-zelle" onclick="selPay('zelle',this)">
+          <div class="pm-ico"><i class="fas fa-money-bill-transfer"></i></div>
+          <div class="pm-name">Zelle</div><div class="pm-tag">USA</div>
+        </button>
+        <button class="pay-m pm-crypto" onclick="selPay('crypto',this)">
+          <div class="pm-ico"><i class="fab fa-bitcoin"></i></div>
+          <div class="pm-name">Crypto</div><div class="pm-tag">USDT/BTC/ETH</div>
+        </button>
+        <button class="pay-m pm-bank" onclick="selPay('bank',this)">
+          <div class="pm-ico"><i class="fas fa-building-columns"></i></div>
+          <div class="pm-name">Virement</div><div class="pm-tag">Unibank/Sogebank</div>
+        </button>
+      </div>
+
+      <!-- Method details -->
+      <div class="pay-detail" id="payDetail"></div>
+    </div>
+
+    <!-- STEP 3: Proof + donor info -->
+    <div class="card reveal" style="margin-bottom:16px;" id="stepProof">
+      <div class="card-head">
+        <div class="ico"><i class="fas fa-receipt"></i></div>
+        <div><h3>3. Preuve de paiement & vos infos</h3><p>Pour valider et émettre votre reçu</p></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>Nom complet <span class="req">*</span></label><input class="fc" id="dnName" placeholder="Votre nom"></div>
+        <div class="fg"><label>Téléphone / WhatsApp <span class="req">*</span></label><input class="fc" id="dnPhone" placeholder="+509 ..."></div>
+      </div>
+      <div class="fg"><label>Email (pour recevoir le reçu)</label><input class="fc" id="dnEmail" type="email" placeholder="vous@email.com"></div>
+      <div class="fg"><label>ID / Référence de la transaction</label><input class="fc" id="dnTxn" placeholder="Ex: 7H29A8 (numéro de confirmation)"></div>
+
+      <div class="fg" style="margin-bottom:8px;"><label>Capture / preuve de paiement</label></div>
+      <div class="scan-z">
+        <input type="file" id="proofPic" accept="image/*" onchange="handleProof(event)">
+        <div class="sz-ico"><i class="fas fa-cloud-arrow-up"></i></div>
+        <div class="sz-t">Téléverser la preuve</div>
+        <div class="sz-s">Capture d'écran de la transaction · JPG, PNG · Max 10 MB</div>
+      </div>
+      <div class="scan-prev" id="proofPrev"><img id="proofImg" src="" alt="Preuve"></div>
+
+      <div class="chk-g" style="margin-top:12px;">
+        <input type="checkbox" id="dnAnon">
+        <label for="dnAnon"><strong>Don anonyme</strong>Ne pas afficher mon nom publiquement</label>
+      </div>
+
+      <button class="btn btn-gold" onclick="submitDon()"><i class="fas fa-heart"></i> Confirmer mon don</button>
+      <div class="ib ib-green" style="margin-top:12px;margin-bottom:0;">
+        <i class="fas fa-shield-halved"></i>
+        <span>Votre preuve est vérifiée par notre équipe. Une fois validée, votre don apparaît comme « confirmé ». Vous recevez le reçu immédiatement.</span>
+      </div>
+    </div>
+
+    <div class="ib ib-blue no-print">
+      <i class="fas fa-code"></i>
+      <span><strong>Intégration API.</strong> Pour automatiser les paiements crypto (Binance Pay / CoinPayments) et PayPal, branchez vos clés dans <code>assets/payments-config.js</code>. Sans clés, le flux fonctionne en mode preuve manuelle + reçu.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Receipt overlay ===== -->
+<div class="overlay" id="receiptOv">
+  <div class="mbox">
+    <div class="mhead">
+      <div class="mhead-left"><div class="mhead-icon" style="background:rgba(13,148,136,.1);"><i class="fas fa-receipt" style="color:var(--green);"></i></div><h2>Reçu de don</h2></div>
+      <button class="mclose" onclick="closeReceipt()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="mbody">
+      <div class="receipt" id="receiptBox"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;" class="no-print">
+        <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Imprimer / PDF</button>
+        <button class="btn btn-outline" onclick="shareReceipt()"><i class="fas fa-share-nodes"></i> Partager</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/payments-config.js"></script>
+<script src="assets/tchekela.js"></script>
+<script>
+/* ===== Donation state ===== */
+let DON = { cur: 'HTG', amount: 0, method: '', crypto: 'USDT', proof: null };
+const PRESETS = { HTG: [500, 1000, 2500, 5000, 10000, 25000], USD: [5, 10, 25, 50, 100, 250] };
+
+function money(v, cur) { return Number(v).toLocaleString('fr-FR') + ' ' + (cur || DON.cur); }
+
+function renderAmounts() {
+  const grid = document.getElementById('amountGrid');
+  grid.innerHTML = PRESETS[DON.cur].map(v => `
+    <button class="amount-btn ${DON.amount === v ? 'on' : ''}" onclick="setAmount(${v},this)">
+      <div class="ab-n">${v.toLocaleString('fr-FR')}</div>
+      <div class="ab-l">${DON.cur}</div>
+    </button>`).join('');
+}
+function setCur(cur, btn) {
+  DON.cur = cur; DON.amount = 0;
+  document.querySelectorAll('.cur-tog button').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('customAmount').value = '';
+  renderAmounts();
+  if (DON.method) renderPayDetail();
+}
+function setAmount(v, btn) {
+  DON.amount = v;
+  document.getElementById('customAmount').value = '';
+  document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  if (DON.method) renderPayDetail();
+}
+function onCustomAmount() {
+  DON.amount = parseFloat(document.getElementById('customAmount').value) || 0;
+  document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('on'));
+  if (DON.method) renderPayDetail();
+}
+
+/* ===== Payment accounts (configurable) ===== */
+const PAY_ACCOUNTS = (window.TCHEKELA_PAYMENTS && window.TCHEKELA_PAYMENTS.accounts) || {
+  moncash:  { label: 'MonCash (Digicel)', number: '+509 3398 8754', name: 'TCHEKELA / GOVIBE' },
+  natcash:  { label: 'NatCash (Natcom)', number: '+509 4012 0099', name: 'TCHEKELA / GOVIBE' },
+  paypal:   { label: 'PayPal', email: 'don@tchekela.com' },
+  zelle:    { label: 'Zelle', email: 'don@tchekela.com', phone: '+1 305 000 0000', name: 'TCHEKELA Inc.' },
+  bank: {
+    unibank:  { bank: 'Unibank', account: '500-1234567-01', name: 'TCHEKELA / GOVIBE SA' },
+    sogebank: { bank: 'Sogebank', account: '021-9876543-22', name: 'TCHEKELA / GOVIBE SA' }
+  },
+  crypto: {
+    USDT: { label: 'USDT (TRC-20)', address: 'TJ9xTcheKeLaUSDTdemoAddress0001xyz' },
+    BTC:  { label: 'Bitcoin (BTC)', address: 'bc1qtchekelademobtcaddress00000000xyz' },
+    ETH:  { label: 'Ethereum (ETH)', address: '0xTCHEKELAdemoETHaddress00000000000000abcd' }
+  }
+};
+
+function selPay(method, btn) {
+  DON.method = method;
+  document.querySelectorAll('.pay-m').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderPayDetail();
+  document.getElementById('payDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function row(k, v, copy) {
+  return `<div class="pd-row"><span class="pd-k">${k}</span><span class="pd-v">${v}${copy ? `<button class="copy-btn" onclick="copyVal('${String(v).replace(/'/g,"")}')"><i class="fas fa-copy"></i></button>` : ''}</span></div>`;
+}
+
+function renderPayDetail() {
+  const el = document.getElementById('payDetail');
+  el.classList.add('show');
+  const amt = DON.amount ? money(DON.amount) : '<span style="color:var(--red);">Choisissez un montant</span>';
+  let html = '';
+
+  if (DON.method === 'moncash' || DON.method === 'natcash') {
+    const a = PAY_ACCOUNTS[DON.method];
+    html = `
+      <div class="ib ib-gold"><i class="fas fa-mobile-screen"></i><span>Envoyez <b>${amt}</b> au numéro ci-dessous depuis votre application ${a.label}, puis téléversez la capture de confirmation.</span></div>
+      <div class="pd-acct">
+        ${row('Numéro', a.number, true)}
+        ${row('Bénéficiaire', a.name)}
+        ${row('Montant', amt)}
+      </div>`;
+  } else if (DON.method === 'paypal') {
+    const a = PAY_ACCOUNTS.paypal;
+    const ppLink = (window.TCHEKELA_PAYMENTS && window.TCHEKELA_PAYMENTS.paypalLink) || ('https://www.paypal.com/paypalme/tchekela/' + (DON.amount || ''));
+    html = `
+      <div class="ib ib-blue"><i class="fab fa-paypal"></i><span>Payez en ligne via PayPal, ou envoyez à l'adresse ci-dessous.</span></div>
+      <div class="pd-acct">${row('Adresse PayPal', a.email, true)} ${row('Montant', amt)}</div>
+      <a href="${ppLink}" target="_blank" class="btn btn-primary"><i class="fab fa-paypal"></i> Payer ${DON.amount ? money(DON.amount) : ''} sur PayPal</a>`;
+  } else if (DON.method === 'zelle') {
+    const a = PAY_ACCOUNTS.zelle;
+    html = `
+      <div class="ib ib-blue"><i class="fas fa-money-bill-transfer"></i><span>Depuis votre banque US, envoyez via Zelle à :</span></div>
+      <div class="pd-acct">${row('Email Zelle', a.email, true)} ${row('Téléphone', a.phone, true)} ${row('Bénéficiaire', a.name)} ${row('Montant', amt)}</div>`;
+  } else if (DON.method === 'bank') {
+    const u = PAY_ACCOUNTS.bank.unibank, s = PAY_ACCOUNTS.bank.sogebank;
+    html = `
+      <div class="ib ib-blue"><i class="fas fa-building-columns"></i><span>Virement / dépôt bancaire vers l'un de nos comptes :</span></div>
+      <div class="pd-acct">
+        <div class="pd-row"><span class="pd-k">Banque</span><span class="pd-v">${u.bank}</span></div>
+        ${row('Compte', u.account, true)} ${row('Titulaire', u.name)}
+      </div>
+      <div class="pd-acct">
+        <div class="pd-row"><span class="pd-k">Banque</span><span class="pd-v">${s.bank}</span></div>
+        ${row('Compte', s.account, true)} ${row('Titulaire', s.name)}
+      </div>
+      <div class="pd-acct">${row('Montant', amt)}</div>`;
+  } else if (DON.method === 'crypto') {
+    html = `
+      <div class="crypto-tabs">
+        ${['USDT','BTC','ETH'].map(c => `<button class="crypto-tab ${DON.crypto===c?'on':''}" onclick="setCrypto('${c}')"><i class="fab fa-${c==='BTC'?'bitcoin':(c==='ETH'?'ethereum':'usb')}"></i> ${c}</button>`).join('')}
+      </div>
+      <div class="crypto-qr" id="cryptoQR"></div>
+      <div class="pd-acct">
+        ${row('Réseau', PAY_ACCOUNTS.crypto[DON.crypto].label)}
+        ${row('Adresse', PAY_ACCOUNTS.crypto[DON.crypto].address, true)}
+        ${row('Montant', amt)}
+      </div>
+      <div class="ib ib-gold" style="margin-bottom:0;"><i class="fas fa-circle-info"></i><span>Vous pouvez aussi payer via <b>Binance Pay</b> ou <b>CoinPayments</b>. Après envoi, collez l'ID de transaction (hash) ci-dessous et téléversez la preuve.</span></div>`;
+  }
+  el.innerHTML = html;
+  if (DON.method === 'crypto') drawCryptoQR();
+}
+
+function setCrypto(c) { DON.crypto = c; renderPayDetail(); }
+function drawCryptoQR() {
+  const qr = document.getElementById('cryptoQR');
+  if (!qr) return;
+  qr.innerHTML = '';
+  const addr = PAY_ACCOUNTS.crypto[DON.crypto].address;
+  if (typeof QRCode !== 'undefined') {
+    new QRCode(qr, { text: addr, width: 134, height: 134, colorDark: '#003F87', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M });
+  } else { qr.innerHTML = '<i class="fas fa-qrcode" style="font-size:5rem;color:var(--dark);"></i>'; }
+}
+function copyVal(v) {
+  navigator.clipboard?.writeText(v).then(() => toast('<i class="fas fa-check"></i> Copié : ' + v)).catch(() => toast('<i class="fas fa-copy"></i> ' + v));
+}
+
+/* ===== Proof ===== */
+function handleProof(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  fileToDataURL(file).then(url => {
+    DON.proof = url;
+    document.getElementById('proofImg').src = url;
+    document.getElementById('proofPrev').style.display = 'block';
+    toast('<i class="fas fa-check-circle"></i> Preuve ajoutée');
+  });
+}
+
+/* ===== Submit & receipt ===== */
+function submitDon() {
+  const name = document.getElementById('dnName').value.trim();
+  const phone = document.getElementById('dnPhone').value.trim();
+  if (!DON.amount || DON.amount <= 0) return toast('<i class="fas fa-triangle-exclamation"></i> Choisissez un montant');
+  if (!DON.method) return toast('<i class="fas fa-triangle-exclamation"></i> Choisissez un moyen de paiement');
+  if (!name || !phone) return toast('<i class="fas fa-triangle-exclamation"></i> Nom et téléphone requis');
+  if (!DON.proof && !document.getElementById('dnTxn').value.trim())
+    return toast('<i class="fas fa-triangle-exclamation"></i> Ajoutez une preuve ou un ID de transaction');
+
+  const reference = ref('TCH-DON');
+  const record = {
+    ref: reference,
+    date: new Date().toISOString(),
+    amount: DON.amount,
+    cur: DON.cur,
+    method: DON.method,
+    crypto: DON.method === 'crypto' ? DON.crypto : null,
+    recurring: document.getElementById('recurring').checked,
+    name, phone,
+    email: document.getElementById('dnEmail').value.trim(),
+    txn: document.getElementById('dnTxn').value.trim(),
+    anon: document.getElementById('dnAnon').checked,
+    proof: DON.proof,
+    status: 'pending' // admin validates → 'confirmed'
+  };
+  TKStore.push('donations', record);
+  showReceipt(record);
+}
+
+const METHOD_LABEL = { moncash: 'MonCash', natcash: 'NatCash', paypal: 'PayPal', zelle: 'Zelle', bank: 'Virement bancaire', crypto: 'Crypto' };
+
+function showReceipt(r) {
+  const methodTxt = r.method === 'crypto' ? ('Crypto · ' + r.crypto) : METHOD_LABEL[r.method];
+  document.getElementById('receiptBox').innerHTML = `
+    <div class="rcpt-head">
+      <div class="rcpt-brand"><div class="m"><i class="fas fa-shield-halved"></i></div> TCHEKELA</div>
+      <div style="text-align:right;font-size:.66rem;color:var(--muted);">Reçu de don<br><b style="color:var(--dark);">${r.ref}</b></div>
+    </div>
+    <div class="rcpt-title">Merci pour votre générosité 🙏</div>
+    <div class="rcpt-amount">${money(r.amount, r.cur)}</div>
+    <div style="text-align:center;"><span class="rcpt-stamp"><i class="fas fa-hourglass-half"></i> En vérification</span></div>
+    <div class="rcpt-row"><span class="k">Donateur</span><span class="v">${r.anon ? 'Anonyme' : escapeHtml(r.name)}</span></div>
+    <div class="rcpt-row"><span class="k">Moyen</span><span class="v">${methodTxt}</span></div>
+    <div class="rcpt-row"><span class="k">Récurrent</span><span class="v">${r.recurring ? 'Oui, mensuel' : 'Non'}</span></div>
+    <div class="rcpt-row"><span class="k">ID transaction</span><span class="v">${escapeHtml(r.txn) || '—'}</span></div>
+    <div class="rcpt-row"><span class="k">Date</span><span class="v">${new Date(r.date).toLocaleString('fr-FR')}</span></div>
+    <div class="rcpt-foot">
+      Ce reçu confirme la <b>réception de votre déclaration de don</b>. Après vérification de la preuve par notre équipe, le statut passera à « confirmé ».<br>
+      TCHEKELA · powered by GOVIBE · info@tchekela.com · +509 3398 8754
+    </div>`;
+  document.getElementById('receiptOv').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeReceipt() {
+  document.getElementById('receiptOv').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function shareReceipt() {
+  if (navigator.share) navigator.share({ title: 'Mon don TCHEKELA', text: "J'ai soutenu TCHEKELA 🇭🇹 — rejoignez-moi !", url: location.origin }).catch(()=>{});
+  else toast('<i class="fas fa-copy"></i> Lien copié');
+}
+document.getElementById('receiptOv').addEventListener('click', function(e){ if(e.target===this) closeReceipt(); });
+
+/* ===== Init ===== */
+renderAmounts();
+</script>
+</body>
+</html>
