@@ -31,15 +31,31 @@ class PublicController extends Controller
      * Paiement en ligne via passerelle API (PayPal, CoinPayments, Stripe…).
      * Tant qu'aucun driver n'est branché, on retombe proprement sur le manuel.
      */
-    public function checkout(string $alias, int $method): RedirectResponse
+    public function checkout(Request $request, string $alias, int $method): RedirectResponse
     {
         $page = PaymentPage::where('alias', $alias)->where('is_active', true)->firstOrFail();
         $m = $page->activeMethods()->whereKey($method)->firstOrFail();
 
-        // Driver pas encore branché → retour à la page avec instructions manuelles.
-        return redirect()->route('tagtoa.pay.show', $page->alias)
-            ->with('proof_submitted', false)
-            ->with('error', __('Le paiement en ligne arrive bientôt. Utilisez les informations ci-dessous.'));
+        $gateway = \Modules\Tagtoa\App\Support\PaymentGateway::driver($m->type);
+        $amount = round((float) $request->input('amount', 0), 2);
+
+        // Passerelle non branchée/non configurée ou montant absent → repli manuel propre.
+        if (! $gateway || ! \Modules\Tagtoa\App\Support\GatewayManager::enabled($gateway) || $amount <= 0) {
+            return redirect()->route('tagtoa.pay.show', $page->alias)
+                ->with('error', __('Le paiement en ligne n\'est pas disponible pour le moment. Utilisez les informations ci-dessous.'));
+        }
+
+        $url = app(\Modules\Tagtoa\App\Services\Pay\CheckoutService::class)->startPayPage($page, $m, $gateway, $amount, [
+            'name'  => (string) $request->input('payer_name', ''),
+            'phone' => (string) $request->input('payer_phone', ''),
+        ]);
+
+        if (! $url) {
+            return redirect()->route('tagtoa.pay.show', $page->alias)
+                ->with('error', __('Le paiement en ligne n\'a pas pu démarrer. Réessayez ou utilisez les informations ci-dessous.'));
+        }
+
+        return redirect()->away($url);
     }
 
     public function submitProof(Request $request, string $alias): RedirectResponse

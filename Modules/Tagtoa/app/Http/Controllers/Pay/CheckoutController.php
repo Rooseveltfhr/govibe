@@ -50,12 +50,38 @@ class CheckoutController extends Controller
     /** Webhook/IPN passerelle (idempotent). Répond toujours 200. */
     public function webhook(Request $request, string $gateway)
     {
-        $ref = $request->input('reference') ?: $request->input('orderId');
+        $ref = $this->webhookReference($request, $gateway);
         if ($ref) {
+            // confirm() re-vérifie l'état auprès de la passerelle (source de vérité) :
+            // un webhook falsifié ne peut donc pas marquer une commande payée.
             app(CheckoutService::class)->confirm($ref);
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    /** Extrait la référence de transaction du corps du webhook selon la passerelle. */
+    protected function webhookReference(Request $request, string $gateway): ?string
+    {
+        if ($gateway === 'stripe') {
+            // Signature best-effort : si le secret est configuré et invalide, on ignore.
+            $secret = (string) config('tagtoa.gateways.stripe.webhook_secret', '');
+            if ($secret !== '') {
+                $valid = \Modules\Tagtoa\App\Support\Gateways\Stripe::verifySignature(
+                    $request->getContent(),
+                    (string) $request->header('Stripe-Signature', ''),
+                    $secret
+                );
+                if (! $valid) {
+                    return null;
+                }
+            }
+
+            return $request->input('data.object.client_reference_id')
+                ?: $request->input('data.object.metadata.reference');
+        }
+
+        return $request->input('reference') ?: $request->input('orderId');
     }
 
     public function result(): View
