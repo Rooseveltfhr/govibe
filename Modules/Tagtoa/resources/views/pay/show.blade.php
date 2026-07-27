@@ -63,7 +63,9 @@
         @if($page->description)<p>{{ $page->description }}</p>@endif
     </header>
 
-    @if(session('proof_submitted'))
+    @if(session('card_paid'))
+        <div class="ok"><i class="fa-solid fa-circle-check"></i><div>{{ session('card_paid') }}</div></div>
+    @elseif(session('proof_submitted'))
         <div class="ok"><i class="fa-solid fa-circle-check"></i><div>{{ __('Preuve reçue! Le bénéficiaire va vérifier.') }}</div></div>
     @endif
     @if(session('error'))
@@ -107,6 +109,21 @@
                                 <button class="btn btn-p" type="submit" style="margin-top:10px"><i class="fa-solid fa-bolt"></i> {{ __('Payer en ligne maintenant') }}</button>
                             </form>
                             <div class="sep-or" style="text-align:center;color:#9aa;margin:8px 0;font-size:13px">{{ __('ou payez manuellement ci-dessous') }}</div>
+                        @endif
+                        @if($m->type === 'tagtoa_card')
+                            <form method="POST" action="{{ route('tagtoa.pay.card.charge', $page->alias) }}" style="margin-bottom:14px" id="cardform-{{ $m->id }}">
+                                @csrf
+                                <div class="instr" style="margin-bottom:10px"><i class="fa-solid fa-id-card" style="color:var(--blue);margin-right:6px"></i>{{ __('Approchez votre carte TAGTOA du téléphone, ou saisissez son code.') }}</div>
+                                <button type="button" class="btn btn-o nfc-read" data-target="uid-{{ $m->id }}" onclick="readCard(this)" style="margin-bottom:8px"><i class="fa-solid fa-wifi"></i> {{ __('Lire la carte (NFC)') }}</button>
+                                <input class="inp" type="text" id="uid-{{ $m->id }}" name="card_uid" placeholder="{{ __('UID de la carte (auto)') }}" readonly style="margin-bottom:8px">
+                                <label class="lbl">{{ __('ou code de la carte') }}</label>
+                                <input class="inp" name="card_code" maxlength="40" placeholder="TAG..." style="text-transform:uppercase">
+                                <label class="lbl">{{ __('Code PIN') }}</label>
+                                <input class="inp" name="pin" inputmode="numeric" maxlength="6" pattern="\d*" placeholder="••••">
+                                <label class="lbl">{{ __('Montant à payer') }} ({{ $page->default_currency }}) *</label>
+                                <input class="inp" name="amount" type="number" step="0.01" min="0.01" required placeholder="0.00">
+                                <button class="btn btn-p" type="submit" style="margin-top:10px"><i class="fa-solid fa-bolt"></i> {{ __('Payer avec la carte') }}</button>
+                            </form>
                         @endif
                         @if($m->qr_url)<div class="qr"><img src="{{ $m->qr_url }}" alt="QR" loading="lazy"></div>@endif
                         @if($m->institution)<div class="kv"><span>{{ __('Institution') }}</span><b>{{ $m->institution }}</b></div>@endif
@@ -158,6 +175,10 @@ function pick(btn,id){var d=document.getElementById('det-'+id);
 function pv(i){var f=i.files[0];if(!f)return;i.parentNode.querySelector('.ftx').textContent=f.name;var img=i.closest('form').querySelector('.prev');var r=new FileReader();r.onload=function(e){img.src=e.target.result;img.style.display='block';};r.readAsDataURL(f);}
 function cp(el){var t=el.getAttribute('data-copy');navigator.clipboard&&navigator.clipboard.writeText(t);var o=el.textContent;el.textContent='{{ __('Copié!') }}';setTimeout(function(){el.textContent=o;},1400);}
 function sh(){if(navigator.share){navigator.share({title:document.title,url:location.href}).catch(function(){});}else{navigator.clipboard&&navigator.clipboard.writeText(location.href);alert('{{ __('Lien copié') }}');}}
+function readCard(btn){var out=document.getElementById(btn.getAttribute('data-target'));
+    if(!('NDEFReader' in window)){alert('{{ __('NFC non supporté sur cet appareil. Saisissez le code de la carte.') }}');return;}
+    var o=btn.innerHTML;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> {{ __('Approchez la carte...') }}';
+    try{var r=new NDEFReader();r.scan().then(function(){r.onreading=function(e){if(e.serialNumber){out.value=e.serialNumber;btn.innerHTML='<i class="fa-solid fa-circle-check"></i> {{ __('Carte lue') }}';}};}).catch(function(){btn.innerHTML=o;alert('{{ __('Lecture NFC refusée. Saisissez le code.') }}');});}catch(err){btn.innerHTML=o;}}
 @if($errors->any())var b=document.querySelector('.m');if(b)b.click();@endif
 </script>
 </body>

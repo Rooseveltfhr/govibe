@@ -64,6 +64,13 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
     aktivasyon (`Support/GatewayManager`, kredansyèl nan config/.env), afichaj piblik
     rich (logo+koulè mak, institution, nom du compte, numéro, QR), chan institution+logo
     nan dashboard. Doc kredansyèl: `Modules/Tagtoa/PAYMENTS.md`.
+  - ✅ Driver Stripe (kat) + paiement en ligne PAGES PAY (payer sezi montan → preuve
+    approuvée + komisyon). ✅ CARTE TAGTOA (closed-loop, valab sou TOUT TAGTOA):
+    `Support/Card/CardWallet` pi teste (UID normalize/hash, matematik solde antye, PIN),
+    tab `tagtoa_card_accounts`+`_card_txns` (grand livre imuab), `CardWalletService`
+    (charge/topup/refund atomik+idempotan+lockForUpdate), dashboard `/tagtoa/cards`
+    (émèt/rechaje/bloke/istwa), paj piblik PAY (tap NFC+PIN → débit enstantane),
+    terminal staff EVENT (peye biyè ak kat, `skip_commission` pou pa konte 2 fwa).
   - ⏳ RES: drivers API reyèl (1 PR pa pasrèl, teste ak kredansyèl): MonCash, PayPal(+kat),
     CoinPayments (USDT/USDC/BTC/ETH), Stripe, Authorize.Net — route `tagtoa.pay.checkout`
     + webhook/IPN. Metòd manyèl yo (NatCash, Zelle, CashApp, Unibank, Sogebank, Capital
@@ -187,6 +194,8 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
 ## 7. Done demo (pou teste)
 - MENU: `demo-menu` · PAY: `demo` · LINKS: `demo-links` · EVENT: `demo-concert` · BOOKING: `demo-booking`
 - LOYALTY token: `uvcudqvm9xsie6knrkhbdcok` · POS terminal id: `1`
+- CARTE TAGTOA (closed-loop): code `TAGDEMO` · PIN `1234` · solde 1000 G — teste sou
+  `/pay/demo` → « Carte TAGTOA » (tape/sezi kòd + PIN) oswa sou terminal staff event.
 - EVENT WALLET: tag NFC demo UID `TAGTOA-DEMO-TAG` (solde 1000 G, stand « Bar Demo ») sou
   `demo-concert` → teste sou `/tagtoa/event/{id}/wallet/terminal` (tape UID a oswa tap NFC).
 - Teste lang: ajoute `?lang=ht|en|es|fr` sou nenpòt paj.

@@ -195,6 +195,10 @@ class StaffTerminalController extends Controller
             'ticket_type_id' => ['nullable', 'integer'],
             'credit'         => ['nullable', 'numeric', 'min:0', 'max:1000000'], // crédit initial du wallet
             'payment_method' => ['nullable', 'string', 'max:60'],               // moyen de paiement (TAGTOA Pay)
+            'pay_card_uid'   => ['nullable', 'string', 'max:120'],              // Carte TAGTOA : UID (tap)
+            'pay_card_code'  => ['nullable', 'string', 'max:40'],              // Carte TAGTOA : code imprimé
+            'pay_card_pin'   => ['nullable', 'string', 'max:6'],
+            'client_uuid'    => ['nullable', 'string', 'max:80'],
         ]);
 
         if (! empty($data['ticket_type_id'])) {
@@ -204,15 +208,49 @@ class StaffTerminalController extends Controller
             }
         }
 
-        // Le moyen de paiement doit provenir de TAGTOA Pay (page liée) ou être « Espèces ».
+        // Le moyen de paiement doit provenir de TAGTOA Pay (page liée), « Espèces »
+        // ou « Carte TAGTOA » (closed-loop).
         $method = trim((string) ($data['payment_method'] ?? ''));
-        if ($method !== '' && $method !== 'Espèces') {
+        if ($method !== '' && $method !== 'Espèces' && $method !== 'Carte TAGTOA') {
             $allowed = $event->payPage
                 ? $event->payPage->activeMethods()->pluck('label')->all()
                 : [];
             if (! in_array($method, $allowed, true)) {
                 $method = ''; // valeur inconnue ignorée (anti-spoof)
             }
+        }
+
+        // Prix du billet (imposé côté serveur depuis le type sélectionné).
+        $ticketPrice = 0.0;
+        if (! empty($data['ticket_type_id'])) {
+            $tt = $event->ticketTypes()->whereKey($data['ticket_type_id'])->first();
+            $ticketPrice = $tt ? (float) $tt->price : 0.0;
+        }
+
+        // Paiement par CARTE TAGTOA : on débite AVANT d'émettre le billet — un
+        // débit refusé annule la vente (pas de billet fantôme).
+        $cardTxnRef = null;
+        if ($method === 'Carte TAGTOA' && $ticketPrice > 0) {
+            $svc = app(\Modules\Tagtoa\App\Services\Card\CardWalletService::class);
+            $card = ! empty($data['pay_card_uid'])
+                ? $svc->resolveByUid($data['pay_card_uid'])
+                : $svc->resolveByCode((string) ($data['pay_card_code'] ?? ''));
+            if (! $card) {
+                return response()->json(['ok' => false, 'message' => __('Carte TAGTOA introuvable.')], 422);
+            }
+            $ref = ! empty($data['client_uuid']) ? 'evsale-'.$data['client_uuid'] : \Modules\Tagtoa\App\Support\Card\CardWallet::reference();
+            $res = $svc->charge($card, $ticketPrice, $data['pay_card_pin'] ?? null, [
+                'tenant_id'       => $event->tenant_id,
+                'context_type'    => 'event',
+                'context_id'      => $event->id,
+                'module'          => 'event',
+                'reference'       => $ref,
+                'skip_commission' => true, // la commission est prise sur le billet (event_ticket)
+            ]);
+            if (! $res['ok']) {
+                return response()->json(['ok' => false, 'message' => $res['message']], 422);
+            }
+            $cardTxnRef = $res['txn']?->reference;
         }
 
         try {

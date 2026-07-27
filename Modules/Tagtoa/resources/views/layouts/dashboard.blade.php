@@ -98,6 +98,7 @@
             <a href="{{ url('/tagtoa/menu') }}" class="{{ request()->is('tagtoa/menu*') ? 'on' : '' }}"><i class="fa-solid fa-utensils"></i> {{ __('Menu') }}</a>
             <a href="{{ url('/tagtoa/store') }}" class="{{ request()->is('tagtoa/store*') ? 'on' : '' }}"><i class="fa-solid fa-bag-shopping"></i> {{ __('Boutique') }}</a>
             <a href="{{ url('/tagtoa/pay') }}" class="{{ request()->is('tagtoa/pay*') ? 'on' : '' }}"><i class="fa-solid fa-money-bill-transfer"></i> {{ __('Paiements') }}</a>
+            <a href="{{ url('/tagtoa/cards') }}" class="{{ request()->is('tagtoa/cards*') ? 'on' : '' }}"><i class="fa-solid fa-credit-card"></i> {{ __('Cartes TAGTOA') }}</a>
             <a href="{{ url('/tagtoa/loyalty') }}" class="{{ request()->is('tagtoa/loyalty*') ? 'on' : '' }}"><i class="fa-solid fa-id-card"></i> {{ __('Fidélité') }}</a>
             <a href="{{ url('/tagtoa/links') }}" class="{{ request()->is('tagtoa/links*') ? 'on' : '' }}"><i class="fa-solid fa-link"></i> {{ __('Liens') }}</a>
             <a href="{{ url('/tagtoa/event') }}" class="{{ request()->is('tagtoa/event*') ? 'on' : '' }}"><i class="fa-solid fa-ticket"></i> {{ __('Événements') }}</a>

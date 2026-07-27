@@ -30,6 +30,10 @@ class AuditService
         'wallet.purchase'   => 'Achat wallet',
         'wallet.refund'     => 'Remboursement wallet',
         'wallet.payout'     => 'Règlement vendeur',
+        'card.issued'       => 'Carte TAGTOA émise',
+        'card.top_up'       => 'Recharge carte TAGTOA',
+        'card.charged'      => 'Paiement par carte TAGTOA',
+        'card.status'       => 'Statut carte TAGTOA modifié',
     ];
 
     /** Libellé lisible d'une action (repli = action brute). LOGIQUE PURE. */

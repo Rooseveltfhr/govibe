@@ -119,11 +119,18 @@
                 <label>{{ __('Type de billet') }}</label>
                 <select id="slType"><option value="">{{ __('— Aucun —') }}</option>@foreach($ticketTypes as $tt)<option value="{{ $tt->id }}">{{ $tt->name }}</option>@endforeach</select>
                 <label>{{ __('Moyen de paiement') }}</label>
-                <select id="slPay">
+                <select id="slPay" onchange="togglePayCard()">
                     <option value="Espèces">{{ __('Espèces (cash)') }}</option>
+                    <option value="Carte TAGTOA">{{ __('Carte TAGTOA (closed-loop)') }}</option>
                     @foreach($payMethods as $pm)<option value="{{ $pm->label }}">{{ $pm->label }}</option>@endforeach
                 </select>
                 @if($payMethods->isEmpty())<div class="nfc" style="text-align:left">{{ __('Astuce : configurez vos moyens dans TAGTOA Pay et liez la page à l\'événement.') }}</div>@endif
+                <div id="slCardPay" style="display:none;background:rgba(44,184,9,.06);border-radius:12px;padding:12px;margin-top:8px">
+                    <div class="nfc" style="text-align:left;margin-bottom:8px"><i class="fa-solid fa-id-card"></i> {{ __('Le participant paie avec sa carte prépayée TAGTOA (tap + PIN).') }}</div>
+                    <div style="display:flex;gap:8px"><input class="inp" id="slPayUid" autocomplete="off" placeholder="{{ __('UID carte TAGTOA') }}" style="flex:1;margin-top:0"><button class="btn btn-o" id="slPayNfcBtn" type="button" style="margin-top:0;flex:0"><i class="fa-solid fa-wifi"></i></button></div>
+                    <input class="inp" id="slPayCode" autocomplete="off" placeholder="{{ __('ou code TAG…') }}" style="text-transform:uppercase">
+                    <input class="inp" id="slPayPin" inputmode="numeric" maxlength="6" placeholder="{{ __('PIN') }}">
+                </div>
                 <label>{{ __('UID carte NFC (vide = e-billet QR)') }}</label>
                 <div style="display:flex;gap:8px"><input class="inp" id="slUid" autocomplete="off" placeholder="04:A2:..." style="flex:1"><button class="btn btn-o" id="slNfcBtn" type="button" style="margin-top:0;flex:0;white-space:nowrap"><i class="fa-solid fa-wifi"></i> {{ __('Lire') }}</button></div>
                 <div class="nfc" id="slNfcHint" style="text-align:left"></div>
@@ -242,18 +249,27 @@
         var name=el('slName').value.trim(),phone=el('slPhone').value.trim();
         var errB=el('slErr');errB.style.display='none';
         if(!name||!phone){errB.textContent=T.need;errB.style.display='block';return;}
+        var pm=el('slPay')?el('slPay').value:null;
+        if(pm==='Carte TAGTOA' && !el('slPayUid').value.trim() && !el('slPayCode').value.trim()){errB.textContent='{{ __('Tapez la carte TAGTOA ou saisissez son code.') }}';errB.style.display='block';return;}
         var btn=el('slBtn');btn.disabled=true;
         post(URL_SELL,{name:name,phone:phone,email:el('slEmail').value.trim()||null,
             ticket_type_id:el('slType').value?Number(el('slType').value):null,
             uid:el('slUid').value.trim()||null,
-            payment_method:el('slPay')?el('slPay').value:null,
+            payment_method:pm,
+            pay_card_uid:el('slPayUid').value.trim()||null,
+            pay_card_code:el('slPayCode').value.trim()||null,
+            pay_card_pin:el('slPayPin').value.trim()||null,
+            client_uuid:uuid(),
             credit:el('slCredit').value.trim()?Number(el('slCredit').value):null})
         .then(function(j){btn.disabled=false;
             if(!j.ok){errB.textContent=j.message||T.err;errB.style.display='block';return;}
             el('slCode').textContent=j.code;el('slWho').textContent=j.name;el('slOk').classList.add('show');
-            el('slName').value='';el('slPhone').value='';el('slEmail').value='';el('slUid').value='';el('slCredit').value='';el('slName').focus();
+            el('slName').value='';el('slPhone').value='';el('slEmail').value='';el('slUid').value='';el('slCredit').value='';
+            el('slPayUid').value='';el('slPayCode').value='';el('slPayPin').value='';el('slName').focus();
         }).catch(function(){btn.disabled=false;errB.textContent=T.err;errB.style.display='block';});
     });
+    function togglePayCard(){var s=el('slPay'),b=el('slCardPay');if(s&&b){b.style.display=(s.value==='Carte TAGTOA')?'block':'none';}}
+    (function(){var pnb=el('slPayNfcBtn');if(pnb&&('NDEFReader' in window)){pnb.addEventListener('click',function(){try{var r=new NDEFReader();r.scan().then(function(){r.onreading=function(e){if(e.serialNumber){el('slPayUid').value=e.serialNumber;}};}).catch(function(){});}catch(err){}});}})();
     el('pkBtn').addEventListener('click',function(){
         var code=el('pkCode').value.trim(),uid=el('pkUid').value.trim();
         var errB=el('pkErr');errB.style.display='none';el('pkOk').classList.remove('show');

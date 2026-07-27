@@ -26,6 +26,7 @@ require_once $base.'/Support/Gateways/MonCash.php';
 require_once $base.'/Support/Gateways/PayPal.php';
 require_once $base.'/Support/Gateways/CoinPayments.php';
 require_once $base.'/Support/Gateways/Stripe.php';
+require_once $base.'/Support/Card/CardWallet.php';
 require_once $base.'/Support/Event/Ledger.php';
 require_once $base.'/Support/Event/EventDays.php';
 require_once $base.'/Support/Money.php';
