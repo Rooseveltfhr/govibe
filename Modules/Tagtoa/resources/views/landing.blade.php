@@ -244,15 +244,15 @@
     <span class="sp"></span>
     <a class="btn btn-o hidem" href="{{ url('/events') }}"><i class="fa-solid fa-ticket"></i> {{ __('Événements') }}</a>
     @include('tagtoa::partials.lang')
-    <a class="btn btn-o hidem" href="{{ url('/login') }}"><i class="fa-solid fa-arrow-right-to-bracket"></i> {{ __('Se connecter') }}</a>
-    <a class="btn btn-p" href="{{ $store }}"><i class="fa-brands fa-whatsapp"></i> {{ __('Boutique gratuite') }}</a>
+    <a class="btn btn-o" href="{{ url('/login') }}"><i class="fa-solid fa-arrow-right-to-bracket"></i> {{ __('Se connecter') }}</a>
+    <a class="btn btn-p" href="{{ url('/register') }}"><i class="fa-solid fa-user-plus"></i> {{ __('S\'inscrire') }}</a>
 </div></nav>
 
 <header class="hero"><div class="wrap in">
     <div>
         <span class="pill reveal in"><span class="dot"></span> NFC · QR · {{ __('Haïti') }}</span>
         <h1 class="reveal in d1">{{ __('Lancez votre business en ligne') }} <span class="grad">{{ __('aujourd\'hui') }}</span></h1>
-        <p class="sub reveal in d2">{{ __('Gérez vos paiements, créez des boutiques WhatsApp, partagez des cartes de visite NFC, organisez des événements, connectez-vous avec vos clients et développez votre business avec TAGTOA.') }}</p>
+        <p class="sub reveal in d2">{{ __('Vendez, encaissez et fidélisez vos clients — boutique, menu, paiements, événements et cartes NFC réunis en une seule plateforme.') }}</p>
         <div class="cta reveal in d2">
             <a class="btn btn-wa btn-lg" href="{{ $store }}"><i class="fa-brands fa-whatsapp"></i> {{ __('Créer ma boutique gratuite') }}</a>
             <a class="btn btn-o btn-lg" href="{{ url('/menu/demo-menu') }}"><i class="fa-solid fa-play"></i> {{ __('Voir la démo') }}</a>
@@ -414,7 +414,7 @@
             <ul class="flist">
                 <li><i class="fa-solid fa-check"></i> {{ __('10+ méthodes locales et internationales') }}</li>
                 <li><i class="fa-solid fa-check"></i> {{ __('Preuve de paiement et validation') }}</li>
-                <li><i class="fa-solid fa-check"></i> {{ __('Prix imposés côté serveur (anti-fraude)') }}</li>
+                <li><i class="fa-solid fa-check"></i> {{ __('Vos prix protégés contre la fraude') }}</li>
             </ul>
         </div>
     </div>
