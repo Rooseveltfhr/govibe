@@ -97,7 +97,16 @@
                             <b style="font-family:var(--fh);font-size:16px">{{ $m->display_label }}</b>
                         </div>
                         @if($m->onlineAvailable())
-                            <a class="btn btn-p" href="{{ route('tagtoa.pay.checkout', [$page->alias, $m->id]) }}" style="margin-bottom:14px"><i class="fa-solid fa-bolt"></i> {{ __('Payer en ligne') }}</a>
+                            <form method="GET" action="{{ route('tagtoa.pay.checkout', [$page->alias, $m->id]) }}" style="margin-bottom:14px">
+                                <label class="lbl">{{ __('Montant à payer') }} ({{ $page->default_currency }}) *</label>
+                                <input class="inp" name="amount" type="number" step="0.01" min="1" required placeholder="0.00">
+                                <label class="lbl">{{ __('Votre nom') }}</label>
+                                <input class="inp" name="payer_name" maxlength="120" placeholder="{{ __('Optionnel') }}">
+                                <label class="lbl">{{ __('Téléphone (WhatsApp)') }}</label>
+                                <input class="inp" name="payer_phone" maxlength="40" placeholder="+509 ...">
+                                <button class="btn btn-p" type="submit" style="margin-top:10px"><i class="fa-solid fa-bolt"></i> {{ __('Payer en ligne maintenant') }}</button>
+                            </form>
+                            <div class="sep-or" style="text-align:center;color:#9aa;margin:8px 0;font-size:13px">{{ __('ou payez manuellement ci-dessous') }}</div>
                         @endif
                         @if($m->qr_url)<div class="qr"><img src="{{ $m->qr_url }}" alt="QR" loading="lazy"></div>@endif
                         @if($m->institution)<div class="kv"><span>{{ __('Institution') }}</span><b>{{ $m->institution }}</b></div>@endif

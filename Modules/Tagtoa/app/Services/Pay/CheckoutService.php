@@ -31,6 +31,7 @@ class CheckoutService
             'moncash'      => new MonCashDriver,
             'paypal'       => new \Modules\Tagtoa\App\Support\Gateways\PayPalDriver,
             'coinpayments' => new \Modules\Tagtoa\App\Support\Gateways\CoinPaymentsDriver,
+            'stripe'       => new \Modules\Tagtoa\App\Support\Gateways\StripeDriver,
             default        => null,
         };
     }
@@ -103,6 +104,41 @@ class CheckoutService
     }
 
     /**
+     * Démarre le paiement en ligne d'une PAGE DE PAIEMENT (lien de paiement
+     * ouvert — le payeur saisit le montant). Retourne l'URL de redirection, ou
+     * null si indisponible.
+     */
+    public function startPayPage(\Modules\Tagtoa\App\Models\Pay\PaymentPage $page, \Modules\Tagtoa\App\Models\Pay\PaymentMethod $method, string $gateway, float $amount, array $payer = []): ?string
+    {
+        if ($amount <= 0 || ! GatewayManager::enabled($gateway)) {
+            return null;
+        }
+        $driver = $this->driver($gateway);
+        if (! $driver) {
+            return null;
+        }
+
+        $txn = PayTransaction::create([
+            'tenant_id'  => $page->tenant_id,
+            'gateway'    => $gateway,
+            'reference'  => PayTransaction::generateReference(),
+            'order_type' => 'pay_page',
+            'order_id'   => $page->id,
+            'amount'     => $amount,
+            'currency'   => $page->default_currency ?: 'USD',
+            'status'     => PayTransaction::STATUS_PENDING,
+            'meta'       => [
+                'method_id'   => $method->id,
+                'method_type' => $method->type,
+                'payer_name'  => $payer['name'] ?? null,
+                'payer_phone' => $payer['phone'] ?? null,
+            ],
+        ]);
+
+        return $driver->createPayment($txn);
+    }
+
+    /**
      * Démarre le paiement d'un ABONNEMENT (forfait). Retourne l'URL de
      * redirection, ou null si le forfait est gratuit / passerelle indisponible.
      */
@@ -156,6 +192,12 @@ class CheckoutService
             return;
         }
 
+        if ($txn->order_type === 'pay_page') {
+            $this->applyPayPagePaid($txn);
+
+            return;
+        }
+
         $order = $this->loadOrder($txn->order_type, (int) $txn->order_id);
         if (! $order || $order->isPaid()) {
             return;
@@ -173,5 +215,30 @@ class CheckoutService
                 app(RevenueService::class)->record('event_order', $order->id, 'event', (float) $order->total, $order->tenant_id, $order->currency);
                 break;
         }
+    }
+
+    /**
+     * Paiement en ligne d'une page de paiement confirmé : enregistre une preuve
+     * APPROUVÉE (visible au tableau de bord) + la commission. Idempotent.
+     */
+    protected function applyPayPagePaid(PayTransaction $txn): void
+    {
+        $meta = (array) $txn->meta;
+
+        \Modules\Tagtoa\App\Models\Pay\PaymentProof::firstOrCreate(
+            ['reference' => $txn->reference, 'payment_page_id' => (int) $txn->order_id],
+            [
+                'payment_method_id' => $meta['method_id'] ?? null,
+                'payer_name'        => ($meta['payer_name'] ?? '') ?: 'Paiement en ligne',
+                'payer_phone'       => $meta['payer_phone'] ?? null,
+                'amount'            => (float) $txn->amount,
+                'currency'          => $txn->currency,
+                'status'            => \Modules\Tagtoa\App\Models\Pay\PaymentProof::STATUS_APPROVED,
+                'note'              => 'Payé en ligne ('.$txn->gateway.')',
+                'reviewed_at'       => now(),
+            ]
+        );
+
+        app(RevenueService::class)->record('pay_page', (int) $txn->id, 'pay', (float) $txn->amount, $txn->tenant_id, $txn->currency);
     }
 }
