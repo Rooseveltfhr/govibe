@@ -123,6 +123,7 @@ Route::prefix('erp')->name('erp.')->group(function () {
         Route::prefix('pos')->name('pos.')->group(function () {
             Route::get('/', [POSController::class, 'index'])->name('index');
             Route::post('/sale', [POSController::class, 'sale'])->name('sale');
+            Route::get('/receipt/{ref}', [POSController::class, 'receipt'])->name('receipt');
         });
 
         // ── Inventory ─────────────────────────────────────
