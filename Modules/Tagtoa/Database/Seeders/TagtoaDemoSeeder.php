@@ -59,6 +59,17 @@ class TagtoaDemoSeeder extends Seeder
             );
         }
 
+        // Carte TAGTOA démo (closed-loop) : code TAGDEMO, PIN 1234, solde 1000 G.
+        // Teste sur /pay/demo → « Carte TAGTOA » (tape ou saisis le code + PIN).
+        $cardSvc = app(\Modules\Tagtoa\App\Services\Card\CardWalletService::class);
+        $demoCard = $cardSvc->issue('TAGTOA-CARD-DEMO', [
+            'tenant_id' => $pay->tenant_id, 'holder_name' => 'Client Démo',
+            'holder_phone' => '+509 0000 0000', 'currency' => 'HTG', 'pin' => '1234', 'code' => 'TAGDEMO',
+        ]);
+        if ((int) $demoCard->balance_minor === 0) {
+            $cardSvc->topUp($demoCard, 1000, ['reference' => 'demo-card-topup', 'context_type' => 'issue']);
+        }
+
         // 2) LOYALTY — programme + 1 carte
         $program = Program::firstOrCreate(
             ['alias' => 'demo-fidelite'],

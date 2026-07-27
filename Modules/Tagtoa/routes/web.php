@@ -36,6 +36,8 @@ use Modules\Tagtoa\App\Http\Controllers\Site\PublicController as SitePublic;
 Route::get('/', [LandingController::class, 'index'])->name('home');
 Route::get('/pay/{alias}', [PayPublic::class, 'show'])->name('tagtoa.pay.show');
 Route::get('/pay/{alias}/checkout/{method}', [PayPublic::class, 'checkout'])->name('tagtoa.pay.checkout');
+// Paiement par CARTE TAGTOA (closed-loop) : tap NFC/UID + PIN → débit instantané.
+Route::post('/pay/{alias}/card/charge', [PayPublic::class, 'cardCharge'])->middleware('throttle:20,1')->name('tagtoa.pay.card.charge');
 // Paiement en ligne via passerelle API (MonCash…). Public.
 Route::get('/pay/result', [\Modules\Tagtoa\App\Http\Controllers\Pay\CheckoutController::class, 'result'])->name('tagtoa.pay.result');
 Route::get('/pay/checkout/{gateway}/{type}/{orderId}', [\Modules\Tagtoa\App\Http\Controllers\Pay\CheckoutController::class, 'start'])->middleware('throttle:30,1')->name('tagtoa.pay.online.start');
@@ -248,6 +250,13 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/{id}/feature', [\Modules\Tagtoa\App\Http\Controllers\Review\DashboardController::class, 'feature'])->name('feature');
         Route::delete('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Review\DashboardController::class, 'destroy'])->name('destroy');
     });
+
+    // CARTE TAGTOA (closed-loop : émission, recharge, blocage, historique)
+    Route::get('/cards', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'index'])->name('tagtoa.cards.index');
+    Route::post('/cards', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'store'])->name('tagtoa.cards.store');
+    Route::get('/cards/{card}', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'show'])->name('tagtoa.cards.show');
+    Route::post('/cards/{card}/topup', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'topUp'])->name('tagtoa.cards.topup');
+    Route::post('/cards/{card}/status', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'setStatus'])->name('tagtoa.cards.status');
 
     // AUDIT (journal — lecture seule)
     Route::get('/audit', [\Modules\Tagtoa\App\Http\Controllers\Audit\DashboardController::class, 'index'])->name('tagtoa.audit.index');

@@ -58,6 +58,66 @@ class PublicController extends Controller
         return redirect()->away($url);
     }
 
+    /**
+     * Paiement par CARTE TAGTOA (closed-loop) : le payeur tape sa carte NFC
+     * (UID) ou saisit son code + PIN + montant → débit instantané du solde.
+     * Aucune passerelle externe : l'argent reste dans TAGTOA.
+     */
+    public function cardCharge(Request $request, string $alias): RedirectResponse
+    {
+        $page = PaymentPage::where('alias', $alias)->where('is_active', true)->firstOrFail();
+
+        $data = $request->validate([
+            'card_uid'  => ['nullable', 'string', 'max:120'],
+            'card_code' => ['nullable', 'string', 'max:40'],
+            'pin'       => ['nullable', 'string', 'max:6'],
+            'amount'    => ['required', 'numeric', 'min:0.01', 'max:99999999'],
+        ]);
+
+        if (empty($data['card_uid']) && empty($data['card_code'])) {
+            return back()->withInput()->with('error', __('Tapez la carte ou saisissez son code.'));
+        }
+
+        $svc = app(\Modules\Tagtoa\App\Services\Card\CardWalletService::class);
+        $card = ! empty($data['card_uid'])
+            ? $svc->resolveByUid($data['card_uid'])
+            : $svc->resolveByCode($data['card_code']);
+
+        if (! $card) {
+            return back()->withInput()->with('error', __('Carte TAGTOA introuvable.'));
+        }
+
+        $res = $svc->charge($card, (float) $data['amount'], $data['pin'] ?? null, [
+            'tenant_id'    => $page->tenant_id,
+            'context_type' => 'pay_page',
+            'context_id'   => $page->id,
+            'module'       => 'pay',
+        ]);
+
+        if (! $res['ok']) {
+            return back()->withInput()->with('error', $res['message']);
+        }
+
+        // Trace la recette pour le marchand (preuve APPROUVÉE au tableau de bord).
+        \Modules\Tagtoa\App\Models\Pay\PaymentProof::firstOrCreate(
+            ['reference' => $res['txn']->reference, 'payment_page_id' => $page->id],
+            [
+                'payment_method_id' => $page->activeMethods()->where('type', 'tagtoa_card')->value('id'),
+                'payer_name'        => $card->holder_name ?: __('Carte TAGTOA'),
+                'payer_phone'       => $card->holder_phone,
+                'amount'            => (float) $data['amount'],
+                'currency'          => $card->currency,
+                'status'            => \Modules\Tagtoa\App\Models\Pay\PaymentProof::STATUS_APPROVED,
+                'note'              => __('Payé par Carte TAGTOA').' ('.$card->masked_code.')',
+                'reviewed_at'       => now(),
+            ]
+        );
+
+        return redirect()->route('tagtoa.pay.show', $page->alias)
+            ->with('proof_submitted', true)
+            ->with('card_paid', __('Paiement accepté. Nouveau solde : :bal', ['bal' => $card->fresh()->balance_label]));
+    }
+
     public function submitProof(Request $request, string $alias): RedirectResponse
     {
         $page = PaymentPage::where('alias', $alias)->where('is_active', true)->firstOrFail();
