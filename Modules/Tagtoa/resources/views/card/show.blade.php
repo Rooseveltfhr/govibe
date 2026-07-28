@@ -25,6 +25,14 @@
             @else<span class="pill n" style="opacity:.7">{{ __('Perdue') }}</span>@endif
         </div>
     </div>
+    @php $rechargeUrl = route('tagtoa.card.recharge').'?code='.urlencode($card->code); @endphp
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line,#eee)">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">{{ __('Lien de recharge en ligne (à partager avec le client)') }}</div>
+        <div style="display:flex;gap:8px;align-items:center">
+            <input class="inp" value="{{ $rechargeUrl }}" readonly onclick="this.select()" style="flex:1">
+            <a href="{{ $rechargeUrl }}" target="_blank" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-up-right-from-square"></i></a>
+        </div>
+    </div>
 </div>
 
 <div class="card">

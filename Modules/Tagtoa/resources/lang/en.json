@@ -893,5 +893,17 @@
     "à synchroniser": "to sync",
     "— Aucun —": "— None —",
     "— Aucune —": "— None —",
-    "Aller sur TAGTOA": "Go to TAGTOA"
+    "Aller sur TAGTOA": "Go to TAGTOA",
+    "Recharger ma carte": "Top up my card",
+    "Rechargez le solde de votre carte TAGTOA en ligne. Utilisable partout sur TAGTOA.": "Top up your TAGTOA card balance online. Usable everywhere on TAGTOA.",
+    "Solde actuel": "Current balance",
+    "Code de la carte": "Card code",
+    "Montant à recharger": "Amount to top up",
+    "Moyen de recharge": "Top-up method",
+    "Recharger maintenant": "Top up now",
+    "Aucun moyen de recharge en ligne n'est disponible pour le moment. Rechargez auprès d'un point de vente TAGTOA.": "No online top-up method is available right now. Top up at a TAGTOA point of sale.",
+    "Crypto (USDT/BTC…)": "Crypto (USDT/BTC…)",
+    "Moyen de recharge indisponible pour cette devise.": "Top-up method unavailable for this currency.",
+    "La recharge en ligne n'a pas pu démarrer. Réessayez.": "Online top-up could not start. Try again.",
+    "Lien de recharge en ligne (à partager avec le client)": "Online top-up link (share with the customer)"
 }

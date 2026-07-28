@@ -893,5 +893,17 @@
     "à synchroniser": "pou senkronize",
     "— Aucun —": "— Okenn —",
     "— Aucune —": "— Pa gen —",
-    "Aller sur TAGTOA": "Ale sou TAGTOA"
+    "Aller sur TAGTOA": "Ale sou TAGTOA",
+    "Recharger ma carte": "Rechaje kat mwen",
+    "Rechargez le solde de votre carte TAGTOA en ligne. Utilisable partout sur TAGTOA.": "Rechaje solde kat TAGTOA ou an liy. Itilizab toupatou sou TAGTOA.",
+    "Solde actuel": "Solde aktyèl",
+    "Code de la carte": "Kòd kat la",
+    "Montant à recharger": "Montan pou rechaje",
+    "Moyen de recharge": "Mwayen rechaj",
+    "Recharger maintenant": "Rechaje kounye a",
+    "Aucun moyen de recharge en ligne n'est disponible pour le moment. Rechargez auprès d'un point de vente TAGTOA.": "Pa gen mwayen rechaj an liy pou kounye a. Rechaje nan yon pwen vant TAGTOA.",
+    "Crypto (USDT/BTC…)": "Crypto (USDT/BTC…)",
+    "Moyen de recharge indisponible pour cette devise.": "Mwayen rechaj pa disponib pou deviz sa a.",
+    "La recharge en ligne n'a pas pu démarrer. Réessayez.": "Rechaj an liy pa t ka kòmanse. Reeseye.",
+    "Lien de recharge en ligne (à partager avec le client)": "Lyen rechaj an liy (pou pataje ak kliyan an)"
 }

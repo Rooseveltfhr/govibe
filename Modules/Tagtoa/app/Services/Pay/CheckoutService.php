@@ -139,6 +139,35 @@ class CheckoutService
     }
 
     /**
+     * Démarre la RECHARGE EN LIGNE d'une carte TAGTOA (le titulaire recharge son
+     * propre solde via une passerelle). Retourne l'URL de redirection, ou null.
+     */
+    public function startCardTopup(\Modules\Tagtoa\App\Models\Card\CardAccount $card, float $amount, string $gateway): ?string
+    {
+        if ($amount <= 0 || ! GatewayManager::enabled($gateway) || ! $card->isSpendable()) {
+            return null;
+        }
+        $driver = $this->driver($gateway);
+        if (! $driver) {
+            return null;
+        }
+
+        $txn = PayTransaction::create([
+            'tenant_id'  => $card->tenant_id,
+            'gateway'    => $gateway,
+            'reference'  => PayTransaction::generateReference(),
+            'order_type' => 'card_topup',
+            'order_id'   => $card->id,
+            'amount'     => $amount,
+            'currency'   => $card->currency,
+            'status'     => PayTransaction::STATUS_PENDING,
+            'meta'       => ['card_id' => $card->id, 'card_code' => $card->code],
+        ]);
+
+        return $driver->createPayment($txn);
+    }
+
+    /**
      * Démarre le paiement d'un ABONNEMENT (forfait). Retourne l'URL de
      * redirection, ou null si le forfait est gratuit / passerelle indisponible.
      */
@@ -194,6 +223,20 @@ class CheckoutService
 
         if ($txn->order_type === 'pay_page') {
             $this->applyPayPagePaid($txn);
+
+            return;
+        }
+
+        if ($txn->order_type === 'card_topup') {
+            $card = \Modules\Tagtoa\App\Models\Card\CardAccount::find((int) $txn->order_id);
+            if ($card) {
+                // Idempotent : la référence de la transaction verrouille la recharge.
+                app(\Modules\Tagtoa\App\Services\Card\CardWalletService::class)->topUp(
+                    $card,
+                    (float) $txn->amount,
+                    ['reference' => 'topup-'.$txn->reference, 'context_type' => 'online_topup', 'meta' => ['gateway' => $txn->gateway]]
+                );
+            }
 
             return;
         }
