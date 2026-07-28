@@ -6,6 +6,7 @@
         ['fa-bolt',     'Transformez chaque tap en vente',          'Site, menu, paiements et fidélité réunis — un seul tap NFC, un seul QR.'],
         ['fa-bag-shopping', 'Votre boutique WhatsApp en 2 minutes',  'Créez une boutique en ligne gratuite et vendez directement sur WhatsApp.'],
         ['fa-money-bill-transfer', 'Encaissez partout, instantanément', 'MonCash, NatCash, cartes, PayPal et crypto — l\'argent arrive en quelques secondes.'],
+        ['fa-credit-card', 'La Carte TAGTOA, votre monnaie', 'Une carte NFC prépayée : vos clients rechargent et paient partout sur TAGTOA, sans cash.'],
     ];
     $services = [
         ['fa-bag-shopping',        'Boutique WhatsApp', 'Vendez en ligne et recevez vos commandes directement sur WhatsApp.', $store, true],
@@ -17,6 +18,7 @@
         ['fa-ticket',              'Événements',   'Billetterie en ligne + contrôle d\'accès NFC/QR à l\'entrée.', url('/event/demo-concert'), false],
         ['fa-calendar-check',      'Réservations', 'Prise de rendez-vous en ligne : prestations, créneaux, confirmation.', url('/book/demo-booking'), false],
         ['fa-cash-register',       'Caisse POS',   'Caisse tactile hors-ligne installable, multi-paiement, rapports.', url('/login'), false],
+        ['fa-credit-card',         'Carte TAGTOA', 'Carte NFC prépayée closed-loop : rechargez, tapez, payez partout sur TAGTOA.', url('/pay/demo'), false],
     ];
     $methods = [
         ['fa-mobile-screen-button','MonCash','#E2001A'], ['fa-mobile-screen','NatCash','#00A859'],
@@ -35,8 +37,12 @@
     <meta name="description" content="{{ __('Site web, boutique WhatsApp, menu, paiements, fidélité et caisse — NFC & QR. La plateforme digitale des entrepreneurs haïtiens.') }}">
     <meta name="theme-color" content="#2cb809">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    {{-- Font Awesome chargé sans bloquer le rendu (les icônes apparaissent juste après le texte) --}}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
     <style>
         :root{
             /* 90% noir & blanc — accents #2cb809 uniquement (boutons + touches de style) */
@@ -298,7 +304,7 @@
 
 <section><div class="wrap">
     <div class="statsrow">
-        <div class="st reveal"><div class="n">9</div><div class="k">{{ __('outils en un') }}</div></div>
+        <div class="st reveal"><div class="n">10</div><div class="k">{{ __('outils en un') }}</div></div>
         <div class="st reveal d1"><div class="n">10+</div><div class="k">{{ __('méthodes de paiement') }}</div></div>
         <div class="st reveal d2"><div class="n">2 min</div><div class="k">{{ __('pour démarrer') }}</div></div>
         <div class="st reveal d3"><div class="n">24/7</div><div class="k">{{ __('disponible') }}</div></div>
@@ -437,6 +443,25 @@
                 <li><i class="fa-solid fa-check"></i> {{ __('Analytics : revenus, ventes, visites') }}</li>
                 <li><i class="fa-solid fa-check"></i> {{ __('CRM : base clients automatique') }}</li>
                 <li><i class="fa-solid fa-check"></i> {{ __('Avis clients, stock et journal d\'audit') }}</li>
+            </ul>
+        </div>
+    </div>
+
+    {{-- Carte TAGTOA (closed-loop) --}}
+    <div class="feat-row rev reveal">
+        <div class="fviz">
+            <div class="fprod"><div class="fph"><i class="fa-solid fa-id-card"></i></div><div><div class="fpn">{{ __('Carte TAGTOA') }}</div><div class="fpp">{{ __('Solde') }} : 1,000 HTG</div></div></div>
+            <div class="fbub out" style="margin-top:6px"><i class="fa-solid fa-bolt"></i> {{ __('Payé — nouveau solde 750 HTG') }}</div>
+            <div class="fkpi" style="margin-top:6px"><div class="k">{{ __('Tap NFC') }} <b>0.4s</b></div><div class="k">{{ __('Sans cash') }} <b>100%</b></div></div>
+        </div>
+        <div>
+            <span class="ftag"><i class="fa-solid fa-credit-card"></i> {{ __('Carte TAGTOA') }}</span>
+            <h3>{{ __('Votre propre carte prépayée, acceptée partout') }}</h3>
+            <p>{{ __('Une carte NFC « closed-loop » qui porte un solde utilisable chez tous vos points de vente TAGTOA. Le client recharge, tape sa carte, et paie en une seconde — sans espèces, sans réseau externe.') }}</p>
+            <ul class="flist">
+                <li><i class="fa-solid fa-check"></i> {{ __('Rechargeable en ligne ou en point de vente') }}</li>
+                <li><i class="fa-solid fa-check"></i> {{ __('Valable sur boutique, menu, événements et caisse') }}</li>
+                <li><i class="fa-solid fa-check"></i> {{ __('Sécurisée par PIN, anti-fraude, solde protégé') }}</li>
             </ul>
         </div>
     </div>
