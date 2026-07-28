@@ -260,6 +260,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     Route::get('/cards', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'index'])->name('tagtoa.cards.index');
     Route::post('/cards', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'store'])->name('tagtoa.cards.store');
     Route::get('/cards/{card}', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'show'])->name('tagtoa.cards.show');
+    Route::get('/cards/{card}/print', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'printCard'])->name('tagtoa.cards.print');
     Route::post('/cards/{card}/topup', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'topUp'])->name('tagtoa.cards.topup');
     Route::post('/cards/{card}/status', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'setStatus'])->name('tagtoa.cards.status');
 
@@ -294,4 +295,7 @@ Route::middleware(['auth', 'valid.user', 'role:super_admin'])->prefix('tagtoa/ad
     // Édition des forfaits TAGTOA (prix + limites) — fondateur.
     Route::get('/plans', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\PlanController::class, 'index'])->name('tagtoa.superadmin.plans');
     Route::put('/plans', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\PlanController::class, 'update'])->name('tagtoa.superadmin.plans.update');
+    // Crédits d'activation de cartes officielles (accorder/vendre aux revendeurs).
+    Route::get('/card-credits', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\CardCreditController::class, 'index'])->name('tagtoa.superadmin.credits');
+    Route::post('/card-credits', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\CardCreditController::class, 'grant'])->name('tagtoa.superadmin.credits.grant');
 });

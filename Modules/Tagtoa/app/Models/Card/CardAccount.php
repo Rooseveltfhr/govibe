@@ -18,11 +18,14 @@ class CardAccount extends Model
 
     protected $fillable = [
         'tenant_id', 'uid_hash', 'uid_enc', 'code', 'holder_name', 'holder_phone',
-        'currency', 'balance_minor', 'pin_hash', 'status', 'issued_at', 'last_used_at',
+        'currency', 'balance_minor', 'pin_hash', 'status', 'official', 'activated_at',
+        'issued_at', 'last_used_at',
     ];
 
     protected $casts = [
         'balance_minor' => 'integer',
+        'official'      => 'boolean',
+        'activated_at'  => 'datetime',
         'issued_at'     => 'datetime',
         'last_used_at'  => 'datetime',
     ];

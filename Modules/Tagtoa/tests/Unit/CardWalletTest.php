@@ -57,6 +57,25 @@ class CardWalletTest extends TestCase
         $this->assertSame(1000, CardWallet::applyTopup(1000, -50));  // recharge négative ignorée
     }
 
+    public function test_effective_quota_and_activation(): void
+    {
+        // Forfait illimité (null) → illimité, aucun crédit consommé.
+        $this->assertNull(CardWallet::effectiveQuota(null, 50));
+        $this->assertTrue(CardWallet::canActivate(null, 0, 999999));
+        $this->assertFalse(CardWallet::consumesCredit(null, 100));
+
+        // Forfait = 0 (bloqué), + 5 crédits achetés → quota effectif 5.
+        $this->assertSame(5, CardWallet::effectiveQuota(0, 5));
+        $this->assertTrue(CardWallet::canActivate(0, 5, 4));
+        $this->assertFalse(CardWallet::canActivate(0, 5, 5)); // quota atteint
+        $this->assertTrue(CardWallet::consumesCredit(0, 0));  // dès la 1re, on puise dans les crédits
+
+        // Forfait = 10, 3 crédits → 13. Les crédits ne se consomment qu'après 10.
+        $this->assertSame(13, CardWallet::effectiveQuota(10, 3));
+        $this->assertFalse(CardWallet::consumesCredit(10, 9));  // encore dans le quota forfait
+        $this->assertTrue(CardWallet::consumesCredit(10, 10));  // au-delà → crédit
+    }
+
     public function test_pin_format(): void
     {
         $this->assertTrue(CardWallet::isValidPinFormat('1234'));

@@ -121,6 +121,7 @@
             @if($isSuper)
                 <span class="sep">{{ __('Plateforme') }}</span>
                 <a href="{{ url('/tagtoa/admin/plans') }}" class="{{ request()->is('tagtoa/admin/plans*') ? 'on' : '' }}"><i class="fa-solid fa-layer-group"></i> {{ __('Forfaits TAGTOA') }}</a>
+                <a href="{{ url('/tagtoa/admin/card-credits') }}" class="{{ request()->is('tagtoa/admin/card-credits*') ? 'on' : '' }}"><i class="fa-solid fa-coins"></i> {{ __('Crédits cartes') }}</a>
                 <a href="{{ url('/sadmin/dashboard') }}"><i class="fa-solid fa-shield-halved"></i> {{ __('Super Admin') }}</a>
             @endif
         </nav>

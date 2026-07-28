@@ -12,10 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup PHP 8.2
+      - name: Setup PHP 8.3
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.2"
+          # 8.3 : les dépendances de l'app (PHPUnit 12, Laravel récent) l'exigent.
+          php-version: "8.3"
           coverage: none
           tools: composer:v2
 

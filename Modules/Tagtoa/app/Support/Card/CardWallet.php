@@ -94,4 +94,40 @@ class CardWallet
     {
         return 'CARD-'.strtoupper(bin2hex(random_bytes(5)));
     }
+
+    /**
+     * Quota effectif d'activation de cartes officielles : limite du forfait
+     * (null = illimité) + crédits d'activation achetés. PUR.
+     *
+     * @return int|null null = illimité
+     */
+    public static function effectiveQuota($planLimit, int $credits): ?int
+    {
+        if ($planLimit === null) {
+            return null; // forfait illimité
+        }
+
+        return max(0, (int) $planLimit) + max(0, $credits);
+    }
+
+    /** Peut-on activer une carte de plus ? (quota null = illimité). PUR. */
+    public static function canActivate($planLimit, int $credits, int $usage): bool
+    {
+        $quota = self::effectiveQuota($planLimit, $credits);
+
+        return $quota === null || $usage < $quota;
+    }
+
+    /**
+     * Une activation consomme-t-elle un crédit acheté ? Oui seulement quand
+     * l'usage dépasse le quota de base du forfait (les crédits complètent). PUR.
+     */
+    public static function consumesCredit($planLimit, int $usage): bool
+    {
+        if ($planLimit === null) {
+            return false; // illimité → jamais de crédit
+        }
+
+        return $usage >= max(0, (int) $planLimit);
+    }
 }

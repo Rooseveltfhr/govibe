@@ -959,5 +959,13 @@
     "Déjà un compte ?": "Already have an account?",
     "Partager l'événement": "Share the event",
     "Partager": "Share",
-    "Publiez l'événement (case « Publié » ci-dessous) pour obtenir le lien de partage.": "Publish the event (« Published » box below) to get the share link."
+    "Publiez l'événement (case « Publié » ci-dessous) pour obtenir le lien de partage.": "Publish the event (« Published » box below) to get the share link.",
+    "Obligatoire — sécurise la carte": "Required — secures the card",
+    "Crédits cartes": "Card credits",
+    "Imprimer la carte": "Print the card",
+    "Carte officielle activée : :code": "Official card activated: :code",
+    "Quota de cartes atteint. Passez à un forfait Revendeur/Franchise ou obtenez des crédits d'activation.": "Card quota reached. Upgrade to a Reseller/Franchise plan or get activation credits.",
+    "Crédits d'activation": "Activation credits",
+    "Crédits d'activation de cartes": "Card activation credits",
+    "Accorder des crédits": "Grant credits"
 }
