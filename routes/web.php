@@ -21,6 +21,7 @@ use App\Http\Controllers\ERP\Reports\ReportController;
 use App\Http\Controllers\ERP\Academy\AcademyERPController;
 use App\Http\Controllers\ERP\Academy\BootcampAdminController;
 use App\Http\Controllers\ERP\Services\ServiceController;
+use App\Http\Controllers\ERP\CRM\NotificationController;
 use App\Http\Controllers\BootcampController;
 use Illuminate\Support\Facades\Route;
 
@@ -35,6 +36,9 @@ Route::get('/inscription', [InscriptionController::class, 'create'])->name('insc
 Route::post('/inscription', [InscriptionController::class, 'store'])->name('inscription.store');
 Route::get('/inscription/qr/{inscription}', [InscriptionController::class, 'qr'])->name('inscription.qr');
 Route::post('/inscription/scan', [InscriptionController::class, 'scan'])->name('inscription.scan');
+
+// Public: Tarifs / Packages
+Route::get('/tarifs', [PageController::class, 'tarifs'])->name('tarifs');
 
 // GOVIBE AI Bootcamp 2026
 Route::get('/bootcamp-ai-2026', [BootcampController::class, 'landing'])->name('bootcamp.landing');
@@ -84,6 +88,8 @@ Route::prefix('erp')->name('erp.')->group(function () {
         // ── CRM ──────────────────────────────────────────
         Route::prefix('crm')->name('crm.')->group(function () {
             Route::resource('clients', ClientController::class);
+            Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+            Route::post('/notifications/send', [NotificationController::class, 'send'])->name('notifications.send');
         });
 
         // ── Projects ──────────────────────────────────────

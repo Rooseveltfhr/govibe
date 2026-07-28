@@ -4,6 +4,7 @@ namespace App\Http\Controllers\ERP\Academy;
 
 use App\Http\Controllers\Controller;
 use App\Models\BootcampRegistration;
+use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -39,13 +40,15 @@ class BootcampAdminController extends Controller
         return view('erp.academy.bootcamp.show', compact('registration'));
     }
 
-    public function approve(BootcampRegistration $registration): RedirectResponse
+    public function approve(BootcampRegistration $registration, NotificationService $notif): RedirectResponse
     {
         $registration->update([
             'status'      => 'approved',
             'approved_at' => now(),
             'approved_by' => Auth::id(),
         ]);
+
+        $notif->bootcampApproval($registration->fresh());
 
         return back()->with('success', "Inscription de {$registration->full_name} approuvée.");
     }

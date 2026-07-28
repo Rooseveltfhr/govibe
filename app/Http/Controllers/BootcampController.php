@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BootcampRegistration;
+use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -17,7 +18,7 @@ class BootcampController extends Controller
         return view('bootcamp.landing', compact('paymentSettings', 'modules'));
     }
 
-    public function register(Request $request): RedirectResponse
+    public function register(Request $request, NotificationService $notif): RedirectResponse
     {
         $data = $request->validate([
             'full_name'      => ['required', 'string', 'max:255'],
@@ -42,13 +43,15 @@ class BootcampController extends Controller
         $amount = isset($mod['price_usd']) ? $mod['price_usd'] : $mod['price_htg'];
         $currency = isset($mod['price_usd']) ? 'USD' : 'HTG';
 
-        BootcampRegistration::create([
+        $reg = BootcampRegistration::create([
             ...$data,
             'payment_proof_path' => $proofPath,
             'amount'   => $amount,
             'currency' => $currency,
             'status'   => 'pending',
         ]);
+
+        $notif->bootcampConfirmation($reg);
 
         return redirect()->route('bootcamp.landing')
             ->with('success', 'Inscription reçue ! Nous vérifierons votre paiement et vous contacterons sous 24h.');

@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    'whatsapp' => [
+        'driver'        => env('WHATSAPP_DRIVER', 'log'),
+        'callmebot_key' => env('CALLMEBOT_API_KEY', ''),
+    ],
+
+    'twilio' => [
+        'sid'     => env('TWILIO_ACCOUNT_SID', ''),
+        'token'   => env('TWILIO_AUTH_TOKEN', ''),
+        'wa_from' => env('TWILIO_WA_FROM', ''),
+    ],
+
 ];

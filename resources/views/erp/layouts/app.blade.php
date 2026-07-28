@@ -135,9 +135,13 @@
 
             <div class="sidebar-section mt-2">Business</div>
 
-            <a href="{{ route('erp.crm.clients.index') }}" class="sidebar-link {{ request()->routeIs('erp.crm.*') ? 'active' : '' }}">
+            <a href="{{ route('erp.crm.clients.index') }}" class="sidebar-link {{ request()->routeIs('erp.crm.clients*') ? 'active' : '' }}">
                 <i class="bi bi-people-fill icon"></i>
                 <span class="label">CRM / Clients</span>
+            </a>
+            <a href="{{ route('erp.crm.notifications.index') }}" class="sidebar-link {{ request()->routeIs('erp.crm.notifications*') ? 'active' : '' }}">
+                <i class="bi bi-send-fill icon"></i>
+                <span class="label">Notifications</span>
             </a>
             <a href="{{ route('erp.projects.index') }}" class="sidebar-link {{ request()->routeIs('erp.projects.*') ? 'active' : '' }}">
                 <i class="bi bi-kanban-fill icon"></i>

@@ -332,6 +332,7 @@
         </ul>
       </li>
 
+      <li><a href="{{ route('tarifs') }}"><i class="fas fa-tags fa-xs"></i> Tarifs</a></li>
       <li><a href="{{ route('home') }}#reservation" data-i18n="nav_contact">Contact</a></li>
     </ul>
 
@@ -383,6 +384,7 @@
         <li><a href="{{ route('inscription.create') }}"><i class="fas fa-user-plus fa-xs"></i> S'inscrire</a></li>
         <li><a href="{{ route('home') }}#programmes"><i class="fas fa-seedling fa-xs"></i> Incubation</a></li>
         <li><a href="{{ route('home') }}#programmes"><i class="fas fa-credit-card fa-xs"></i> Crédit Digital</a></li>
+        <li><a href="{{ route('tarifs') }}"><i class="fas fa-tags fa-xs"></i> Tarifs & Plans</a></li>
         <li><a href="{{ route('about') }}"><i class="fas fa-info-circle fa-xs"></i> À propos</a></li>
         <li><a href="#"><i class="fas fa-newspaper fa-xs"></i> News & Blog</a></li>
         <li><a href="#"><i class="fas fa-briefcase fa-xs"></i> Jobs & Carrières</a></li>

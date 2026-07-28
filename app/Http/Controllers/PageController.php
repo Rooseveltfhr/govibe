@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SubscriptionPlan;
 use Illuminate\Http\Request;
 
 class PageController extends Controller
@@ -29,5 +30,18 @@ class PageController extends Controller
     public function academy()
     {
         return view('academy');
+    }
+
+    public function tarifs(): \Illuminate\View\View
+    {
+        $plans = SubscriptionPlan::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
+
+        if ($plans->isEmpty()) {
+            $plans = collect(SubscriptionPlan::defaults())->map(fn($p) => (object) $p);
+        }
+
+        return view('tarifs', compact('plans'));
     }
 }
