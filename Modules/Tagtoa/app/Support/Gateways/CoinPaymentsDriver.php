@@ -81,7 +81,7 @@ class CoinPaymentsDriver implements GatewayDriver
     protected function call(array $payload): ?array
     {
         try {
-            $res = Http::asForm()->acceptJson()->timeout(20)
+            $res = Http::asForm()->acceptJson()->connectTimeout(5)->timeout(10)
                 ->withHeaders(['HMAC' => CoinPayments::sign($payload, $this->privateKey)])
                 ->post(CoinPayments::API_URL, $payload);
 

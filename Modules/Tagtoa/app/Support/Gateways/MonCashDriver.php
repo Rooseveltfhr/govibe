@@ -41,7 +41,7 @@ class MonCashDriver implements GatewayDriver
 
         try {
             $res = Http::withToken($token)->acceptJson()->asJson()
-                ->timeout(20)
+                ->connectTimeout(5)->timeout(10)
                 ->post(MonCash::apiBase($this->mode).'/v1/CreatePayment', [
                     'amount'  => MonCash::amount($txn->amount),
                     'orderId' => $txn->reference,
@@ -71,7 +71,7 @@ class MonCashDriver implements GatewayDriver
 
         try {
             $res = Http::withToken($token)->acceptJson()->asJson()
-                ->timeout(20)
+                ->connectTimeout(5)->timeout(10)
                 ->post(MonCash::apiBase($this->mode).'/v1/RetrieveTransactionPayment', [
                     'orderId' => $txn->reference,
                 ]);
@@ -104,7 +104,7 @@ class MonCashDriver implements GatewayDriver
 
         try {
             $res = Http::withBasicAuth($this->clientId, $this->secret)
-                ->asForm()->acceptJson()->timeout(20)
+                ->asForm()->acceptJson()->connectTimeout(5)->timeout(10)
                 ->post(MonCash::apiBase($this->mode).'/oauth/token', [
                     'scope'      => 'read,write',
                     'grant_type' => 'client_credentials',
