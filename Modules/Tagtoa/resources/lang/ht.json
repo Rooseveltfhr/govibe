@@ -905,5 +905,13 @@
     "Crypto (USDT/BTC…)": "Crypto (USDT/BTC…)",
     "Moyen de recharge indisponible pour cette devise.": "Mwayen rechaj pa disponib pou deviz sa a.",
     "La recharge en ligne n'a pas pu démarrer. Réessayez.": "Rechaj an liy pa t ka kòmanse. Reeseye.",
-    "Lien de recharge en ligne (à partager avec le client)": "Lyen rechaj an liy (pou pataje ak kliyan an)"
+    "Lien de recharge en ligne (à partager avec le client)": "Lyen rechaj an liy (pou pataje ak kliyan an)",
+    "Payer avec ma Carte TAGTOA": "Peye ak Kat TAGTOA mwen",
+    "Tapez votre carte ou saisissez son code + PIN. Débité :": "Tape kat ou oswa antre kòd + PIN li. Debite :",
+    "ou code TAG…": "oswa kòd TAG…",
+    "Payer avec la carte": "Peye ak kat la",
+    "NFC non supporté. Saisissez le code.": "NFC pa sipòte. Antre kòd la.",
+    "Paiement accepté par Carte TAGTOA. Vos billets sont confirmés.": "Peman aksepte ak Kat TAGTOA. Biyè ou yo konfime.",
+    "La devise de la carte ne correspond pas à celle de la commande.": "Deviz kat la pa koresponn ak deviz kòmand lan.",
+    "UID (auto)": "UID (otomatik)"
 }

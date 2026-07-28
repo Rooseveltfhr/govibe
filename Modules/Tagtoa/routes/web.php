@@ -55,6 +55,8 @@ Route::get('/store/{alias}', [\Modules\Tagtoa\App\Http\Controllers\Store\PublicC
 Route::get('/events', [EventPublic::class, 'index'])->name('tagtoa.events.index');
 Route::get('/event/{alias}', [EventPublic::class, 'show'])->name('tagtoa.event.show');
 Route::get('/event/order/{reference}', [EventPublic::class, 'order'])->name('tagtoa.event.order');
+// Paiement d'une commande de billets par Carte TAGTOA (closed-loop).
+Route::post('/event/order/{reference}/card-pay', [EventPublic::class, 'cardPay'])->middleware('throttle:20,1')->name('tagtoa.event.order.card');
 Route::get('/event/ticket/{code}', [EventPublic::class, 'ticket'])->name('tagtoa.event.ticket');
 Route::get('/event/wallet/receipt/{reference}', [EventPublic::class, 'walletReceipt'])->name('tagtoa.event.wallet.receipt');
 Route::get('/book/{alias}', [BookingPublic::class, 'show'])->name('tagtoa.booking.show');
