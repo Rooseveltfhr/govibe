@@ -42,7 +42,7 @@
                     @endforeach
                 </select>
             </div>
-            <div><label class="lbl">{{ __('PIN (4-6 chiffres)') }}</label><input class="inp" name="pin" inputmode="numeric" maxlength="6" pattern="\d{4,6}" value="{{ old('pin') }}" placeholder="{{ __('Optionnel') }}"></div>
+            <div><label class="lbl">{{ __('PIN (4-6 chiffres)') }} *</label><input class="inp" name="pin" inputmode="numeric" maxlength="6" pattern="\d{4,6}" value="{{ old('pin') }}" placeholder="{{ __('Obligatoire — sécurise la carte') }}" required></div>
             <div><label class="lbl">{{ __('Recharge initiale') }}</label><input class="inp" name="initial_amount" type="number" step="0.01" min="0" value="{{ old('initial_amount') }}" placeholder="0.00"></div>
         </div>
         <button class="btn btn-p" type="submit" style="margin-top:14px"><i class="fa-solid fa-plus"></i> {{ __('Émettre la carte') }}</button>

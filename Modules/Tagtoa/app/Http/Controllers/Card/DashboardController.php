@@ -68,7 +68,9 @@ class DashboardController extends Controller
             'holder_name'    => ['nullable', 'string', 'max:120'],
             'holder_phone'   => ['nullable', 'string', 'max:40'],
             'currency'       => ['required', 'string', 'size:3'],
-            'pin'            => ['nullable', 'regex:/^\d{4,6}$/'],
+            // PIN OBLIGATOIRE : une carte de paiement porte de l'argent → un UID
+            // cloné seul reste inutilisable sans le PIN (anti-clone des tags simples).
+            'pin'            => ['required', 'regex:/^\d{4,6}$/'],
             'initial_amount' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
         ]);
 
