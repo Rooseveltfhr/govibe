@@ -33,3 +33,4 @@ require_once $base.'/Support/Money.php';
 require_once $base.'/Support/Dev/RouteNames.php';
 require_once $base.'/Support/Nfc/AesCmac.php';
 require_once $base.'/Support/Nfc/Ntag424.php';
+require_once $base.'/Support/Nfc/SunVerifier.php';
