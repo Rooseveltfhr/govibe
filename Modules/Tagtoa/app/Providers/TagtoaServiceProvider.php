@@ -16,8 +16,22 @@ class TagtoaServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->overrideAuthViews();
+        $this->registerAdminLauncher();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/migrations'));
         $this->loadJsonTranslationsFrom(module_path($this->moduleName, 'resources/lang'));
+    }
+
+    /**
+     * Ajoute un bouton flottant « TAGTOA » sur les pages d'admin Biztap (/sadmin)
+     * pour accéder au hub TAGTOA. Non invasif (aucune vue du cœur modifiée).
+     */
+    protected function registerAdminLauncher(): void
+    {
+        try {
+            $this->app['router']->pushMiddlewareToGroup('web', \Modules\Tagtoa\App\Http\Middleware\InjectTagtoaLauncher::class);
+        } catch (\Throwable $e) {
+            // sans le bouton, l'admin reste accessible via /tagtoa/home
+        }
     }
 
     /**
