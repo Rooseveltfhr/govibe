@@ -145,6 +145,8 @@ jobs:
           RV=$(find "$L/resources/views" -maxdepth 4 -iname 'register.blade.php' 2>/dev/null | head -1)
           echo "fichier: ${RV:-introuvable}"
           [ -n "$RV" ] && grep -oE 'name="[^"]+"' "$RV" | sort -u
+          echo "== register.blade.php (COMPLET, pour override fidèle) =="
+          [ -n "$RV" ] && cat "$RV" 2>/dev/null || echo "absent"
           echo "== route(s) register (web.php) =="
           grep -nE "register|Register" "$L/routes/web.php" 2>/dev/null | head -10
           echo "== RegisterController (règles de validation) =="

@@ -436,7 +436,7 @@
     "NFC nécessite une connexion.": "NFC requiere conexión.",
     "Net": "Neto",
     "Net marchand": "Neto del comercio",
-    "Nom": "Nombre",
+    "Nom": "Apellido",
     "Nom (VIP…)": "Nombre (VIP…)",
     "Nom complet": "Nombre completo",
     "Nom de la boutique": "Nombre de la tienda",
@@ -945,5 +945,16 @@
     "Limites": "Límites",
     "Enregistrer les forfaits": "Guardar planes",
     "Forfaits mis à jour.": "Planes actualizados.",
-    "Ma carte de visite": "Mi tarjeta de visita"
+    "Ma carte de visite": "Mi tarjeta de visita",
+    "Lancez votre business en quelques minutes.": "Lanza tu negocio en minutos.",
+    "C'est gratuit et rapide.": "Es gratis y rápido.",
+    "Prénom": "Nombre",
+    "Confirmer le mot de passe": "Confirmar contraseña",
+    "Code de parrainage": "Código de referido",
+    "optionnel": "opcional",
+    "En m'inscrivant, j'accepte les": "Al registrarme, acepto los",
+    "conditions": "términos",
+    "la politique de confidentialité": "la política de privacidad",
+    "Créer mon compte": "Crear mi cuenta",
+    "Déjà un compte ?": "¿Ya tienes cuenta?"
 }
