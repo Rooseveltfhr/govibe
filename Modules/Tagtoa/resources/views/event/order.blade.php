@@ -23,8 +23,31 @@
 <body>
 <div class="wrap">
     <div class="ok"><i class="fa-solid fa-circle-check"></i><h1>{{ $order->isPaid() ? __('Billets confirmés!') : __('Commande créée') }}</h1><p>{{ __('Référence') }} : <b>{{ $order->reference }}</b></p></div>
-    @if(! $order->isPaid() && $event->payPage)
-        <a class="pay" href="{{ url('/pay/'.$event->payPage->alias) }}"><i class="fa-solid fa-credit-card"></i> {{ __('Payer') }} {{ number_format($order->total,2) }} {{ $order->currency }}</a>
+    @if(session('card_paid'))
+        <div style="background:#eef9e8;border:1px solid var(--green);border-radius:14px;padding:14px;margin:14px 0;text-align:center;font-weight:600"><i class="fa-solid fa-circle-check"></i> {{ session('card_paid') }}</div>
+    @endif
+    @if(session('error'))
+        <div style="background:#fde8e8;color:#a01919;border-radius:14px;padding:12px 14px;margin:14px 0;font-size:14px"><i class="fa-solid fa-circle-exclamation"></i> {{ session('error') }}</div>
+    @endif
+    @if(! $order->isPaid())
+        @if($event->payPage)
+            <a class="pay" href="{{ url('/pay/'.$event->payPage->alias) }}"><i class="fa-solid fa-credit-card"></i> {{ __('Payer') }} {{ number_format($order->total,2) }} {{ $order->currency }}</a>
+        @endif
+        <form method="POST" action="{{ route('tagtoa.event.order.card', $order->reference) }}" style="background:rgba(44,184,9,.06);border-radius:14px;padding:16px;margin:12px 0">
+            @csrf
+            <b style="font-family:var(--fh);display:block;margin-bottom:4px"><i class="fa-solid fa-id-card" style="color:var(--green)"></i> {{ __('Payer avec ma Carte TAGTOA') }}</b>
+            <p style="color:#6b7865;font-size:13px;margin:0 0 10px">{{ __('Tapez votre carte ou saisissez son code + PIN. Débité :') }} <b>{{ number_format($order->total,2) }} {{ $order->currency }}</b></p>
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+                <input id="evCardUid" name="card_uid" placeholder="{{ __('UID (auto)') }}" readonly style="flex:1;border:1px solid rgba(14,20,12,.16);border-radius:10px;padding:11px 12px;font-size:15px;background:#fbfcfa">
+                <button type="button" onclick="evReadCard()" style="flex:0;border:1px solid var(--green);background:#fff;color:var(--green);border-radius:10px;padding:0 14px;font-weight:600"><i class="fa-solid fa-wifi"></i></button>
+            </div>
+            <input name="card_code" placeholder="{{ __('ou code TAG…') }}" style="width:100%;box-sizing:border-box;border:1px solid rgba(14,20,12,.16);border-radius:10px;padding:11px 12px;font-size:15px;text-transform:uppercase;margin-bottom:8px">
+            <input name="pin" inputmode="numeric" maxlength="6" placeholder="{{ __('PIN') }}" style="width:100%;box-sizing:border-box;border:1px solid rgba(14,20,12,.16);border-radius:10px;padding:11px 12px;font-size:15px;margin-bottom:10px">
+            <button type="submit" style="width:100%;background:var(--green);color:#fff;border:0;border-radius:12px;padding:14px;font-weight:700;font-size:15px"><i class="fa-solid fa-bolt"></i> {{ __('Payer avec la carte') }}</button>
+        </form>
+        <script>
+        function evReadCard(){if(!('NDEFReader' in window)){alert('{{ __('NFC non supporté. Saisissez le code.') }}');return;}try{var r=new NDEFReader();r.scan().then(function(){r.onreading=function(e){if(e.serialNumber){document.getElementById('evCardUid').value=e.serialNumber;}};}).catch(function(){});}catch(x){}}
+        </script>
     @endif
     <div class="summary">
         <div class="kv"><span>{{ __('Acheteur') }}</span><b>{{ $order->buyer_name }}</b></div>

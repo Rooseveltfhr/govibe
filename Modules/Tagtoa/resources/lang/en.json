@@ -905,5 +905,13 @@
     "Crypto (USDT/BTC…)": "Crypto (USDT/BTC…)",
     "Moyen de recharge indisponible pour cette devise.": "Top-up method unavailable for this currency.",
     "La recharge en ligne n'a pas pu démarrer. Réessayez.": "Online top-up could not start. Try again.",
-    "Lien de recharge en ligne (à partager avec le client)": "Online top-up link (share with the customer)"
+    "Lien de recharge en ligne (à partager avec le client)": "Online top-up link (share with the customer)",
+    "Payer avec ma Carte TAGTOA": "Pay with my TAGTOA Card",
+    "Tapez votre carte ou saisissez son code + PIN. Débité :": "Tap your card or enter its code + PIN. Charged:",
+    "ou code TAG…": "or TAG code…",
+    "Payer avec la carte": "Pay with the card",
+    "NFC non supporté. Saisissez le code.": "NFC not supported. Enter the code.",
+    "Paiement accepté par Carte TAGTOA. Vos billets sont confirmés.": "Payment accepted by TAGTOA Card. Your tickets are confirmed.",
+    "La devise de la carte ne correspond pas à celle de la commande.": "The card currency does not match the order currency.",
+    "UID (auto)": "UID (auto)"
 }
