@@ -7,7 +7,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $store->name }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     @php $accent = $store->accent_color ?: '#2cb809'; @endphp
     <style>
         :root{--acc:{{ $accent }};--ink:#0e140c;--bg:#f5f7f3;--surf:#fff;--mut:#6b7865;--bd:rgba(14,20,12,.10);--red:#d6402f;

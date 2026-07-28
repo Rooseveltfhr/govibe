@@ -8,7 +8,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $page->title ?: __('Paiement') }} — TAGTOA</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     <style>
         :root{--blk:#0A0A0A;--bg:#F5F5F3;--sf:#fff;--blue:#2cb809;--blue-deep:#239406;--blue-pale:rgba(44,184,9,.08);--green:#1D9E75;--red:#E0473E;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0}

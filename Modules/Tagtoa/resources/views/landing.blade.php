@@ -38,11 +38,10 @@
     <meta name="theme-color" content="#2cb809">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
-    {{-- Font Awesome chargé sans bloquer le rendu (les icônes apparaissent juste après le texte) --}}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
+    {{-- Font Awesome auto-hébergé, chargé sans bloquer le rendu --}}
+    <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css"></noscript>
     <style>
         :root{
             /* 90% noir & blanc — accents #2cb809 uniquement (boutons + touches de style) */
@@ -547,10 +546,12 @@
 </div></section>
 
 @php
-    $testimonials = [
-        ['Marc-Antoine Joseph', 'Restaurant · Pétion-Ville', 'Depuis TAGTOA, mes clients commandent par QR et paient en ligne. Mes ventes ont augmenté et je perds moins de temps.'],
-        ['Naïka Pierre', 'Salon de beauté · Cap-Haïtien', 'Ma boutique WhatsApp était prête en quelques minutes. Mes rendez-vous se remplissent tout seuls maintenant.'],
-        ['Frantz Délouis', 'Boutique · Gonaïves', 'Un seul lien pour MonCash, NatCash et cartes. Simple pour moi, simple pour mes clients.'],
+    // Cas d'usage par métier (pas de faux témoignages : des scénarios concrets).
+    $usecases = [
+        ['fa-utensils',      'Restaurants & lounges', 'Menu par QR, commande à table et paiement en ligne — moins d\'attente, plus de tables servies.'],
+        ['fa-scissors',      'Salons & services',     'Boutique et prise de rendez-vous prêtes en minutes : votre agenda se remplit tout seul.'],
+        ['fa-bag-shopping',  'Boutiques & vente',     'Un seul lien pour MonCash, NatCash et cartes — simple pour vous, simple pour vos clients.'],
+        ['fa-champagne-glasses', 'Événements & clubs', 'Billetterie, carte NFC prépayée et contrôle d\'accès — encaissez vite, sans cash à l\'entrée.'],
     ];
     $faqs = [
         ['Combien de temps pour démarrer ?', 'Quelques minutes. Créez votre compte, ajoutez vos produits et partagez votre lien ou votre QR — c\'est en ligne immédiatement.'],
@@ -563,18 +564,18 @@
 
 <section class="bg2"><div class="wrap">
     <div class="center">
-        <span class="ey reveal">{{ __('Ils nous font confiance') }}</span>
-        <h2 class="reveal d1">{{ __('Des business qui grandissent avec TAGTOA') }}</h2>
+        <span class="ey reveal">{{ __('Pour chaque métier') }}</span>
+        <h2 class="reveal d1">{{ __('Conçu pour votre business') }}</h2>
+        <p class="lead reveal d2">{{ __('Quel que soit votre secteur, TAGTOA s\'adapte à votre façon de vendre et d\'encaisser.') }}</p>
     </div>
     <div class="tgrid">
-        @foreach($testimonials as $t)
+        @foreach($usecases as $u)
             <div class="tcard reveal">
-                <div class="tstars">@for($i=0;$i<5;$i++)<i class="fa-solid fa-star"></i>@endfor</div>
-                <p class="tquote">« {{ __($t[2]) }} »</p>
-                <div class="tu">
-                    <div class="tav">{{ \Illuminate\Support\Str::substr($t[0],0,1) }}</div>
-                    <div><div class="tnm">{{ $t[0] }}</div><div class="tro">{{ __($t[1]) }}</div></div>
+                <div class="tu" style="margin-top:0;margin-bottom:14px">
+                    <div class="tav"><i class="fa-solid {{ $u[0] }}"></i></div>
+                    <div class="tnm">{{ __($u[1]) }}</div>
                 </div>
+                <p class="tquote">{{ __($u[2]) }}</p>
             </div>
         @endforeach
     </div>

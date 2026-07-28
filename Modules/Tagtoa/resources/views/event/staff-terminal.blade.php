@@ -8,7 +8,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $event->title }} — {{ __('Staff') }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     {{-- Scanner QR auto-hébergé (pas de CDN) : check-in par caméra même sans réseau tiers. --}}
     <script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}"></script>
     <style>
