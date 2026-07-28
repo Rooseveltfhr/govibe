@@ -19,7 +19,9 @@
                 <div class="row" style="margin-top:14px;gap:8px">
                     <a href="{{ route('tagtoa.links.dashboard.edit',$p->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-pen"></i> {{ __('Modifier') }}</a>
                     <form method="POST" action="{{ route('tagtoa.links.dashboard.destroy',$p->id) }}" onsubmit="return confirm('{{ __('Supprimer?') }}')" style="flex:0">@csrf @method('DELETE')<button class="btn btn-o btn-sm" style="color:var(--red)"><i class="fa-solid fa-trash"></i></button></form>
+                    <button type="button" class="btn btn-o btn-sm" style="flex:0" onclick="var b=document.getElementById('sh-links-{{ $p->id }}');b.style.display=b.style.display==='none'?'block':'none'"><i class="fa-solid fa-share-nodes"></i> {{ __('Partager') }}</button>
                 </div>
+                <div id="sh-links-{{ $p->id }}" style="display:none;margin-top:12px">@include('tagtoa::partials.share-buttons', ['url' => url('/links/'.$p->alias), 'title' => $p->title ?? $p->alias])</div>
             </div>
         @endforeach
     </div>

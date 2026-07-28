@@ -30,7 +30,9 @@
                     <form method="POST" action="{{ route('tagtoa.pay.dashboard.destroy',$p->id) }}" onsubmit="return confirm('{{ __('Supprimer?') }}')" style="flex:0">
                         @csrf @method('DELETE')<button class="btn btn-o btn-sm" style="color:var(--red)"><i class="fa-solid fa-trash"></i></button>
                     </form>
+                    <button type="button" class="btn btn-o btn-sm" style="flex:0" onclick="var b=document.getElementById('sh-pay-{{ $p->id }}');b.style.display=b.style.display==='none'?'block':'none'"><i class="fa-solid fa-share-nodes"></i> {{ __('Partager') }}</button>
                 </div>
+                <div id="sh-pay-{{ $p->id }}" style="display:none;margin-top:12px">@include('tagtoa::partials.share-buttons', ['url' => url('/pay/'.$p->alias), 'title' => $p->title ?? $p->alias])</div>
             </div>
         @endforeach
     </div>
