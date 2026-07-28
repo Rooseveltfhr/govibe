@@ -171,6 +171,18 @@ Route::prefix('erp')->name('erp.')->group(function () {
         // ── Reports ───────────────────────────────────────
         Route::prefix('reports')->name('reports.')->group(function () {
             Route::get('/', [ReportController::class, 'index'])->name('index');
+            Route::get('/formations', [ReportController::class, 'formations'])->name('formations');
+            Route::get('/bootcamp', [ReportController::class, 'bootcamp'])->name('bootcamp');
+            Route::get('/reservations', [ReportController::class, 'reservations'])->name('reservations');
+            Route::get('/pos', [ReportController::class, 'pos'])->name('pos');
+            Route::get('/clients', [ReportController::class, 'clients'])->name('clients');
+            // PDF exports
+            Route::get('/pdf/global', [ReportController::class, 'pdfGlobal'])->name('pdf.global');
+            Route::get('/pdf/formations', [ReportController::class, 'pdfFormations'])->name('pdf.formations');
+            Route::get('/pdf/bootcamp', [ReportController::class, 'pdfBootcamp'])->name('pdf.bootcamp');
+            Route::get('/pdf/reservations', [ReportController::class, 'pdfReservations'])->name('pdf.reservations');
+            Route::get('/pdf/pos', [ReportController::class, 'pdfPos'])->name('pdf.pos');
+            Route::get('/pdf/clients', [ReportController::class, 'pdfClients'])->name('pdf.clients');
         });
 
         // ── Academy ERP ───────────────────────────────────
