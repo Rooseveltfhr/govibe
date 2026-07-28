@@ -1,0 +1,11 @@
+{
+    "name": "Tagtoa",
+    "alias": "tagtoa",
+    "description": "TAGTOA — SaaS NFC/QR business platform (Pay, Loyalty, Links, Event, POS, Billing) pour Biztap.",
+    "keywords": ["tagtoa", "nfc", "qr", "payment", "loyalty", "event", "pos"],
+    "priority": 0,
+    "providers": [
+        "Modules\\Tagtoa\\App\\Providers\\TagtoaServiceProvider"
+    ],
+    "files": []
+}

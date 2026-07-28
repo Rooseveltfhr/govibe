@@ -1,0 +1,36 @@
+# =============================================================================
+# TAGTOA — .htaccess pour le DOCROOT (public_html/) servant le site sur
+# https://tagtoa.com   [structure actuelle : app dans ../laravel, public_html
+# contient le contenu du dossier public/ de Laravel]
+# =============================================================================
+# >>> OÙ LE METTRE : /domains/tagtoa.com/public_html/.htaccess
+#     (à la RACINE de public_html, à côté de index.php).
+#     C'est un fichier CACHÉ (commence par un point) : activez
+#     « Show Hidden Files » dans le gestionnaire de fichiers DirectAdmin.
+#
+# C'est le .htaccess STANDARD Laravel : il envoie toutes les URL vers
+# index.php (le « front controller »). SANS lui, seule la page d'accueil
+# marche et toutes les autres URL renvoient « 404 Not Found ».
+# =============================================================================
+
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send Requests To Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>

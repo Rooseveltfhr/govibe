@@ -1,0 +1,219 @@
+name: Diagnose TAGTOA VPS
+
+# Bouton manuel SÛR (lecture + vidage de cache uniquement) :
+#  - montre la vraie cause d'un 500 (tail du laravel.log, redacté) ;
+#  - vide les caches config/routes/vues obsolètes (cause n°1 d'un 500 après
+#    déplacement de l'app) ;
+#  - NE touche JAMAIS la base de données, ne fait ni migrate ni rsync.
+on:
+  workflow_dispatch:
+    inputs:
+      clear_cache:
+        description: "Vider les caches (config/routes/vues) + corriger les permissions storage"
+        type: boolean
+        default: true
+
+concurrency:
+  group: diagnose-tagtoa
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Read log + clear cache (safe)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh-keyscan -p "$PORT" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Diagnose + clear cache
+        env:
+          CLEAR: ${{ inputs.clear_cache }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' bash -s" <<'EOSSH'
+          set -uo pipefail
+
+          # 0) QUI/OÙ suis-je ? (le chemin domaine attendu était introuvable)
+          echo "::group::Contexte SSH"
+          echo "whoami : $(whoami)"; echo "HOME : $HOME"; echo "pwd : $(pwd)"
+          echo "--- \$HOME ---"; ls -la "$HOME" 2>&1 | head -40
+          echo "--- /home ---"; ls -la /home 2>&1 | head -40
+          echo "::endgroup::"
+
+          # 1) EXPLORER sous $HOME (/home global n'est pas lisible : le glob
+          #    /home/*/domains échoue → c'est LA cause de « INTROUVABLE »).
+          echo "::group::Domaines du compte ($HOME/domains)"
+          ls -la "$HOME/domains" 2>&1 | head -40
+          echo "::endgroup::"
+
+          echo "::group::Structure de tagtoa.com"
+          T="$HOME/domains/tagtoa.com"
+          echo "== $T =="; ls -la "$T" 2>&1 | head -50
+          echo "== $T/public_html =="; ls -la "$T/public_html" 2>&1 | head -60
+          echo "== $T/laravel (si existe) =="; ls -la "$T/laravel" 2>&1 | head -50
+          echo "== $T/public_html/laravel (si existe) =="; ls -la "$T/public_html/laravel" 2>&1 | head -50
+          echo "::endgroup::"
+
+          echo "::group::Recherche des fichiers ESSENTIELS sous tagtoa.com"
+          echo "== artisan =="; ART=$(find "$T" -maxdepth 4 -type f -name artisan 2>/dev/null | head -10); echo "${ART:-aucun}"
+          echo "== .env =="; find "$T" -maxdepth 4 -type f -name '.env' 2>/dev/null | head
+          echo "== dossiers storage / bootstrap / vendor / Modules / public =="
+          for dir in storage bootstrap vendor Modules public; do
+            r=$(find "$T" -maxdepth 4 -type d -name "$dir" 2>/dev/null | head); echo "$dir: ${r:-ABSENT}"
+          done
+          echo "== index.php (docroot) =="; find "$T" -maxdepth 3 -name index.php 2>/dev/null | head
+          echo "::endgroup::"
+
+          # 2) Choisir l'app : artisan sous tagtoa.com en priorité.
+          D="$T"
+          L=""
+          for c in "$D/laravel" "$D/public_html/laravel" "$D/public_html"; do
+            [ -f "$c/artisan" ] && { L="$c"; break; }
+          done
+          if [ -z "$L" ]; then
+            L=$(printf '%s\n' "$ART" | head -1 | xargs -r dirname)
+          fi
+          if [ -n "$L" ] && [ -d "$L" ]; then
+            echo "::group::Arborescence de l'app trouvée : $L"
+            ls -la "$L" 2>&1 | head -50
+            echo "::endgroup::"
+          fi
+          if [ -z "$L" ] || [ ! -f "$L/artisan" ]; then
+            echo "::warning::artisan introuvable — l'app Laravel n'est pas déployée correctement. Voir l'arborescence ci-dessus."
+            echo "Diagnostic structurel terminé (pas d'app à inspecter plus loin)."
+            exit 0
+          fi
+          echo "App Laravel : $L"
+
+          echo "::group::Présence des clés .env (valeurs masquées)"
+          ENVF="$L/.env"
+          if [ -f "$ENVF" ]; then
+            for k in APP_ENV APP_DEBUG APP_KEY APP_URL DB_CONNECTION DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD SESSION_DRIVER CACHE_DRIVER; do
+              if grep -q "^$k=" "$ENVF"; then
+                v=$(grep "^$k=" "$ENVF" | head -1 | cut -d= -f2-)
+                case "$k" in
+                  APP_KEY|DB_PASSWORD) [ -n "$v" ] && echo "$k = [présent]" || echo "$k = [VIDE ⚠]";;
+                  *) echo "$k = $v";;
+                esac
+              else
+                echo "$k = [absent ⚠]"
+              fi
+            done
+          else
+            echo "⚠ .env ABSENT à $ENVF"
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Permissions (storage / bootstrap/cache)"
+          ls -ld "$L/storage" "$L/storage/logs" "$L/storage/framework/views" "$L/bootstrap/cache" 2>&1 || true
+          echo "::endgroup::"
+
+          echo "::group::Contenu bootstrap/cache (config/routes en cache = souvent la cause)"
+          ls -la "$L/bootstrap/cache/" 2>&1 || true
+          echo "::endgroup::"
+
+          echo "::group::Menu sadmin (pour insérer un lien TAGTOA)"
+          MENUF=$(grep -rilE 'Sell NFC Cards|WhatsApp Stores' "$L/resources/views" 2>/dev/null | head -1)
+          echo "fichier menu: ${MENUF:-introuvable}"
+          if [ -n "$MENUF" ]; then
+            echo "-- extrait (lignes autour de 'Dashboard' / 'vCards') --"
+            grep -nE "Dashboard|vCards|Sell NFC|route\(|href=|menu-item|<li|nav-link" "$MENUF" | head -40
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Vues login / marque (rebranding TAGTOA)"
+          echo "== fichiers de vues login/auth =="
+          find "$L/resources/views" -maxdepth 3 -iregex '.*\(login\|auth\).*\.blade\.php' 2>/dev/null | head -20
+          echo "== vues contenant l'ancienne marque (biztap) =="
+          grep -rilo 'biztap' "$L/resources/views" 2>/dev/null | head -30
+          echo "== route(s) login (web.php) =="
+          grep -nE "login|Login" "$L/routes/web.php" 2>/dev/null | head -10
+          echo "== auth/login.blade.php (COMPLET) =="
+          cat "$L/resources/views/auth/login.blade.php" 2>/dev/null || echo "absent"
+          echo "::endgroup::"
+
+          echo "::group::INSCRIPTION (register) — champs attendus"
+          echo "== fichiers register (vues) =="
+          find "$L/resources/views" -maxdepth 4 -iname 'register*.blade.php' 2>/dev/null | head
+          echo "== champs name= dans register.blade.php =="
+          RV=$(find "$L/resources/views" -maxdepth 4 -iname 'register.blade.php' 2>/dev/null | head -1)
+          echo "fichier: ${RV:-introuvable}"
+          [ -n "$RV" ] && grep -oE 'name="[^"]+"' "$RV" | sort -u
+          echo "== register.blade.php (COMPLET, pour override fidèle) =="
+          [ -n "$RV" ] && cat "$RV" 2>/dev/null || echo "absent"
+          echo "== route(s) register (web.php) =="
+          grep -nE "register|Register" "$L/routes/web.php" 2>/dev/null | head -10
+          echo "== RegisterController (règles de validation) =="
+          RC=$(find "$L/app" -iname 'RegisterController.php' 2>/dev/null | head -1)
+          echo "fichier: ${RC:-introuvable}"
+          [ -n "$RC" ] && sed -n '1,140p' "$RC" | grep -nE "required|rules|validator|redirectTo|create\(|'name'|'email'|'first_name'|'last_name'|'username'|'phone'|'mobile'|'password'" | head -40
+          echo "::endgroup::"
+
+          echo "::group::vCARD — tableau de bord & routes (pour lien sidebar)"
+          echo "== routes contenant vcard/dashboard/create (web.php) =="
+          grep -nE "vcard|Vcard|VCard|dashboard|create-vcard|user/dashboard" "$L/routes/web.php" 2>/dev/null | head -30
+          echo "== RouteServiceProvider HOME =="
+          grep -rnE "const HOME|public const HOME|protected \\\$redirectTo|redirectTo =" "$L/app/Providers" 2>/dev/null | head
+          echo "::endgroup::"
+
+          echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
+          LOG="$L/storage/logs/laravel.log"
+          if [ -f "$LOG" ]; then
+            echo "--- 8 derniers messages ERROR/CRITICAL (classe + message + fichier:ligne) ---"
+            grep -aE '\.(ERROR|CRITICAL|EMERGENCY):' "$LOG" | tail -8 | cut -c1-500 \
+              | sed -E 's/(password|pwd|secret|token|DB_PASSWORD)([=" :]+)[^ "]+/\1\2[REDACTED]/gi'
+            echo "--- 12 dernières lignes brutes ---"
+            tail -12 "$LOG" | cut -c1-400 \
+              | sed -E 's/(password|pwd|secret|token|DB_PASSWORD)([=" :]+)[^ "]+/\1\2[REDACTED]/gi'
+          else
+            echo "pas de laravel.log"
+          fi
+          echo "::endgroup::"
+
+          if [ "${CLEAR:-false}" = "true" ]; then
+            echo "::group::Réparations (sûr, sans DB)"
+
+            # FIX 500 « Mix manifest not found » : mix() cherche le manifeste dans
+            # laravel/public/ mais les assets buildés sont dans public_html/ (docroot).
+            # On relie le manifeste ET les dossiers d'assets manquants vers public_html.
+            PH="$(dirname "$L")/public_html"
+            if [ -d "$PH" ]; then
+              [ -d "$L/public" ] || mkdir -p "$L/public"
+              if [ ! -e "$L/public/mix-manifest.json" ] && [ -f "$PH/mix-manifest.json" ]; then
+                ln -s "$PH/mix-manifest.json" "$L/public/mix-manifest.json" 2>/dev/null \
+                  && echo "mix-manifest.json relié → public_html" \
+                  || { cp "$PH/mix-manifest.json" "$L/public/" && echo "mix-manifest.json copié"; }
+              else
+                echo "mix-manifest.json : déjà présent ou source absente"
+              fi
+              # Relie les dossiers d'assets référencés par mix() (au cas où mix() vérifie le fichier).
+              for a in css js fonts img images assets build web front vendor; do
+                if [ -e "$PH/$a" ] && [ ! -e "$L/public/$a" ]; then
+                  ln -s "$PH/$a" "$L/public/$a" 2>/dev/null && echo "lien public/$a → public_html/$a" || true
+                fi
+              done
+            else
+              echo "public_html introuvable à $PH"
+            fi
+
+            echo "-- vidage cache --"
+            rm -f "$L/bootstrap/cache/"*.php 2>/dev/null && echo "bootstrap/cache/*.php supprimés" || true
+            rm -f "$L/storage/framework/views/"*.php 2>/dev/null && echo "vues compilées supprimées" || true
+            ( cd "$L" && php artisan optimize:clear 2>&1 ) || true
+            chmod -R ug+rwX "$L/storage" "$L/bootstrap/cache" 2>/dev/null && echo "permissions storage/bootstrap corrigées" || true
+            # Accélération prod : met le config + vues en cache (évite de relire
+            # ~30 fichiers config + .env à CHAQUE requête → dashboard plus rapide).
+            # (pas de route:cache : Biztap peut avoir des routes en closure.)
+            echo "-- optimisation (config + vues en cache) --"
+            ( cd "$L" && php artisan config:cache 2>&1 ) || true
+            ( cd "$L" && php artisan view:cache 2>&1 ) || true
+            echo "::endgroup::"
+            echo "→ Rechargez https://tagtoa.com/login"
+          fi
+          EOSSH

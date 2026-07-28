@@ -1,0 +1,29 @@
+{
+    "name": "tagtoa/tagtoa",
+    "description": "TAGTOA — SaaS NFC/QR business platform module for Biztap (vcard SaaS).",
+    "authors": [
+        {
+            "name": "Roosevelt Forestal",
+            "email": "roodveltsenforestal@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Tagtoa\\": "",
+            "Modules\\Tagtoa\\App\\": "app/",
+            "Modules\\Tagtoa\\Database\\Factories\\": "database/factories/",
+            "Modules\\Tagtoa\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Tagtoa\\Tests\\": "tests/"
+        }
+    }
+}

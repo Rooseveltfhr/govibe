@@ -1,0 +1,184 @@
+name: Deploy TAGTOA to VPS
+
+# Déploiement DÉLIBÉRÉ (risque #2 : ne pas casser la prod par accident) :
+# - bouton manuel (workflow_dispatch)
+# - ou push sur main touchant le module
+on:
+  workflow_dispatch:
+    inputs:
+      restructure:
+        description: "Restructurer le docroot (déplacer laravel hors de public_html) — une seule fois"
+        type: boolean
+        default: false
+      harden_env:
+        description: "Durcir .env : APP_ENV=production, APP_DEBUG=false, DEBUGBAR off, APP_URL sans slash"
+        type: boolean
+        default: false
+  push:
+    branches: ["main"]
+    paths: ["Modules/Tagtoa/**"]
+
+concurrency:
+  group: deploy-tagtoa
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Sync module + safe deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh-keyscan -p "$PORT" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # Restructuration docroot (une seule fois, sur demande via workflow_dispatch).
+      # Déplace l'app Laravel HORS de public_html (sécurité .env) et place le
+      # contenu de public/ dans le docroot. Idempotent + non destructif :
+      #  - ne clobbere jamais un fichier/dossier existant (biztap/menu/profil saufs) ;
+      #  - se saute tout seul si déjà restructuré ;
+      #  - abandonne proprement si l'app n'est pas là où on l'attend.
+      - name: Harden .env (on demand)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.harden_env }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          D=$(ls -d /home/*/domains/tagtoa.com 2>/dev/null | head -1)
+          ENVF="$D/laravel/.env"; [ -f "$ENVF" ] || ENVF="$D/public_html/laravel/.env"
+          [ -f "$ENVF" ] || { echo ".env introuvable"; exit 1; }
+          cp "$ENVF" "$ENVF.bak" 2>/dev/null || true
+          # clés NON sensibles uniquement (jamais DB_PASSWORD/APP_KEY)
+          grep -q '^APP_ENV=' "$ENVF"          && sed -i 's/^APP_ENV=.*/APP_ENV=production/' "$ENVF"       || echo 'APP_ENV=production' >> "$ENVF"
+          grep -q '^APP_DEBUG=' "$ENVF"        && sed -i 's/^APP_DEBUG=.*/APP_DEBUG=false/' "$ENVF"        || echo 'APP_DEBUG=false' >> "$ENVF"
+          grep -q '^DEBUGBAR_ENABLED=' "$ENVF" && sed -i 's/^DEBUGBAR_ENABLED=.*/DEBUGBAR_ENABLED=false/' "$ENVF" || echo 'DEBUGBAR_ENABLED=false' >> "$ENVF"
+          sed -i 's#^APP_URL=https://tagtoa.com/*$#APP_URL=https://tagtoa.com#' "$ENVF"
+          echo "=== .env après durcissement ==="
+          grep -E '^(APP_ENV|APP_DEBUG|APP_URL|DEBUGBAR_ENABLED)=' "$ENVF"
+          ( cd "$(dirname "$ENVF")" && php artisan config:clear >/dev/null 2>&1; php artisan optimize:clear >/dev/null 2>&1 ) || true
+          echo "Durcissement .env OK."
+          EOSSH
+
+      - name: Restructure docroot (on demand)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.restructure }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          D=$(ls -d /home/*/domains/tagtoa.com 2>/dev/null | head -1)
+          [ -n "$D" ] || { echo "domaine introuvable"; exit 1; }
+          PUB="$D/public_html"; SIB="$D/laravel"; APPIN="$PUB/laravel"
+          echo "D=$D"
+
+          # Déjà restructuré ?
+          if [ -f "$PUB/index.php" ] && grep -q "laravel/vendor" "$PUB/index.php" 2>/dev/null && [ -d "$SIB" ]; then
+            echo "Déjà restructuré — rien à faire."; ls -la "$PUB" | head; exit 0
+          fi
+
+          # L'app doit être à public_html/laravel
+          [ -f "$APPIN/artisan" ] || { echo "App introuvable à $APPIN — abandon."; exit 1; }
+
+          # 1) déplacer l'app hors du docroot (vers le sibling)
+          if [ ! -e "$SIB" ]; then mv "$APPIN" "$SIB" && echo "→ app déplacée vers $SIB"; fi
+
+          # 2) déplacer le CONTENU de public/ dans public_html (sans clobber)
+          if [ -d "$SIB/public" ]; then
+            shopt -s dotglob nullglob
+            for f in "$SIB/public/"*; do
+              b=$(basename "$f")
+              [ "$b" = "." ] || [ "$b" = ".." ] && continue
+              if [ ! -e "$PUB/$b" ]; then mv "$f" "$PUB/"; else echo "  (garde existant: $b)"; fi
+            done
+            shopt -u dotglob nullglob
+            echo "→ contenu public/ placé dans le docroot"
+          fi
+
+          # 3) index.php : booter depuis ../laravel (idempotent)
+          if [ -f "$PUB/index.php" ] && ! grep -q "laravel/vendor" "$PUB/index.php"; then
+            sed -i "s#/\.\./vendor/autoload#/../laravel/vendor/autoload#; s#/\.\./bootstrap/app#/../laravel/bootstrap/app#; s#/\.\./storage/framework/maintenance#/../laravel/storage/framework/maintenance#" "$PUB/index.php"
+            echo "→ index.php pointé vers ../laravel"
+          fi
+
+          # 4) écarter un index.html résiduel qui masquerait index.php
+          [ -f "$PUB/index.html" ] && mv "$PUB/index.html" "$PUB/index.html.bak" && echo "→ index.html mis de côté" || true
+
+          # 5) re-lier le stockage public
+          ( cd "$SIB" && php artisan storage:link >/dev/null 2>&1 ) || true
+
+          echo "=== public_html après restructuration ==="; ls -la "$PUB" | head -25
+          echo "Restructuration OK."
+          EOSSH
+
+      # Le VPS a été restructuré (public_html/tapbiz → laravel/ ou public_html).
+      # On résout le chemin RÉEL de l'app (présence d'artisan) au lieu de faire
+      # aveuglément confiance au secret VPS_APP_PATH — le deploy survit aux
+      # déplacements de dossiers.
+      - name: Resolve app path on VPS
+        id: apppath
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          # Diagnostic : structure réelle du domaine (aide à situer docroot vs app).
+          echo "::group::Structure serveur (diagnostic)"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              D=$(ls -d /home/*/domains/tagtoa.com 2>/dev/null | head -1)
+              echo "domaine: $D"
+              echo "--- $D ---";                ls -la "$D" 2>/dev/null
+              echo "--- $D/public_html ---";    ls -la "$D/public_html" 2>/dev/null
+              echo "--- $D/public_html/laravel (head) ---"; ls -la "$D/public_html/laravel" 2>/dev/null | head -20
+              echo "--- $D/public_html/laravel/public ---"; ls -la "$D/public_html/laravel/public" 2>/dev/null
+              echo "--- $D/laravel (head) ---"; ls -la "$D/laravel" 2>/dev/null | head -20
+              echo "--- DocumentRoot déclaré ---"
+              grep -rhi "documentroot" /usr/local/directadmin/data/users/*/httpd.conf 2>/dev/null | grep -i tagtoa || \
+              grep -rhi "documentroot.*tagtoa" /etc/httpd/conf* /etc/apache2 2>/dev/null | head
+              echo "--- HTTP local (app en direct, sans DNS/CDN) ---"
+              for U in "http://127.0.0.1/" "https://127.0.0.1/"; do
+                curl -skS -m 12 -o /dev/null -w "  $U -> code=%{http_code} time=%{time_total}s\n" -H "Host: tagtoa.com" "$U" || echo "  $U -> curl échec/timeout"
+              done
+              echo "--- maintenance mode ? ---"
+              ls -la "$D/laravel/storage/framework/down" 2>/dev/null && echo "EN MAINTENANCE" || echo "pas en maintenance"
+              echo "--- .env (clés non sensibles) ---"
+              grep -E "^(APP_ENV|APP_DEBUG|APP_URL|SESSION_DRIVER|CACHE_DRIVER|QUEUE_CONNECTION|DB_HOST|REDIS_HOST|DEBUGBAR_ENABLED)=" "$D/laravel/.env" 2>/dev/null
+              echo "--- laravel.log (30 dernières lignes) ---"
+              tail -30 "$D/laravel/storage/logs/laravel.log" 2>/dev/null || echo "pas de log"
+            ' || true
+          echo "::endgroup::"
+          RESOLVED=$(ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+              # 1) le secret, s il est bon, gagne
+              p="${{ secrets.VPS_APP_PATH }}"
+              if [ -n "$p" ] && [ -f "$p/artisan" ]; then printf "%s" "$p"; exit 0; fi
+              # 2) scan de tous les comptes (l utilisateur SSH n est pas forcément "admin")
+              hit=$(find /home/*/domains/tagtoa.com "$HOME/domains/tagtoa.com" \
+                      -maxdepth 3 -name artisan -type f 2>/dev/null | head -1)
+              if [ -n "$hit" ]; then printf "%s" "$(dirname "$hit")"; exit 0; fi
+              # 3) diagnostic vers stderr (visible dans le log, jamais dans $RESOLVED)
+              echo "--- diagnostic structure ---" >&2
+              ls -d /home/*/domains/*/ 2>/dev/null >&2 || true
+              ls "$HOME" 2>/dev/null >&2 || true
+              exit 42
+            ') || { echo "::error::Aucune app Laravel trouvée (artisan introuvable) — voir le diagnostic ci-dessus."; exit 1; }
+          echo "path=$RESOLVED" >> "$GITHUB_OUTPUT"
+          echo "==> App path résolu."
+
+      - name: Rsync Modules/Tagtoa to VPS
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/id_deploy -p $PORT -o StrictHostKeyChecking=accept-new" \
+            Modules/Tagtoa/ \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ steps.apppath.outputs.path }}/Modules/Tagtoa/"
+
+      - name: Run safe deploy on VPS
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "bash '${{ steps.apppath.outputs.path }}/Modules/Tagtoa/deploy/remote-deploy.sh' '${{ steps.apppath.outputs.path }}'"

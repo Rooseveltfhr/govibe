@@ -1,0 +1,77 @@
+{{-- TAGTOA Event — confirmation commande. Variables : $order, $event --}}
+<!DOCTYPE html>
+<html lang="{{ app()->getLocale() }}">
+<head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ __('Commande') }} {{ $order->reference }} — TAGTOA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
+    <style>
+        :root{--blk:#0A0A0A;--blue:#2cb809;--green:#1D9E75;--bg:#F5F5F3;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        *{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--fb);background:var(--bg);color:var(--blk)}
+        .wrap{max-width:480px;margin:0 auto;min-height:100vh;padding:24px 18px}
+        .ok{text-align:center;padding:18px}.ok i{font-size:46px;color:var(--green)}.ok h1{font:700 22px var(--fh);margin-top:10px}.ok p{color:#666;font-size:14px;margin-top:4px}
+        .pay{background:var(--blue);color:#fff;display:flex;align-items:center;gap:10px;justify-content:center;text-decoration:none;border-radius:14px;padding:15px;font:600 15px var(--fh);margin:18px 0}
+        .summary{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:18px}.kv{display:flex;justify-content:space-between;padding:7px 0;font-size:14px}.kv span{color:#888}.kv b{font-family:var(--fh)}
+        .sec{font:600 13px var(--fh);letter-spacing:.05em;text-transform:uppercase;color:#777;margin:8px 0 12px}
+        .tkt{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:10px;text-decoration:none;color:inherit}
+        .tkt .ic{width:44px;height:44px;border-radius:11px;background:var(--blk);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px}
+        .tkt .t{flex:1}.tkt .t b{font-family:var(--fh);display:block}.tkt .t span{font-size:12px;color:#888}
+        .foot{text-align:center;padding:20px;color:#aaa;font-size:12px}.foot b{font-family:var(--fh);color:#777}
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="ok"><i class="fa-solid fa-circle-check"></i><h1>{{ $order->isPaid() ? __('Billets confirmés!') : __('Commande créée') }}</h1><p>{{ __('Référence') }} : <b>{{ $order->reference }}</b></p></div>
+    @if(session('card_paid'))
+        <div style="background:#eef9e8;border:1px solid var(--green);border-radius:14px;padding:14px;margin:14px 0;text-align:center;font-weight:600"><i class="fa-solid fa-circle-check"></i> {{ session('card_paid') }}</div>
+    @endif
+    @if(session('error'))
+        <div style="background:#fde8e8;color:#a01919;border-radius:14px;padding:12px 14px;margin:14px 0;font-size:14px"><i class="fa-solid fa-circle-exclamation"></i> {{ session('error') }}</div>
+    @endif
+    @if(! $order->isPaid())
+        @if($event->payPage)
+            <a class="pay" href="{{ url('/pay/'.$event->payPage->alias) }}"><i class="fa-solid fa-credit-card"></i> {{ __('Payer') }} {{ number_format($order->total,2) }} {{ $order->currency }}</a>
+        @endif
+        <form method="POST" action="{{ route('tagtoa.event.order.card', $order->reference) }}" style="background:rgba(44,184,9,.06);border-radius:14px;padding:16px;margin:12px 0">
+            @csrf
+            <b style="font-family:var(--fh);display:block;margin-bottom:4px"><i class="fa-solid fa-id-card" style="color:var(--green)"></i> {{ __('Payer avec ma Carte TAGTOA') }}</b>
+            <p style="color:#6b7865;font-size:13px;margin:0 0 10px">{{ __('Tapez votre carte ou saisissez son code + PIN. Débité :') }} <b>{{ number_format($order->total,2) }} {{ $order->currency }}</b></p>
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+                <input id="evCardUid" name="card_uid" placeholder="{{ __('UID (auto)') }}" readonly style="flex:1;border:1px solid rgba(14,20,12,.16);border-radius:10px;padding:11px 12px;font-size:15px;background:#fbfcfa">
+                <button type="button" onclick="evReadCard()" style="flex:0;border:1px solid var(--green);background:#fff;color:var(--green);border-radius:10px;padding:0 14px;font-weight:600"><i class="fa-solid fa-wifi"></i></button>
+            </div>
+            <input name="card_code" placeholder="{{ __('ou code TAG…') }}" style="width:100%;box-sizing:border-box;border:1px solid rgba(14,20,12,.16);border-radius:10px;padding:11px 12px;font-size:15px;text-transform:uppercase;margin-bottom:8px">
+            <input name="pin" inputmode="numeric" maxlength="6" placeholder="{{ __('PIN') }}" style="width:100%;box-sizing:border-box;border:1px solid rgba(14,20,12,.16);border-radius:10px;padding:11px 12px;font-size:15px;margin-bottom:10px">
+            <button type="submit" style="width:100%;background:var(--green);color:#fff;border:0;border-radius:12px;padding:14px;font-weight:700;font-size:15px"><i class="fa-solid fa-bolt"></i> {{ __('Payer avec la carte') }}</button>
+        </form>
+        <script>
+        function evReadCard(){if(!('NDEFReader' in window)){alert('{{ __('NFC non supporté. Saisissez le code.') }}');return;}try{var r=new NDEFReader();r.scan().then(function(){r.onreading=function(e){if(e.serialNumber){document.getElementById('evCardUid').value=e.serialNumber;}};}).catch(function(){});}catch(x){}}
+        </script>
+    @endif
+    <div class="summary">
+        <div class="kv"><span>{{ __('Acheteur') }}</span><b>{{ $order->buyer_name }}</b></div>
+        <div class="kv"><span>{{ __('Total') }}</span><b>{{ number_format($order->total,2) }} {{ $order->currency }}</b></div>
+        <div class="kv"><span>{{ __('Statut') }}</span><b>{{ $order->isPaid() ? __('Payé') : __('En attente') }}</b></div>
+    </div>
+    <p class="sec">{{ __('Vos billets') }} ({{ $order->tickets->count() }})</p>
+    @foreach($order->tickets as $t)
+        <a class="tkt" href="{{ route('tagtoa.event.ticket', $t->code) }}"><span class="ic"><i class="fa-solid fa-ticket"></i></span><span class="t"><b>{{ optional($t->ticketType)->name }}</b><span>{{ $t->code }}</span></span><i class="fa-solid fa-qrcode"></i></a>
+    @endforeach
+    <div style="background:#eef9e8;border:1px solid var(--green);border-radius:14px;padding:14px;margin-top:14px;font-size:14px;line-height:1.5">
+        @if(($event->checkin_mode ?? 'qr') === 'nfc')
+            <b style="font-family:var(--fh)"><i class="fa-solid fa-id-card"></i> {{ __('Carte NFC') }}</b><br>
+            {{ __('Présentez cette référence à l\'entrée pour retirer votre carte/bracelet NFC.') }}
+        @else
+            <b style="font-family:var(--fh)"><i class="fa-solid fa-mobile-screen"></i> {{ __('Billet sur votre téléphone') }}</b><br>
+            {{ __('Gardez cette page. Présentez le QR code de chaque billet à l\'entrée pour être scanné et vérifié.') }}
+            @if(($event->checkin_mode ?? 'qr') === 'both')<br><span style="color:#666">{{ __('Une carte NFC physique peut aussi vous être remise à l\'entrée.') }}</span>@endif
+        @endif
+    </div>
+    @if($order->buyer_phone || $order->buyer_email)
+        <p style="text-align:center;color:#888;font-size:13px;margin-top:12px"><i class="fa-solid fa-paper-plane"></i> {{ __('Une confirmation vous a été envoyée.') }}</p>
+    @endif
+    <div class="foot">{{ __('Propulsé par') }} <b>TAGTOA</b></div>
+</div>
+</body>
+</html>
