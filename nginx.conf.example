@@ -1,0 +1,36 @@
+# Nginx configuration for govibeht.com
+# Copy to: /etc/nginx/sites-available/govibe
+# Then: ln -s /etc/nginx/sites-available/govibe /etc/nginx/sites-enabled/govibe
+
+server {
+    listen 80;
+    server_name govibeht.com www.govibeht.com;
+    root /var/www/govibe/public;
+    index index.php;
+
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_read_timeout 300;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+
+    client_max_body_size 20M;
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_types text/plain text/css text/xml application/json application/javascript application/xml+rss;
+}
