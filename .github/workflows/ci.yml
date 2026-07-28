@@ -33,5 +33,8 @@ jobs:
       - name: Install dev tools (phpunit)
         run: composer install --no-interaction --no-progress --prefer-dist
 
-      - name: Unit tests (pure logic)
-        run: vendor/bin/phpunit --testdox --testsuite Unit
+      - name: Unit tests (pure logic TAGTOA)
+        # La racine appartient à l'app GOVIBE (phpunit.xml + tests/Unit à elle).
+        # On cible explicitement la suite TAGTOA avec son bootstrap pur, en
+        # ignorant la configuration racine (--no-configuration).
+        run: vendor/bin/phpunit --no-configuration --bootstrap tests/bootstrap.php --testdox Modules/Tagtoa/tests/Unit
