@@ -25,7 +25,13 @@ class AssetController extends Controller
      * (pas de traversée de chemin possible : la clé est comparée à l'identique).
      */
     protected const ASSETS = [
-        'html5-qrcode.min.js' => 'application/javascript; charset=utf-8',
+        'html5-qrcode.min.js'      => 'application/javascript; charset=utf-8',
+        // Font Awesome 6.5.1 auto-hébergé (CSS + webfonts woff2) — plus de CDN externe.
+        'fontawesome-6.5.1.css'    => 'text/css; charset=utf-8',
+        'fa-solid-900.woff2'       => 'font/woff2',
+        'fa-brands-400.woff2'      => 'font/woff2',
+        'fa-regular-400.woff2'     => 'font/woff2',
+        'fa-v4compatibility.woff2' => 'font/woff2',
     ];
 
     public function vendor(string $file): Response|BinaryFileResponse

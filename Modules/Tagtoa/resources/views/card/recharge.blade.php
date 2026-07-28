@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ __('Recharger ma carte') }} · TAGTOA</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     <style>
         body{margin:0;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#f5f7f3;color:#0e140c;min-height:100vh;display:grid;place-items:center;padding:24px}
         .box{background:#fff;border:1px solid rgba(14,20,12,.1);border-radius:20px;padding:30px 26px;max-width:420px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.06)}

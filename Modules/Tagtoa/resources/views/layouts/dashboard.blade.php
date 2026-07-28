@@ -10,7 +10,7 @@
     <title>@yield('title','TAGTOA') · TAGTOA</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     <style>
         :root{
             --blk:#0A0A0A;--white:#fff;--bg:#F5F5F3;--surface:#fff;--blue:#2cb809;--blue-deep:#239406;
