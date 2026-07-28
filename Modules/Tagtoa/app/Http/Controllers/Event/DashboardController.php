@@ -43,7 +43,7 @@ class DashboardController extends Controller
 $data = $this->validateEvent($request);
         $event = new Event($data);
         $event->tenant_id = Tenant::id();
-        $event->alias = $data['alias'] ?: Event::generateAlias($data['title']);
+        $event->alias = ($data['alias'] ?? null) ?: Event::generateAlias($data['title']);
         if ($request->hasFile('cover')) {
             $event->cover_path = $request->file('cover')->store('tagtoa/event-covers', 'public');
         }
@@ -64,7 +64,7 @@ $data = $this->validateEvent($request);
     {
         $event = $this->own($id);
         $data = $this->validateEvent($request, $event->id);
-        $data['alias'] = $data['alias'] ?: $event->alias;
+        $data['alias'] = ($data['alias'] ?? null) ?: $event->alias;
         if ($request->hasFile('cover')) {
             $data['cover_path'] = $request->file('cover')->store('tagtoa/event-covers', 'public');
         }
