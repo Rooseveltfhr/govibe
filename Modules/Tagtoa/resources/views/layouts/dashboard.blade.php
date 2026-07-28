@@ -93,6 +93,7 @@
         <div class="brand"><span class="logo">⚡</span><b>TAGTOA</b></div>
         <nav class="nav">
             <a href="{{ url('/tagtoa/home') }}" class="{{ request()->is('tagtoa/home') ? 'on' : '' }}"><i class="fa-solid fa-grip"></i> {{ __('Accueil') }}</a>
+            <a href="{{ url('/dashboard') }}"><i class="fa-solid fa-address-card"></i> {{ __('Ma carte de visite') }}</a>
             <span class="sep">{{ __('Modules') }}</span>
             <a href="{{ url('/tagtoa/site') }}" class="{{ request()->is('tagtoa/site*') ? 'on' : '' }}"><i class="fa-solid fa-globe"></i> {{ __('Site web') }}</a>
             <a href="{{ url('/tagtoa/menu') }}" class="{{ request()->is('tagtoa/menu*') ? 'on' : '' }}"><i class="fa-solid fa-utensils"></i> {{ __('Menu') }}</a>
