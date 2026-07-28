@@ -935,5 +935,14 @@
     "Boutiques & vente": "Boutik & vant",
     "Un seul lien pour MonCash, NatCash et cartes — simple pour vous, simple pour vos clients.": "Yon sèl lyen pou MonCash, NatCash ak kat — senp pou ou, senp pou kliyan ou.",
     "Événements & clubs": "Evènman & club",
-    "Billetterie, carte NFC prépayée et contrôle d'accès — encaissez vite, sans cash à l'entrée.": "Biyè, kat NFC prépeye ak kontwòl aksè — ankese vit, san kach nan pòt la."
+    "Billetterie, carte NFC prépayée et contrôle d'accès — encaissez vite, sans cash à l'entrée.": "Biyè, kat NFC prépeye ak kontwòl aksè — ankese vit, san kach nan pòt la.",
+    "Forfaits TAGTOA": "Fòfè TAGTOA",
+    "Prix & limites des forfaits": "Pri & limit fòfè yo",
+    "Modifiez ici les prix et les limites de chaque forfait TAGTOA. Ces valeurs remplacent la configuration par défaut. Limite vide = illimité · 0 = bloqué.": "Modifye pri ak limit chak fòfè TAGTOA la. Valè sa yo ranplase konfigirasyon default la. Limit vid = san limit · 0 = bloke.",
+    "Nom affiché": "Non ki afiche",
+    "Prix / mois": "Pri / mwa",
+    "vide = sur devis": "vid = sou devi",
+    "Limites": "Limit yo",
+    "Enregistrer les forfaits": "Anrejistre fòfè yo",
+    "Forfaits mis à jour.": "Fòfè yo mete ajou."
 }

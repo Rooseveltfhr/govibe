@@ -31,7 +31,7 @@ class PlanController extends Controller
         }
 
         return view('tagtoa::billing.plan', [
-            'plans'   => (array) config('tagtoa.plans', []),
+            'plans'   => PlanService::effectivePlans(),
             'current' => $current,
             'usage'   => $usage,
         ]);
@@ -39,11 +39,12 @@ class PlanController extends Controller
 
     public function subscribe(Request $request): RedirectResponse
     {
+        $plans = PlanService::effectivePlans();
         $data = $request->validate([
-            'plan' => ['required', Rule::in(array_keys((array) config('tagtoa.plans', [])))],
+            'plan' => ['required', Rule::in(array_keys($plans))],
         ]);
         $plan = $data['plan'];
-        $price = (float) (config('tagtoa.plans.'.$plan.'.price') ?? 0);
+        $price = (float) ($plans[$plan]['price'] ?? 0);
 
         // Forfait PAYANT + passerelle active → paiement avant activation.
         if ($price > 0) {

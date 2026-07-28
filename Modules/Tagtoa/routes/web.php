@@ -291,4 +291,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
 // Hors du groupe multi_tenant : la vue plateforme agrège TOUS les tenants.
 Route::middleware(['auth', 'valid.user', 'role:super_admin'])->prefix('tagtoa/admin')->group(function () {
     Route::get('/', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\DashboardController::class, 'index'])->name('tagtoa.superadmin.index');
+    // Édition des forfaits TAGTOA (prix + limites) — fondateur.
+    Route::get('/plans', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\PlanController::class, 'index'])->name('tagtoa.superadmin.plans');
+    Route::put('/plans', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\PlanController::class, 'update'])->name('tagtoa.superadmin.plans.update');
 });

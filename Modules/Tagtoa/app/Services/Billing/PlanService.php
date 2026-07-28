@@ -29,15 +29,60 @@ class PlanService
         'booking' => BookingPage::class,
     ];
 
+    /** Cache des forfaits effectifs pour la durée de la requête. */
+    private static ?array $effective = null;
+
     public function planKey(?string $tenantId): string
     {
         return Subscription::planFor($tenantId);
     }
 
+    /**
+     * Forfaits EFFECTIFS = config `tagtoa.plans` surchargée par la table
+     * `tagtoa_plans` (édition fondateur). Tolérant : si la table n'existe pas
+     * ou est vide, on retombe intégralement sur la config.
+     */
+    public static function effectivePlans(): array
+    {
+        if (self::$effective !== null) {
+            return self::$effective;
+        }
+
+        $plans = (array) config('tagtoa.plans', []);
+
+        try {
+            foreach (\Modules\Tagtoa\App\Models\Billing\PlanDefinition::all() as $row) {
+                $key = $row->plan_key;
+                if (! isset($plans[$key])) {
+                    $plans[$key] = [];
+                }
+                if ($row->label !== null && $row->label !== '') {
+                    $plans[$key]['label'] = $row->label;
+                }
+                // price : la valeur DB fait foi (y compris null = sur devis)
+                $plans[$key]['price'] = $row->price === null ? null : (float) $row->price;
+                if (is_array($row->limits)) {
+                    $plans[$key]['limits'] = array_merge($plans[$key]['limits'] ?? [], $row->limits);
+                }
+                $plans[$key]['is_active'] = (bool) $row->is_active;
+            }
+        } catch (\Throwable $e) {
+            // table absente / DB indisponible → config seule
+        }
+
+        return self::$effective = $plans;
+    }
+
+    /** Réinitialise le cache (après une édition des forfaits). */
+    public static function flush(): void
+    {
+        self::$effective = null;
+    }
+
     public function plan(?string $tenantId): array
     {
         $key = $this->planKey($tenantId);
-        $cfg = (array) config('tagtoa.plans.'.$key, []);
+        $cfg = (array) (self::effectivePlans()[$key] ?? []);
         $cfg['key'] = $key;
 
         return $cfg;
@@ -46,7 +91,7 @@ class PlanService
     /** Limite d'une feature (null = illimité, 0 = bloqué). */
     public function limit(?string $tenantId, string $feature)
     {
-        $limits = (array) config('tagtoa.plans.'.$this->planKey($tenantId).'.limits', []);
+        $limits = (array) (self::effectivePlans()[$this->planKey($tenantId)]['limits'] ?? []);
 
         return array_key_exists($feature, $limits) ? $limits[$feature] : null;
     }
