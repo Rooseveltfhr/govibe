@@ -173,7 +173,7 @@ class CheckoutService
      */
     public function startSubscription(?string $tenantId, string $plan, string $gateway = 'moncash'): ?string
     {
-        $price = (float) (config('tagtoa.plans.'.$plan.'.price') ?? 0);
+        $price = (float) (\Modules\Tagtoa\App\Services\Billing\PlanService::effectivePlans()[$plan]['price'] ?? 0);
         if ($price <= 0 || ! GatewayManager::enabled($gateway)) {
             return null;
         }
@@ -211,7 +211,7 @@ class CheckoutService
         if ($txn->order_type === 'subscription') {
             $plan = $txn->meta['plan'] ?? null;
             $tenantId = $txn->meta['tenant_id'] ?? $txn->tenant_id;
-            if ($plan && array_key_exists($plan, (array) config('tagtoa.plans', []))) {
+            if ($plan && array_key_exists($plan, \Modules\Tagtoa\App\Services\Billing\PlanService::effectivePlans())) {
                 \Modules\Tagtoa\App\Models\Billing\Subscription::updateOrCreate(
                     ['tenant_id' => $tenantId],
                     ['plan' => $plan, 'status' => 'active', 'started_at' => now(), 'expires_at' => now()->addMonth()]

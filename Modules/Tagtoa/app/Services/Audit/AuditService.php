@@ -26,6 +26,7 @@ class AuditService
         'billing.settled'   => 'Commissions réglées',
         'billing.updated'   => 'Réglages de revenu modifiés',
         'plan.changed'      => 'Forfait modifié',
+        'plan.config_updated' => 'Forfaits (prix/limites) modifiés',
         'wallet.top_up'     => 'Recharge wallet',
         'wallet.purchase'   => 'Achat wallet',
         'wallet.refund'     => 'Remboursement wallet',

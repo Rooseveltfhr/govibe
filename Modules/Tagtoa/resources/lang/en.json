@@ -935,5 +935,14 @@
     "Boutiques & vente": "Shops & retail",
     "Un seul lien pour MonCash, NatCash et cartes — simple pour vous, simple pour vos clients.": "One link for MonCash, NatCash and cards — simple for you, simple for your customers.",
     "Événements & clubs": "Events & clubs",
-    "Billetterie, carte NFC prépayée et contrôle d'accès — encaissez vite, sans cash à l'entrée.": "Ticketing, prepaid NFC card and access control — get paid fast, no cash at the door."
+    "Billetterie, carte NFC prépayée et contrôle d'accès — encaissez vite, sans cash à l'entrée.": "Ticketing, prepaid NFC card and access control — get paid fast, no cash at the door.",
+    "Forfaits TAGTOA": "TAGTOA plans",
+    "Prix & limites des forfaits": "Plan prices & limits",
+    "Modifiez ici les prix et les limites de chaque forfait TAGTOA. Ces valeurs remplacent la configuration par défaut. Limite vide = illimité · 0 = bloqué.": "Edit each TAGTOA plan's prices and limits here. These values override the default config. Empty limit = unlimited · 0 = blocked.",
+    "Nom affiché": "Display name",
+    "Prix / mois": "Price / month",
+    "vide = sur devis": "empty = on quote",
+    "Limites": "Limits",
+    "Enregistrer les forfaits": "Save plans",
+    "Forfaits mis à jour.": "Plans updated."
 }
