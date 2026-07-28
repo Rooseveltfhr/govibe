@@ -19,7 +19,9 @@ use App\Http\Controllers\ERP\POS\POSController;
 use App\Http\Controllers\ERP\Inventory\InventoryController;
 use App\Http\Controllers\ERP\Reports\ReportController;
 use App\Http\Controllers\ERP\Academy\AcademyERPController;
+use App\Http\Controllers\ERP\Academy\BootcampAdminController;
 use App\Http\Controllers\ERP\Services\ServiceController;
+use App\Http\Controllers\BootcampController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -33,6 +35,10 @@ Route::get('/inscription', [InscriptionController::class, 'create'])->name('insc
 Route::post('/inscription', [InscriptionController::class, 'store'])->name('inscription.store');
 Route::get('/inscription/qr/{inscription}', [InscriptionController::class, 'qr'])->name('inscription.qr');
 Route::post('/inscription/scan', [InscriptionController::class, 'scan'])->name('inscription.scan');
+
+// GOVIBE AI Bootcamp 2026
+Route::get('/bootcamp-ai-2026', [BootcampController::class, 'landing'])->name('bootcamp.landing');
+Route::post('/bootcamp-ai-2026/register', [BootcampController::class, 'register'])->name('bootcamp.register');
 
 // Admin auth (Academy)
 Route::prefix('admin')->name('admin.')->group(function () {
@@ -139,6 +145,13 @@ Route::prefix('erp')->name('erp.')->group(function () {
         // ── Academy ERP ───────────────────────────────────
         Route::prefix('academy')->name('academy.')->group(function () {
             Route::get('/', [AcademyERPController::class, 'index'])->name('index');
+            Route::prefix('bootcamp')->name('bootcamp.')->group(function () {
+                Route::get('/', [BootcampAdminController::class, 'index'])->name('index');
+                Route::get('/export', [BootcampAdminController::class, 'export'])->name('export');
+                Route::get('/{registration}', [BootcampAdminController::class, 'show'])->name('show');
+                Route::post('/{registration}/approve', [BootcampAdminController::class, 'approve'])->name('approve');
+                Route::post('/{registration}/reject', [BootcampAdminController::class, 'reject'])->name('reject');
+            });
         });
 
         // ── Services (catalogue) ──────────────────────────
