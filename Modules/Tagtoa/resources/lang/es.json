@@ -893,5 +893,17 @@
     "à synchroniser": "por sincronizar",
     "— Aucun —": "— Ninguno —",
     "— Aucune —": "— Ninguna —",
-    "Aller sur TAGTOA": "Ir a TAGTOA"
+    "Aller sur TAGTOA": "Ir a TAGTOA",
+    "Recharger ma carte": "Recargar mi tarjeta",
+    "Rechargez le solde de votre carte TAGTOA en ligne. Utilisable partout sur TAGTOA.": "Recarga el saldo de tu tarjeta TAGTOA en línea. Utilizable en todo TAGTOA.",
+    "Solde actuel": "Saldo actual",
+    "Code de la carte": "Código de la tarjeta",
+    "Montant à recharger": "Monto a recargar",
+    "Moyen de recharge": "Medio de recarga",
+    "Recharger maintenant": "Recargar ahora",
+    "Aucun moyen de recharge en ligne n'est disponible pour le moment. Rechargez auprès d'un point de vente TAGTOA.": "No hay medio de recarga en línea disponible por ahora. Recarga en un punto de venta TAGTOA.",
+    "Crypto (USDT/BTC…)": "Cripto (USDT/BTC…)",
+    "Moyen de recharge indisponible pour cette devise.": "Medio de recarga no disponible para esta moneda.",
+    "La recharge en ligne n'a pas pu démarrer. Réessayez.": "La recarga en línea no pudo iniciarse. Inténtalo de nuevo.",
+    "Lien de recharge en ligne (à partager avec le client)": "Enlace de recarga en línea (para compartir con el cliente)"
 }

@@ -38,6 +38,9 @@ Route::get('/pay/{alias}', [PayPublic::class, 'show'])->name('tagtoa.pay.show');
 Route::get('/pay/{alias}/checkout/{method}', [PayPublic::class, 'checkout'])->name('tagtoa.pay.checkout');
 // Paiement par CARTE TAGTOA (closed-loop) : tap NFC/UID + PIN → débit instantané.
 Route::post('/pay/{alias}/card/charge', [PayPublic::class, 'cardCharge'])->middleware('throttle:20,1')->name('tagtoa.pay.card.charge');
+// Recharge EN LIGNE d'une carte TAGTOA par le titulaire (public).
+Route::get('/card/recharge', [\Modules\Tagtoa\App\Http\Controllers\Card\PublicController::class, 'recharge'])->name('tagtoa.card.recharge');
+Route::post('/card/recharge', [\Modules\Tagtoa\App\Http\Controllers\Card\PublicController::class, 'start'])->middleware('throttle:20,1')->name('tagtoa.card.recharge.start');
 // Paiement en ligne via passerelle API (MonCash…). Public.
 Route::get('/pay/result', [\Modules\Tagtoa\App\Http\Controllers\Pay\CheckoutController::class, 'result'])->name('tagtoa.pay.result');
 Route::get('/pay/checkout/{gateway}/{type}/{orderId}', [\Modules\Tagtoa\App\Http\Controllers\Pay\CheckoutController::class, 'start'])->middleware('throttle:30,1')->name('tagtoa.pay.online.start');
