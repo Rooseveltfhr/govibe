@@ -4,6 +4,21 @@
 @section('page', $editing ? __('Modifier l\'événement') : __('Nouvel événement'))
 
 @section('content')
+@if($editing)
+    @php $eventUrl = url('/event/'.$event->alias); @endphp
+    <div class="card" style="margin-bottom:16px">
+        <div class="h-row"><h2><i class="fa-solid fa-share-nodes"></i> {{ __('Partager l\'événement') }}</h2></div>
+        @if($event->is_published)
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+                <input class="inp" value="{{ $eventUrl }}" readonly onclick="this.select()" style="flex:1">
+                <a href="{{ $eventUrl }}" target="_blank" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-up-right-from-square"></i> {{ __('Voir') }}</a>
+            </div>
+            @include('tagtoa::partials.share-buttons', ['url' => $eventUrl, 'title' => $event->title])
+        @else
+            <div class="empty" style="padding:18px"><i class="fa-solid fa-eye-slash"></i>{{ __('Publiez l\'événement (case « Publié » ci-dessous) pour obtenir le lien de partage.') }}</div>
+        @endif
+    </div>
+@endif
 <form method="POST" enctype="multipart/form-data" action="{{ $editing ? route('tagtoa.event.dashboard.update',$event->id) : route('tagtoa.event.dashboard.store') }}">
     @csrf @if($editing) @method('PUT') @endif
     <div class="card">

@@ -23,7 +23,15 @@
                     <a href="{{ route('tagtoa.event.dashboard.checkin.report',$e->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-chart-simple"></i> {{ __('Rapport') }}</a>
                     <a href="{{ route('tagtoa.event.dashboard.badges',$e->id) }}" target="_blank" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-id-badge"></i> {{ __('Badges') }}</a>
                     <a href="{{ route('tagtoa.event.dashboard.staff',$e->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-users"></i> {{ __('Staff') }}</a>
+                    @if($e->is_published)
+                        <button type="button" class="btn btn-o btn-sm" style="flex:0" onclick="var s=document.getElementById('sh-{{ $e->id }}');s.style.display=s.style.display==='none'?'block':'none'"><i class="fa-solid fa-share-nodes"></i> {{ __('Partager') }}</button>
+                    @endif
                 </div>
+                @if($e->is_published)
+                    <div id="sh-{{ $e->id }}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--bd,#eee)">
+                        @include('tagtoa::partials.share-buttons', ['url' => url('/event/'.$e->alias), 'title' => $e->title])
+                    </div>
+                @endif
             </div>
         @endforeach
     </div>
