@@ -277,6 +277,8 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     // PLAN / ABONNEMENT
     Route::get('/plan', [\Modules\Tagtoa\App\Http\Controllers\Billing\PlanController::class, 'index'])->name('tagtoa.plan.index');
     Route::post('/plan/subscribe', [\Modules\Tagtoa\App\Http\Controllers\Billing\PlanController::class, 'subscribe'])->name('tagtoa.plan.subscribe');
+    // Un GET direct/périmé sur l'action POST → redirige proprement vers la page plan (pas d'erreur 405/503).
+    Route::get('/plan/subscribe', fn () => redirect()->route('tagtoa.plan.index'));
 
     // BILLING
     Route::get('/billing', [BillingController::class, 'index'])->name('tagtoa.billing.index');

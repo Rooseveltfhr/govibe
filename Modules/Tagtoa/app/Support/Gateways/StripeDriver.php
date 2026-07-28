@@ -49,7 +49,7 @@ class StripeDriver implements GatewayDriver
         ];
 
         try {
-            $res = Http::withToken($this->secret)->asForm()->acceptJson()->timeout(20)
+            $res = Http::withToken($this->secret)->asForm()->acceptJson()->connectTimeout(5)->timeout(10)
                 ->post(Stripe::API_BASE.'/v1/checkout/sessions', $params);
 
             $id = $res->json('id');
@@ -75,7 +75,7 @@ class StripeDriver implements GatewayDriver
         }
 
         try {
-            $res = Http::withToken($this->secret)->acceptJson()->timeout(20)
+            $res = Http::withToken($this->secret)->acceptJson()->connectTimeout(5)->timeout(10)
                 ->get(Stripe::API_BASE.'/v1/checkout/sessions/'.$txn->gateway_ref);
 
             if (! $res->successful()) {

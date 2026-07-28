@@ -38,7 +38,7 @@ class PayPalDriver implements GatewayDriver
         }
 
         try {
-            $res = Http::withToken($token)->acceptJson()->asJson()->timeout(20)
+            $res = Http::withToken($token)->acceptJson()->asJson()->connectTimeout(5)->timeout(10)
                 ->post(PayPal::apiBase($this->mode).'/v2/checkout/orders', [
                     'intent'         => 'CAPTURE',
                     'purchase_units' => [[
@@ -82,13 +82,13 @@ class PayPalDriver implements GatewayDriver
         $base = PayPal::apiBase($this->mode);
 
         try {
-            $res = Http::withToken($token)->acceptJson()->timeout(20)
+            $res = Http::withToken($token)->acceptJson()->connectTimeout(5)->timeout(10)
                 ->get($base.'/v2/checkout/orders/'.$txn->gateway_ref);
             $status = $res->json('status');
 
             // Approuvé par le payeur → on capture pour encaisser.
             if (strtoupper((string) $status) === 'APPROVED') {
-                $cap = Http::withToken($token)->acceptJson()->asJson()->timeout(20)
+                $cap = Http::withToken($token)->acceptJson()->asJson()->connectTimeout(5)->timeout(10)
                     ->post($base.'/v2/checkout/orders/'.$txn->gateway_ref.'/capture', new \stdClass);
                 $status = $cap->json('status', $status);
             }
@@ -127,7 +127,7 @@ class PayPalDriver implements GatewayDriver
 
         try {
             $res = Http::withBasicAuth($this->clientId, $this->secret)
-                ->asForm()->acceptJson()->timeout(20)
+                ->asForm()->acceptJson()->connectTimeout(5)->timeout(10)
                 ->post(PayPal::apiBase($this->mode).'/v1/oauth2/token', [
                     'grant_type' => 'client_credentials',
                 ]);
