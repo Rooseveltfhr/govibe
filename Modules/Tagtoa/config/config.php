@@ -25,21 +25,35 @@ return [
     'default_plan' => env('TAGTOA_DEFAULT_PLAN', 'free'),
 
     'plans' => [
+        // `cards` = émission/activation de cartes NFC TAGTOA (closed-loop). Réservé
+        // aux forfaits payants supérieurs (Enterprise/Revendeur/Franchise).
         'free' => [
             'label'  => 'Gratuit',
             'price'  => 0,
-            'limits' => ['site' => 1, 'menu' => 1, 'pay' => 1, 'links' => 1, 'loyalty' => 0, 'event' => 0, 'pos' => 0, 'booking' => 0, 'staff' => 0, 'store' => 1],
+            'limits' => ['site' => 1, 'menu' => 1, 'pay' => 1, 'links' => 1, 'loyalty' => 0, 'event' => 0, 'pos' => 0, 'booking' => 0, 'staff' => 0, 'store' => 1, 'cards' => 0],
         ],
         'pro' => [
             'label'  => 'Pro',
             'price'  => 1500,
             // `staff` = nombre max de comptes staff PAR ÉVÉNEMENT (terrain, PIN).
-            'limits' => ['site' => null, 'menu' => null, 'pay' => null, 'links' => null, 'loyalty' => null, 'event' => null, 'pos' => null, 'booking' => null, 'staff' => 10, 'store' => null],
+            'limits' => ['site' => null, 'menu' => null, 'pay' => null, 'links' => null, 'loyalty' => null, 'event' => null, 'pos' => null, 'booking' => null, 'staff' => 10, 'store' => null, 'cards' => 0],
         ],
         'enterprise' => [
             'label'  => 'Enterprise',
             'price'  => null, // sur devis
-            'limits' => ['site' => null, 'menu' => null, 'pay' => null, 'links' => null, 'loyalty' => null, 'event' => null, 'pos' => null, 'booking' => null, 'staff' => null, 'store' => null],
+            'limits' => ['site' => null, 'menu' => null, 'pay' => null, 'links' => null, 'loyalty' => null, 'event' => null, 'pos' => null, 'booking' => null, 'staff' => null, 'store' => null, 'cards' => null],
+        ],
+        // Revendeur : active/émet des cartes NFC, revend localement (marge matériel).
+        'reseller' => [
+            'label'  => 'Revendeur',
+            'price'  => 5000,
+            'limits' => ['site' => null, 'menu' => null, 'pay' => null, 'links' => null, 'loyalty' => null, 'event' => null, 'pos' => null, 'booking' => null, 'staff' => null, 'store' => null, 'cards' => null],
+        ],
+        // Franchise : déploiement pays/marque, tout illimité (sur devis).
+        'franchise' => [
+            'label'  => 'Franchise',
+            'price'  => null, // sur devis
+            'limits' => ['site' => null, 'menu' => null, 'pay' => null, 'links' => null, 'loyalty' => null, 'event' => null, 'pos' => null, 'booking' => null, 'staff' => null, 'store' => null, 'cards' => null],
         ],
     ],
 
@@ -155,5 +169,16 @@ return [
         'EUR' => ['symbol' => '€',   'name' => 'Euro',              'decimals' => 2, 'position' => 'after'],
         'DOP' => ['symbol' => 'RD$', 'name' => 'Peso dominicain',   'decimals' => 2, 'position' => 'before'],
         'CAD' => ['symbol' => 'C$',  'name' => 'Dollar canadien',   'decimals' => 2, 'position' => 'before'],
+        // International (plateforme mondiale)
+        'GBP' => ['symbol' => '£',    'name' => 'Livre sterling',        'decimals' => 2, 'position' => 'before'],
+        'MXN' => ['symbol' => 'MX$',  'name' => 'Peso mexicain',         'decimals' => 2, 'position' => 'before'],
+        'BRL' => ['symbol' => 'R$',   'name' => 'Real brésilien',        'decimals' => 2, 'position' => 'before'],
+        'XOF' => ['symbol' => 'CFA',  'name' => 'Franc CFA (UEMOA)',     'decimals' => 0, 'position' => 'after'],
+        'XAF' => ['symbol' => 'FCFA', 'name' => 'Franc CFA (CEMAC)',     'decimals' => 0, 'position' => 'after'],
+        'NGN' => ['symbol' => '₦',    'name' => 'Naira nigérian',        'decimals' => 2, 'position' => 'before'],
+        'GHS' => ['symbol' => 'GH₵',  'name' => 'Cedi ghanéen',          'decimals' => 2, 'position' => 'before'],
+        'KES' => ['symbol' => 'KSh',  'name' => 'Shilling kényan',       'decimals' => 2, 'position' => 'before'],
+        'ZAR' => ['symbol' => 'R',    'name' => 'Rand sud-africain',     'decimals' => 2, 'position' => 'before'],
+        'COP' => ['symbol' => 'CO$',  'name' => 'Peso colombien',        'decimals' => 2, 'position' => 'before'],
     ],
 ];

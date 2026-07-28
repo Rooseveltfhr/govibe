@@ -10,15 +10,20 @@ use Modules\Tagtoa\App\Models\Card\CardAccount;
 use Modules\Tagtoa\App\Services\Audit\AuditService;
 use Modules\Tagtoa\App\Services\Card\CardWalletService;
 use Modules\Tagtoa\App\Support\Card\CardWallet;
+use Modules\Tagtoa\App\Support\EnforcesPlan;
 use Modules\Tagtoa\App\Support\Money;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
  * TAGTOA CARD — gestion des cartes NFC prépayées closed-loop (émission,
  * recharge, blocage, historique). Scopé au marchand courant.
+ * L'émission/activation de cartes est réservée aux forfaits qui l'autorisent
+ * (Enterprise / Revendeur / Franchise) via EnforcesPlan.
  */
 class DashboardController extends Controller
 {
+    use EnforcesPlan;
+
     public function index(Request $request): View
     {
         $q = trim((string) $request->query('q', ''));
@@ -53,6 +58,11 @@ class DashboardController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        // Activation de carte NFC réservée aux forfaits supérieurs.
+        if ($r = $this->planGuard('cards')) {
+            return $r;
+        }
+
         $data = $request->validate([
             'card_uid'       => ['required', 'string', 'max:120'],
             'holder_name'    => ['nullable', 'string', 'max:120'],

@@ -79,6 +79,12 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
   (free/pro/enterprise, limit pa modil), `PlanService` (limit/usage/canCreate),
   trait `EnforcesPlan` (guard nan store() tout modil), paj `/tagtoa/plan` (usage +
   chanjman fòfè self-service). Peman fòfè otomatik = ap vini ak pasrèl PAY.
+  - Plan yo **editab an dirèk** (pri+limit) via `/tagtoa/admin/plans` (super_admin):
+    tab `tagtoa_plans` sipèchaje config la (`PlanService::effectivePlans()`, tolerab).
+  - Plan entènasyonal: **free/pro/enterprise/reseller(Revendeur)/franchise**. Kle limit
+    `cards` = aktivasyon kat NFC (free/pro=0, enterprise/reseller/franchise=∞) → gate nan
+    `Card\DashboardController::store` (EnforcesPlan). Deviz elaji (15: +GBP/XOF/XAF/NGN/…).
+    Modèl biznis NFC: logisyèl-dabò (BYOC), maj kat via revandè/franchise, +% komisyon.
 - **Faz 4 — Eksperyans machann** 🔨 AN KOU:
   - ✅ QR & Partage (`/tagtoa/qr`): QR pa resous piblik (Site/Menu/Pay/Links/Event),
     telechaje SVG, afich enprimab (`Support/Qr` simple-qrcode + fallback qrserver).

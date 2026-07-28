@@ -17,7 +17,7 @@ use Modules\Tagtoa\App\Services\Billing\PlanService;
 class PlanController extends Controller
 {
     /** Fonctionnalités limitables (clés de `limits`). */
-    protected const FEATURES = ['site', 'menu', 'pay', 'links', 'loyalty', 'event', 'pos', 'booking', 'staff', 'store'];
+    protected const FEATURES = ['site', 'menu', 'pay', 'links', 'loyalty', 'event', 'pos', 'booking', 'staff', 'store', 'cards'];
 
     public function index(): View
     {

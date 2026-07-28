@@ -27,6 +27,7 @@ class PlanService
         'event'   => Event::class,
         'pos'     => Terminal::class,
         'booking' => BookingPage::class,
+        'cards'   => \Modules\Tagtoa\App\Models\Card\CardAccount::class,
     ];
 
     /** Cache des forfaits effectifs pour la durée de la requête. */
