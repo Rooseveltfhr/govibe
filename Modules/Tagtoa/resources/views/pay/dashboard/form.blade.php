@@ -10,6 +10,7 @@
         <div class="row">
             <div><label class="lbl">{{ __('Titre') }}</label><input class="inp" name="title" value="{{ old('title',$page->title) }}" placeholder="{{ __('Payez Jean Baptiste') }}"></div>
             <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="default_currency">@foreach(\Modules\Tagtoa\App\Support\Money::options() as $code=>$label)<option value="{{ $code }}" @selected(old('default_currency',$page->default_currency ?: 'HTG')===$code)>{{ $label }}</option>@endforeach</select></div>
+            <div><label class="lbl">{{ __('Prix fixe') }} <span style="font-weight:400;color:var(--muted)">({{ __('vide = le client choisit le montant') }})</span></label><input class="inp" name="amount" type="number" step="0.01" min="0" value="{{ old('amount',$page->amount) }}" placeholder="{{ __('Montant libre') }}"></div>
         </div>
         <label class="lbl">{{ __('Alias (URL)') }}</label>
         <div style="display:flex;align-items:center;gap:8px"><span style="color:var(--muted);font-size:14px">tagtoa.com/pay/</span><input class="inp" name="alias" value="{{ old('alias',$page->alias) }}" placeholder="{{ __('auto si vide') }}"></div>

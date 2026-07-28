@@ -967,5 +967,9 @@
     "Quota de cartes atteint. Passez à un forfait Revendeur/Franchise ou obtenez des crédits d'activation.": "Kota kat rive. Monte sou yon fòfè Revandè/Franchise oswa jwenn kredi aktivasyon.",
     "Crédits d'activation": "Kredi aktivasyon",
     "Crédits d'activation de cartes": "Kredi aktivasyon kat",
-    "Accorder des crédits": "Bay kredi"
+    "Accorder des crédits": "Bay kredi",
+    "Prix fixe": "Pri fiks",
+    "vide = le client choisit le montant": "vid = kliyan an chwazi montan an",
+    "Montant libre": "Montan lib",
+    "Montant invalide.": "Montan pa valab."
 }

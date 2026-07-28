@@ -17,10 +17,16 @@ class PaymentPage extends Model
 
     protected $fillable = [
         'vcard_id', 'tenant_id', 'title', 'alias', 'description',
-        'default_currency', 'is_active', 'views',
+        'default_currency', 'amount', 'is_active', 'views',
     ];
 
-    protected $casts = ['is_active' => 'boolean', 'views' => 'integer'];
+    protected $casts = ['is_active' => 'boolean', 'views' => 'integer', 'amount' => 'decimal:2'];
+
+    /** Prix fixe imposé ? (montant renseigné et > 0). */
+    public function hasFixedAmount(): bool
+    {
+        return $this->amount !== null && (float) $this->amount > 0;
+    }
 
     /** Méthodes supportées : label + icône (classe FA complète) + région (groupe UI). */
     public const METHODS = [

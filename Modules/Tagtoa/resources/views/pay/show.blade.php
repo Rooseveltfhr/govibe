@@ -57,10 +57,17 @@
 <body>
 <div style="position:fixed;top:12px;right:12px;z-index:50">@include('tagtoa::partials.lang')</div>
 <div class="wrap">
+    @php $fixed = $page->hasFixedAmount(); $fixedVal = $fixed ? number_format((float) $page->amount, 2, '.', '') : ''; @endphp
     <header class="hd">
         <span class="badge"><i class="fa-solid fa-wifi"></i> TAGTOA PAY</span>
         <h1>{{ $page->title ?: __('Effectuer un paiement') }}</h1>
         @if($page->description)<p>{{ $page->description }}</p>@endif
+        @if($fixed)
+            <div style="position:relative;margin-top:12px;display:inline-flex;align-items:baseline;gap:6px;background:rgba(255,255,255,.12);padding:8px 16px;border-radius:12px">
+                <span style="font-size:12px;opacity:.8">{{ __('Montant à payer') }}</span>
+                <b style="font-family:var(--fh);font-size:22px">{{ \Modules\Tagtoa\App\Support\Money::format((float) $page->amount, $page->default_currency) }}</b>
+            </div>
+        @endif
     </header>
 
     @if(session('card_paid'))
@@ -101,7 +108,7 @@
                         @if($m->onlineAvailable())
                             <form method="GET" action="{{ route('tagtoa.pay.checkout', [$page->alias, $m->id]) }}" style="margin-bottom:14px">
                                 <label class="lbl">{{ __('Montant à payer') }} ({{ $page->default_currency }}) *</label>
-                                <input class="inp" name="amount" type="number" step="0.01" min="1" required placeholder="0.00">
+                                <input class="inp" name="amount" type="number" step="0.01" min="1" required placeholder="0.00" value="{{ $fixedVal }}" @readonly($fixed)>
                                 <label class="lbl">{{ __('Votre nom') }}</label>
                                 <input class="inp" name="payer_name" maxlength="120" placeholder="{{ __('Optionnel') }}">
                                 <label class="lbl">{{ __('Téléphone (WhatsApp)') }}</label>
@@ -121,7 +128,7 @@
                                 <label class="lbl">{{ __('Code PIN') }}</label>
                                 <input class="inp" name="pin" inputmode="numeric" maxlength="6" pattern="\d*" placeholder="••••">
                                 <label class="lbl">{{ __('Montant à payer') }} ({{ $page->default_currency }}) *</label>
-                                <input class="inp" name="amount" type="number" step="0.01" min="0.01" required placeholder="0.00">
+                                <input class="inp" name="amount" type="number" step="0.01" min="0.01" required placeholder="0.00" value="{{ $fixedVal }}" @readonly($fixed)>
                                 <button class="btn btn-p" type="submit" style="margin-top:10px"><i class="fa-solid fa-bolt"></i> {{ __('Payer avec la carte') }}</button>
                             </form>
                         @endif
@@ -139,7 +146,7 @@
                             <label class="lbl">{{ __('Téléphone (WhatsApp)') }}</label>
                             <input class="inp" name="payer_phone" maxlength="40" value="{{ old('payer_phone') }}" placeholder="+509 ...">
                             <label class="lbl">{{ __('Montant') }} ({{ $page->default_currency }})</label>
-                            <input class="inp" name="amount" type="number" step="0.01" min="0" value="{{ old('amount') }}" placeholder="0.00">
+                            <input class="inp" name="amount" type="number" step="0.01" min="0" value="{{ $fixed ? $fixedVal : old('amount') }}" placeholder="0.00" @readonly($fixed)>
                             <label class="lbl">{{ __('Référence / N° transaction') }}</label>
                             <input class="inp" name="reference" maxlength="120" value="{{ old('reference') }}" placeholder="{{ __('Optionnel') }}">
                             <label class="lbl">{{ __('Preuve (capture)') }} {{ $m->requires_proof ? '*' : '' }}</label>

@@ -143,6 +143,7 @@ $data = $this->validatePage($request);
                                    'unique:tagtoa_payment_pages,alias'.($ignoreId ? ','.$ignoreId : '')],
             'description'      => ['nullable', 'string', 'max:1000'],
             'default_currency' => ['nullable', 'string', 'max:10'],
+            'amount'           => ['nullable', 'numeric', 'min:0', 'max:99999999'], // prix fixe (vide = libre)
             'is_active'        => ['nullable', 'boolean'],
         ]);
     }
