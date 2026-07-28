@@ -913,5 +913,16 @@
     "NFC non supporté. Saisissez le code.": "NFC no soportado. Ingresa el código.",
     "Paiement accepté par Carte TAGTOA. Vos billets sont confirmés.": "Pago aceptado con Tarjeta TAGTOA. Tus boletos están confirmados.",
     "La devise de la carte ne correspond pas à celle de la commande.": "La moneda de la tarjeta no coincide con la del pedido.",
-    "UID (auto)": "UID (auto)"
+    "UID (auto)": "UID (auto)",
+    "La Carte TAGTOA, votre monnaie": "La Tarjeta TAGTOA, tu moneda",
+    "Une carte NFC prépayée : vos clients rechargent et paient partout sur TAGTOA, sans cash.": "Una tarjeta NFC prepago: tus clientes recargan y pagan en todo TAGTOA, sin efectivo.",
+    "Carte NFC prépayée closed-loop : rechargez, tapez, payez partout sur TAGTOA.": "Tarjeta NFC prepago closed-loop: recarga, acerca, paga en todo TAGTOA.",
+    "Payé — nouveau solde 750 HTG": "Pagado — nuevo saldo 750 HTG",
+    "Tap NFC": "Toque NFC",
+    "Sans cash": "Sin efectivo",
+    "Votre propre carte prépayée, acceptée partout": "Tu propia tarjeta prepago, aceptada en todas partes",
+    "Une carte NFC « closed-loop » qui porte un solde utilisable chez tous vos points de vente TAGTOA. Le client recharge, tape sa carte, et paie en une seconde — sans espèces, sans réseau externe.": "Una tarjeta NFC «closed-loop» con un saldo utilizable en todos tus puntos de venta TAGTOA. El cliente recarga, acerca su tarjeta y paga en un segundo — sin efectivo, sin red externa.",
+    "Rechargeable en ligne ou en point de vente": "Recargable en línea o en punto de venta",
+    "Valable sur boutique, menu, événements et caisse": "Válida en tienda, menú, eventos y caja",
+    "Sécurisée par PIN, anti-fraude, solde protégé": "Protegida con PIN, antifraude, saldo protegido"
 }

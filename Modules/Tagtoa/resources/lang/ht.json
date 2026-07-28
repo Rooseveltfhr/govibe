@@ -913,5 +913,16 @@
     "NFC non supporté. Saisissez le code.": "NFC pa sipòte. Antre kòd la.",
     "Paiement accepté par Carte TAGTOA. Vos billets sont confirmés.": "Peman aksepte ak Kat TAGTOA. Biyè ou yo konfime.",
     "La devise de la carte ne correspond pas à celle de la commande.": "Deviz kat la pa koresponn ak deviz kòmand lan.",
-    "UID (auto)": "UID (otomatik)"
+    "UID (auto)": "UID (otomatik)",
+    "La Carte TAGTOA, votre monnaie": "Kat TAGTOA a, lajan ou",
+    "Une carte NFC prépayée : vos clients rechargent et paient partout sur TAGTOA, sans cash.": "Yon kat NFC prépeye : kliyan ou yo rechaje epi peye toupatou sou TAGTOA, san kach.",
+    "Carte NFC prépayée closed-loop : rechargez, tapez, payez partout sur TAGTOA.": "Kat NFC prépeye closed-loop : rechaje, tape, peye toupatou sou TAGTOA.",
+    "Payé — nouveau solde 750 HTG": "Peye — nouvo solde 750 HTG",
+    "Tap NFC": "Tap NFC",
+    "Sans cash": "San kach",
+    "Votre propre carte prépayée, acceptée partout": "Pwòp kat prépeye pa ou, aksepte toupatou",
+    "Une carte NFC « closed-loop » qui porte un solde utilisable chez tous vos points de vente TAGTOA. Le client recharge, tape sa carte, et paie en une seconde — sans espèces, sans réseau externe.": "Yon kat NFC « closed-loop » ki pote yon solde ou ka itilize nan tout pwen vant TAGTOA ou yo. Kliyan an rechaje, tape kat li, epi peye nan yon segond — san lajan kach, san rezo deyò.",
+    "Rechargeable en ligne ou en point de vente": "Rechajab an liy oswa nan yon pwen vant",
+    "Valable sur boutique, menu, événements et caisse": "Valab sou boutik, menu, evènman ak kès",
+    "Sécurisée par PIN, anti-fraude, solde protégé": "Sekirize ak PIN, anti-frod, solde pwoteje"
 }
