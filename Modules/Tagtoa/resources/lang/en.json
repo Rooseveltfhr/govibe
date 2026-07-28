@@ -436,7 +436,7 @@
     "NFC nécessite une connexion.": "NFC requires a connection.",
     "Net": "Net",
     "Net marchand": "Merchant net",
-    "Nom": "Name",
+    "Nom": "Last name",
     "Nom (VIP…)": "Name (VIP…)",
     "Nom complet": "Full name",
     "Nom de la boutique": "Store name",
@@ -945,5 +945,16 @@
     "Limites": "Limits",
     "Enregistrer les forfaits": "Save plans",
     "Forfaits mis à jour.": "Plans updated.",
-    "Ma carte de visite": "My business card"
+    "Ma carte de visite": "My business card",
+    "Lancez votre business en quelques minutes.": "Launch your business in minutes.",
+    "C'est gratuit et rapide.": "It's free and fast.",
+    "Prénom": "First name",
+    "Confirmer le mot de passe": "Confirm password",
+    "Code de parrainage": "Referral code",
+    "optionnel": "optional",
+    "En m'inscrivant, j'accepte les": "By signing up, I agree to the",
+    "conditions": "terms",
+    "la politique de confidentialité": "the privacy policy",
+    "Créer mon compte": "Create my account",
+    "Déjà un compte ?": "Already have an account?"
 }
