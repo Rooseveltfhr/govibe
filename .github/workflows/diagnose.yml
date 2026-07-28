@@ -138,6 +138,28 @@ jobs:
           cat "$L/resources/views/auth/login.blade.php" 2>/dev/null || echo "absent"
           echo "::endgroup::"
 
+          echo "::group::INSCRIPTION (register) — champs attendus"
+          echo "== fichiers register (vues) =="
+          find "$L/resources/views" -maxdepth 4 -iname 'register*.blade.php' 2>/dev/null | head
+          echo "== champs name= dans register.blade.php =="
+          RV=$(find "$L/resources/views" -maxdepth 4 -iname 'register.blade.php' 2>/dev/null | head -1)
+          echo "fichier: ${RV:-introuvable}"
+          [ -n "$RV" ] && grep -oE 'name="[^"]+"' "$RV" | sort -u
+          echo "== route(s) register (web.php) =="
+          grep -nE "register|Register" "$L/routes/web.php" 2>/dev/null | head -10
+          echo "== RegisterController (règles de validation) =="
+          RC=$(find "$L/app" -iname 'RegisterController.php' 2>/dev/null | head -1)
+          echo "fichier: ${RC:-introuvable}"
+          [ -n "$RC" ] && sed -n '1,140p' "$RC" | grep -nE "required|rules|validator|redirectTo|create\(|'name'|'email'|'first_name'|'last_name'|'username'|'phone'|'mobile'|'password'" | head -40
+          echo "::endgroup::"
+
+          echo "::group::vCARD — tableau de bord & routes (pour lien sidebar)"
+          echo "== routes contenant vcard/dashboard/create (web.php) =="
+          grep -nE "vcard|Vcard|VCard|dashboard|create-vcard|user/dashboard" "$L/routes/web.php" 2>/dev/null | head -30
+          echo "== RouteServiceProvider HOME =="
+          grep -rnE "const HOME|public const HOME|protected \\\$redirectTo|redirectTo =" "$L/app/Providers" 2>/dev/null | head
+          echo "::endgroup::"
+
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
           LOG="$L/storage/logs/laravel.log"
           if [ -f "$LOG" ]; then
