@@ -77,7 +77,8 @@
 
             <form method="POST" action="{{ route('login') }}" novalidate>
                 @csrf
-                <input type="hidden" name="redirect" value="{{ request()->get('redirect') }}">
+                {{-- Par défaut, après connexion on va au hub TAGTOA unifié (une seule expérience). --}}
+                <input type="hidden" name="redirect" value="{{ request()->get('redirect') ?: url('/tagtoa/home') }}">
 
                 <div class="field">
                     <label for="email">{{ __('E-mail') }}</label>
@@ -105,7 +106,7 @@
             </form>
 
             @if(\Illuminate\Support\Facades\Route::has('register'))
-                <div class="foot">{{ __('Nouveau ?') }} <a href="{{ route('register') }}">{{ __('Créer un compte') }}</a></div>
+                <div class="foot">{{ __('Nouveau ?') }} <a href="{{ route('register') }}?redirect={{ urlencode(url('/tagtoa/home')) }}">{{ __('Créer un compte') }}</a></div>
             @endif
             <div class="foot"><a href="{{ url('/') }}">{{ __('← Retour à l\'accueil') }}</a></div>
         </div>

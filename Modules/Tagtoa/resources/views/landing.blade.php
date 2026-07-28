@@ -250,7 +250,7 @@
     <a class="btn btn-o hidem" href="{{ url('/events') }}"><i class="fa-solid fa-ticket"></i> {{ __('Événements') }}</a>
     @include('tagtoa::partials.lang')
     <a class="btn btn-o" href="{{ url('/login') }}"><i class="fa-solid fa-arrow-right-to-bracket"></i> {{ __('Se connecter') }}</a>
-    <a class="btn btn-p" href="{{ url('/register') }}"><i class="fa-solid fa-user-plus"></i> {{ __('S\'inscrire') }}</a>
+    <a class="btn btn-p" href="{{ url('/register') }}?redirect={{ urlencode(url('/tagtoa/home')) }}"><i class="fa-solid fa-user-plus"></i> {{ __('S\'inscrire') }}</a>
 </div></nav>
 
 <header class="hero"><div class="wrap in">
