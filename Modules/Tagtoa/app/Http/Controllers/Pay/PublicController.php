@@ -37,7 +37,8 @@ class PublicController extends Controller
         $m = $page->activeMethods()->whereKey($method)->firstOrFail();
 
         $gateway = \Modules\Tagtoa\App\Support\PaymentGateway::driver($m->type);
-        $amount = round((float) $request->input('amount', 0), 2);
+        // Prix fixe → imposé côté serveur (anti-fraude) ; sinon le payeur choisit.
+        $amount = $page->hasFixedAmount() ? (float) $page->amount : round((float) $request->input('amount', 0), 2);
 
         // Passerelle non branchée/non configurée ou montant absent → repli manuel propre.
         if (! $gateway || ! \Modules\Tagtoa\App\Support\GatewayManager::enabled($gateway) || $amount <= 0) {
@@ -71,8 +72,14 @@ class PublicController extends Controller
             'card_uid'  => ['nullable', 'string', 'max:120'],
             'card_code' => ['nullable', 'string', 'max:40'],
             'pin'       => ['nullable', 'string', 'max:6'],
-            'amount'    => ['required', 'numeric', 'min:0.01', 'max:99999999'],
+            'amount'    => ['nullable', 'numeric', 'min:0.01', 'max:99999999'],
         ]);
+
+        // Prix fixe → imposé côté serveur (anti-fraude).
+        $amount = $page->hasFixedAmount() ? (float) $page->amount : (float) ($data['amount'] ?? 0);
+        if ($amount <= 0) {
+            return back()->withInput()->with('error', __('Montant invalide.'));
+        }
 
         if (empty($data['card_uid']) && empty($data['card_code'])) {
             return back()->withInput()->with('error', __('Tapez la carte ou saisissez son code.'));
@@ -87,7 +94,7 @@ class PublicController extends Controller
             return back()->withInput()->with('error', __('Carte TAGTOA introuvable.'));
         }
 
-        $res = $svc->charge($card, (float) $data['amount'], $data['pin'] ?? null, [
+        $res = $svc->charge($card, $amount, $data['pin'] ?? null, [
             'tenant_id'    => $page->tenant_id,
             'context_type' => 'pay_page',
             'context_id'   => $page->id,
@@ -105,7 +112,7 @@ class PublicController extends Controller
                 'payment_method_id' => $page->activeMethods()->where('type', 'tagtoa_card')->value('id'),
                 'payer_name'        => $card->holder_name ?: __('Carte TAGTOA'),
                 'payer_phone'       => $card->holder_phone,
-                'amount'            => (float) $data['amount'],
+                'amount'            => $amount,
                 'currency'          => $card->currency,
                 'status'            => \Modules\Tagtoa\App\Models\Pay\PaymentProof::STATUS_APPROVED,
                 'note'              => __('Payé par Carte TAGTOA').' ('.$card->masked_code.')',
@@ -150,7 +157,7 @@ class PublicController extends Controller
             'payment_method_id' => $method->id,
             'payer_name'        => $data['payer_name'],
             'payer_phone'       => $data['payer_phone'] ?? null,
-            'amount'            => $data['amount'] ?? null,
+            'amount'            => $page->hasFixedAmount() ? (float) $page->amount : ($data['amount'] ?? null),
             'currency'          => $page->default_currency,
             'reference'         => $data['reference'] ?? null,
             'proof_path'        => $path,
