@@ -27,7 +27,9 @@
                     <a href="{{ route('tagtoa.store.dashboard.edit',$s->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-pen"></i> {{ __('Modifier') }}</a>
                     <a href="{{ route('tagtoa.store.dashboard.orders',$s->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-receipt"></i> {{ __('Commandes') }}</a>
                     <a href="{{ url('/store/'.$s->alias) }}" target="_blank" class="btn btn-d btn-sm" style="flex:0"><i class="fa-solid fa-arrow-up-right-from-square"></i> {{ __('Voir') }}</a>
+                    <button type="button" class="btn btn-o btn-sm" style="flex:0" onclick="var b=document.getElementById('sh-store-{{ $s->id }}');b.style.display=b.style.display==='none'?'block':'none'"><i class="fa-solid fa-share-nodes"></i> {{ __('Partager') }}</button>
                 </div>
+                <div id="sh-store-{{ $s->id }}" style="display:none;margin-top:12px">@include('tagtoa::partials.share-buttons', ['url' => url('/store/'.$s->alias), 'title' => $s->name ?? $s->alias])</div>
             </div>
         @endforeach
     </div>

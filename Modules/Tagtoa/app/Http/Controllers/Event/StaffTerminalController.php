@@ -32,6 +32,10 @@ class StaffTerminalController extends Controller
 
     public function terminal(string $alias): View
     {
+        // Le terminal staff terrain est en FRANÇAIS uniquement (personnel sur place),
+        // même si le reste de la plateforme est multilingue.
+        app()->setLocale('fr');
+
         $event = $this->eventByAlias($alias);
         $staff = $this->currentStaff($event);
 

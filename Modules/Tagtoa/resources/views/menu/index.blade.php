@@ -41,7 +41,9 @@
                     <a href="{{ route('tagtoa.menu.dashboard.edit',$m->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-pen"></i> {{ __('Modifier') }}</a>
                     <a href="{{ url('/menu/'.$m->alias) }}" target="_blank" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-eye"></i> {{ __('Voir') }}</a>
                     <form method="POST" action="{{ route('tagtoa.menu.dashboard.destroy',$m->id) }}" onsubmit="return confirm('{{ __('Supprimer ce menu ?') }}')" style="flex:0">@csrf @method('DELETE')<button class="btn btn-o btn-sm" style="color:var(--red)"><i class="fa-solid fa-trash"></i></button></form>
+                    <button type="button" class="btn btn-o btn-sm" style="flex:0" onclick="var s=document.getElementById('sh-menu-{{ $m->id }}');s.style.display=s.style.display==='none'?'block':'none'"><i class="fa-solid fa-share-nodes"></i> {{ __('Partager') }}</button>
                 </div>
+                <div id="sh-menu-{{ $m->id }}" style="display:none;margin-top:12px">@include('tagtoa::partials.share-buttons', ['url' => url('/menu/'.$m->alias), 'title' => $m->title ?? $m->alias])</div>
             </div>
         @endforeach
     </div>
