@@ -7,6 +7,7 @@
 <div class="card" style="margin-bottom:18px">
     <div class="h-row">
         <h2><i class="fa-solid fa-credit-card"></i> {{ $card->code }}</h2>
+        <a href="{{ route('tagtoa.cards.print', $card->id) }}" target="_blank" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-print"></i> {{ __('Imprimer la carte') }}</a>
         <a href="{{ route('tagtoa.cards.index') }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-arrow-left"></i> {{ __('Retour') }}</a>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:center">

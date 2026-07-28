@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Card\CardAccount;
 use Modules\Tagtoa\App\Services\Audit\AuditService;
+use Modules\Tagtoa\App\Services\Billing\PlanService;
+use Modules\Tagtoa\App\Services\Card\CardCreditService;
 use Modules\Tagtoa\App\Services\Card\CardWalletService;
 use Modules\Tagtoa\App\Support\Card\CardWallet;
 use Modules\Tagtoa\App\Support\EnforcesPlan;
@@ -58,9 +60,16 @@ class DashboardController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        // Activation de carte NFC réservée aux forfaits supérieurs.
-        if ($r = $this->planGuard('cards')) {
-            return $r;
+        // Quota d'activation = limite du forfait (Enterprise/Revendeur/Franchise)
+        // + crédits d'activation achetés. Sans quota → on oriente vers le forfait.
+        $tid       = Tenant::id();
+        $plans     = app(PlanService::class);
+        $planLimit = $plans->limit($tid, 'cards');
+        $usage     = $plans->usage($tid, 'cards');
+        $credits   = app(CardCreditService::class)->available($tid);
+
+        if (! CardWallet::canActivate($planLimit, $credits, $usage)) {
+            return redirect()->route('tagtoa.plan.index')->with('error', __('Quota de cartes atteint. Passez à un forfait Revendeur/Franchise ou obtenez des crédits d\'activation.'));
         }
 
         $data = $request->validate([
@@ -83,6 +92,15 @@ class DashboardController extends Controller
             'pin'          => $data['pin'] ?? null,
         ]);
 
+        // Carte nouvellement activée → officielle + consomme un crédit si l'on
+        // dépasse le quota de base du forfait (idempotent : re-tap = pas de doublon).
+        if ($card->wasRecentlyCreated) {
+            if (CardWallet::consumesCredit($planLimit, $usage)) {
+                app(CardCreditService::class)->consume($tid, 1);
+            }
+            $card->update(['official' => true, 'activated_at' => now()]);
+        }
+
         if (! empty($data['initial_amount']) && (float) $data['initial_amount'] > 0) {
             $svc->topUp($card, (float) $data['initial_amount'], [
                 'tenant_id' => Tenant::id(), 'context_type' => 'issue', 'meta' => ['reason' => 'initial'],
@@ -91,7 +109,7 @@ class DashboardController extends Controller
 
         app(AuditService::class)->log('card.issued', $card, $card->masked_code);
 
-        return back()->with('success', __('Carte émise : :code', ['code' => $card->code]));
+        return back()->with('success', __('Carte officielle activée : :code', ['code' => $card->code]));
     }
 
     public function topUp(Request $request, CardAccount $card): RedirectResponse
@@ -131,6 +149,19 @@ class DashboardController extends Controller
         $txns = $card->txns()->paginate(40);
 
         return view('tagtoa::card.show', compact('card', 'txns'));
+    }
+
+    /**
+     * Carte physique imprimable, brandée TAGTOA (à imprimer/coller localement —
+     * la marque voyage numériquement, sans envoi de matériel). QR vers la recharge.
+     */
+    public function printCard(CardAccount $card): View
+    {
+        $this->authorizeCard($card);
+        $rechargeUrl = route('tagtoa.card.recharge').'?code='.urlencode($card->code);
+        $qr = \Modules\Tagtoa\App\Support\Qr::svg($rechargeUrl, 200);
+
+        return view('tagtoa::card.print', compact('card', 'rechargeUrl', 'qr'));
     }
 
     protected function authorizeCard(CardAccount $card): void
