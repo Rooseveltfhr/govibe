@@ -78,4 +78,14 @@ class Client extends Model
     {
         return $this->hasMany(PosTransaction::class);
     }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(ClientSubscription::class);
+    }
+
+    public function activeSubscription()
+    {
+        return $this->subscriptions()->whereIn('status', ['active', 'trial'])->latest()->first();
+    }
 }

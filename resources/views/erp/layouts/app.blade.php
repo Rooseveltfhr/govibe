@@ -143,6 +143,14 @@
                 <i class="bi bi-send-fill icon"></i>
                 <span class="label">Notifications</span>
             </a>
+            <a href="{{ route('erp.contracts.index') }}" class="sidebar-link {{ request()->routeIs('erp.contracts*') ? 'active' : '' }}">
+                <i class="bi bi-file-earmark-text-fill icon"></i>
+                <span class="label">Contrats</span>
+            </a>
+            <a href="{{ route('erp.plans.index') }}" class="sidebar-link {{ request()->routeIs('erp.plans*') ? 'active' : '' }}">
+                <i class="bi bi-layers-fill icon"></i>
+                <span class="label">Plans & Abonnements</span>
+            </a>
             <a href="{{ route('erp.projects.index') }}" class="sidebar-link {{ request()->routeIs('erp.projects.*') ? 'active' : '' }}">
                 <i class="bi bi-kanban-fill icon"></i>
                 <span class="label">Projets</span>

@@ -22,6 +22,8 @@ use App\Http\Controllers\ERP\Academy\AcademyERPController;
 use App\Http\Controllers\ERP\Academy\BootcampAdminController;
 use App\Http\Controllers\ERP\Services\ServiceController;
 use App\Http\Controllers\ERP\CRM\NotificationController;
+use App\Http\Controllers\ERP\CRM\ContractController;
+use App\Http\Controllers\ERP\Admin\SubscriptionController;
 use App\Http\Controllers\BootcampController;
 use Illuminate\Support\Facades\Route;
 
@@ -90,6 +92,29 @@ Route::prefix('erp')->name('erp.')->group(function () {
             Route::resource('clients', ClientController::class);
             Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
             Route::post('/notifications/send', [NotificationController::class, 'send'])->name('notifications.send');
+        });
+
+        // ── Contrats ──────────────────────────────────────
+        Route::prefix('contracts')->name('contracts.')->group(function () {
+            Route::get('/', [ContractController::class, 'index'])->name('index');
+            Route::get('/create', [ContractController::class, 'create'])->name('create');
+            Route::post('/', [ContractController::class, 'store'])->name('store');
+            Route::get('/templates', [ContractController::class, 'templates'])->name('templates');
+            Route::post('/templates', [ContractController::class, 'storeTemplate'])->name('templates.store');
+            Route::post('/templates/seed', [ContractController::class, 'seedTemplates'])->name('templates.seed');
+            Route::get('/{contract}', [ContractController::class, 'show'])->name('show');
+            Route::get('/{contract}/edit', [ContractController::class, 'edit'])->name('edit');
+            Route::put('/{contract}', [ContractController::class, 'update'])->name('update');
+            Route::patch('/{contract}/sign', [ContractController::class, 'sign'])->name('sign');
+            Route::post('/{contract}/send', [ContractController::class, 'sendByEmail'])->name('send');
+            Route::delete('/{contract}', [ContractController::class, 'destroy'])->name('destroy');
+        });
+
+        // ── Plans & Abonnements ────────────────────────────
+        Route::prefix('plans')->name('plans.')->group(function () {
+            Route::get('/', [SubscriptionController::class, 'index'])->name('index');
+            Route::post('/assign', [SubscriptionController::class, 'assign'])->name('assign');
+            Route::patch('/{subscription}/cancel', [SubscriptionController::class, 'cancel'])->name('cancel');
         });
 
         // ── Projects ──────────────────────────────────────
