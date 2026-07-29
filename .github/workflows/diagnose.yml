@@ -192,6 +192,31 @@ jobs:
           fi
           echo "::endgroup::"
 
+          echo "::group::PERFORMANCE — charge serveur, timing HTTP, drivers, taille des logs"
+          echo "== uptime / charge / mémoire =="
+          uptime 2>&1 || true
+          free -h 2>&1 || true
+          echo "== espace disque =="
+          df -h "$L" 2>&1 || true
+          echo "== timing HTTP réel (depuis le VPS, boucle locale) =="
+          for u in "https://tagtoa.com/login" "https://tagtoa.com/"; do
+            echo "-- $u --"
+            curl -s -o /dev/null -w "  http_code=%{http_code}  time_connect=%{time_connect}s  time_starttransfer=%{time_starttransfer}s  time_total=%{time_total}s\n" \
+              --max-time 30 "$u" 2>&1 || echo "  curl a échoué"
+          done
+          echo "== drivers session/cache/queue (config app) =="
+          grep -nE "SESSION_DRIVER|CACHE_STORE|CACHE_DRIVER|QUEUE_CONNECTION|DB_CONNECTION" "$L/.env" 2>/dev/null \
+            | sed -E 's/(PASSWORD|SECRET)([=][^ ]*)?//gi'
+          echo "== taille laravel.log =="
+          du -sh "$L/storage/logs/laravel.log" 2>&1 || echo "absent"
+          echo "== fichier de maintenance actif ? (artisan down) =="
+          [ -f "$L/storage/framework/down" ] && echo "⚠ SITE EN MAINTENANCE (storage/framework/down présent)" || echo "pas en maintenance"
+          echo "== processus PHP-FPM (nombre) =="
+          pgrep -c php-fpm 2>/dev/null || pgrep -c php 2>/dev/null || echo "n/a (non lisible depuis cet utilisateur)"
+          echo "== test connexion DB (sans exposer credentials) =="
+          ( cd "$L" && timeout 15 php artisan db:show 2>&1 | head -20 ) || echo "échec/timeout db:show"
+          echo "::endgroup::"
+
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
           LOG="$L/storage/logs/laravel.log"
           if [ -f "$LOG" ]; then
