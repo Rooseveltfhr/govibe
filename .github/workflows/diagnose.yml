@@ -162,6 +162,36 @@ jobs:
           grep -rnE "const HOME|public const HOME|protected \\\$redirectTo|redirectTo =" "$L/app/Providers" 2>/dev/null | head
           echo "::endgroup::"
 
+          echo "::group::INSPECTION Biztap core — heroicons + HomeController (lecture seule)"
+          echo "== config/blade-icons.php (app) =="
+          if [ -f "$L/config/blade-icons.php" ]; then
+            cat "$L/config/blade-icons.php"
+          else
+            echo "absent (pas publié — config par défaut du vendor utilisée)"
+          fi
+          echo "== vendor blade-ui-kit/blade-icons — config par défaut =="
+          find "$L/vendor/blade-ui-kit" -maxdepth 3 -iname "blade-icons.php" 2>/dev/null | while read -r f; do
+            echo "-- $f --"; cat "$f"
+          done
+          echo "== versions installées (composer.lock) =="
+          php -r '
+            $j=json_decode(file_get_contents("'"$L"'/composer.lock"),true);
+            foreach (($j["packages"] ?? []) as $p) {
+              if (in_array($p["name"], ["blade-ui-kit/blade-icons","livewire/livewire","livewire/flux","livewire/flux-pro"])) {
+                echo $p["name"]." => ".$p["version"]."\n";
+              }
+            }
+          ' 2>&1
+          echo "== où heroicons est référencé (config app + Modules) =="
+          grep -rniE "heroicon" "$L/config" "$L/app" 2>/dev/null | grep -v "vendor/" | head -20
+          echo "== HomeController.php autour de la ligne 298 =="
+          if [ -f "$L/app/Http/Controllers/HomeController.php" ]; then
+            sed -n '270,320p' "$L/app/Http/Controllers/HomeController.php"
+          else
+            echo "absent"
+          fi
+          echo "::endgroup::"
+
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
           LOG="$L/storage/logs/laravel.log"
           if [ -f "$LOG" ]; then
@@ -178,6 +208,25 @@ jobs:
 
           if [ "${CLEAR:-false}" = "true" ]; then
             echo "::group::Réparations (sûr, sans DB)"
+
+            # FIX « Attempt to read property "status" on null » (HomeController.php:298,
+            # ForntBlogShow) : Blog::where('slug',...)->first() retourne null pour un
+            # slug inconnu, puis $blog->status plante avant le abort(404). Patch d'UNE
+            # LIGNE, versionné par backup .bak, validé par `php -l` AVANT application
+            # (jamais de fichier cassé) — pas de composer/artisan, redéployable à volonté.
+            HC="$L/app/Http/Controllers/HomeController.php"
+            if [ -f "$HC" ] && grep -qF 'if (!$blog->status) {' "$HC"; then
+              cp "$HC" "$HC.bak.$(date +%Y%m%d%H%M%S)"
+              sed -i 's/if (!\$blog->status) {/if (!\$blog || !\$blog->status) {/' "$HC"
+              if php -l "$HC" >/dev/null 2>&1; then
+                echo "FIX_OK: HomeController.php:ForntBlogShow — garde null ajoutée"
+              else
+                echo "FIX_FAIL: syntaxe invalide après patch — restauration du .bak"
+                cp "$HC.bak."* "$HC" 2>/dev/null || true
+              fi
+            else
+              echo "HomeController.php : ligne cible absente (déjà patché ou code différent) — rien à faire"
+            fi
 
             # FIX 500 « Mix manifest not found » : mix() cherche le manifeste dans
             # laravel/public/ mais les assets buildés sont dans public_html/ (docroot).
