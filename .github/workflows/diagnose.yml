@@ -198,6 +198,14 @@ jobs:
           free -h 2>&1 || true
           echo "== espace disque =="
           df -h "$L" 2>&1 || true
+          echo "== TOP processus par %CPU (visibles par cet utilisateur) =="
+          ps -u "$(whoami)" -o pid,pcpu,pmem,etime,cmd --sort=-pcpu 2>&1 | head -20 || ps aux --sort=-%cpu 2>&1 | head -20
+          echo "== TOP processus par %CPU (tout le système, si visible) =="
+          ps aux --sort=-%cpu 2>&1 | head -15 || echo "non lisible (permissions)"
+          echo "== crontab utilisateur (tâches planifiées) =="
+          crontab -l 2>&1 || echo "aucun crontab / non lisible"
+          echo "== requêtes MySQL actives (si permission) =="
+          ( cd "$L" && timeout 10 php artisan tinker --execute="print_r(DB::select('SHOW PROCESSLIST'));" 2>&1 | head -40 ) || echo "processlist non accessible"
           echo "== timing HTTP réel (depuis le VPS, boucle locale) =="
           for u in "https://tagtoa.com/login" "https://tagtoa.com/"; do
             echo "-- $u --"
