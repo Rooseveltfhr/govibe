@@ -256,6 +256,23 @@ jobs:
           ( command -v ss >/dev/null && ss -tn state established '( dport = :443 or sport = :443 )' 2>&1 | wc -l ) \
             || ( command -v netstat >/dev/null && netstat -tn 2>&1 | grep -c ':443' ) \
             || echo "ss/netstat non disponibles"
+          echo "== pool PHP-FPM : pm.max_children (combien de travailleurs simultanés autorisés) =="
+          for pc in "$HOME/etc/php83/php-fpm.d/"*.conf "$HOME/etc/php"*/php-fpm.d/*.conf /etc/php*/fpm/pool.d/*.conf /usr/local/php*/etc/php-fpm.d/*.conf; do
+            [ -f "$pc" ] || continue
+            if grep -q "^pm.max_children\|^pm =" "$pc" 2>/dev/null; then
+              echo "-- $pc --"
+              grep -E "^pm( |\.|=)" "$pc" 2>/dev/null
+            fi
+          done
+          echo "== caches Laravel (config/route/view) — évite de recompiler à chaque requête =="
+          for c in bootstrap/cache/config.php bootstrap/cache/routes-v7.php bootstrap/cache/packages.php bootstrap/cache/services.php; do
+            if [ -f "$L/$c" ]; then
+              echo "  $c : présent ($(stat -c '%y' "$L/$c" 2>/dev/null || echo '?'))"
+            else
+              echo "  $c : ABSENT (pas caché — recompile à chaque requête)"
+            fi
+          done
+          ( cd "$L" && ls storage/framework/views/*.php 2>/dev/null | wc -l | xargs -I{} echo "  vues Blade compilées en cache: {}" ) || true
           echo "== log d'accès webserver le plus récent (taille + dernières lignes, si lisible) =="
           for cand in "$HOME/domains/tagtoa.com/logs/access.log" "$HOME/domains/tagtoa.com/logs/"*.log "$HOME/access-logs/tagtoa.com"* /var/log/httpd/access_log /var/log/apache2/access.log /var/log/nginx/access.log; do
             [ -f "$cand" ] || continue
