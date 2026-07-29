@@ -209,6 +209,25 @@ jobs:
           if [ "${CLEAR:-false}" = "true" ]; then
             echo "::group::Réparations (sûr, sans DB)"
 
+            # FIX « Attempt to read property "status" on null » (HomeController.php:298,
+            # ForntBlogShow) : Blog::where('slug',...)->first() retourne null pour un
+            # slug inconnu, puis $blog->status plante avant le abort(404). Patch d'UNE
+            # LIGNE, versionné par backup .bak, validé par `php -l` AVANT application
+            # (jamais de fichier cassé) — pas de composer/artisan, redéployable à volonté.
+            HC="$L/app/Http/Controllers/HomeController.php"
+            if [ -f "$HC" ] && grep -qF 'if (!$blog->status) {' "$HC"; then
+              cp "$HC" "$HC.bak.$(date +%Y%m%d%H%M%S)"
+              sed -i 's/if (!\$blog->status) {/if (!\$blog || !\$blog->status) {/' "$HC"
+              if php -l "$HC" >/dev/null 2>&1; then
+                echo "FIX_OK: HomeController.php:ForntBlogShow — garde null ajoutée"
+              else
+                echo "FIX_FAIL: syntaxe invalide après patch — restauration du .bak"
+                cp "$HC.bak."* "$HC" 2>/dev/null || true
+              fi
+            else
+              echo "HomeController.php : ligne cible absente (déjà patché ou code différent) — rien à faire"
+            fi
+
             # FIX 500 « Mix manifest not found » : mix() cherche le manifeste dans
             # laravel/public/ mais les assets buildés sont dans public_html/ (docroot).
             # On relie le manifeste ET les dossiers d'assets manquants vers public_html.
