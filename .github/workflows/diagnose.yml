@@ -162,6 +162,36 @@ jobs:
           grep -rnE "const HOME|public const HOME|protected \\\$redirectTo|redirectTo =" "$L/app/Providers" 2>/dev/null | head
           echo "::endgroup::"
 
+          echo "::group::INSPECTION Biztap core — heroicons + HomeController (lecture seule)"
+          echo "== config/blade-icons.php (app) =="
+          if [ -f "$L/config/blade-icons.php" ]; then
+            cat "$L/config/blade-icons.php"
+          else
+            echo "absent (pas publié — config par défaut du vendor utilisée)"
+          fi
+          echo "== vendor blade-ui-kit/blade-icons — config par défaut =="
+          find "$L/vendor/blade-ui-kit" -maxdepth 3 -iname "blade-icons.php" 2>/dev/null | while read -r f; do
+            echo "-- $f --"; cat "$f"
+          done
+          echo "== versions installées (composer.lock) =="
+          php -r '
+            $j=json_decode(file_get_contents("'"$L"'/composer.lock"),true);
+            foreach (($j["packages"] ?? []) as $p) {
+              if (in_array($p["name"], ["blade-ui-kit/blade-icons","livewire/livewire","livewire/flux","livewire/flux-pro"])) {
+                echo $p["name"]." => ".$p["version"]."\n";
+              }
+            }
+          ' 2>&1
+          echo "== où heroicons est référencé (config app + Modules) =="
+          grep -rniE "heroicon" "$L/config" "$L/app" 2>/dev/null | grep -v "vendor/" | head -20
+          echo "== HomeController.php autour de la ligne 298 =="
+          if [ -f "$L/app/Http/Controllers/HomeController.php" ]; then
+            sed -n '270,320p' "$L/app/Http/Controllers/HomeController.php"
+          else
+            echo "absent"
+          fi
+          echo "::endgroup::"
+
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
           LOG="$L/storage/logs/laravel.log"
           if [ -f "$LOG" ]; then
