@@ -225,6 +225,28 @@ jobs:
           ( cd "$L" && timeout 15 php artisan db:show 2>&1 | head -20 ) || echo "échec/timeout db:show"
           echo "::endgroup::"
 
+          echo "::group::RECHERCHE — appel réseau sortant sans timeout sur CHAQUE requête (middleware global / providers / licence)"
+          echo "== middleware global (app/Http/Kernel.php) — tableau \$middleware (appliqué à TOUTE requête) =="
+          if [ -f "$L/app/Http/Kernel.php" ]; then
+            awk '/protected \$middleware *=/{p=1} p{print} p && /\];/{exit}' "$L/app/Http/Kernel.php"
+          else
+            echo "app/Http/Kernel.php absent (Laravel 11+ ? vérifier bootstrap/app.php)"
+            [ -f "$L/bootstrap/app.php" ] && grep -n "middleware" "$L/bootstrap/app.php" | head -20
+          fi
+          echo "== recherche mots-clés licence/activation/purchase/envato dans app/ (hors vendor) =="
+          grep -rniE "purchase[_ ]?code|envato|license|licence|activation" "$L/app" --include="*.php" -l 2>/dev/null | head -20 || echo "aucun fichier"
+          echo "== détail des correspondances (contexte) =="
+          grep -rniE "purchase[_ ]?code|envato|license|licence|activation" "$L/app" --include="*.php" -B1 -A3 2>/dev/null | head -150 || true
+          echo "== appels Http::/curl_exec/file_get_contents(http) dans app/Providers et app/Http/Middleware SANS 'timeout' visible à proximité =="
+          for f in "$L"/app/Providers/*.php "$L"/app/Http/Middleware/*.php; do
+            [ -f "$f" ] || continue
+            if grep -qE "Http::|curl_exec|file_get_contents\(['\"]https?:" "$f"; then
+              echo "-- $f --"
+              grep -nE "Http::|curl_exec|file_get_contents\(['\"]https?:|timeout" "$f"
+            fi
+          done
+          echo "::endgroup::"
+
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
           LOG="$L/storage/logs/laravel.log"
           if [ -f "$LOG" ]; then
