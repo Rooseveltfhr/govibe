@@ -242,6 +242,26 @@ jobs:
           if [ "${CLEAR:-false}" = "true" ]; then
             echo "::group::Réparations (sûr, sans DB)"
 
+            # URGENCE : libère les workers PHP-FPM bloqués depuis > 180s (une requête
+            # web normale finit en quelques secondes ; un worker qui tourne des minutes
+            # est bloqué — probablement un appel HTTP sortant sans timeout, ex. Twilio).
+            # Ne tue QUE les processus php-fpm APPARTENANT à cet utilisateur, avec
+            # SIGTERM (arrêt propre) ; PHP-FPM respawn automatiquement un worker neuf.
+            echo "-- nettoyage workers PHP-FPM bloqués (running > 180s) --"
+            ps -u "$(whoami)" -o pid=,etimes=,cmd= 2>/dev/null | while read -r pid etimes cmd; do
+              case "$cmd" in
+                *php-fpm*)
+                  if [ "${etimes:-0}" -gt 180 ] 2>/dev/null; then
+                    echo "  kill -TERM $pid (bloqué depuis ${etimes}s)"
+                    kill -TERM "$pid" 2>/dev/null || true
+                  fi
+                  ;;
+              esac
+            done
+            sleep 2
+            echo "-- workers PHP-FPM restants (après nettoyage) --"
+            ps -u "$(whoami)" -o pid,etimes,stat,cmd 2>/dev/null | grep php-fpm | head -20 || true
+
             # FIX « Attempt to read property "status" on null » (HomeController.php:298,
             # ForntBlogShow) : Blog::where('slug',...)->first() retourne null pour un
             # slug inconnu, puis $blog->status plante avant le abort(404). Patch d'UNE
