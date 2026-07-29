@@ -377,10 +377,24 @@ jobs:
             chmod -R ug+rwX "$L/storage" "$L/bootstrap/cache" 2>/dev/null && echo "permissions storage/bootstrap corrigées" || true
             # Accélération prod : met le config + vues en cache (évite de relire
             # ~30 fichiers config + .env à CHAQUE requête → dashboard plus rapide).
-            # (pas de route:cache : Biztap peut avoir des routes en closure.)
             echo "-- optimisation (config + vues en cache) --"
             ( cd "$L" && php artisan config:cache 2>&1 ) || true
             ( cd "$L" && php artisan view:cache 2>&1 ) || true
+
+            # ESSAI route:cache : évite de ré-enregistrer TOUTES les routes (Biztap +
+            # 10 modules TAGTOA + GOVIBE Academy) à CHAQUE requête — coût CPU réel sur
+            # un VPS à 1 seul cœur sous charge. Historiquement évité car Biztap peut
+            # avoir des routes en Closure (route:cache échoue dans ce cas). On essaie
+            # ; si ça échoue, on revient IMMÉDIATEMENT à route:clear (comportement
+            # actuel, sûr) — donc jamais pire qu'avant ce test.
+            echo "-- essai route:cache (repli automatique sur échec) --"
+            ( cd "$L" && php artisan route:cache 2>&1 )
+            if [ $? -eq 0 ] && [ -f "$L/bootstrap/cache/routes-v7.php" ]; then
+              echo "ROUTE_CACHE_OK : routes mises en cache avec succès"
+            else
+              echo "ROUTE_CACHE_FAIL : échec (probablement une route en Closure) — repli sur route:clear"
+              ( cd "$L" && php artisan route:clear 2>&1 ) || true
+            fi
             echo "::endgroup::"
             echo "→ Rechargez https://tagtoa.com/login"
           fi
