@@ -25,5 +25,8 @@
         "psr-4": {
             "Modules\\Tagtoa\\Tests\\": "tests/"
         }
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0"
     }
 }

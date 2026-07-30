@@ -6,14 +6,9 @@ namespace Modules\Tagtoa\Tests\Feature;
 |--------------------------------------------------------------------------
 | TAGTOA EVENT — Tests Feature wallet closed-loop (money-critical)
 |--------------------------------------------------------------------------
-| ⚠️ Nécessite l'application Biztap (Laravel + DB). À exécuter DANS Biztap :
-|
-|   cp -r Modules/Tagtoa /var/www/biztap/Modules/
-|   cd /var/www/biztap && php artisan test --filter=WalletFlowTest
-|
-| Ne tourne PAS dans la CI de ce dépôt (pas d'app hôte). La CI couvre la
-| logique pure du ledger (tests/Unit/LedgerTest). Ces tests vérifient
-| l'intégration DB : double-entry, soldes, idempotence, fonds insuffisants.
+| Intégration DB réelle (SQLite mémoire via Orchestra Testbench — voir
+| tests/TestCase.php) : double-entry, soldes, idempotence, fonds insuffisants.
+| Tourne dans la CI de ce dépôt (job dédié, indépendant du host Biztap).
 */
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,7 +23,7 @@ use Modules\Tagtoa\App\Exceptions\InsufficientFundsException;
 use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Event\WalletAccount;
 use Modules\Tagtoa\App\Models\Event\WalletEntry;
-use Tests\TestCase;
+use Modules\Tagtoa\Tests\TestCase;
 
 class WalletFlowTest extends TestCase
 {
