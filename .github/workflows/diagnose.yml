@@ -192,6 +192,30 @@ jobs:
           fi
           echo "::endgroup::"
 
+          echo "::group::CPU RÉEL — le compte a-t-il vraiment accès à 4 cœurs, ou est-il limité (CloudLinux LVE / cgroup) ?"
+          echo "== nproc (limité par affinité/cgroup) vs nproc --all (cœurs physiques visibles) =="
+          nproc 2>&1 || true
+          nproc --all 2>&1 || true
+          echo "== /proc/cpuinfo : nombre de processeurs listés =="
+          grep -c ^processor /proc/cpuinfo 2>&1 || echo "illisible"
+          echo "== lscpu (si disponible) =="
+          lscpu 2>&1 | head -15 || echo "lscpu non disponible"
+          echo "== CloudLinux LVE (limite par COMPTE, indépendante du plan VPS — très courant en hébergement mutualisé/revendeur) =="
+          command -v lveinfo >/dev/null && lveinfo "$(whoami)" 2>&1 || echo "lveinfo absent (pas de CloudLinux, ou non exécutable par cet utilisateur)"
+          [ -f /proc/user_beancounters ] && echo "OpenVZ détecté :" && cat /proc/user_beancounters 2>&1 | head -20 || echo "pas d'OpenVZ (/proc/user_beancounters absent)"
+          echo "== cgroup CPU quota (limite réelle, même si nproc affiche plus) =="
+          echo "-- cgroup v2 --"
+          [ -f /sys/fs/cgroup/cpu.max ] && cat /sys/fs/cgroup/cpu.max 2>&1 || echo "pas de cpu.max (v2) lisible ici"
+          echo "-- cgroup v1 --"
+          for f in /sys/fs/cgroup/cpu/cpu.cfs_quota_us /sys/fs/cgroup/cpu/cpu.cfs_period_us /sys/fs/cgroup/cpu,cpuacct/cpu.cfs_quota_us /sys/fs/cgroup/cpu,cpuacct/cpu.cfs_period_us; do
+            [ -f "$f" ] && echo "$f = $(cat "$f" 2>&1)"
+          done
+          echo "-- cgroup du process courant (montre si on est dans un conteneur/LVE limité) --"
+          cat /proc/self/cgroup 2>&1 | head -10 || true
+          echo "== type de virtualisation (si détectable sans sudo) =="
+          command -v systemd-detect-virt >/dev/null && systemd-detect-virt 2>&1 || echo "systemd-detect-virt non disponible"
+          echo "::endgroup::"
+
           echo "::group::PERFORMANCE — charge serveur, timing HTTP, drivers, taille des logs"
           echo "== uptime / charge / mémoire =="
           uptime 2>&1 || true
