@@ -192,6 +192,121 @@ jobs:
           fi
           echo "::endgroup::"
 
+          echo "::group::PERFORMANCE — charge serveur, timing HTTP, drivers, taille des logs"
+          echo "== uptime / charge / mémoire =="
+          uptime 2>&1 || true
+          free -h 2>&1 || true
+          echo "== espace disque =="
+          df -h "$L" 2>&1 || true
+          echo "== TOP processus par %CPU (visibles par cet utilisateur) =="
+          ps -u "$(whoami)" -o pid,pcpu,pmem,etime,cmd --sort=-pcpu 2>&1 | head -20 || ps aux --sort=-%cpu 2>&1 | head -20
+          echo "== TOP processus par %CPU (tout le système, si visible) =="
+          ps aux --sort=-%cpu 2>&1 | head -15 || echo "non lisible (permissions)"
+          echo "== crontab utilisateur (tâches planifiées) =="
+          crontab -l 2>&1 || echo "aucun crontab / non lisible"
+          echo "== requêtes MySQL actives (si permission) =="
+          ( cd "$L" && timeout 10 php artisan tinker --execute="print_r(DB::select('SHOW PROCESSLIST'));" 2>&1 | head -40 ) || echo "processlist non accessible"
+          echo "== timing HTTP réel (depuis le VPS, boucle locale) =="
+          for u in "https://tagtoa.com/login" "https://tagtoa.com/"; do
+            echo "-- $u --"
+            curl -s -o /dev/null -w "  http_code=%{http_code}  time_connect=%{time_connect}s  time_starttransfer=%{time_starttransfer}s  time_total=%{time_total}s\n" \
+              --max-time 30 "$u" 2>&1 || echo "  curl a échoué"
+          done
+          echo "== drivers session/cache/queue (config app) =="
+          grep -nE "SESSION_DRIVER|CACHE_STORE|CACHE_DRIVER|QUEUE_CONNECTION|DB_CONNECTION" "$L/.env" 2>/dev/null \
+            | sed -E 's/(PASSWORD|SECRET)([=][^ ]*)?//gi'
+          echo "== taille laravel.log =="
+          du -sh "$L/storage/logs/laravel.log" 2>&1 || echo "absent"
+          echo "== fichier de maintenance actif ? (artisan down) =="
+          [ -f "$L/storage/framework/down" ] && echo "⚠ SITE EN MAINTENANCE (storage/framework/down présent)" || echo "pas en maintenance"
+          echo "== processus PHP-FPM (nombre) =="
+          pgrep -c php-fpm 2>/dev/null || pgrep -c php 2>/dev/null || echo "n/a (non lisible depuis cet utilisateur)"
+          echo "== test connexion DB (sans exposer credentials) =="
+          ( cd "$L" && timeout 15 php artisan db:show 2>&1 | head -20 ) || echo "échec/timeout db:show"
+          echo "::endgroup::"
+
+          echo "::group::RECHERCHE — appel réseau sortant sans timeout sur CHAQUE requête (middleware global / providers / licence)"
+          echo "== middleware global (app/Http/Kernel.php) — tableau \$middleware (appliqué à TOUTE requête) =="
+          if [ -f "$L/app/Http/Kernel.php" ]; then
+            awk '/protected \$middleware *=/{p=1} p{print} p && /\];/{exit}' "$L/app/Http/Kernel.php"
+          else
+            echo "app/Http/Kernel.php absent (Laravel 11+ ? vérifier bootstrap/app.php)"
+            [ -f "$L/bootstrap/app.php" ] && grep -n "middleware" "$L/bootstrap/app.php" | head -20
+          fi
+          echo "== recherche mots-clés licence/activation/purchase/envato dans app/ (hors vendor) =="
+          grep -rniE "purchase[_ ]?code|envato|license|licence|activation" "$L/app" --include="*.php" -l 2>/dev/null | head -20 || echo "aucun fichier"
+          echo "== détail des correspondances (contexte) =="
+          grep -rniE "purchase[_ ]?code|envato|license|licence|activation" "$L/app" --include="*.php" -B1 -A3 2>/dev/null | head -150 || true
+          echo "== appels Http::/curl_exec/file_get_contents(http) dans app/Providers et app/Http/Middleware SANS 'timeout' visible à proximité =="
+          for f in "$L"/app/Providers/*.php "$L"/app/Http/Middleware/*.php; do
+            [ -f "$f" ] || continue
+            if grep -qE "Http::|curl_exec|file_get_contents\(['\"]https?:" "$f"; then
+              echo "-- $f --"
+              grep -nE "Http::|curl_exec|file_get_contents\(['\"]https?:|timeout" "$f"
+            fi
+          done
+          echo "::endgroup::"
+
+          echo "::group::CHARGE RÉELLE — cœurs CPU, opcache, volume de trafic (bug en boucle vs simple surcharge)"
+          echo "== nombre de cœurs CPU (VPS) =="
+          nproc 2>&1 || echo "n/a"
+          echo "== opcache activé ? (recompiler PHP à chaque requête = très coûteux si non) =="
+          php -i 2>/dev/null | grep -iE "^opcache.enable|^opcache.enable_cli" || echo "opcache: info non disponible via php -i"
+          echo "== connexions actives sur le port 443 (nombre) =="
+          ( command -v ss >/dev/null && ss -tn state established '( dport = :443 or sport = :443 )' 2>&1 | wc -l ) \
+            || ( command -v netstat >/dev/null && netstat -tn 2>&1 | grep -c ':443' ) \
+            || echo "ss/netstat non disponibles"
+          echo "== pool PHP-FPM : pm.max_children (combien de travailleurs simultanés autorisés) =="
+          for pc in "$HOME/etc/php83/php-fpm.d/"*.conf "$HOME/etc/php"*/php-fpm.d/*.conf /etc/php*/fpm/pool.d/*.conf /usr/local/php*/etc/php-fpm.d/*.conf; do
+            [ -f "$pc" ] || continue
+            if grep -q "^pm.max_children\|^pm =" "$pc" 2>/dev/null; then
+              echo "-- $pc --"
+              grep -E "^pm( |\.|=)" "$pc" 2>/dev/null
+            fi
+          done
+          echo "== caches Laravel (config/route/view) — évite de recompiler à chaque requête =="
+          for c in bootstrap/cache/config.php bootstrap/cache/routes-v7.php bootstrap/cache/packages.php bootstrap/cache/services.php; do
+            if [ -f "$L/$c" ]; then
+              echo "  $c : présent ($(stat -c '%y' "$L/$c" 2>/dev/null || echo '?'))"
+            else
+              echo "  $c : ABSENT (pas caché — recompile à chaque requête)"
+            fi
+          done
+          ( cd "$L" && ls storage/framework/views/*.php 2>/dev/null | wc -l | xargs -I{} echo "  vues Blade compilées en cache: {}" ) || true
+          echo "== log d'accès webserver le plus récent (taille + dernières lignes, si lisible) =="
+          FOUND_LOG=""
+          for cand in "$HOME/domains/tagtoa.com/logs/access.log" "$HOME/domains/tagtoa.com/logs/"*.log "$HOME/access-logs/tagtoa.com"* /var/log/httpd/access_log /var/log/apache2/access.log /var/log/nginx/access.log; do
+            [ -f "$cand" ] || continue
+            FOUND_LOG="$cand"
+            break
+          done
+          if [ -z "$FOUND_LOG" ]; then
+            echo "  aucun chemin connu — recherche via find (peut prendre quelques secondes)"
+            FOUND_LOG="$(find "$HOME" -maxdepth 6 -iname "*tagtoa*access*" -o -iname "*tagtoa*.log" 2>/dev/null | grep -v laravel.log | head -1)"
+            [ -z "$FOUND_LOG" ] && FOUND_LOG="$(find "$HOME/domains" -maxdepth 4 -iname "*.log" 2>/dev/null | grep -iv laravel | head -1)"
+          fi
+          if [ -n "$FOUND_LOG" ] && [ -f "$FOUND_LOG" ]; then
+            echo "-- $FOUND_LOG --"
+            ls -la "$FOUND_LOG" 2>&1
+            wc -l "$FOUND_LOG" 2>&1
+            echo "  dernières requêtes :"
+            tail -20 "$FOUND_LOG" 2>&1
+            echo "  volume par minute (dernières lignes horodatées, top 5 minutes) :"
+            tail -3000 "$FOUND_LOG" 2>/dev/null | grep -oE '\[[0-9]{2}/[A-Za-z]{3}/[0-9]{4}:[0-9]{2}:[0-9]{2}' | sort | uniq -c | sort -rn | head -5
+            echo "  top 10 IP (dernières 3000 lignes) :"
+            tail -3000 "$FOUND_LOG" 2>/dev/null | awk '{print $1}' | sort | uniq -c | sort -rn | head -10
+            echo "  top 10 routes demandées (dernières 3000 lignes) :"
+            tail -3000 "$FOUND_LOG" 2>/dev/null | awk -F'"' '{print $2}' | awk '{print $2}' | sort | uniq -c | sort -rn | head -10
+          else
+            echo "  toujours introuvable (permissions ? géré par un autre compte système ?)"
+          fi
+          echo "::endgroup::"
+
+          echo "::group::COÛT RÉEL D'UNE SEULE REQUÊTE — boot du framework hors file d'attente PHP-FPM"
+          echo "== démarre un chrono, exécute UNE requête HTTP complète en interne via le Kernel Laravel (CLI, pas de contention avec le pool PHP-FPM saturé) =="
+          ( cd "$L" && timeout 30 php artisan tinker --execute="\$start = microtime(true); \$kernel = app(\Illuminate\Contracts\Http\Kernel::class); \$request = \Illuminate\Http\Request::create('/', 'GET'); \$response = \$kernel->handle(\$request); \$kernel->terminate(\$request, \$response); echo 'status='.\$response->getStatusCode().' temps_boot_reel='.round(microtime(true)-\$start, 3).'s'.PHP_EOL;" 2>&1 ) || echo "échec/timeout du test de requête isolée"
+          echo "::endgroup::"
+
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
           LOG="$L/storage/logs/laravel.log"
           if [ -f "$LOG" ]; then
@@ -208,6 +323,26 @@ jobs:
 
           if [ "${CLEAR:-false}" = "true" ]; then
             echo "::group::Réparations (sûr, sans DB)"
+
+            # URGENCE : libère les workers PHP-FPM bloqués depuis > 180s (une requête
+            # web normale finit en quelques secondes ; un worker qui tourne des minutes
+            # est bloqué — probablement un appel HTTP sortant sans timeout, ex. Twilio).
+            # Ne tue QUE les processus php-fpm APPARTENANT à cet utilisateur, avec
+            # SIGTERM (arrêt propre) ; PHP-FPM respawn automatiquement un worker neuf.
+            echo "-- nettoyage workers PHP-FPM bloqués (running > 180s) --"
+            ps -u "$(whoami)" -o pid=,etimes=,cmd= 2>/dev/null | while read -r pid etimes cmd; do
+              case "$cmd" in
+                *php-fpm*)
+                  if [ "${etimes:-0}" -gt 180 ] 2>/dev/null; then
+                    echo "  kill -TERM $pid (bloqué depuis ${etimes}s)"
+                    kill -TERM "$pid" 2>/dev/null || true
+                  fi
+                  ;;
+              esac
+            done
+            sleep 2
+            echo "-- workers PHP-FPM restants (après nettoyage) --"
+            ps -u "$(whoami)" -o pid,etimes,stat,cmd 2>/dev/null | grep php-fpm | head -20 || true
 
             # FIX « Attempt to read property "status" on null » (HomeController.php:298,
             # ForntBlogShow) : Blog::where('slug',...)->first() retourne null pour un
@@ -258,10 +393,24 @@ jobs:
             chmod -R ug+rwX "$L/storage" "$L/bootstrap/cache" 2>/dev/null && echo "permissions storage/bootstrap corrigées" || true
             # Accélération prod : met le config + vues en cache (évite de relire
             # ~30 fichiers config + .env à CHAQUE requête → dashboard plus rapide).
-            # (pas de route:cache : Biztap peut avoir des routes en closure.)
             echo "-- optimisation (config + vues en cache) --"
             ( cd "$L" && php artisan config:cache 2>&1 ) || true
             ( cd "$L" && php artisan view:cache 2>&1 ) || true
+
+            # ESSAI route:cache : évite de ré-enregistrer TOUTES les routes (Biztap +
+            # 10 modules TAGTOA + GOVIBE Academy) à CHAQUE requête — coût CPU réel sur
+            # un VPS à 1 seul cœur sous charge. Historiquement évité car Biztap peut
+            # avoir des routes en Closure (route:cache échoue dans ce cas). On essaie
+            # ; si ça échoue, on revient IMMÉDIATEMENT à route:clear (comportement
+            # actuel, sûr) — donc jamais pire qu'avant ce test.
+            echo "-- essai route:cache (repli automatique sur échec) --"
+            ( cd "$L" && php artisan route:cache 2>&1 )
+            if [ $? -eq 0 ] && [ -f "$L/bootstrap/cache/routes-v7.php" ]; then
+              echo "ROUTE_CACHE_OK : routes mises en cache avec succès"
+            else
+              echo "ROUTE_CACHE_FAIL : échec (probablement une route en Closure) — repli sur route:clear"
+              ( cd "$L" && php artisan route:clear 2>&1 ) || true
+            fi
             echo "::endgroup::"
             echo "→ Rechargez https://tagtoa.com/login"
           fi

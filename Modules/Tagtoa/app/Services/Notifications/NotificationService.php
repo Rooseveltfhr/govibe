@@ -112,6 +112,7 @@ class NotificationService
         try {
             \Illuminate\Support\Facades\Http::withBasicAuth($cfg['sid'], $cfg['token'])
                 ->asForm()
+                ->connectTimeout(5)->timeout(10)
                 ->post('https://api.twilio.com/2010-04-01/Accounts/'.$cfg['sid'].'/Messages.json', [
                     'From' => 'whatsapp:'.$cfg['from'],
                     'To'   => 'whatsapp:'.$to,
