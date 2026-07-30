@@ -118,75 +118,9 @@ jobs:
           ls -la "$L/bootstrap/cache/" 2>&1 || true
           echo "::endgroup::"
 
-          echo "::group::Menu sadmin (pour insérer un lien TAGTOA)"
-          MENUF=$(grep -rilE 'Sell NFC Cards|WhatsApp Stores' "$L/resources/views" 2>/dev/null | head -1)
-          echo "fichier menu: ${MENUF:-introuvable}"
-          if [ -n "$MENUF" ]; then
-            echo "-- extrait (lignes autour de 'Dashboard' / 'vCards') --"
-            grep -nE "Dashboard|vCards|Sell NFC|route\(|href=|menu-item|<li|nav-link" "$MENUF" | head -40
-          fi
-          echo "::endgroup::"
-
-          echo "::group::Vues login / marque (rebranding TAGTOA)"
-          echo "== fichiers de vues login/auth =="
-          find "$L/resources/views" -maxdepth 3 -iregex '.*\(login\|auth\).*\.blade\.php' 2>/dev/null | head -20
-          echo "== vues contenant l'ancienne marque (biztap) =="
-          grep -rilo 'biztap' "$L/resources/views" 2>/dev/null | head -30
-          echo "== route(s) login (web.php) =="
-          grep -nE "login|Login" "$L/routes/web.php" 2>/dev/null | head -10
-          echo "== auth/login.blade.php (COMPLET) =="
-          cat "$L/resources/views/auth/login.blade.php" 2>/dev/null || echo "absent"
-          echo "::endgroup::"
-
-          echo "::group::INSCRIPTION (register) — champs attendus"
-          echo "== fichiers register (vues) =="
-          find "$L/resources/views" -maxdepth 4 -iname 'register*.blade.php' 2>/dev/null | head
-          echo "== champs name= dans register.blade.php =="
-          RV=$(find "$L/resources/views" -maxdepth 4 -iname 'register.blade.php' 2>/dev/null | head -1)
-          echo "fichier: ${RV:-introuvable}"
-          [ -n "$RV" ] && grep -oE 'name="[^"]+"' "$RV" | sort -u
-          echo "== register.blade.php (COMPLET, pour override fidèle) =="
-          [ -n "$RV" ] && cat "$RV" 2>/dev/null || echo "absent"
-          echo "== route(s) register (web.php) =="
-          grep -nE "register|Register" "$L/routes/web.php" 2>/dev/null | head -10
-          echo "== RegisterController (règles de validation) =="
-          RC=$(find "$L/app" -iname 'RegisterController.php' 2>/dev/null | head -1)
-          echo "fichier: ${RC:-introuvable}"
-          [ -n "$RC" ] && sed -n '1,140p' "$RC" | grep -nE "required|rules|validator|redirectTo|create\(|'name'|'email'|'first_name'|'last_name'|'username'|'phone'|'mobile'|'password'" | head -40
-          echo "::endgroup::"
-
-          echo "::group::vCARD — tableau de bord & routes (pour lien sidebar)"
-          echo "== routes contenant vcard/dashboard/create (web.php) =="
-          grep -nE "vcard|Vcard|VCard|dashboard|create-vcard|user/dashboard" "$L/routes/web.php" 2>/dev/null | head -30
-          echo "== RouteServiceProvider HOME =="
-          grep -rnE "const HOME|public const HOME|protected \\\$redirectTo|redirectTo =" "$L/app/Providers" 2>/dev/null | head
-          echo "::endgroup::"
-
-          echo "::group::INSPECTION Biztap core — heroicons + HomeController (lecture seule)"
-          echo "== config/blade-icons.php (app) =="
-          if [ -f "$L/config/blade-icons.php" ]; then
-            cat "$L/config/blade-icons.php"
-          else
-            echo "absent (pas publié — config par défaut du vendor utilisée)"
-          fi
-          echo "== vendor blade-ui-kit/blade-icons — config par défaut =="
-          find "$L/vendor/blade-ui-kit" -maxdepth 3 -iname "blade-icons.php" 2>/dev/null | while read -r f; do
-            echo "-- $f --"; cat "$f"
-          done
-          echo "== versions installées (composer.lock) =="
-          php -r '
-            $j=json_decode(file_get_contents("'"$L"'/composer.lock"),true);
-            foreach (($j["packages"] ?? []) as $p) {
-              if (in_array($p["name"], ["blade-ui-kit/blade-icons","livewire/livewire","livewire/flux","livewire/flux-pro"])) {
-                echo $p["name"]." => ".$p["version"]."\n";
-              }
-            }
-          ' 2>&1
-          echo "== où heroicons est référencé (config app + Modules) =="
-          grep -rniE "heroicon" "$L/config" "$L/app" 2>/dev/null | grep -v "vendor/" | head -20
-          echo "== HomeController.php autour de la ligne 298 =="
+          echo "::group::HomeController.php — état du patch null-guard (lecture seule)"
           if [ -f "$L/app/Http/Controllers/HomeController.php" ]; then
-            sed -n '270,320p' "$L/app/Http/Controllers/HomeController.php"
+            grep -n 'if (!\$blog' "$L/app/Http/Controllers/HomeController.php" || echo "ligne cible absente (déjà patché ou code différent)"
           else
             echo "absent"
           fi
@@ -249,31 +183,7 @@ jobs:
           ( cd "$L" && timeout 15 php artisan db:show 2>&1 | head -20 ) || echo "échec/timeout db:show"
           echo "::endgroup::"
 
-          echo "::group::RECHERCHE — appel réseau sortant sans timeout sur CHAQUE requête (middleware global / providers / licence)"
-          echo "== middleware global (app/Http/Kernel.php) — tableau \$middleware (appliqué à TOUTE requête) =="
-          if [ -f "$L/app/Http/Kernel.php" ]; then
-            awk '/protected \$middleware *=/{p=1} p{print} p && /\];/{exit}' "$L/app/Http/Kernel.php"
-          else
-            echo "app/Http/Kernel.php absent (Laravel 11+ ? vérifier bootstrap/app.php)"
-            [ -f "$L/bootstrap/app.php" ] && grep -n "middleware" "$L/bootstrap/app.php" | head -20
-          fi
-          echo "== recherche mots-clés licence/activation/purchase/envato dans app/ (hors vendor) =="
-          grep -rniE "purchase[_ ]?code|envato|license|licence|activation" "$L/app" --include="*.php" -l 2>/dev/null | head -20 || echo "aucun fichier"
-          echo "== détail des correspondances (contexte) =="
-          grep -rniE "purchase[_ ]?code|envato|license|licence|activation" "$L/app" --include="*.php" -B1 -A3 2>/dev/null | head -150 || true
-          echo "== appels Http::/curl_exec/file_get_contents(http) dans app/Providers et app/Http/Middleware SANS 'timeout' visible à proximité =="
-          for f in "$L"/app/Providers/*.php "$L"/app/Http/Middleware/*.php; do
-            [ -f "$f" ] || continue
-            if grep -qE "Http::|curl_exec|file_get_contents\(['\"]https?:" "$f"; then
-              echo "-- $f --"
-              grep -nE "Http::|curl_exec|file_get_contents\(['\"]https?:|timeout" "$f"
-            fi
-          done
-          echo "::endgroup::"
-
-          echo "::group::CHARGE RÉELLE — cœurs CPU, opcache, volume de trafic (bug en boucle vs simple surcharge)"
-          echo "== nombre de cœurs CPU (VPS) =="
-          nproc 2>&1 || echo "n/a"
+          echo "::group::CHARGE — opcache, connexions, pool PHP-FPM, caches Laravel"
           echo "== opcache activé ? (recompiler PHP à chaque requête = très coûteux si non) =="
           php -i 2>/dev/null | grep -iE "^opcache.enable|^opcache.enable_cli" || echo "opcache: info non disponible via php -i"
           echo "== connexions actives sur le port 443 (nombre) =="
@@ -297,38 +207,6 @@ jobs:
             fi
           done
           ( cd "$L" && ls storage/framework/views/*.php 2>/dev/null | wc -l | xargs -I{} echo "  vues Blade compilées en cache: {}" ) || true
-          echo "== log d'accès webserver le plus récent (taille + dernières lignes, si lisible) =="
-          FOUND_LOG=""
-          for cand in "$HOME/domains/tagtoa.com/logs/access.log" "$HOME/domains/tagtoa.com/logs/"*.log "$HOME/access-logs/tagtoa.com"* /var/log/httpd/access_log /var/log/apache2/access.log /var/log/nginx/access.log; do
-            [ -f "$cand" ] || continue
-            FOUND_LOG="$cand"
-            break
-          done
-          if [ -z "$FOUND_LOG" ]; then
-            echo "  aucun chemin connu — recherche via find (peut prendre quelques secondes)"
-            FOUND_LOG="$(find "$HOME" -maxdepth 6 -iname "*tagtoa*access*" -o -iname "*tagtoa*.log" 2>/dev/null | grep -v laravel.log | head -1)"
-            [ -z "$FOUND_LOG" ] && FOUND_LOG="$(find "$HOME/domains" -maxdepth 4 -iname "*.log" 2>/dev/null | grep -iv laravel | head -1)"
-          fi
-          if [ -n "$FOUND_LOG" ] && [ -f "$FOUND_LOG" ]; then
-            echo "-- $FOUND_LOG --"
-            ls -la "$FOUND_LOG" 2>&1
-            wc -l "$FOUND_LOG" 2>&1
-            echo "  dernières requêtes :"
-            tail -20 "$FOUND_LOG" 2>&1
-            echo "  volume par minute (dernières lignes horodatées, top 5 minutes) :"
-            tail -3000 "$FOUND_LOG" 2>/dev/null | grep -oE '\[[0-9]{2}/[A-Za-z]{3}/[0-9]{4}:[0-9]{2}:[0-9]{2}' | sort | uniq -c | sort -rn | head -5
-            echo "  top 10 IP (dernières 3000 lignes) :"
-            tail -3000 "$FOUND_LOG" 2>/dev/null | awk '{print $1}' | sort | uniq -c | sort -rn | head -10
-            echo "  top 10 routes demandées (dernières 3000 lignes) :"
-            tail -3000 "$FOUND_LOG" 2>/dev/null | awk -F'"' '{print $2}' | awk '{print $2}' | sort | uniq -c | sort -rn | head -10
-          else
-            echo "  toujours introuvable (permissions ? géré par un autre compte système ?)"
-          fi
-          echo "::endgroup::"
-
-          echo "::group::COÛT RÉEL D'UNE SEULE REQUÊTE — boot du framework hors file d'attente PHP-FPM"
-          echo "== démarre un chrono, exécute UNE requête HTTP complète en interne via le Kernel Laravel (CLI, pas de contention avec le pool PHP-FPM saturé) =="
-          ( cd "$L" && timeout 30 php artisan tinker --execute="\$start = microtime(true); \$kernel = app(\Illuminate\Contracts\Http\Kernel::class); \$request = \Illuminate\Http\Request::create('/', 'GET'); \$response = \$kernel->handle(\$request); \$kernel->terminate(\$request, \$response); echo 'status='.\$response->getStatusCode().' temps_boot_reel='.round(microtime(true)-\$start, 3).'s'.PHP_EOL;" 2>&1 ) || echo "échec/timeout du test de requête isolée"
           echo "::endgroup::"
 
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
