@@ -178,6 +178,13 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
   (mix-manifest + dosye asèt public_html → laravel/public) + `config:cache`+`view:cache`.
 - Zouti dyagnostik/reparasyon: `.github/workflows/diagnose.yml` (bouton, lekti log +
   vidaj cache + relye asèt, SAN DB). Deklanche via Actions (input `clear_cache`).
+- **GOVIBEPAY fusion** (out 2026): workflow `.github/workflows/govibepay-merge.yml`
+  (bouton, mode `inspect`/`merge`/`landing`/`rollback`) pou fizyone app.govibepay.com
+  sou rasin govibepay.com (WordPress sovgade, jamè efase; sou-domèn `app.` vin
+  redireksyon 301; paj akèy statique `Modules/Tagtoa/deploy/govibepay/landing.html`
+  sèvi sou `/` via `DirectoryIndex index.html index.php`). Doc:
+  `Modules/Tagtoa/deploy/govibepay/README.md`. **Kouri `inspect` AVAN `merge`**
+  (verifye selektè PHP govibepay.com = menm vèsyon ak app la).
 - ⚠️ Aksyon itilizatè toujou: woule `DB_PASSWORD` (te ekspoze), `TAGTOA_CONTACT_WHATSAPP`
   (bouton Solutions), `TAGTOA_TWILIO_*` (WhatsApp), kle NTAG424 (Faz 7).
 - Login admin: `https://tagtoa.com/login` (rasin). Konekte → LandingController redirije
