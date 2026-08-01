@@ -179,10 +179,14 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
 - Zouti dyagnostik/reparasyon: `.github/workflows/diagnose.yml` (bouton, lekti log +
   vidaj cache + relye asèt, SAN DB). Deklanche via Actions (input `clear_cache`).
 - **GOVIBEPAY fusion** (out 2026): workflow `.github/workflows/govibepay-merge.yml`
-  (bouton, mode `inspect`/`merge`/`landing`/`rollback`) pou fizyone app.govibepay.com
-  sou rasin govibepay.com (WordPress sovgade, jamè efase; sou-domèn `app.` vin
-  redireksyon 301; paj akèy statique `Modules/Tagtoa/deploy/govibepay/landing.html`
-  sèvi sou `/` via `DirectoryIndex index.html index.php`). Doc:
+  (bouton, mode `inspect`/`merge`/`landing`/`brand`/`rollback`) pou fizyone
+  app.govibepay.com sou rasin govibepay.com (WordPress sovgade, jamè efase; sou-domèn
+  `app.` vin redireksyon 301). Nouvo home enstale **andedan script la**
+  (`Modules/Tagtoa/deploy/govibepay/landing.html` → `resources/views/govibepay/landing.blade.php`
+  + wout `GET /` nan fen `routes/web.php`, makè `GOVIBEPAY-LANDING-ROUTE`; fallback
+  statique `DirectoryIndex` si script la pa Laravel). Mode `brand` renome
+  `appdev` → `GOVIBEPay` (.env + views/lang/config/public sèlman, backup + `php -l`;
+  si non an rete, li nan DB Settings panèl admin script la). Doc:
   `Modules/Tagtoa/deploy/govibepay/README.md`. **Kouri `inspect` AVAN `merge`**
   (verifye selektè PHP govibepay.com = menm vèsyon ak app la).
 - ⚠️ Aksyon itilizatè toujou: woule `DB_PASSWORD` (te ekspoze), `TAGTOA_CONTACT_WHATSAPP`

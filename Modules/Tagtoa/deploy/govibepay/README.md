@@ -3,7 +3,9 @@
 Objektif: fè **yon sèl sit**. WordPress (vitrin aktyèl sou govibepay.com) sispann
 sèvi rasin lan; **app la** (ki te sou app.govibepay.com) vin sèvi dirèkteman sou
 `https://govibepay.com/`, epi `app.govibepay.com` vin **vid** (redireksyon 301 vè rasin).
-Yon **paj akèy GoVibePay** (statique, otonòm — `landing.html`) ranplase paj home nan.
+Yon **nouvo home GOVIBEPay** (baze sou enfòmasyon paj akèy govibepay.com lan) enstale
+**andedan script la menm** (vue Blade + wout `/`), epi non « appdev » ranplase pa
+« GOVIBEPay » tout kote nan zòn afichaj script la.
 
 Tout bagay fèt ak workflow GitHub Actions: **Actions → « GOVIBEPAY — Fusion app.govibepay.com → govibepay.com »**
 (li itilize menm sekrè SSH ak deploy TAGTOA a: `VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_PORT`).
@@ -20,15 +22,32 @@ Tout bagay fèt ak workflow GitHub Actions: **Actions → « GOVIBEPAY — Fusio
      ak backup, cache Laravel vide);
    - `app.govibepay.com` vide: `index.php` + `.htaccess` redireksyon 301
      (kondisyone sou `HTTP_HOST` — sèlman sou-domèn nan redirije);
-   - `landing.html` enstale kòm paj akèy (`DirectoryIndex index.html index.php` —
-     rasin `/` sèvi landing lan, tout lòt URL (`/login`, `/register`, …) ale nan app la);
+   - nouvo home enstale **ANDEDAN script la**: `landing.html` vin
+     `resources/views/govibepay/landing.blade.php` + yon wout `GET /` ajoute nan fen
+     `routes/web.php` (ak makè `GOVIBEPAY-LANDING-ROUTE`, backup `web.php.bak-govibepay`,
+     verifye ak `php -l`, cache route/view vide). Kòm wout la anrejistre an dènye,
+     li pran devan wout `/` orijinal script la; tout lòt URL (`/login`, `/register`, …)
+     rete jan yo ye. (Si script la pa Laravel: fallback statique `index.html` +
+     `DirectoryIndex`.)
+   - **branding**: `appdev` → `GOVIBEPay` (gade mode `brand` anba a);
    - makè `.govibepay-merge.meta` ekri (idempotans + rollback).
 3. Verifye sit la (`https://govibepay.com/`, login, `https://app.govibepay.com` → 301).
 4. Si pwoblèm: **`rollback`** — restore WordPress jan l te ye, remèt app la nan plas orijinal li,
-   restore `.env` ak fichye ki te ekarte yo. Eta fusion an konsève nan `public_html_merged_<dat>`.
+   restore `routes/web.php`, defèt renomaj appdev la, restore `.env` orijinal (premye backup),
+   ak fichye ki te ekarte yo. Eta fusion an konsève nan `public_html_merged_<dat>`.
 
 Mode **`landing`**: (re)enstale sèlman paj akèy la (apre yon chanjman nan `landing.html`),
 san manyen anyen lòt. Li refize mache si fusion an poko fèt (pou pa kraze home WordPress la).
+
+Mode **`brand`**: renome `appdev` → `GOVIBEPay` sèlman (kouri otomatikman nan `merge` tou):
+- `.env`: `APP_NAME="GOVIBEPay"` toujou; `MAIL_FROM_NAME` sèlman si li gen « appdev »;
+- zòn afichaj yo sèlman (`resources/views`, `resources/lang`, `lang`, `config`, `public`) —
+  **jamè** `app/` ni `vendor/` (pou pa kraze kòd metye script la). Chak fichye sovgade nan
+  `appdev-rename-backup-<dat>/` anvan; fichye `.php` modifye yo pase `php -l`
+  (auto-restore si kase). Varyant kase yo kouvri: `appdev`, `Appdev`, `AppDev`, `appDev`, `APPDEV`.
+- Log la montre okirans **anvan/apre**. ⚠️ Si « appdev » parèt toujou nan entèfas la apre sa,
+  non an sòti nan **baz done** script la (Paramètres → Site Name nan panèl admin) —
+  chanje l la, oswa voye rapò `inspect` la pou m adapte workflow la.
 
 ## Paj akèy la (`landing.html`)
 
@@ -39,6 +58,8 @@ san manyen anyen lòt. Li refize mache si fusion an poko fèt (pou pa kraze home
   pou matche brand la egzakteman.
 - Bouton yo pwente sou `/login` ak `/register`. **Si script la itilize lòt wout**
   (egz. `/user/login`), chanje `href` yo nan `landing.html` epi relanse mode `landing`.
+- Fichye a sèvi kòm sous pou `landing.blade.php` (li pa gen okenn sentaks Blade —
+  HTML/CSS pi, donk li konpile san danje; `@media` CSS yo pa direktiv Blade).
 - Makè `GOVIBEPAY-LANDING` nan fichye a idantifye vèsyon pa nou (yon `index.html`
   etranje sovgade anvan ranplasman).
 

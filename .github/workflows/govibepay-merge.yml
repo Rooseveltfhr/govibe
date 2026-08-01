@@ -14,12 +14,13 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "inspect = audit seul (aucun changement) · merge = fusionner (sauvegarde WP + app à la racine + vider app. + landing) · landing = (ré)installer seulement la page d'accueil · rollback = restaurer WordPress"
+        description: "inspect = audit seul (aucun changement) · merge = fusionner (sauvegarde WP + app à la racine + vider app. + home + branding) · landing = (ré)installer seulement la page d'accueil · brand = renommer appdev → GOVIBEPay seulement · rollback = restaurer WordPress"
         type: choice
         options:
           - inspect
           - merge
           - landing
+          - brand
           - rollback
         default: inspect
 
@@ -87,6 +88,20 @@ jobs:
           for H in govibepay.com app.govibepay.com; do
             curl -skS -m 12 -o /dev/null -w "  https://$H -> code=%{http_code} time=%{time_total}s\n" -H "Host: $H" "https://127.0.0.1/" || echo "  $H -> curl échec/timeout"
           done
+          echo ""
+          echo "=== Branding « appdev » dans le script ==="
+          LROOT=""
+          for c in "$HOME/domains/app.govibepay.com/public_html" "$PUB/app" "$DOM/govibepay-app"; do
+            if [ -f "$c/artisan" ]; then LROOT="$c"; break; fi
+            if [ -f "$c/../artisan" ]; then LROOT="$(cd "$c/.." && pwd)"; break; fi
+          done
+          if [ -n "$LROOT" ]; then
+            echo "Script : $LROOT"
+            grep -E '^(APP_NAME|MAIL_FROM_NAME)=' "$LROOT/.env" 2>/dev/null || echo "(.env illisible)"
+            grep -rIni --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=storage --exclude-dir=.git -e appdev "$LROOT" 2>/dev/null | head -40 || echo "(aucune occurrence 'appdev')"
+          else
+            echo "(racine du script non détectée)"
+          fi
           echo ""
           echo "=== Fusion déjà effectuée ? ==="
           if [ -f "$DOM/.govibepay-merge.meta" ]; then echo "OUI :"; cat "$DOM/.govibepay-merge.meta"; else echo "non (aucun marqueur)"; fi
@@ -261,24 +276,137 @@ jobs:
           TS=$(date +%Y%m%d-%H%M%S)
           DOM="$HOME/domains/govibepay.com"
           PUB="$DOM/public_html"
+          MARK="$DOM/.govibepay-merge.meta"
           UP="$HOME/.govibepay-landing-upload.html"
           [ -f "$UP" ] || { echo "ERREUR: landing non uploadé"; exit 1; }
-          [ -f "$DOM/.govibepay-merge.meta" ] || { echo "ERREUR: fusion pas encore faite (marqueur absent) — lancer le mode merge d'abord. On n'écrase pas la home WordPress."; exit 1; }
-          # sauvegarder un index.html existant qui ne serait pas le nôtre
-          if [ -f "$PUB/index.html" ] && ! grep -q "GOVIBEPAY-LANDING" "$PUB/index.html"; then
-            mv "$PUB/index.html" "$PUB/index.html.bak-$TS"
-            echo "→ index.html existant sauvegardé"
-          fi
-          cp "$UP" "$PUB/index.html" && rm -f "$UP"
-          # la home statique passe devant index.php ; le reste des URLs va à l'app
-          HT="$PUB/.htaccess"
-          if [ -f "$HT" ] && grep -qi '^DirectoryIndex' "$HT"; then
-            sed -i 's#^[Dd]irectoryIndex.*#DirectoryIndex index.html index.php#' "$HT"
+          [ -f "$MARK" ] || { echo "ERREUR: fusion pas encore faite (marqueur absent) — lancer le mode merge d'abord. On n'écrase pas la home WordPress."; exit 1; }
+          LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+
+          if [ -n "$LROOT" ] && [ -d "$LROOT/resources/views" ] && [ -f "$LROOT/routes/web.php" ]; then
+            # ---- Home DANS le script : vue Blade + route '/' (enregistrée en dernier, elle gagne) ----
+            mkdir -p "$LROOT/resources/views/govibepay"
+            cp "$UP" "$LROOT/resources/views/govibepay/landing.blade.php"
+            WEB="$LROOT/routes/web.php"
+            [ -f "$WEB.bak-govibepay" ] || cp "$WEB" "$WEB.bak-govibepay"
+            if ! grep -q 'GOVIBEPAY-LANDING-ROUTE' "$WEB"; then
+              cat >> "$WEB" <<'EOPHP'
+
+          // GOVIBEPAY-LANDING-ROUTE — home publique GOVIBEPay (fusion govibepay.com).
+          // Enregistrée en dernier : elle prend le pas sur la route '/' du script.
+          Route::get('/', function () {
+              return view('govibepay.landing');
+          });
+          EOPHP
+            fi
+            if ! php -l "$WEB" >/dev/null 2>&1; then
+              echo "ERREUR: routes/web.php invalide après ajout — restauration immédiate"
+              cp "$WEB.bak-govibepay" "$WEB"
+              exit 1
+            fi
+            ( cd "$LROOT" && php artisan route:clear >/dev/null 2>&1; php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
+            # notre ancien index.html statique masquerait la route : l'écarter
+            if [ -f "$PUB/index.html" ] && grep -q "GOVIBEPAY-LANDING" "$PUB/index.html"; then
+              mv "$PUB/index.html" "$PUB/index.html.static-$TS"
+              echo "→ ancien index.html statique écarté"
+            fi
+            echo "→ home installée DANS le script : resources/views/govibepay/landing.blade.php + route '/'"
           else
-            printf 'DirectoryIndex index.html index.php\n%s\n' "$(cat "$HT" 2>/dev/null)" > "$HT.new" && mv "$HT.new" "$HT"
+            # ---- Fallback (script non-Laravel) : home statique prioritaire ----
+            if [ -f "$PUB/index.html" ] && ! grep -q "GOVIBEPAY-LANDING" "$PUB/index.html"; then
+              mv "$PUB/index.html" "$PUB/index.html.bak-$TS"
+              echo "→ index.html existant sauvegardé"
+            fi
+            cp "$UP" "$PUB/index.html"
+            HT="$PUB/.htaccess"
+            if [ -f "$HT" ] && grep -qi '^DirectoryIndex' "$HT"; then
+              sed -i 's#^[Dd]irectoryIndex.*#DirectoryIndex index.html index.php#' "$HT"
+            else
+              printf 'DirectoryIndex index.html index.php\n%s\n' "$(cat "$HT" 2>/dev/null)" > "$HT.new" && mv "$HT.new" "$HT"
+            fi
+            echo "→ home statique installée (script non-Laravel) : / sert index.html"
           fi
-          echo "→ landing installé : https://govibepay.com/ sert index.html ; l'app reste sur /login, /register, etc."
+          rm -f "$UP"
           curl -skS -m 12 -o /dev/null -w "  https://govibepay.com/ -> code=%{http_code}\n" -H "Host: govibepay.com" "https://127.0.0.1/" || true
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # BRAND — renomme « appdev » → « GOVIBEPay » dans le script :
+      # .env (APP_NAME, MAIL_FROM_NAME) + zones d'affichage (views, lang,
+      # config, public). Chaque fichier modifié est sauvegardé d'abord ;
+      # les .php modifiés sont relus avec php -l (restauration auto si cassés).
+      # ------------------------------------------------------------------
+      - name: Brand (appdev → GOVIBEPay)
+        if: ${{ inputs.mode == 'merge' || inputs.mode == 'brand' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          TS=$(date +%Y%m%d-%H%M%S)
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          BRAND="GOVIBEPay"
+
+          # racine du script : via le marqueur de fusion, sinon détection directe
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -d "$LROOT" ]; then
+            for c in "$HOME/domains/app.govibepay.com/public_html" "$DOM/public_html/app" "$DOM/govibepay-app"; do
+              if [ -f "$c/artisan" ]; then LROOT="$c"; break; fi
+              if [ -f "$c/../artisan" ]; then LROOT="$(cd "$c/.." && pwd)"; break; fi
+            done
+          fi
+          [ -n "$LROOT" ] && [ -d "$LROOT" ] || { echo "ERREUR: racine du script introuvable — lancer 'inspect'."; exit 1; }
+          echo "Script : $LROOT"
+
+          echo "=== Occurrences 'appdev' AVANT ==="
+          grep -rIni --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=storage --exclude-dir=.git -e appdev "$LROOT" 2>/dev/null | head -50 || echo "(aucune)"
+
+          # 1) .env : APP_NAME toujours, MAIL_FROM_NAME si elle contient appdev
+          ENVF="$LROOT/.env"
+          if [ -f "$ENVF" ]; then
+            cp "$ENVF" "$ENVF.bak-brand-$TS"
+            if grep -q '^APP_NAME=' "$ENVF"; then
+              sed -i "s#^APP_NAME=.*#APP_NAME=\"$BRAND\"#" "$ENVF"
+            else
+              echo "APP_NAME=\"$BRAND\"" >> "$ENVF"
+            fi
+            sed -i "/^MAIL_FROM_NAME=.*[Aa][Pp][Pp][Dd][Ee][Vv]/s#^MAIL_FROM_NAME=.*#MAIL_FROM_NAME=\"$BRAND\"#" "$ENVF"
+            grep -E '^(APP_NAME|MAIL_FROM_NAME)=' "$ENVF"
+          fi
+
+          # 2) zones d'affichage (jamais app/ ni vendor/ : on ne touche pas au code métier)
+          BK="$DOM/appdev-rename-backup-$TS"
+          COUNT=0
+          for zone in resources/views resources/lang lang config public; do
+            Z="$LROOT/$zone"
+            [ -d "$Z" ] || continue
+            while IFS= read -r f; do
+              rel="${f#$LROOT/}"
+              mkdir -p "$BK/$(dirname "$rel")"
+              cp -a "$f" "$BK/$rel"
+              sed -i -e "s/APPDEV/GOVIBEPAY/g" -e "s/AppDev/$BRAND/g" -e "s/Appdev/$BRAND/g" -e "s/appDev/$BRAND/g" -e "s/appdev/$BRAND/g" "$f"
+              case "$f" in
+                *.php)
+                  if ! php -l "$f" >/dev/null 2>&1; then
+                    echo "!! $rel cassé après remplacement — restauré tel quel"
+                    cp -a "$BK/$rel" "$f"
+                  fi
+                  ;;
+              esac
+              COUNT=$((COUNT+1))
+            done < <(grep -rIli --exclude-dir=node_modules -e appdev "$Z" 2>/dev/null)
+          done
+          echo "→ $COUNT fichier(s) modifié(s) ; sauvegarde : $BK"
+
+          ( cd "$LROOT" && php artisan config:clear >/dev/null 2>&1; php artisan view:clear >/dev/null 2>&1; php artisan cache:clear >/dev/null 2>&1 ) || true
+
+          echo "=== Occurrences 'appdev' APRÈS (hors code métier, voir note) ==="
+          grep -rIni --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=storage --exclude-dir=.git -e appdev "$LROOT" 2>/dev/null | head -30 || echo "(aucune restante)"
+          echo ""
+          echo "NOTE: si « appdev » apparaît encore dans l'interface après cela, le nom vient"
+          echo "des Paramètres stockés en BASE DE DONNÉES du script — le changer dans le panneau"
+          echo "admin (Site Name / General Settings), ou m'envoyer le rapport inspect pour adapter."
           EOSSH
 
       # ------------------------------------------------------------------
@@ -322,11 +450,24 @@ jobs:
               if [ -n "$B" ]; then mv "$B" "$VACATED/$f"; echo "→ restauré : $VACATED/$f"; fi
             done
           fi
-          # 5) APP_URL : remettre la sauvegarde .env la plus récente
+          # 5) défaire la home Blade + le renommage appdev dans le script
+          if [ -n "$LROOT" ] && [ -d "$LROOT" ]; then
+            if [ -f "$LROOT/routes/web.php.bak-govibepay" ]; then
+              cp "$LROOT/routes/web.php.bak-govibepay" "$LROOT/routes/web.php"
+              echo "→ routes/web.php restauré"
+            fi
+            rm -f "$LROOT/resources/views/govibepay/landing.blade.php" 2>/dev/null || true
+            BK=$(ls -dt "$DOM"/appdev-rename-backup-* 2>/dev/null | head -1)
+            if [ -n "$BK" ] && [ -d "$BK" ]; then
+              cp -a "$BK/." "$LROOT/"
+              echo "→ renommage appdev annulé depuis $BK"
+            fi
+          fi
+          # 6) .env : remettre la PREMIÈRE sauvegarde (état d'avant la fusion)
           if [ -n "$LROOT" ]; then
-            B=$(ls -t "$LROOT/.env.bak-"* 2>/dev/null | head -1)
+            B=$(ls -tr "$LROOT/.env.bak-"* 2>/dev/null | head -1)
             if [ -n "$B" ]; then cp "$B" "$LROOT/.env"; echo "→ .env restauré depuis $B"; fi
-            ( cd "$LROOT" && php artisan config:clear >/dev/null 2>&1 ) || true
+            ( cd "$LROOT" && php artisan config:clear >/dev/null 2>&1; php artisan route:clear >/dev/null 2>&1; php artisan view:clear >/dev/null 2>&1 ) || true
           fi
           rm -f "$MARK"
           echo "=== Rollback OK ==="
