@@ -63,6 +63,9 @@
                     <input class="inp" name="pin" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" placeholder="{{ __('Nouveau PIN') }}" style="width:110px;padding:7px 10px">
                     <button class="btn btn-d btn-sm">{{ __('Réinitialiser') }}</button>
                 </form>
+                <form method="POST" action="{{ route('tagtoa.event.dashboard.staff.destroy', [$event->id, $s->id]) }}" onsubmit="return confirm('{{ __('Supprimer ce staff ?') }}')" style="display:inline">@csrf @method('DELETE')
+                    <button class="btn btn-o btn-sm" style="color:var(--red)"><i class="fa-solid fa-trash"></i></button>
+                </form>
             </td>
         </tr>
         @endforeach
