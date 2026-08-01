@@ -22,28 +22,54 @@ class PublicController extends Controller
     {
     }
 
-    /** Vitrine publique : TOUS les événements publiés (annuaire découverte). */
-    public function index(): View
-    {
-        $events = Event::where('is_published', true)
-            ->where(function ($q) {
-                // Masque les événements clairement terminés (fin < hier).
-                $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()->subDay());
-            })
-            ->with('activeTicketTypes')
-            ->orderByRaw('CASE WHEN starts_at IS NULL THEN 1 ELSE 0 END, starts_at ASC')
-            ->paginate(24);
+    /**
+     * Durée de cache des pages publiques EVENT (secondes). Trafic élevé (festival,
+     * vente de billets) sur un serveur à ressources limitées : un léger délai de
+     * fraîcheur (disponibilité billets) est acceptable — l'achat reste strictement
+     * protégé côté écriture par un verrou (TicketService::createOrder), jamais
+     * de survente même si la page affichée a quelques secondes de retard.
+     */
+    private const PUBLIC_CACHE_TTL = 20;
 
-        return view('tagtoa::event.directory', compact('events'));
+    /** Vitrine publique : TOUS les événements publiés (annuaire découverte). */
+    public function index(): \Illuminate\Http\Response
+    {
+        $page = (int) request('page', 1);
+        $html = \Illuminate\Support\Facades\Cache::remember(
+            "tagtoa:event:index:page:$page",
+            self::PUBLIC_CACHE_TTL,
+            function () {
+                $events = Event::where('is_published', true)
+                    ->where(function ($q) {
+                        // Masque les événements clairement terminés (fin < hier).
+                        $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()->subDay());
+                    })
+                    ->with('activeTicketTypes')
+                    ->orderByRaw('CASE WHEN starts_at IS NULL THEN 1 ELSE 0 END, starts_at ASC')
+                    ->paginate(24);
+
+                return view('tagtoa::event.directory', compact('events'))->render();
+            }
+        );
+
+        return response($html);
     }
 
-    public function show(string $alias): View
+    public function show(string $alias): \Illuminate\Http\Response
     {
-        $event = Event::where('alias', $alias)->where('is_published', true)
-            ->with('activeTicketTypes')->firstOrFail();
-        $event->incrementQuietly('views');
+        $html = \Illuminate\Support\Facades\Cache::remember(
+            "tagtoa:event:show:$alias",
+            self::PUBLIC_CACHE_TTL,
+            function () use ($alias) {
+                $event = Event::where('alias', $alias)->where('is_published', true)
+                    ->with('activeTicketTypes')->firstOrFail();
+                $event->incrementQuietly('views');
 
-        return view('tagtoa::event.show', ['event' => $event]);
+                return view('tagtoa::event.show', ['event' => $event])->render();
+            }
+        );
+
+        return response($html);
     }
 
     /** Reçu public d'une transaction wallet (achat/recharge), par référence. */
