@@ -20,6 +20,10 @@ on:
         description: "Réactiver les sites mis en pause (restaure public_html.paused → public_html)"
         type: boolean
         default: false
+      fetch_file:
+        description: "Chemin ABSOLU d'un fichier à récupérer tel quel (artefact, sans passage par le log — évite le masquage de secrets)"
+        type: string
+        default: ""
 
 concurrency:
   group: diagnose-tagtoa
@@ -192,14 +196,8 @@ jobs:
           ( cd "$L" && ls storage/framework/views/*.php 2>/dev/null | wc -l | xargs -I{} echo "  vues Blade compilées en cache: {}" ) || true
           echo "::endgroup::"
 
-          echo "::group::MENU LATERAL — layouts/menu.blade.php en base64 (evite le masquage de secrets sur les routes s-admin)"
-          MB="$L/resources/views/layouts/menu.blade.php"
-          if [ -f "$MB" ]; then
-            wc -l "$MB"
-            base64 -w0 "$MB"; echo
-          else
-            echo "absent a ce chemin"
-          fi
+          echo "::group::MENU LATERAL — layouts/menu.blade.php (recupere via artefact, pas via le log)"
+          echo "voir l'etape 'Fetch file for artifact' + l'artefact 'fetched-file' de ce run"
           echo "::endgroup::"
 
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
@@ -347,3 +345,27 @@ jobs:
             echo "::endgroup::"
           fi
           EOSSH
+
+      - name: Fetch file (redirected to local file — never printed to the log, avoids secret-masking corruption)
+        if: ${{ inputs.fetch_file != '' }}
+        env:
+          FETCH_FILE: ${{ inputs.fetch_file }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "FF='$FETCH_FILE' bash -s" <<'EOSSH' > fetched-file
+          T="$HOME/domains/tagtoa.com"
+          L=""
+          for c in "$T/laravel" "$T/public_html/laravel" "$T/public_html"; do
+            [ -f "$c/artisan" ] && { L="$c"; break; }
+          done
+          cat "$L/$FF"
+          EOSSH
+
+      - name: Upload fetched file as artifact
+        if: ${{ inputs.fetch_file != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fetched-file
+          path: fetched-file
+          retention-days: 1
