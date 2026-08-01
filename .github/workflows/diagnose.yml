@@ -192,14 +192,11 @@ jobs:
           ( cd "$L" && ls storage/framework/views/*.php 2>/dev/null | wc -l | xargs -I{} echo "  vues Blade compilées en cache: {}" ) || true
           echo "::endgroup::"
 
-          echo "::group::MENU LATERAL — layouts/sidebar.blade.php (integration TAGTOA)"
-          SB="$L/resources/views/layouts/sidebar.blade.php"
-          if [ -f "$SB" ]; then
-            wc -l "$SB"
-            echo "-- @include/@extends utilises --"
-            grep -nE "@include|@extends" "$SB" 2>/dev/null
-            echo "-- contenu complet --"
-            cat "$SB"
+          echo "::group::MENU LATERAL — layouts/menu.blade.php (liste des liens, integration TAGTOA)"
+          MB="$L/resources/views/layouts/menu.blade.php"
+          if [ -f "$MB" ]; then
+            wc -l "$MB"
+            cat "$MB"
           else
             echo "absent a ce chemin"
           fi
