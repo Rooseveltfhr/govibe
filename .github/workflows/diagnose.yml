@@ -192,17 +192,17 @@ jobs:
           ( cd "$L" && ls storage/framework/views/*.php 2>/dev/null | wc -l | xargs -I{} echo "  vues Blade compilées en cache: {}" ) || true
           echo "::endgroup::"
 
-          echo "::group::LOGIN 419/CSRF — horloge, session, cookies (page expirée)"
-          echo "== heure système (post-reboot : horloge désynchronisée = cookies expirés prématurément) =="
-          date -u; date
-          command -v timedatectl >/dev/null && timedatectl 2>&1 | grep -iE "synchronized|ntp|time zone" || echo "timedatectl non disponible"
-          echo "== config session/cookie (.env) =="
-          grep -nE "^SESSION_DRIVER|^SESSION_DOMAIN|^SESSION_LIFETIME|^SESSION_SECURE_COOKIE|^SESSION_SAME_SITE|^APP_URL" "$L/.env" 2>/dev/null
-          echo "== storage/framework/sessions : inscriptible + fichiers récents =="
-          ls -ld "$L/storage/framework/sessions" 2>&1
-          find "$L/storage/framework/sessions" -type f -newermt '-10 minutes' 2>/dev/null | wc -l | xargs -I{} echo "  fichiers de session créés dans les 10 dernières minutes: {}"
-          echo "== dernières occurrences TokenMismatch/419 dans laravel.log =="
-          grep -aE "TokenMismatch|419|Page Expired|CSRF" "$L/storage/logs/laravel.log" 2>/dev/null | tail -5 || echo "aucune occurrence trouvée"
+          echo "::group::SIDEBAR admin — fichier menu Biztap (pour intégrer les liens TAGTOA)"
+          MENUF=$(grep -rilE 'Tableaux de bord|vCards|Commandes de produits' "$L/resources/views" 2>/dev/null | grep -v "/tagtoa" | head -1)
+          echo "fichier: ${MENUF:-introuvable}"
+          if [ -n "$MENUF" ]; then
+            echo "-- contenu complet --"
+            cat "$MENUF"
+          fi
+          echo "-- vue override actuelle (branding) si existe --"
+          find "$L/Modules/Tagtoa/resources/views/overrides" -maxdepth 3 -iname "*.blade.php" 2>/dev/null
+          echo "-- où pointe le logo/branding TAGTOA (settings ?) --"
+          grep -rniE "logo|site_name|app_name" "$L/resources/views/layouts" 2>/dev/null | grep -iE "tagtoa|Setting::" | head -10
           echo "::endgroup::"
 
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
