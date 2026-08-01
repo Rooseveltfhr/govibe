@@ -12,6 +12,14 @@ on:
         description: "Vider les caches (config/routes/vues) + corriger les permissions storage"
         type: boolean
         default: true
+      pause_sites:
+        description: "Mettre en pause (public_html → public_html.paused + page d'attente) les sites non essentiels pour libérer le CPU (festival)"
+        type: boolean
+        default: false
+      unpause_sites:
+        description: "Réactiver les sites mis en pause (restaure public_html.paused → public_html)"
+        type: boolean
+        default: false
 
 concurrency:
   group: diagnose-tagtoa
@@ -33,10 +41,12 @@ jobs:
       - name: Diagnose + clear cache
         env:
           CLEAR: ${{ inputs.clear_cache }}
+          PAUSE: ${{ inputs.pause_sites }}
+          UNPAUSE: ${{ inputs.unpause_sites }}
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
           ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' bash -s" <<'EOSSH'
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' PAUSE='$PAUSE' UNPAUSE='$UNPAUSE' bash -s" <<'EOSSH'
           set -uo pipefail
 
           # 0) QUI/OÙ suis-je ? (le chemin domaine attendu était introuvable)
@@ -183,26 +193,9 @@ jobs:
           ( cd "$L" && timeout 15 php artisan db:show 2>&1 | head -20 ) || echo "échec/timeout db:show"
           echo "::endgroup::"
 
-          echo "::group::AUTRES SITES sur ce compte — partagent-ils le même pool PHP-FPM (donc le même CPU) ?"
-          echo "== domaines sous ce compte =="
+          echo "::group::AUTRES SITES — domaines + confirmation pool PHP-FPM partagé"
           ls "$HOME/domains" 2>&1
-          echo "== pools PHP-FPM configurés (fichiers, pas processus — évite le masquage de secret) =="
-          find "$HOME/etc" /usr/local/directadmin/data/users/*/php_fpm /etc/php-fpm.d /usr/local/php*/etc/php-fpm.d -maxdepth 4 -iname "*.conf" 2>/dev/null | head -20
-          echo "== processus PHP-FPM regroupés par commande (même groupe = même pool = même file d'attente CPU) =="
           ps -u "$(whoami)" -o cmd= 2>/dev/null | grep php-fpm | sort | uniq -c
-          echo "== taille des docroots par domaine (proxy d'activité/poids) =="
-          for d in "$HOME"/domains/*/; do
-            dom=$(basename "$d")
-            sz=$(du -sh "$d/public_html" 2>/dev/null | cut -f1)
-            echo "  $dom : ${sz:-?}"
-          done
-          echo "== dernière activité (log le plus récent) par domaine =="
-          for d in "$HOME"/domains/*/; do
-            dom=$(basename "$d")
-            lg=$(find "$d" -maxdepth 3 -iname "*.log" -newer /tmp 2>/dev/null | head -1)
-            [ -z "$lg" ] && lg=$(find "$d" -maxdepth 3 -iname "*.log" 2>/dev/null | xargs -r ls -t 2>/dev/null | head -1)
-            [ -n "$lg" ] && echo "  $dom : $(stat -c '%y' "$lg" 2>/dev/null | cut -d. -f1)" || echo "  $dom : aucun log trouvé"
-          done
           echo "::endgroup::"
 
           echo "::group::CHARGE — opcache, connexions, pool PHP-FPM, caches Laravel"
@@ -337,5 +330,42 @@ jobs:
             fi
             echo "::endgroup::"
             echo "→ Rechargez https://tagtoa.com/login"
+          fi
+
+          # PAUSE / REPRISE de sites non essentiels — libère le seul cœur CPU du
+          # compte pour tagtoa.com pendant le festival (13-16 août). Réversible à
+          # 100% : on renomme SEULEMENT public_html <-> public_html.paused, on ne
+          # supprime jamais rien. Idempotent (ignore si déjà dans l'état voulu).
+          SITES_TO_PAUSE="webetud.com djounes.com festival.tagtoa.com esim.govibeht.com store.tagtoa.com"
+          if [ "${PAUSE:-false}" = "true" ]; then
+            echo "::group::PAUSE sites non essentiels (festival)"
+            for dom in $SITES_TO_PAUSE; do
+              D="$HOME/domains/$dom"
+              if [ -d "$D/public_html" ] && [ ! -d "$D/public_html.paused" ]; then
+                mv "$D/public_html" "$D/public_html.paused"
+                mkdir -p "$D/public_html"
+                printf '%s' '<!doctype html><html><head><meta charset="utf-8"><title>Maintenance</title></head><body style="font-family:sans-serif;text-align:center;margin-top:15vh"><h1>Maintenance temporaire</h1><p>De retour tres bientot.</p></body></html>' > "$D/public_html/index.html"
+                echo "PAUSED: $dom"
+              elif [ -d "$D/public_html.paused" ]; then
+                echo "déjà en pause: $dom"
+              else
+                echo "introuvable (ignoré): $dom"
+              fi
+            done
+            echo "::endgroup::"
+          fi
+          if [ "${UNPAUSE:-false}" = "true" ]; then
+            echo "::group::REPRISE sites (fin de pause)"
+            for dom in $SITES_TO_PAUSE; do
+              D="$HOME/domains/$dom"
+              if [ -d "$D/public_html.paused" ]; then
+                rm -rf "$D/public_html"
+                mv "$D/public_html.paused" "$D/public_html"
+                echo "REPRIS: $dom"
+              else
+                echo "pas en pause (ignoré): $dom"
+              fi
+            done
+            echo "::endgroup::"
           fi
           EOSSH
