@@ -49,35 +49,11 @@ jobs:
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' PAUSE='$PAUSE' UNPAUSE='$UNPAUSE' bash -s" <<'EOSSH'
           set -uo pipefail
 
-          # 0) QUI/OÙ suis-je ? (le chemin domaine attendu était introuvable)
           echo "::group::Contexte SSH"
-          echo "whoami : $(whoami)"; echo "HOME : $HOME"; echo "pwd : $(pwd)"
-          echo "--- \$HOME ---"; ls -la "$HOME" 2>&1 | head -40
-          echo "--- /home ---"; ls -la /home 2>&1 | head -40
-          echo "::endgroup::"
-
-          # 1) EXPLORER sous $HOME (/home global n'est pas lisible : le glob
-          #    /home/*/domains échoue → c'est LA cause de « INTROUVABLE »).
-          echo "::group::Domaines du compte ($HOME/domains)"
-          ls -la "$HOME/domains" 2>&1 | head -40
-          echo "::endgroup::"
-
-          echo "::group::Structure de tagtoa.com"
+          echo "whoami : $(whoami)"; echo "HOME : $HOME"
           T="$HOME/domains/tagtoa.com"
-          echo "== $T =="; ls -la "$T" 2>&1 | head -50
-          echo "== $T/public_html =="; ls -la "$T/public_html" 2>&1 | head -60
-          echo "== $T/laravel (si existe) =="; ls -la "$T/laravel" 2>&1 | head -50
-          echo "== $T/public_html/laravel (si existe) =="; ls -la "$T/public_html/laravel" 2>&1 | head -50
-          echo "::endgroup::"
-
-          echo "::group::Recherche des fichiers ESSENTIELS sous tagtoa.com"
-          echo "== artisan =="; ART=$(find "$T" -maxdepth 4 -type f -name artisan 2>/dev/null | head -10); echo "${ART:-aucun}"
-          echo "== .env =="; find "$T" -maxdepth 4 -type f -name '.env' 2>/dev/null | head
-          echo "== dossiers storage / bootstrap / vendor / Modules / public =="
-          for dir in storage bootstrap vendor Modules public; do
-            r=$(find "$T" -maxdepth 4 -type d -name "$dir" 2>/dev/null | head); echo "$dir: ${r:-ABSENT}"
-          done
-          echo "== index.php (docroot) =="; find "$T" -maxdepth 3 -name index.php 2>/dev/null | head
+          ART=$(find "$T" -maxdepth 4 -type f -name artisan 2>/dev/null | head -1)
+          echo "artisan: ${ART:-INTROUVABLE}"
           echo "::endgroup::"
 
           # 2) Choisir l'app : artisan sous tagtoa.com en priorité.
@@ -205,14 +181,6 @@ jobs:
           ( command -v ss >/dev/null && ss -tn state established '( dport = :443 or sport = :443 )' 2>&1 | wc -l ) \
             || ( command -v netstat >/dev/null && netstat -tn 2>&1 | grep -c ':443' ) \
             || echo "ss/netstat non disponibles"
-          echo "== pool PHP-FPM : pm.max_children (combien de travailleurs simultanés autorisés) =="
-          for pc in "$HOME/etc/php83/php-fpm.d/"*.conf "$HOME/etc/php"*/php-fpm.d/*.conf /etc/php*/fpm/pool.d/*.conf /usr/local/php*/etc/php-fpm.d/*.conf; do
-            [ -f "$pc" ] || continue
-            if grep -q "^pm.max_children\|^pm =" "$pc" 2>/dev/null; then
-              echo "-- $pc --"
-              grep -E "^pm( |\.|=)" "$pc" 2>/dev/null
-            fi
-          done
           echo "== caches Laravel (config/route/view) — évite de recompiler à chaque requête =="
           for c in bootstrap/cache/config.php bootstrap/cache/routes-v7.php bootstrap/cache/packages.php bootstrap/cache/services.php; do
             if [ -f "$L/$c" ]; then
@@ -222,6 +190,19 @@ jobs:
             fi
           done
           ( cd "$L" && ls storage/framework/views/*.php 2>/dev/null | wc -l | xargs -I{} echo "  vues Blade compilées en cache: {}" ) || true
+          echo "::endgroup::"
+
+          echo "::group::LOGIN 419/CSRF — horloge, session, cookies (page expirée)"
+          echo "== heure système (post-reboot : horloge désynchronisée = cookies expirés prématurément) =="
+          date -u; date
+          command -v timedatectl >/dev/null && timedatectl 2>&1 | grep -iE "synchronized|ntp|time zone" || echo "timedatectl non disponible"
+          echo "== config session/cookie (.env) =="
+          grep -nE "^SESSION_DRIVER|^SESSION_DOMAIN|^SESSION_LIFETIME|^SESSION_SECURE_COOKIE|^SESSION_SAME_SITE|^APP_URL" "$L/.env" 2>/dev/null
+          echo "== storage/framework/sessions : inscriptible + fichiers récents =="
+          ls -ld "$L/storage/framework/sessions" 2>&1
+          find "$L/storage/framework/sessions" -type f -newermt '-10 minutes' 2>/dev/null | wc -l | xargs -I{} echo "  fichiers de session créés dans les 10 dernières minutes: {}"
+          echo "== dernières occurrences TokenMismatch/419 dans laravel.log =="
+          grep -aE "TokenMismatch|419|Page Expired|CSRF" "$L/storage/logs/laravel.log" 2>/dev/null | tail -5 || echo "aucune occurrence trouvée"
           echo "::endgroup::"
 
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
