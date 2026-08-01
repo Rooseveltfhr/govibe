@@ -20,7 +20,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * TAGTOA EVENT — gestion du staff terrain (côté organisateur, vrai login).
  *
- * Seul le propriétaire (login tenant) crée/désactive les comptes staff.
+ * Seul le propriétaire (login tenant — admin ou super_admin selon le middleware
+ * de la route) crée/désactive/supprime les comptes staff.
  * Le PIN ne donne accès qu'au terminal terrain (vente/check-in), jamais ici.
  */
 class StaffController extends Controller
@@ -78,6 +79,22 @@ class StaffController extends Controller
         app(AuditService::class)->log('event_staff_created', $staff, $staff->name.' ('.$staff->role.')');
 
         return back()->with('success', __('Compte staff créé.'));
+    }
+
+    /**
+     * Supprime un compte staff. Sûr pour l'historique : check-ins et conflits
+     * de sync référencent staff_id en nullOnDelete (jamais d'orphelin/erreur SQL,
+     * l'activité passée reste visible avec « staff » vide).
+     */
+    public function destroy(int $id, int $staffId): RedirectResponse
+    {
+        $event = $this->own($id);
+        $staff = Staff::where('event_id', $event->id)->findOrFail($staffId);
+        $staff->delete();
+
+        app(AuditService::class)->log('event_staff_deleted', $staff, $staff->name.' ('.$staff->role.')');
+
+        return back()->with('success', __('Staff supprimé.'));
     }
 
     /** Active/désactive un staff (jamais de suppression : traçabilité). */

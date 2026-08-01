@@ -38,3 +38,29 @@ jobs:
         # On cible explicitement la suite TAGTOA avec son bootstrap pur, en
         # ignorant la configuration racine (--no-configuration).
         run: vendor/bin/phpunit --no-configuration --bootstrap tests/bootstrap.php --testdox Modules/Tagtoa/tests/Unit
+
+  tagtoa-integration:
+    name: TAGTOA module — tests d'intégration (DB réelle)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+          tools: composer:v2
+          extensions: sqlite3, pdo_sqlite
+
+      - name: Install module deps (Orchestra Testbench — hôte Laravel isolé)
+        working-directory: Modules/Tagtoa
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: "Integration tests (DB SQLite réelle : wallet ledger, POS, loyalty)"
+        # tests/TestCase.php boot un hôte Laravel minimal (Orchestra Testbench)
+        # et charge SEULEMENT les migrations TAGTOA (autonomes, aucune FK vers
+        # le cœur Biztap absent de ce dépôt). Vérifie l'intégration DB réelle :
+        # double-entry, idempotence, verrous, soldes — pas seulement la logique pure.
+        working-directory: Modules/Tagtoa
+        run: vendor/bin/phpunit --testdox tests/Feature

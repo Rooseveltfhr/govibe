@@ -36,6 +36,7 @@ class AuditService
         'card.charged'      => 'Paiement par carte TAGTOA',
         'card.status'       => 'Statut carte TAGTOA modifié',
         'card.credits_granted' => 'Crédits carte accordés',
+        'event_staff_deleted' => 'Staff terrain supprimé',
     ];
 
     /** Libellé lisible d'une action (repli = action brute). LOGIQUE PURE. */

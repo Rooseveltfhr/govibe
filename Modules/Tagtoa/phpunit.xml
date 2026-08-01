@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  TAGTOA — config PHPUnit du module (isolée du host GOVIBE Academy à la racine
+  du dépôt). Usage local : cd Modules/Tagtoa && composer install && vendor/bin/phpunit
+
+  La suite Unit tourne AUSSI en CI via un bootstrap pur séparé (../../tests/bootstrap.php,
+  sans Laravel — voir .github/workflows/ci.yml) ; ce fichier sert surtout à la suite
+  Feature (Orchestra Testbench, DB SQLite mémoire réelle — voir tests/TestCase.php).
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+</phpunit>

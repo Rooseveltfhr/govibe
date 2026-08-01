@@ -16,29 +16,16 @@ class TagtoaServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerViews();
         $this->overrideAuthViews();
-        $this->registerAdminLauncher();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/migrations'));
         $this->loadJsonTranslationsFrom(module_path($this->moduleName, 'resources/lang'));
     }
 
     /**
-     * Ajoute un bouton flottant « TAGTOA » sur les pages d'admin Biztap (/sadmin)
-     * pour accéder au hub TAGTOA. Non invasif (aucune vue du cœur modifiée).
-     */
-    protected function registerAdminLauncher(): void
-    {
-        try {
-            $this->app['router']->pushMiddlewareToGroup('web', \Modules\Tagtoa\App\Http\Middleware\InjectTagtoaLauncher::class);
-        } catch (\Throwable $e) {
-            // sans le bouton, l'admin reste accessible via /tagtoa/home
-        }
-    }
-
-    /**
-     * Remplace certaines vues du cœur (ex. auth/login) par les versions TAGTOA,
-     * de façon VERSIONNÉE et réversible : on prépend un chemin de vues, donc
-     * `view('auth.login')` résout d'abord `resources/views/overrides/auth/login`.
-     * Les vues non présentes dans overrides retombent sur le cœur (sûr).
+     * Remplace certaines vues du cœur (ex. auth/login, layouts/sidebar) par les
+     * versions TAGTOA, de façon VERSIONNÉE et réversible : on prépend un chemin
+     * de vues, donc `view('layouts.sidebar')` résout d'abord
+     * `resources/views/overrides/layouts/sidebar`. Les vues non présentes dans
+     * overrides retombent sur le cœur (sûr).
      */
     protected function overrideAuthViews(): void
     {

@@ -215,6 +215,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/{id}/staff', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'store'])->name('staff.store');
         Route::post('/{id}/staff/{staffId}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'toggle'])->name('staff.toggle');
         Route::post('/{id}/staff/{staffId}/pin', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'resetPin'])->name('staff.pin');
+        Route::delete('/{id}/staff/{staffId}', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'destroy'])->name('staff.destroy');
         Route::post('/{id}/staff/conflicts/{conflictId}/resolve', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'resolveConflict'])->name('staff.conflict.resolve');
         Route::get('/{id}/staff/export', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'export'])->name('staff.export');
     });
