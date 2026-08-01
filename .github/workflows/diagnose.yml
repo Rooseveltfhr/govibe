@@ -192,17 +192,17 @@ jobs:
           ( cd "$L" && ls storage/framework/views/*.php 2>/dev/null | wc -l | xargs -I{} echo "  vues Blade compilées en cache: {}" ) || true
           echo "::endgroup::"
 
-          echo "::group::SIDEBAR admin — fichier menu Biztap (pour intégrer les liens TAGTOA)"
-          MENUF=$(grep -rilE 'Tableaux de bord|vCards|Commandes de produits' "$L/resources/views" 2>/dev/null | grep -v "/tagtoa" | head -1)
-          echo "fichier: ${MENUF:-introuvable}"
-          if [ -n "$MENUF" ]; then
+          echo "::group::MENU LATERAL — layouts/sidebar.blade.php (integration TAGTOA)"
+          SB="$L/resources/views/layouts/sidebar.blade.php"
+          if [ -f "$SB" ]; then
+            wc -l "$SB"
+            echo "-- @include/@extends utilises --"
+            grep -nE "@include|@extends" "$SB" 2>/dev/null
             echo "-- contenu complet --"
-            cat "$MENUF"
+            cat "$SB"
+          else
+            echo "absent a ce chemin"
           fi
-          echo "-- vue override actuelle (branding) si existe --"
-          find "$L/Modules/Tagtoa/resources/views/overrides" -maxdepth 3 -iname "*.blade.php" 2>/dev/null
-          echo "-- où pointe le logo/branding TAGTOA (settings ?) --"
-          grep -rniE "logo|site_name|app_name" "$L/resources/views/layouts" 2>/dev/null | grep -iE "tagtoa|Setting::" | head -10
           echo "::endgroup::"
 
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
