@@ -158,7 +158,7 @@
                 <option value="cash">Espèces</option>
                 <option value="moncash">MonCash</option>
                 <option value="natcash">NatCash</option>
-                <option value="bank">Virement bancaire</option>
+                <option value="bank_transfer">Virement bancaire</option>
                 <option value="card">Carte bancaire</option>
                 <option value="paypal">PayPal</option>
                 <option value="zelle">Zelle</option>

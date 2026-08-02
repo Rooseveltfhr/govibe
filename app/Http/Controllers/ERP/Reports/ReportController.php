@@ -155,7 +155,7 @@ class ReportController extends Controller
 
         $clients = $this->safeQuery(fn () => Client::with('assignedUser')
             ->withCount(['invoices', 'bookings', 'contracts'])
-            ->withSum(['invoices as total_invoiced' => fn ($q) => $q->where('status', 'paid')], 'total_amount')
+            ->withSum(['invoices as total_invoiced' => fn ($q) => $q->where('status', 'paid')], 'total')
             ->orderByDesc('created_at')
             ->get(), collect());
 
@@ -268,7 +268,7 @@ class ReportController extends Controller
 
         $clients = $this->safeQuery(fn () => Client::with('assignedUser')
             ->withCount(['invoices', 'bookings'])
-            ->withSum(['invoices as total_invoiced' => fn ($q) => $q->where('status', 'paid')], 'total_amount')
+            ->withSum(['invoices as total_invoiced' => fn ($q) => $q->where('status', 'paid')], 'total')
             ->orderByDesc('created_at')
             ->get(), collect());
 
@@ -300,7 +300,7 @@ class ReportController extends Controller
     private function globalStats(int $year): array
     {
         return [
-            'totalRevenue'        => $this->safeSum(fn () => Invoice::where('status', 'paid')->whereYear('created_at', $year)->sum('total_amount')),
+            'totalRevenue'        => $this->safeSum(fn () => Invoice::where('status', 'paid')->whereYear('created_at', $year)->sum('total')),
             'totalClients'        => $this->safeCount(fn () => Client::count()),
             'totalProjects'       => $this->safeCount(fn () => Project::count()),
             'pendingInvoices'     => $this->safeCount(fn () => Invoice::where('status', 'sent')->count()),
@@ -319,7 +319,7 @@ class ReportController extends Controller
         for ($m = 1; $m <= 12; $m++) {
             $monthly[] = [
                 'month'  => now()->month($m)->format('M'),
-                'amount' => $this->safeSum(fn () => Invoice::where('status', 'paid')->whereYear('created_at', $year)->whereMonth('created_at', $m)->sum('total_amount')),
+                'amount' => $this->safeSum(fn () => Invoice::where('status', 'paid')->whereYear('created_at', $year)->whereMonth('created_at', $m)->sum('total')),
             ];
         }
 

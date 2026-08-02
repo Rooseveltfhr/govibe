@@ -20,6 +20,7 @@ use App\Http\Controllers\ERP\Inventory\InventoryController;
 use App\Http\Controllers\ERP\Reports\ReportController;
 use App\Http\Controllers\ERP\Academy\AcademyERPController;
 use App\Http\Controllers\ERP\Academy\BootcampAdminController;
+use App\Http\Controllers\ERP\Academy\InscriptionERPController;
 use App\Http\Controllers\ERP\Services\ServiceController;
 use App\Http\Controllers\ERP\CRM\NotificationController;
 use App\Http\Controllers\ERP\CRM\ContractController;
@@ -188,6 +189,17 @@ Route::prefix('erp')->name('erp.')->group(function () {
         // ── Academy ERP ───────────────────────────────────
         Route::prefix('academy')->name('academy.')->group(function () {
             Route::get('/', [AcademyERPController::class, 'index'])->name('index');
+
+            // Inscriptions (formations classiques)
+            Route::prefix('inscriptions')->name('inscriptions.')->group(function () {
+                Route::get('/', [InscriptionERPController::class, 'index'])->name('index');
+                Route::get('/{inscription}', [InscriptionERPController::class, 'show'])->name('show');
+                Route::post('/{inscription}/presence', [InscriptionERPController::class, 'togglePresence'])->name('presence');
+                Route::get('/{inscription}/attestation', [InscriptionERPController::class, 'attestation'])->name('attestation');
+                Route::delete('/{inscription}', [InscriptionERPController::class, 'destroy'])->name('destroy');
+            });
+
+            // Bootcamp IA 2026
             Route::prefix('bootcamp')->name('bootcamp.')->group(function () {
                 Route::get('/', [BootcampAdminController::class, 'index'])->name('index');
                 Route::get('/export', [BootcampAdminController::class, 'export'])->name('export');
