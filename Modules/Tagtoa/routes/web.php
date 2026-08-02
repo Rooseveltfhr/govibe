@@ -199,6 +199,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         // Import de billets DÉJÀ IMPRIMÉS (hors système) — festival avec stock physique.
         Route::get('/{id}/tickets/import', [EventDashboard::class, 'ticketsImport'])->name('tickets.import');
         Route::post('/{id}/tickets/import', [EventDashboard::class, 'ticketsImportStore'])->name('tickets.import.store');
+        Route::post('/{id}/tickets/scan-import', [EventDashboard::class, 'ticketsScanImport'])->name('tickets.scan-import');
         Route::delete('/{id}/tickets/{ticketId}', [EventDashboard::class, 'ticketsDestroy'])->name('tickets.destroy');
         // WALLET closed-loop (double-entry)
         Route::get('/{id}/wallet', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'index'])->name('wallet');

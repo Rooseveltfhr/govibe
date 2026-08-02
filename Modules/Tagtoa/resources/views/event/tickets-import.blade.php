@@ -27,6 +27,19 @@
 </div>
 
 <div class="card" style="margin-top:16px">
+    <h2>{{ __('Pas de liste ? Scannez chaque billet physique') }}</h2>
+    <p style="color:var(--muted);font-size:14px;margin-top:4px">
+        {{ __('Pas besoin de fichier : scannez le QR de chaque carte imprimée une à une avec la caméra — chaque scan l\'enregistre automatiquement comme billet disponible à la vente.') }}
+    </p>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px">
+        <button class="btn btn-p" id="scBtn" type="button"><i class="fa-solid fa-qrcode"></i> {{ __('Démarrer le scanner') }}</button>
+        <span style="font-size:14px"><b id="scNew">0</b> {{ __('nouveaux') }} · <b id="scDup" style="color:var(--muted)">0</b> {{ __('déjà connus') }}</span>
+    </div>
+    <div id="scReader" style="margin-top:10px;max-width:340px;border-radius:12px;overflow:hidden;display:none"></div>
+    <div id="scLast" style="margin-top:8px;font-size:13px;color:var(--muted)"></div>
+</div>
+
+<div class="card" style="margin-top:16px">
     <div class="h-row"><h2>{{ __('En attente de vente') }} ({{ $pending->total() }})</h2></div>
     @if($pending->isEmpty())
         <div class="empty"><i class="fa-solid fa-ticket"></i>{{ __('Aucun billet importé en attente. Importez un fichier ci-dessus.') }}</div>
@@ -49,4 +62,59 @@
     <div style="margin-top:14px">{{ $pending->links() }}</div>
     @endif
 </div>
+
+@push('head')
+<script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}"></script>
+@endpush
+
+@push('scripts')
+<script>
+(function(){
+    var CSRF = document.querySelector('meta[name=csrf-token]').content;
+    var URL_SCAN = @json(route('tagtoa.event.dashboard.tickets.scan-import', $event->id));
+    var btn = document.getElementById('scBtn'), reader = document.getElementById('scReader'), last = document.getElementById('scLast');
+    var nNew = document.getElementById('scNew'), nDup = document.getElementById('scDup');
+    var qr = null, on = false, busy = false, lastCode = null, lastAt = 0;
+    var newCount = 0, dupCount = 0;
+
+    function stop(){
+        on = false; reader.style.display = 'none';
+        if (qr) { try { qr.stop().then(function(){ try { qr.clear(); } catch(e){} }).catch(function(){}); } catch(e){} }
+        btn.innerHTML = '<i class="fa-solid fa-qrcode"></i> {{ __('Démarrer le scanner') }}';
+    }
+
+    function handle(code){
+        code = (code || '').trim();
+        if (!code) return;
+        var now = Date.now();
+        if (code === lastCode && (now - lastAt) < 2500) return; // évite le double-scan de la même carte
+        lastCode = code; lastAt = now;
+        if (busy) return;
+        busy = true;
+        fetch(URL_SCAN, {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF}, body: JSON.stringify({code: code})})
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+                busy = false;
+                if (j && j.ok) {
+                    if (j.status === 'duplicate') { dupCount++; nDup.textContent = dupCount; last.textContent = '{{ __('Déjà connu') }} : ' + code; }
+                    else { newCount++; nNew.textContent = newCount; last.textContent = '{{ __('Enregistré') }} : ' + code; }
+                } else {
+                    last.textContent = '{{ __('Erreur, réessayez.') }}';
+                }
+            })
+            .catch(function(){ busy = false; last.textContent = '{{ __('Erreur, réessayez.') }}'; });
+    }
+
+    btn.addEventListener('click', function(){
+        if (on) { stop(); return; }
+        if (!window.Html5Qrcode) { last.textContent = '{{ __('Caméra/QR indisponible sur cet appareil.') }}'; return; }
+        reader.style.display = 'block';
+        qr = new Html5Qrcode('scReader');
+        qr.start({facingMode:'environment'}, {fps:10, qrbox:220}, handle, function(){})
+            .then(function(){ on = true; btn.innerHTML = '<i class="fa-solid fa-stop"></i> {{ __('Arrêter le scanner') }}'; })
+            .catch(function(){ last.textContent = '{{ __('Caméra/QR indisponible sur cet appareil.') }}'; reader.style.display = 'none'; });
+    });
+})();
+</script>
+@endpush
 @endsection
