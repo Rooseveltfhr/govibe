@@ -91,6 +91,8 @@ Route::prefix('erp')->name('erp.')->group(function () {
         // ── CRM ──────────────────────────────────────────
         Route::prefix('crm')->name('crm.')->group(function () {
             Route::resource('clients', ClientController::class);
+            Route::get('/anniversaires', [ClientController::class, 'anniversaires'])->name('anniversaires');
+            Route::post('/anniversaires/send', [ClientController::class, 'sendBirthdayManual'])->name('anniversaires.send');
             Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
             Route::post('/notifications/send', [NotificationController::class, 'send'])->name('notifications.send');
         });

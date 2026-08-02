@@ -27,6 +27,11 @@ class Client extends Model
         'assigned_user_id',
         'business_unit_id',
         'notes',
+        'date_naissance',
+    ];
+
+    protected $casts = [
+        'date_naissance' => 'date',
     ];
 
     public function assignedUser(): BelongsTo

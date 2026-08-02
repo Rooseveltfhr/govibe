@@ -139,6 +139,10 @@
                 <i class="bi bi-people-fill icon"></i>
                 <span class="label">CRM / Clients</span>
             </a>
+            <a href="{{ route('erp.crm.anniversaires') }}" class="sidebar-link {{ request()->routeIs('erp.crm.anniversaires*') ? 'active' : '' }}">
+                <i class="bi bi-cake2-fill icon"></i>
+                <span class="label">Anniversaires</span>
+            </a>
             <a href="{{ route('erp.crm.notifications.index') }}" class="sidebar-link {{ request()->routeIs('erp.crm.notifications*') ? 'active' : '' }}">
                 <i class="bi bi-send-fill icon"></i>
                 <span class="label">Notifications</span>
