@@ -161,6 +161,32 @@ $data = $this->validateEvent($request);
         ]));
     }
 
+    /**
+     * Enregistre UN billet pré-imprimé par scan caméra (pas de liste numérique
+     * disponible — l'organisateur scanne chaque carte physique une à une).
+     * Idempotent : rescanner un code déjà enregistré ne crée pas de doublon.
+     */
+    public function ticketsScanImport(Request $request, int $id): \Illuminate\Http\JsonResponse
+    {
+        $event = $this->own($id);
+        $data = $request->validate([
+            'code'   => ['required', 'string', 'max:64'],
+            'serial' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        $code = trim($data['code']);
+        $existing = $event->tickets()->where('code', $code)->first();
+        if ($existing) {
+            return response()->json(['ok' => true, 'status' => 'duplicate', 'code' => $code]);
+        }
+
+        app(TicketImportService::class)->importForEvent($event, [
+            ['code' => $code, 'serial' => ! empty($data['serial']) ? trim($data['serial']) : null],
+        ]);
+
+        return response()->json(['ok' => true, 'status' => 'created', 'code' => $code]);
+    }
+
     /** Retire un billet pré-imprimé importé PAR ERREUR (jamais s'il a déjà été vendu). */
     public function ticketsDestroy(int $id, int $ticketId): RedirectResponse
     {
