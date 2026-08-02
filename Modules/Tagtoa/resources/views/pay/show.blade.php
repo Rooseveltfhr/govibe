@@ -87,7 +87,7 @@
             @foreach($methods as $m)
                 <button type="button" class="m" data-id="{{ $m->id }}" onclick="pick(this,{{ $m->id }})">
                     <span class="m-ic" style="background:{{ $m->brand_color }}">
-                        @if($m->logo_url)<img src="{{ $m->logo_url }}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:12px">@else<i class="{{ $m->icon }}"></i>@endif
+                        @if($m->logo_url)<img src="{{ $m->logo_url }}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;border-radius:12px">@else<i class="{{ $m->icon }}"></i>@endif
                     </span>
                     <span class="m-tx">
                         <b>{{ $m->display_label }}
@@ -101,7 +101,7 @@
                     <div class="card">
                         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
                             <span class="brand" style="background:{{ $m->brand_color }}">
-                                @if($m->logo_url)<img src="{{ $m->logo_url }}" alt="">@else<i class="{{ $m->icon }}"></i>@endif
+                                @if($m->logo_url)<img src="{{ $m->logo_url }}" alt="" loading="lazy">@else<i class="{{ $m->icon }}"></i>@endif
                             </span>
                             <b style="font-family:var(--fh);font-size:16px">{{ $m->display_label }}</b>
                         </div>

@@ -21,7 +21,10 @@
 </head>
 <body>
 <div class="tk">
-    <div class="top"><div class="b"><i class="fa-solid fa-wifi"></i> TAGTOA EVENT · NFC / QR</div><h1>{{ $event->title }}</h1></div>
+    <div class="top">
+        @if($event->logo_url)<img src="{{ $event->logo_url }}" alt="" style="height:36px;max-width:60%;object-fit:contain;margin-bottom:8px">@endif
+        <div class="b"><i class="fa-solid fa-wifi"></i> TAGTOA EVENT · NFC / QR</div><h1>{{ $event->title }}</h1>
+    </div>
     <div class="qr">
         @php try { $qr = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')->size(220)->margin(0)->generate($ticket->code); } catch (\Throwable $e) { $qr = null; } @endphp
         @if($qr){!! $qr !!}@else<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{ urlencode($ticket->code) }}" alt="QR">@endif

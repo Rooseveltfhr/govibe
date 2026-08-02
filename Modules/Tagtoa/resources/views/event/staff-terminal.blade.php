@@ -134,6 +134,9 @@
                 <label>{{ __('UID carte NFC (vide = e-billet QR)') }}</label>
                 <div style="display:flex;gap:8px"><input class="inp" id="slUid" autocomplete="off" placeholder="04:A2:..." style="flex:1"><button class="btn btn-o" id="slNfcBtn" type="button" style="margin-top:0;flex:0;white-space:nowrap"><i class="fa-solid fa-wifi"></i> {{ __('Lire') }}</button></div>
                 <div class="nfc" id="slNfcHint" style="text-align:left"></div>
+                <label>{{ __('Billet imprimé (scanner le QR au dos du billet)') }}</label>
+                <div style="display:flex;gap:8px"><input class="inp" id="slPrintedCode" autocomplete="off" placeholder="{{ __('Code du billet imprimé') }}" style="flex:1"><button class="btn btn-o" id="slScanBtn" type="button" style="margin-top:0;flex:0;white-space:nowrap"><i class="fa-solid fa-qrcode"></i> {{ __('Scanner') }}</button></div>
+                <div id="slReader" style="margin-top:8px;border-radius:12px;overflow:hidden;display:none"></div>
                 <label>{{ __('Crédit initial (wallet)') }}</label><input class="inp" id="slCredit" inputmode="decimal" placeholder="0">
                 <button class="btn btn-p" id="slBtn" type="button"><i class="fa-solid fa-cart-shopping"></i> {{ __('Activer la carte / émettre le billet') }}</button>
                 <div class="okc" id="slOk"><h2>{{ __('Billet émis') }}</h2><div class="code" id="slCode"></div><div style="color:var(--mut);font-size:13px" id="slWho"></div></div>
@@ -245,6 +248,18 @@
             rd.scan().then(function(){rd.onreading=function(e){var id=e.serialNumber||'';if(id){el('slUid').value=id;el('slNfcHint').textContent='✓ '+id;}};})
             .catch(function(){el('slNfcHint').textContent=T.nfcNo;});
         }catch(err){el('slNfcHint').textContent=T.nfcNo;}});
+    /* ---------- Scan QR d'un billet pré-imprimé (html5-qrcode auto-hébergé) ---------- */
+    var _slQr=null,_slQrOn=false;
+    function stopSlQr(){_slQrOn=false;el('slReader').style.display='none';
+        if(_slQr){try{_slQr.stop().then(function(){try{_slQr.clear();}catch(e){}}).catch(function(){});}catch(e){}}}
+    el('slScanBtn').addEventListener('click',function(){
+        if(_slQrOn){stopSlQr();return;}
+        if(!window.Html5Qrcode){el('slNfcHint').textContent=T.qrNo;return;}
+        var rd=el('slReader');rd.style.display='block';_slQr=new Html5Qrcode('slReader');
+        _slQr.start({facingMode:'environment'},{fps:10,qrbox:220},function(txt){
+            el('slPrintedCode').value=(txt||'').trim();stopSlQr();
+        },function(){}).then(function(){_slQrOn=true;}).catch(function(){el('slNfcHint').textContent=T.qrNo;rd.style.display='none';});
+    });
     el('slBtn').addEventListener('click',function(){
         var name=el('slName').value.trim(),phone=el('slPhone').value.trim();
         var errB=el('slErr');errB.style.display='none';
@@ -255,6 +270,7 @@
         post(URL_SELL,{name:name,phone:phone,email:el('slEmail').value.trim()||null,
             ticket_type_id:el('slType').value?Number(el('slType').value):null,
             uid:el('slUid').value.trim()||null,
+            printed_code:el('slPrintedCode').value.trim()||null,
             payment_method:pm,
             pay_card_uid:el('slPayUid').value.trim()||null,
             pay_card_code:el('slPayCode').value.trim()||null,
@@ -264,7 +280,7 @@
         .then(function(j){btn.disabled=false;
             if(!j.ok){errB.textContent=j.message||T.err;errB.style.display='block';return;}
             el('slCode').textContent=j.code;el('slWho').textContent=j.name;el('slOk').classList.add('show');
-            el('slName').value='';el('slPhone').value='';el('slEmail').value='';el('slUid').value='';el('slCredit').value='';
+            el('slName').value='';el('slPhone').value='';el('slEmail').value='';el('slUid').value='';el('slPrintedCode').value='';el('slCredit').value='';
             el('slPayUid').value='';el('slPayCode').value='';el('slPayPin').value='';el('slName').focus();
         }).catch(function(){btn.disabled=false;errB.textContent=T.err;errB.style.display='block';});
     });

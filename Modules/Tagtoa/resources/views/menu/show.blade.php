@@ -121,7 +121,7 @@
                 @foreach($c->availableItems as $it)
                     @php $out = ! $it->in_stock; @endphp
                     <div class="item" @if($out) style="opacity:.55" @endif>
-                        @if($it->image_url)<img class="ph" src="{{ $it->image_url }}" alt="">
+                        @if($it->image_url)<img class="ph" src="{{ $it->image_url }}" alt="" loading="lazy">
                         @else<div class="ph">{{ $it->emoji ?: '🍽️' }}</div>@endif
                         <div class="body">
                             <div class="nm">{{ $it->name }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ __('Épuisé') }}</span>@endif</div>

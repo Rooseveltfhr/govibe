@@ -49,7 +49,7 @@
         @if($loop->first)<div class="grid">@endif
             <a class="card" href="{{ route('tagtoa.event.show', $e->alias) }}">
                 <div class="cover">
-                    @if($e->cover_url)<img src="{{ $e->cover_url }}" alt="{{ $e->title }}">@else<i class="fa-solid fa-ticket"></i>@endif
+                    @if($e->cover_url)<img src="{{ $e->cover_url }}" alt="{{ $e->title }}" loading="lazy">@else<i class="fa-solid fa-ticket"></i>@endif
                     @if($e->type)<span class="badge">{{ ucfirst($e->type) }}</span>@endif
                 </div>
                 <div class="body">

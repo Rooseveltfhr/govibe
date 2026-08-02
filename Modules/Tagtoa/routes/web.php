@@ -196,6 +196,10 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/checkin-report', [EventCheckin::class, 'report'])->name('checkin.report');
         Route::get('/{id}/checkin-stats', [EventCheckin::class, 'stats'])->name('checkin.stats');
         Route::get('/{id}/badges', [EventCheckin::class, 'badges'])->name('badges');
+        // Import de billets DÉJÀ IMPRIMÉS (hors système) — festival avec stock physique.
+        Route::get('/{id}/tickets/import', [EventDashboard::class, 'ticketsImport'])->name('tickets.import');
+        Route::post('/{id}/tickets/import', [EventDashboard::class, 'ticketsImportStore'])->name('tickets.import.store');
+        Route::delete('/{id}/tickets/{ticketId}', [EventDashboard::class, 'ticketsDestroy'])->name('tickets.destroy');
         // WALLET closed-loop (double-entry)
         Route::get('/{id}/wallet', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'index'])->name('wallet');
         Route::get('/{id}/wallet/terminal', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'terminal'])->name('wallet.terminal');
@@ -218,6 +222,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::delete('/{id}/staff/{staffId}', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'destroy'])->name('staff.destroy');
         Route::post('/{id}/staff/conflicts/{conflictId}/resolve', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'resolveConflict'])->name('staff.conflict.resolve');
         Route::get('/{id}/staff/export', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'export'])->name('staff.export');
+        Route::get('/{id}/staff/sales/export', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'exportSales'])->name('staff.sales.export');
     });
 
     // POS
