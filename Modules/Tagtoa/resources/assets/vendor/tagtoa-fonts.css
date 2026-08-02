@@ -1,0 +1,67 @@
+/* TAGTOA — polices auto-hébergées (souveraines), sous-ensemble latin
+   (couvre fr/ht/en/es : tous les caractères accentués utilisés tiennent dans
+   U+0000-00FF). Anton 400, Nunito 400-800 (police variable, un seul fichier
+   pour tous les poids), Space Grotesk 500-700 (idem). Voir README.md. */
+@font-face {
+  font-family: 'Anton';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/tagtoa-asset/anton-400.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/tagtoa-asset/nunito-400-800.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(/tagtoa-asset/nunito-400-800.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(/tagtoa-asset/nunito-400-800.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/tagtoa-asset/nunito-400-800.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url(/tagtoa-asset/nunito-400-800.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(/tagtoa-asset/spacegrotesk-500-700.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(/tagtoa-asset/spacegrotesk-500-700.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/tagtoa-asset/spacegrotesk-500-700.woff2) format('woff2');
+}
