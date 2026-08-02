@@ -17,6 +17,7 @@
         .btn{border:0;border-radius:10px;padding:11px 18px;font:700 14px var(--fh);cursor:pointer;background:var(--green);color:#fff;text-decoration:none}
         .sheet{max-width:900px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
         .badge{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:14px;text-align:center;break-inside:avoid}
+        .badge .logo{height:34px;max-width:70%;object-fit:contain;margin:0 auto 6px}
         .badge .ev{font:700 11px var(--fh);text-transform:uppercase;letter-spacing:.06em;color:var(--green)}
         .badge .nm{font:700 15px var(--fh);margin:4px 0 2px}
         .badge .tt{font-size:12px;color:#666;margin-bottom:8px}
@@ -41,6 +42,7 @@
     <div class="sheet">
         @forelse($tickets as $t)
             <div class="badge">
+                @if($event->logo_url)<img class="logo" src="{{ $event->logo_url }}" alt="">@endif
                 <div class="ev">{{ $event->title }}</div>
                 <div class="nm">{{ $t->holder_name ?: __('Participant') }}</div>
                 <div class="tt">{{ optional($t->ticketType)->name ?: __('Billet') }}</div>

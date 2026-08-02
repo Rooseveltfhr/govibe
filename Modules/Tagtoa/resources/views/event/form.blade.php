@@ -54,6 +54,8 @@
         <label class="lbl">{{ __('Description') }}</label><textarea class="inp" name="description" rows="3">{{ old('description',$event->description) }}</textarea>
         <label class="lbl">{{ __('Cover') }}</label><input class="inp" type="file" name="cover" accept="image/*">
         @if($editing && $event->cover_url)<img src="{{ $event->cover_url }}" style="height:56px;border-radius:8px;margin-top:8px">@endif
+        <label class="lbl">{{ __('Logo (affiché sur les billets imprimables)') }}</label><input class="inp" type="file" name="logo" accept="image/*">
+        @if($editing && $event->logo_url)<img src="{{ $event->logo_url }}" style="height:56px;border-radius:8px;margin-top:8px">@endif
         <label class="lbl">{{ __('Page de paiement (pour billets payants)') }}</label>
         <select class="sel" name="pay_page_id"><option value="">{{ __('— Aucune —') }}</option>@foreach($payPages as $pp)<option value="{{ $pp->id }}" @selected(old('pay_page_id',$event->pay_page_id)==$pp->id)>{{ $pp->title ?: $pp->alias }}</option>@endforeach</select>
         <div style="display:flex;gap:20px;margin-top:8px">
