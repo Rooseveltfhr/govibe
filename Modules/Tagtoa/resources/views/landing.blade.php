@@ -36,9 +36,7 @@
     <title>TAGTOA — {{ __('La plateforme business tout-en-un pour Haïti') }}</title>
     <meta name="description" content="{{ __('Site web, boutique WhatsApp, menu, paiements, fidélité et caisse — NFC & QR. La plateforme digitale des entrepreneurs haïtiens.') }}">
     <meta name="theme-color" content="#2cb809">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
     {{-- Font Awesome auto-hébergé, chargé sans bloquer le rendu --}}
     <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css"></noscript>

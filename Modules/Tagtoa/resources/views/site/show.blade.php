@@ -20,7 +20,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $site->name }}@if($site->tagline) — {{ $site->tagline }}@endif</title>
     <meta name="description" content="{{ \Illuminate\Support\Str::limit(strip_tags($site->about ?: $site->tagline ?: $site->name), 150) }}">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
     <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     <style>
         :root{--acc:{{ $acc }};--bg:{{ $bg }};--bg2:{{ $bg2 }};--fg:{{ $fg }};--mut:{{ $mut }};--bd:{{ $bd }};--sf:{{ $sf }};--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}

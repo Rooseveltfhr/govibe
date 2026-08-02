@@ -32,6 +32,13 @@ class AssetController extends Controller
         'fa-brands-400.woff2'      => 'font/woff2',
         'fa-regular-400.woff2'     => 'font/woff2',
         'fa-v4compatibility.woff2' => 'font/woff2',
+        // Polices Google Fonts auto-hébergées (Anton, Nunito, Space Grotesk) —
+        // plus de dépendance à fonts.googleapis.com/fonts.gstatic.com (internet
+        // faible en Haïti : un hôte tiers en moins à joindre par page).
+        'tagtoa-fonts.css'         => 'text/css; charset=utf-8',
+        'anton-400.woff2'          => 'font/woff2',
+        'nunito-400-800.woff2'     => 'font/woff2',
+        'spacegrotesk-500-700.woff2' => 'font/woff2',
     ];
 
     public function vendor(string $file): Response|BinaryFileResponse
