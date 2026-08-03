@@ -1,73 +1,70 @@
 #!/usr/bin/env bash
-# KLASYO — Étape N : URLs propres pour /platform. La cause du 404 : router vers
-# public/index.php donne SCRIPT_NAME=/platform/public/index.php -> Laravel croit que sa base
-# est /platform/public -> /platform/login ne matche pas. En routant vers server.php (à la
-# RACINE de l'app), SCRIPT_NAME=/platform/server.php -> base=/platform -> /login matche.
-# (server.php échouait avant à cause du handler lsphp cassé, désormais corrigé en lsphp83.)
+# KLASYO — Capture O : préparer la refonte du login. On lit les fichiers (pas de curl massif,
+# pour éviter le throttling firewall) : état login, vue Blade du login (pour préserver le form),
+# palette/polices exactes de la landing.
 set -uo pipefail
 
 ROOT="$HOME/domains/klasyo.org/public_html"
 P="$ROOT/platform"
-STAMP="$(date +%Y%m%d-%H%M%S)"
-RHTA="$P/.htaccess"
 
-[ -f "$P/server.php" ] && echo "server.php présent (OK)" || { echo "(!) server.php absent — abandon"; exit 0; }
-cp -a "$RHTA" "$RHTA.bak-N-$STAMP" && echo "backup: platform/.htaccess.bak-N-$STAMP"
-
-cat > "$RHTA" <<'HTA'
-# KLASYO-ROOT-FRONTCTRL — /platform servi via server.php (racine app) pour que
-# Laravel calcule la bonne base (/platform) et matche les routes propres.
-<IfModule mod_rewrite.c>
-    <IfModule mod_negotiation.c>
-        Options -MultiViews -Indexes
-    </IfModule>
-
-    RewriteEngine On
-
-    # Déjà sous public/ : ne pas réécrire
-    RewriteRule ^public/ - [L]
-
-    # Asset statique présent dans public/ -> le servir
-    RewriteCond %{DOCUMENT_ROOT}/platform/public/$1 -f
-    RewriteRule ^(.*)$ public/$1 [L]
-
-    # Tout le reste -> front controller RACINE (server.php) : donne SCRIPT_NAME=/platform/server.php
-    RewriteRule ^ server.php [L]
-
-    RewriteCond %{HTTP:Authorization} .
-    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-</IfModule>
-AddHandler application/x-lsphp83 .php .phtml
-HTA
-echo "  .htaccess racine réécrit (route -> server.php)."
-
-(cd "$P" && php artisan route:clear 2>&1 | tail -1)
-(cd "$P" && php artisan config:clear 2>&1 | tail -1)
-(cd "$P" && php artisan view:clear 2>&1 | tail -1)
+echo "== O1. État HTTP du login (1 essai tolérant) =="
+code=$(curl -sk -o /dev/null -m 20 -w '%{http_code}' "https://klasyo.org/platform/login" 2>/dev/null || echo "ERR")
+body=$(curl -sk -m 20 "https://klasyo.org/platform/login" 2>/dev/null | head -c 400)
+echo "  code=$code"
+printf '%s' "$body" | grep -qiE '<\?php|Illuminate' && echo "  -> SOURCE" || { printf '%s' "$body" | grep -qiE '<!doctype|<html' && echo "  -> HTML ($(printf '%s' "$body" | grep -oiE '<title>[^<]*</title>' | head -1))" || echo "  -> $body"; }
 
 echo
-echo "== VALIDATION (corps ; 2 essais espacés pour contourner un éventuel throttling firewall) =="
-check() {
-  local url="$1" body code
-  for try in 1 2; do
-    body=$(curl -sk -m 20 "$url" 2>/dev/null)
-    code=$(curl -sk -o /dev/null -m 20 -w "%{http_code}" "$url" 2>/dev/null)
-    [ "$code" != "000" ] && break
-    sleep 4
-  done
-  if printf '%s' "$body" | grep -qiE '<\?php|Illuminate\\Contracts|require_once __DIR__'; then
-    echo "  $url -> [$code] SOURCE PHP"
-  elif printf '%s' "$body" | grep -qiE 'not found|404|error page' && ! printf '%s' "$body" | grep -qiE '<title>KLASYO'; then
-    echo "  $url -> [$code] 404/erreur | $(printf '%s' "$body" | grep -oiE '<title>[^<]*</title>' | head -1)"
-  elif printf '%s' "$body" | grep -qiE '<!doctype html|<html'; then
-    echo "  $url -> [$code] OK HTML | $(printf '%s' "$body" | grep -oiE '<title>[^<]*</title>' | head -1)"
-  else
-    echo "  $url -> [$code] ? $(printf '%s' "$body" | head -c 50 | tr -d '\n\r')"
-  fi
-}
-check "https://klasyo.org/platform/"
-check "https://klasyo.org/platform/login"
-check "https://klasyo.org/platform/courses"
+echo "== O2. Localiser la vue Blade du login LMSZAI =="
+LOGINV=""
+for cand in "$P/resources/views/auth/login.blade.php" \
+            "$P/resources/views/frontend/auth/login.blade.php" \
+            "$P/resources/views/frontend/login.blade.php"; do
+  [ -f "$cand" ] && { LOGINV="$cand"; break; }
+done
+if [ -z "$LOGINV" ]; then
+  LOGINV=$(grep -rl --include='*.blade.php' -iE 'name=.email.*|type=.password.|route\(.login' "$P/resources/views" 2>/dev/null | grep -iE 'login|auth' | head -1)
+fi
+echo "  vue login: ${LOGINV:-INTROUVABLE}"
 
 echo
-echo "== FIN étape N =="
+echo "== O3. Contenu de la vue login (pour préserver action/champs/CSRF/recaptcha) =="
+if [ -n "$LOGINV" ]; then
+  echo "  --- @extends / layout :"
+  grep -nE "@extends|@section|@include" "$LOGINV" | head -10
+  echo "  --- form (action, method, champs, csrf, recaptcha, remember) :"
+  grep -nE "<form|action=|method=|name=|@csrf|csrf|recaptcha|g-recaptcha|remember|route\(|type=.submit|type=.password|type=.email|type=.text" "$LOGINV" | head -40
+fi
+
+echo
+echo "== O4. Route POST login + champs attendus (controller) =="
+grep -nE "login|Auth::routes" "$P/routes/web.php" | grep -iE 'login|auth' | head -6
+echo "  --- LoginController : nom des champs + recaptcha ?"
+grep -nE "username|->email|->password|recaptcha|remember|credentials|validate|field_name|login_field" "$P/app/Http/Controllers/Auth/LoginController.php" 2>/dev/null | head -20
+
+echo
+echo "== O5. Palette + polices EXACTES de la landing (public_html/index.html) =="
+LAND="$ROOT/index.html"
+if [ -f "$LAND" ]; then
+  echo "  --- :root (variables CSS) :"
+  grep -oE '\-\-[a-z0-9-]+:\s*[^;}]{1,70}' "$LAND" | sort -u | head -40
+  echo "  --- Google Fonts :"
+  grep -oE 'fonts.googleapis.com/css2?[^"'\'' ]*' "$LAND" | sort -u | head -3
+  echo "  --- font-family utilisés :"
+  grep -oE "font-family:[^;}]{1,60}" "$LAND" | sort -u | head -6
+  echo "  --- <title> + logo (img/svg/texte de marque) :"
+  grep -oiE '<title>[^<]*</title>' "$LAND" | head -1
+  grep -oiE '(logo|brand)[^>]{0,80}' "$LAND" | head -5
+else
+  echo "  (!) landing index.html introuvable à $LAND"
+fi
+
+echo
+echo "== O6. Où la vue login charge son CSS (pour injecter le thème KLASYO) =="
+if [ -n "$LOGINV" ]; then
+  LAYOUT=$(grep -oE "@extends\(['\"][^'\"]+" "$LOGINV" | head -1 | sed "s/@extends(['\"]//")
+  echo "  layout: $LAYOUT"
+fi
+ls "$P/public/frontend/assets/css" 2>/dev/null | head -20
+
+echo
+echo "== FIN capture O =="
