@@ -1,51 +1,43 @@
 #!/usr/bin/env bash
-# KLASYO — Capture T : extraire le markup EXACT des ancres CTA de la landing (toutes en href="#")
-# pour les câbler précisément (Connexion, S'inscrire, solutions, école) sans casser le fichier.
+# KLASYO — Capture U : comprendre le wizard openWiz() + cibles de soumission (WhatsApp?)
+# et vérifier que /platform répond, pour décider comment câbler les CTA vers le système.
 set -uo pipefail
 
 ROOT="$HOME/domains/klasyo.org/public_html"
 LAND="$ROOT/index.html"
 [ -f "$LAND" ] || { echo "(!) landing introuvable"; exit 0; }
 
-PHPX="$(mktemp /tmp/klasyo_cta_XXXX.php)"
-cat > "$PHPX" <<'PHPEOF'
-<?php
-$html = file_get_contents($argv[1]);
-$d = new DOMDocument(); libxml_use_internal_errors(true);
-$d->loadHTML('<?xml encoding="utf-8"?>'.$html); libxml_clear_errors();
-$x = new DOMXPath($d);
-function t($n){ return trim(preg_replace('/\s+/',' ',$n->textContent)); }
-$wanted = ['Connexion','S\'inscrire','Commencer maintenant','Commencer gratuitement',
-  'S\'inscrire maintenant','Rejoindre KLASYO Learn','Intégrer mon organisation',
-  'Intégrer mon établissement','Devenir Formateur','Intégrer mon école','Gérer mon école',
-  'Demander un devis','Voir la Démo'];
-$i=0;
-foreach ($x->query('//a') as $a){
-  $txt=t($a); if($txt==='')continue;
-  foreach($wanted as $w){
-    if(mb_strtolower($txt)===mb_strtolower($w) || mb_stripos($txt,$w)!==false){
-      $i++;
-      $cls=$a->getAttribute('class'); $href=$a->getAttribute('href'); $id=$a->getAttribute('id');
-      // Markup ouvrant exact de la balise <a ...>
-      $open = $d->saveHTML($a);
-      $open = preg_replace('/>.*/s','>',$open); // garder seulement la balise ouvrante
-      echo "#$i  TXT=\"$txt\"\n";
-      echo "     id=\"$id\" class=\"$cls\" href=\"$href\"\n";
-      echo "     OPEN: ".mb_substr($open,0,200)."\n";
-      break;
-    }
-  }
-}
-echo "TOTAL CTA trouvés: $i\n";
-PHPEOF
-php "$PHPX" "$LAND" 2>&1 | head -90
-rm -f "$PHPX"
+echo "== 1) Définition de la fonction openWiz (JS) =="
+awk '/function openWiz/{f=1} f{print} f&&/^\s*}\s*$/{c++; if(c>=1){exit}}' "$LAND" | head -60
+echo "   --- (recherche large openWiz / wizStep / submit) ---"
+grep -nE 'function openWiz|function wiz|wizSubmit|function submitWiz|wa\.me|whatsapp|api\.whatsapp|window\.location|location\.href|location\.assign' "$LAND" | head -40
 
 echo
-echo "== Combien de href=\"#\" au total (ampleur du câblage) =="
-grep -oE 'href="#"' "$LAND" | wc -l
-echo "== La landing a-t-elle déjà un <base> ou des liens absolus klasyo.org ? =="
-grep -oiE '<base[^>]*>|https://klasyo.org/[a-z/]{0,30}' "$LAND" | sort -u | head -10
+echo "== 2) Le wizard soumet-il vers WhatsApp / une URL / un formulaire ? =="
+grep -noE 'https?://[a-zA-Z0-9./?=_&%+-]{0,80}' "$LAND" | grep -iE 'wa\.me|whatsapp|klasyo\.org|platform|school|/login|/sign' | sort -u | head -30
 
 echo
-echo "== FIN capture T =="
+echo "== 3) Combien de fois openWiz est appelé et avec quels arguments =="
+grep -oE "openWiz\([^)]*\)" "$LAND" | sort | uniq -c | sort -rn
+
+echo
+echo "== 4) /platform répond-il ? (contenu, pas juste statut) =="
+for U in "https://klasyo.org/platform/login" "https://klasyo.org/platform" "https://klasyo.org/school"; do
+  BODY="$(curl -sS -m 20 -A 'Mozilla/5.0 klasyo-check' "$U" 2>/dev/null)"
+  CODE="$(curl -sS -m 20 -o /dev/null -w '%{http_code}' -A 'Mozilla/5.0 klasyo-check' "$U" 2>/dev/null)"
+  KIND="?"
+  case "$BODY" in
+    *"<?php"*|*"Illuminate\\"*) KIND="SOURCE-PHP(!)" ;;
+    *"<!doctype"*|*"<!DOCTYPE"*|*"<html"*) KIND="HTML" ;;
+    "") KIND="VIDE/timeout" ;;
+  esac
+  TITLE="$(printf '%s' "$BODY" | grep -oiE '<title>[^<]*</title>' | head -1)"
+  echo "  $U -> HTTP $CODE | $KIND | $TITLE"
+done
+
+echo
+echo "== 5) La landing a-t-elle déjà une section de cours/catégories dynamiques ? =="
+grep -noiE 'data-i18n="[^"]*(cours|course|categor|formation)[^"]*"|class="[^"]*(course|categor|slide)[^"]*"' "$LAND" | head -20
+
+echo
+echo "== FIN capture U =="
