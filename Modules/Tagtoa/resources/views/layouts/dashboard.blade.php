@@ -38,6 +38,8 @@
         .main{margin-left:var(--sb);min-height:100vh;display:flex;flex-direction:column}
         .top{position:sticky;top:0;background:rgba(245,245,243,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--bd);padding:14px 26px;display:flex;align-items:center;gap:14px;z-index:40}
         .top .burger{display:none;background:none;border:0;font-size:20px;cursor:pointer}
+        .top .home{background:none;border:0;font-size:19px;cursor:pointer;color:var(--blk);display:flex;align-items:center;padding:6px;border-radius:9px}
+        .top .home:hover,.top .home:active{background:var(--blue-pale)}
         .top h1{font-family:var(--fh);font-weight:700;font-size:20px;flex:1}
         .top .who{font-size:13px;color:var(--muted)}
         .content{padding:26px;max-width:1100px;width:100%;margin:0 auto}
@@ -130,6 +132,9 @@
     <div class="main">
         <header class="top">
             <button class="burger" onclick="document.getElementById('sb').classList.toggle('open')"><i class="fa-solid fa-bars"></i></button>
+            @unless(request()->is('tagtoa/home'))
+                <a class="home" href="{{ url('/tagtoa/home') }}" title="{{ __('Retour à l\'accueil') }}"><i class="fa-solid fa-house"></i></a>
+            @endunless
             <h1>@yield('page', 'TAGTOA')</h1>
             @include('tagtoa::partials.lang')
             <span class="who">{{ optional(auth()->user())->name ?? '' }}</span>
