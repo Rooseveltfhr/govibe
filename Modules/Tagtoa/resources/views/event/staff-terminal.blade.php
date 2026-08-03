@@ -12,7 +12,7 @@
     {{-- Scanner QR auto-hébergé (pas de CDN) : check-in par caméra même sans réseau tiers. --}}
     <script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}"></script>
     <style>
-        :root{--green:#2cb809;--ink:#0d140c;--bg:#f5f9f2;--surf:#fff;--bd:rgba(13,20,12,.10);--mut:#5d6b5a;--red:#E0473E;--amber:#E08A1E;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        :root{--green:#2cb809;--ink:#0d140c;--bg:#f5f9f2;--surf:#fff;--bd:rgba(13,20,12,.10);--mut:#5d6b5a;--red:#E0473E;--amber:#E08A1E;--nfc:#2563EB;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         .top h1,.res .msg,.okc h2{font-family:'Anton',sans-serif!important;font-weight:400!important;letter-spacing:.01em}
         *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
         body{font-family:var(--fb);background:var(--bg);color:var(--ink);min-height:100vh}
@@ -25,6 +25,7 @@
         .inp,select{width:100%;padding:13px 14px;border:1.5px solid var(--bd);border-radius:12px;font:16px var(--fb);background:#fff;color:var(--ink)}
         .btn{width:100%;border:0;border-radius:14px;padding:15px;font:700 16px var(--fh);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:12px}
         .btn-p{background:var(--green);color:#fff}.btn-o{background:#fff;border:1.5px solid var(--bd);color:var(--ink)}
+        .btn-nfc{background:#eef4ff;border:1.5px solid var(--nfc);color:var(--nfc)}
         .btn:disabled{opacity:.55}
         .tabs{display:flex;gap:8px;margin-bottom:14px}
         .tabs button{flex:1;padding:12px;border:1.5px solid var(--bd);background:#fff;border-radius:12px;font:700 14px var(--fh);cursor:pointer;color:var(--mut)}
@@ -103,7 +104,7 @@
                 <input class="inp" id="ckInput" autocomplete="off" placeholder="TCK... / 04:A2:..." style="margin-top:8px">
                 <button class="btn btn-p" id="ckBtn" type="button"><i class="fa-solid fa-check"></i> {{ __('Valider l\'entrée') }}</button>
                 <button class="btn btn-o" id="qrBtn" type="button"><i class="fa-solid fa-qrcode"></i> {{ __('Scanner QR (caméra)') }}</button>
-                <button class="btn btn-o" id="nfcBtn" type="button"><i class="fa-solid fa-wifi"></i> {{ __('Lire le tag NFC') }}</button>
+                <button class="btn btn-nfc" id="nfcBtn" type="button"><i class="fa-solid fa-wifi"></i> {{ __('Lire le tag NFC') }}</button>
                 <div id="ckReader" style="margin-top:10px;border-radius:12px;overflow:hidden;display:none"></div>
                 <div class="nfc" id="nfcHint"></div>
             </div>
@@ -127,12 +128,12 @@
                 @if($payMethods->isEmpty())<div class="nfc" style="text-align:left">{{ __('Astuce : configurez vos moyens dans TAGTOA Pay et liez la page à l\'événement.') }}</div>@endif
                 <div id="slCardPay" style="display:none;background:rgba(44,184,9,.06);border-radius:12px;padding:12px;margin-top:8px">
                     <div class="nfc" style="text-align:left;margin-bottom:8px"><i class="fa-solid fa-id-card"></i> {{ __('Le participant paie avec sa carte prépayée TAGTOA (tap + PIN).') }}</div>
-                    <div style="display:flex;gap:8px"><input class="inp" id="slPayUid" autocomplete="off" placeholder="{{ __('UID carte TAGTOA') }}" style="flex:1;margin-top:0"><button class="btn btn-o" id="slPayNfcBtn" type="button" style="margin-top:0;flex:0"><i class="fa-solid fa-wifi"></i></button></div>
+                    <div style="display:flex;gap:8px"><input class="inp" id="slPayUid" autocomplete="off" placeholder="{{ __('UID carte TAGTOA') }}" style="flex:1;margin-top:0"><button class="btn btn-nfc" id="slPayNfcBtn" type="button" style="margin-top:0;flex:0"><i class="fa-solid fa-wifi"></i></button></div>
                     <input class="inp" id="slPayCode" autocomplete="off" placeholder="{{ __('ou code TAG…') }}" style="text-transform:uppercase">
                     <input class="inp" id="slPayPin" inputmode="numeric" maxlength="6" placeholder="{{ __('PIN') }}">
                 </div>
                 <label>{{ __('UID carte NFC (vide = e-billet QR)') }}</label>
-                <div style="display:flex;gap:8px"><input class="inp" id="slUid" autocomplete="off" placeholder="04:A2:..." style="flex:1"><button class="btn btn-o" id="slNfcBtn" type="button" style="margin-top:0;flex:0;white-space:nowrap"><i class="fa-solid fa-wifi"></i> {{ __('Lire') }}</button></div>
+                <div style="display:flex;gap:8px"><input class="inp" id="slUid" autocomplete="off" placeholder="04:A2:..." style="flex:1"><button class="btn btn-nfc" id="slNfcBtn" type="button" style="margin-top:0;flex:0;white-space:nowrap"><i class="fa-solid fa-wifi"></i> {{ __('Lire') }}</button></div>
                 <div class="nfc" id="slNfcHint" style="text-align:left"></div>
                 <label>{{ __('Billet imprimé (scanner le QR au dos du billet)') }}</label>
                 <div style="display:flex;gap:8px"><input class="inp" id="slPrintedCode" autocomplete="off" placeholder="{{ __('Code du billet imprimé') }}" style="flex:1"><button class="btn btn-o" id="slScanBtn" type="button" style="margin-top:0;flex:0;white-space:nowrap"><i class="fa-solid fa-qrcode"></i> {{ __('Scanner') }}</button></div>
@@ -183,6 +184,13 @@
     function uuid(){return 'ck-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);}
     function post(url,payload){return fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(payload)}).then(function(r){return r.json();});}
 
+    /* ---------- Retour sonore (succès/erreur/avertissement) ---------- */
+    var _actx;
+    function beep(t){
+        try{_actx=_actx||new (window.AudioContext||window.webkitAudioContext)();var o=_actx.createOscillator(),g=_actx.createGain();o.connect(g);g.connect(_actx.destination);var f={success:[880,1320],error:[200,160],warning:[440,440]}[t]||[600];o.frequency.value=f[0];o.type='sine';g.gain.value=.12;o.start();if(f[1])setTimeout(function(){o.frequency.value=f[1];},90);setTimeout(function(){o.stop();},t==='error'?260:170);}catch(e){}
+        if(navigator.vibrate){try{navigator.vibrate(t==='success'?80:(t==='error'?[60,40,60]:[40]));}catch(e){}}
+    }
+
     /* ---------- IndexedDB (file offline) ---------- */
     var DB=null,DBN='tagtoa-staff-{{ $event->id }}';
     function idb(){return new Promise(function(res,rej){if(DB)return res(DB);var q=indexedDB.open(DBN,1);
@@ -204,7 +212,8 @@
 
     /* ---------- Check-in ---------- */
     @if($canCheckin)
-    function showRes(color,msg,who){var r=el('ckRes');r.className='res show '+color;el('ckMsg').textContent=msg;el('ckWho').textContent=who||'';}
+    function showRes(color,msg,who){var r=el('ckRes');r.className='res show '+color;el('ckMsg').textContent=msg;el('ckWho').textContent=who||'';
+        beep(color==='green'?'success':(color==='orange'?'warning':'error'));}
     function doCheckin(){var v=el('ckInput').value.trim();if(!v)return;
         var isUid=v.indexOf(':')>-1||v.length>20;
         var payload={client_uuid:uuid()};payload[isUid?'uid':'code']=v;
@@ -278,11 +287,12 @@
             client_uuid:uuid(),
             credit:el('slCredit').value.trim()?Number(el('slCredit').value):null})
         .then(function(j){btn.disabled=false;
-            if(!j.ok){errB.textContent=j.message||T.err;errB.style.display='block';return;}
+            if(!j.ok){beep('error');errB.textContent=j.message||T.err;errB.style.display='block';return;}
+            beep('success');
             el('slCode').textContent=j.code;el('slWho').textContent=j.name;el('slOk').classList.add('show');
             el('slName').value='';el('slPhone').value='';el('slEmail').value='';el('slUid').value='';el('slPrintedCode').value='';el('slCredit').value='';
             el('slPayUid').value='';el('slPayCode').value='';el('slPayPin').value='';el('slName').focus();
-        }).catch(function(){btn.disabled=false;errB.textContent=T.err;errB.style.display='block';});
+        }).catch(function(){btn.disabled=false;beep('error');errB.textContent=T.err;errB.style.display='block';});
     });
     function togglePayCard(){var s=el('slPay'),b=el('slCardPay');if(s&&b){b.style.display=(s.value==='Carte TAGTOA')?'block':'none';}}
     (function(){var pnb=el('slPayNfcBtn');if(pnb&&('NDEFReader' in window)){pnb.addEventListener('click',function(){try{var r=new NDEFReader();r.scan().then(function(){r.onreading=function(e){if(e.serialNumber){el('slPayUid').value=e.serialNumber;}};}).catch(function(){});}catch(err){}});}})();
@@ -292,10 +302,11 @@
         if(!code||!uid){errB.textContent=T.err;errB.style.display='block';return;}
         var btn=el('pkBtn');btn.disabled=true;
         post(URL_PICK,{code:code,uid:uid}).then(function(j){btn.disabled=false;
-            if(!j.ok){errB.textContent=j.message||T.err;errB.style.display='block';return;}
+            if(!j.ok){beep('error');errB.textContent=j.message||T.err;errB.style.display='block';return;}
+            beep('success');
             el('pkRes').textContent=j.code+' — '+(j.name||'');el('pkOk').classList.add('show');
             el('pkCode').value='';el('pkUid').value='';
-        }).catch(function(){btn.disabled=false;errB.textContent=T.err;errB.style.display='block';});
+        }).catch(function(){btn.disabled=false;beep('error');errB.textContent=T.err;errB.style.display='block';});
     });
     @endif
 

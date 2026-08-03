@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
     <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     <style>
-        :root{--green:#2cb809;--ink:#0d140c;--bg:#f5f9f2;--surf:#fff;--bd:rgba(13,20,12,.10);--mut:#5d6b5a;--red:#E0473E;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        :root{--green:#2cb809;--ink:#0d140c;--bg:#f5f9f2;--surf:#fff;--bd:rgba(13,20,12,.10);--mut:#5d6b5a;--red:#E0473E;--nfc:#2563EB;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         .top h1,.bal .amt,.done h2{font-family:'Anton',sans-serif!important;font-weight:400!important;letter-spacing:.01em}
         *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
         body{font-family:var(--fb);background:var(--bg);color:var(--ink);min-height:100vh}
@@ -21,6 +21,7 @@
         .inp,select{width:100%;padding:13px 14px;border:1.5px solid var(--bd);border-radius:12px;font:16px var(--fb);background:#fff;color:var(--ink)}
         .btn{width:100%;border:0;border-radius:14px;padding:15px;font:700 16px var(--fh);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:12px}
         .btn-p{background:var(--green);color:#fff}.btn-o{background:#fff;border:1.5px solid var(--bd);color:var(--ink)}
+        .btn-nfc{background:#eef4ff;border:1.5px solid var(--nfc);color:var(--nfc)}
         .btn:disabled{opacity:.55}
         .bal{text-align:center;padding:18px;border-radius:14px;background:#eef9e8;border:1px solid #d5efc9;margin-bottom:14px;display:none}
         .bal.show{display:block}
@@ -47,7 +48,7 @@
 
             <label style="margin-top:14px">{{ __('Tag NFC / UID') }}</label>
             <input class="inp" id="uid" placeholder="04:A2:..." autocomplete="off">
-            <button class="btn btn-o" id="nfcBtn" type="button"><i class="fa-solid fa-wifi"></i> {{ __('Lire le tag NFC') }}</button>
+            <button class="btn btn-nfc" id="nfcBtn" type="button"><i class="fa-solid fa-wifi"></i> {{ __('Lire le tag NFC') }}</button>
             <div class="nfc" id="nfcHint"></div>
             <button class="btn btn-o" id="lookupBtn" type="button"><i class="fa-solid fa-magnifying-glass"></i> {{ __('Vérifier le solde') }}</button>
             <div class="err" id="err"></div>
@@ -88,14 +89,21 @@
     function clearErr(){el('err').classList.remove('show');}
     function addAmt(n){var a=el('amount');a.value=(parseFloat(a.value||0)+n).toString();}
 
+    /* ---------- Retour sonore (succès/erreur) ---------- */
+    var _actx;
+    function beep(t){
+        try{_actx=_actx||new (window.AudioContext||window.webkitAudioContext)();var o=_actx.createOscillator(),g=_actx.createGain();o.connect(g);g.connect(_actx.destination);var f={success:[880,1320],error:[200,160]}[t]||[600];o.frequency.value=f[0];o.type='sine';g.gain.value=.12;o.start();if(f[1])setTimeout(function(){o.frequency.value=f[1];},90);setTimeout(function(){o.stop();},t==='error'?260:170);}catch(e){}
+        if(navigator.vibrate){try{navigator.vibrate(t==='success'?80:[60,40,60]);}catch(e){}}
+    }
+
     function lookup(){
         clearErr(); var uid=el('uid').value.trim(); if(!uid){showErr(T.pick);return;}
         fetch(RESOLVE,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify({uid:uid})})
         .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});})
         .then(function(res){
-            if(!res.ok||!res.j.ok){showErr(res.j.message||T.err);el('bal').classList.remove('show');return;}
+            if(!res.ok||!res.j.ok){beep('error');showErr(res.j.message||T.err);el('bal').classList.remove('show');return;}
             el('who').textContent=res.j.holder||'—';el('amt').textContent=res.j.balance;el('bal').classList.add('show');
-        }).catch(function(){showErr(T.err);});
+        }).catch(function(){beep('error');showErr(T.err);});
     }
 
     function charge(){
@@ -108,11 +116,12 @@
         .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});})
         .then(function(res){
             btn.disabled=false;
-            if(!res.ok||!res.j.ok){showErr(res.j.message||T.err);if(res.j.balance){el('amt').textContent=res.j.balance;}return;}
+            if(!res.ok||!res.j.ok){beep('error');showErr(res.j.message||T.err);if(res.j.balance){el('amt').textContent=res.j.balance;}return;}
+            beep('success');
             el('doneAmt').textContent=res.j.charged;el('doneBal').textContent=res.j.balance;el('doneRef').textContent=res.j.reference;
             var rc=el('doneReceipt');if(res.j.receipt_url){rc.href=res.j.receipt_url;rc.style.display='inline-block';}else{rc.style.display='none';}
             el('doneScr').classList.add('show');
-        }).catch(function(){btn.disabled=false;showErr(T.err);});
+        }).catch(function(){btn.disabled=false;beep('error');showErr(T.err);});
     }
 
     function reset(){el('doneScr').classList.remove('show');el('amount').value='';el('uid').value='';el('bal').classList.remove('show');}
