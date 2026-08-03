@@ -36,7 +36,7 @@
         <span style="font-size:14px"><b id="scNew">0</b> {{ __('nouveaux') }} · <b id="scDup" style="color:var(--muted)">0</b> {{ __('déjà connus') }}</span>
     </div>
     <div id="scReader" style="margin-top:10px;max-width:340px;border-radius:12px;overflow:hidden;display:none"></div>
-    <div id="scLast" style="margin-top:8px;font-size:13px;color:var(--muted)"></div>
+    <div id="scRes" class="scRes"><i id="scIcon" class="fa-solid"></i> <span id="scMsg"></span></div>
 </div>
 
 <div class="card" style="margin-top:16px">
@@ -65,6 +65,12 @@
 
 @push('head')
 <script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}"></script>
+<style>
+    .scRes{display:none;border-radius:14px;padding:18px;text-align:center;margin-top:10px;font:800 22px var(--fh);align-items:center;justify-content:center;gap:10px}
+    .scRes.show{display:flex}
+    .scRes.green{background:#eafaf3;color:#0e5f44;border:1px solid var(--green)}
+    .scRes.red{background:#fdecea;color:#9a2820;border:1px solid var(--red)}
+</style>
 @endpush
 
 @push('scripts')
@@ -72,10 +78,25 @@
 (function(){
     var CSRF = document.querySelector('meta[name=csrf-token]').content;
     var URL_SCAN = @json(route('tagtoa.event.dashboard.tickets.scan-import', $event->id));
-    var btn = document.getElementById('scBtn'), reader = document.getElementById('scReader'), last = document.getElementById('scLast');
+    var btn = document.getElementById('scBtn'), reader = document.getElementById('scReader');
+    var res = document.getElementById('scRes'), icon = document.getElementById('scIcon'), msg = document.getElementById('scMsg');
     var nNew = document.getElementById('scNew'), nDup = document.getElementById('scDup');
     var qr = null, on = false, busy = false, lastCode = null, lastAt = 0;
     var newCount = 0, dupCount = 0;
+
+    /* ---------- Retour sonore (succès/erreur) ---------- */
+    var _actx;
+    function beep(t){
+        try{_actx=_actx||new (window.AudioContext||window.webkitAudioContext)();var o=_actx.createOscillator(),g=_actx.createGain();o.connect(g);g.connect(_actx.destination);var f={success:[880,1320],error:[200,160]}[t]||[600];o.frequency.value=f[0];o.type='sine';g.gain.value=.12;o.start();if(f[1])setTimeout(function(){o.frequency.value=f[1];},90);setTimeout(function(){o.stop();},t==='error'?260:170);}catch(e){}
+        if(navigator.vibrate){try{navigator.vibrate(t==='success'?80:[60,40,60]);}catch(e){}}
+    }
+
+    function showRes(kind, text){
+        res.className = 'scRes show ' + (kind === 'success' ? 'green' : 'red');
+        icon.className = 'fa-solid ' + (kind === 'success' ? 'fa-circle-check' : 'fa-triangle-exclamation');
+        msg.textContent = text;
+        beep(kind);
+    }
 
     function stop(){
         on = false; reader.style.display = 'none';
@@ -96,23 +117,23 @@
             .then(function(j){
                 busy = false;
                 if (j && j.ok) {
-                    if (j.status === 'duplicate') { dupCount++; nDup.textContent = dupCount; last.textContent = '{{ __('Déjà connu') }} : ' + code; }
-                    else { newCount++; nNew.textContent = newCount; last.textContent = '{{ __('Enregistré') }} : ' + code; }
+                    if (j.status === 'duplicate') { dupCount++; nDup.textContent = dupCount; showRes('error', '{{ __('Oups, déjà scanné !') }}'); }
+                    else { newCount++; nNew.textContent = newCount; showRes('success', '{{ __('Scanné avec succès !') }}'); }
                 } else {
-                    last.textContent = '{{ __('Erreur, réessayez.') }}';
+                    showRes('error', '{{ __('Erreur, réessayez.') }}');
                 }
             })
-            .catch(function(){ busy = false; last.textContent = '{{ __('Erreur, réessayez.') }}'; });
+            .catch(function(){ busy = false; showRes('error', '{{ __('Erreur, réessayez.') }}'); });
     }
 
     btn.addEventListener('click', function(){
         if (on) { stop(); return; }
-        if (!window.Html5Qrcode) { last.textContent = '{{ __('Caméra/QR indisponible sur cet appareil.') }}'; return; }
+        if (!window.Html5Qrcode) { showRes('error', '{{ __('Caméra/QR indisponible sur cet appareil.') }}'); return; }
         reader.style.display = 'block';
         qr = new Html5Qrcode('scReader');
         qr.start({facingMode:'environment'}, {fps:10, qrbox:220}, handle, function(){})
             .then(function(){ on = true; btn.innerHTML = '<i class="fa-solid fa-stop"></i> {{ __('Arrêter le scanner') }}'; })
-            .catch(function(){ last.textContent = '{{ __('Caméra/QR indisponible sur cet appareil.') }}'; reader.style.display = 'none'; });
+            .catch(function(){ showRes('error', '{{ __('Caméra/QR indisponible sur cet appareil.') }}'); reader.style.display = 'none'; });
     });
 })();
 </script>
