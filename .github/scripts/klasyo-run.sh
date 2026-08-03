@@ -1,70 +1,51 @@
 #!/usr/bin/env bash
-# KLASYO — Capture R : extraire la STRUCTURE de la landing (public_html/index.html)
-# pour l'ajuster à l'histoire 2 produits sans tout redumper (184 Ko).
+# KLASYO — Test S : confirmer quel schéma d'URL fonctionne (propre /platform/login via server.php,
+# ou seulement /platform/public/login), pour câbler correctement les CTA de la landing.
 set -uo pipefail
 
 ROOT="$HOME/domains/klasyo.org/public_html"
-LAND="$ROOT/index.html"
-[ -f "$LAND" ] || { echo "(!) landing introuvable: $LAND"; exit 0; }
-echo "Landing: $LAND ($(wc -c < "$LAND") octets, $(wc -l < "$LAND") lignes)"
+P="$ROOT/platform"
 
-PHPX="$(mktemp /tmp/klasyo_land_XXXX.php)"
-cat > "$PHPX" <<'PHPEOF'
-<?php
-$html = file_get_contents($argv[1]);
-$d = new DOMDocument();
-libxml_use_internal_errors(true);
-$d->loadHTML('<?xml encoding="utf-8"?>'.$html);
-libxml_clear_errors();
-$x = new DOMXPath($d);
-
-function t($n){ return trim(preg_replace('/\s+/', ' ', $n->textContent)); }
-
-echo "== TITLE ==\n";
-foreach ($x->query('//title') as $n) echo "  ".t($n)."\n";
-
-echo "\n== NAV / liens d'en-tête (href = texte) ==\n";
-$seen=[];
-foreach ($x->query('//header//a | //nav//a') as $a){
-  $h=$a->getAttribute('href'); $txt=t($a);
-  $k="$h|$txt"; if(isset($seen[$k])||$txt==='')continue; $seen[$k]=1;
-  echo "  [".($h?:'#')."] $txt\n";
-}
-
-echo "\n== HEADINGS (h1/h2/h3) ==\n";
-foreach ($x->query('//h1|//h2|//h3') as $n){
-  $tag=$n->nodeName; $txt=t($n); if($txt==='')continue;
-  echo "  <$tag> ".mb_substr($txt,0,90)."\n";
-}
-
-echo "\n== CTA / boutons (a.btn / a.button / liens vers login,register,platform,school) ==\n";
-$seen=[];
-foreach ($x->query('//a') as $a){
-  $h=$a->getAttribute('href'); $c=$a->getAttribute('class'); $txt=t($a);
-  $isCta = preg_match('/btn|button|cta|theme-/i',$c) || preg_match('#login|register|sign|platform|school|/tapbiz|aprann|lek|inscri|connex#i',$h);
-  if(!$isCta || $txt==='')continue;
-  $k="$h|$txt"; if(isset($seen[$k]))continue; $seen[$k]=1;
-  echo "  [".($h?:'#')."] \"".mb_substr($txt,0,50)."\" (class: ".mb_substr($c,0,40).")\n";
-}
-
-echo "\n== SECTIONS (id/class des <section>) ==\n";
-foreach ($x->query('//section') as $s){
-  $id=$s->getAttribute('id'); $c=$s->getAttribute('class');
-  echo "  #".($id?:'-')." .".mb_substr($c,0,50)."\n";
-}
-
-echo "\n== Mentions produits existantes (platform/school/aprann/lekol/formation/ecole) ==\n";
-$body = strtolower(strip_tags($html));
-foreach (['platform','school','aprann','lekòl','lekol','formation','établissement','etablissement','école','ecole','cours','se connecter','connexion','login'] as $w){
-  $n = substr_count($body, strtolower($w));
-  if($n>0) echo "  '$w': $n\n";
-}
-PHPEOF
-php "$PHPX" "$LAND" 2>&1 | head -120
-rm -f "$PHPX"
+echo "== .htaccess racine platform : route vers quoi ? =="
+grep -nE 'RewriteRule \^ (server.php|public/index.php|index.php)' "$P/.htaccess" | head -3
 
 echo
-echo "== Extrait HERO (600 premiers caractères de texte visible) =="
-php -r '$h=strip_tags(file_get_contents($argv[1])); $h=preg_replace("/\s+/"," ",$h); echo mb_substr(trim($h),0,600);' "$LAND"
+echo "== CLI: /platform/login via server.php (SCRIPT_NAME=/platform/server.php) =="
+cd "$P"
+timeout 30 php -d display_errors=1 -r '
+  $_SERVER["REQUEST_URI"]="/platform/login";
+  $_SERVER["REQUEST_METHOD"]="GET";
+  $_SERVER["HTTP_HOST"]="klasyo.org";
+  $_SERVER["SCRIPT_NAME"]="/platform/server.php";
+  $_SERVER["SCRIPT_FILENAME"]=__DIR__."/server.php";
+  $_SERVER["PHP_SELF"]="/platform/server.php";
+  require "server.php";
+' > /tmp/kl_clean.html 2>&1 || true
+if grep -qi 'klasyo-auth' /tmp/kl_clean.html; then
+  echo "  ✅ /platform/login route CORRECTEMENT vers la page login (URLs propres OK via server.php)"
+elif grep -qiE '404|not found|Sorry, the page' /tmp/kl_clean.html && ! grep -qi 'klasyo-auth' /tmp/kl_clean.html; then
+  echo "  ❌ /platform/login -> 404 (Laravel ne matche pas la route en sous-dossier)"
+  echo "     début: $(head -c 160 /tmp/kl_clean.html | tr -d '\n\r')"
+else
+  echo "  ? réponse ($(wc -c < /tmp/kl_clean.html)o): $(head -c 160 /tmp/kl_clean.html | tr -d '\n\r')"
+fi
+rm -f /tmp/kl_clean.html
+
 echo
-echo "== FIN capture R =="
+echo "== CLI: /platform/public/login via public/index.php (référence connue-OK) =="
+cd "$P/public"
+timeout 30 php -r '
+  $_SERVER["REQUEST_URI"]="/login"; $_SERVER["REQUEST_METHOD"]="GET";
+  $_SERVER["HTTP_HOST"]="klasyo.org"; $_SERVER["SCRIPT_NAME"]="/platform/public/index.php";
+  $_SERVER["SCRIPT_FILENAME"]=__DIR__."/index.php"; require "index.php";
+' > /tmp/kl_pub.html 2>&1 || true
+grep -qi 'klasyo-auth' /tmp/kl_pub.html && echo "  ✅ /platform/public/login OK" || echo "  ? $(head -c 120 /tmp/kl_pub.html | tr -d '\n\r')"
+rm -f /tmp/kl_pub.html
+
+echo
+echo "== 1 requête HTTP réelle (si le firewall laisse passer) =="
+code=$(curl -sk -o /dev/null -m 15 -w '%{http_code}' "https://klasyo.org/platform/login" 2>/dev/null || echo ERR)
+echo "  HTTP /platform/login -> $code"
+
+echo
+echo "== FIN test S =="
