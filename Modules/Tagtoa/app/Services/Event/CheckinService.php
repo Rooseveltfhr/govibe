@@ -8,6 +8,7 @@ use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Event\NfcTag;
 use Modules\Tagtoa\App\Models\Event\Ticket;
 use Modules\Tagtoa\App\Services\Notifications\NotificationService;
+use Modules\Tagtoa\App\Support\Event\EventDays;
 
 /**
  * TAGTOA Event — moteur de check-in (scanner PWA, offline-first).
@@ -77,7 +78,7 @@ class CheckinService
 
             $entered = ($direction === 'in');
 
-            return $this->r(true, 'green', 'success', $direction === 'in' ? __('Bienvenue!') : __('Sortie enregistrée.'), $ticket->fresh('ticketType'));
+            return $this->r(true, 'green', 'success', $direction === 'in' ? $this->welcomeMessage($event) : __('Sortie enregistrée.'), $ticket->fresh('ticketType'));
         });
 
         // Notifications hors transaction (tolérant) : organisateur + participant à l'entrée.
@@ -86,6 +87,26 @@ class CheckinService
         }
 
         return $result;
+    }
+
+    /**
+     * Message de bienvenue à l'entrée : pour un événement multi-jours (ex.
+     * festival 2 jours), précise explicitement « jour X/N » — le staff au
+     * portail voit clairement que le billet reste valable les jours suivants.
+     * Rétro-compatible : événement d'un seul jour ⇒ message simple inchangé.
+     */
+    private function welcomeMessage(Event $event): string
+    {
+        $days = EventDays::list(optional($event->starts_at)->toDateString(), optional($event->ends_at)->toDateString());
+        if (count($days) <= 1) {
+            return __('Bienvenue!');
+        }
+
+        $today = EventDays::resolveDay($days, now()->toDateString());
+        $index = array_search($today, $days, true);
+        $dayNumber = $index === false ? 1 : $index + 1;
+
+        return __('Bienvenue! Billet valable :n jours — jour :d/:n', ['n' => count($days), 'd' => $dayNumber]);
     }
 
     /** Alerte organisateur (email) + confirmation participant (WhatsApp) à l'entrée. */
