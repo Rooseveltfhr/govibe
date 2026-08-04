@@ -249,6 +249,23 @@ case "$ACTION" in
     fi
     egrp
     ;;
+  securiser_install)
+    # Un installeur laissé dans le docroot permet souvent de reconfigurer le
+    # site et sa base sans être connecté. On le RENOMME (jamais de suppression) :
+    # réversible d'un simple mv si l'installation n'était pas terminée.
+    grp "Neutralisation de l'installeur"
+    DONE=0
+    for leftover in install installer setup; do
+      SRC="$DOCROOT/$leftover"
+      if [ -d "$SRC" ]; then
+        DST="$SRC.desactive-$(date +%Y%m%d%H%M%S)"
+        mv "$SRC" "$DST" && echo "renommé : $leftover/ → $(basename "$DST")" && DONE=1
+      fi
+    done
+    [ "$DONE" = 1 ] || echo "aucun installeur trouvé — rien fait"
+    echo "(pour revenir en arrière : mv <dossier>.desactive-* $DOCROOT/install)"
+    egrp
+    ;;
   mettre_en_pause)
     grp "Mise en pause de $DOM"
     if [ -d "$PUB" ] && [ ! -d "$PAUSED" ]; then
