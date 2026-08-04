@@ -137,7 +137,10 @@ jobs:
       # de « clé refusée », pour que le message dise quoi corriger.
       - name: Détecter le port SSH et tester la connexion
         run: |
-          set -uo pipefail
+          # Pas de -e ici : un ssh qui échoue est un RÉSULTAT de test, pas une
+          # erreur de script (GitHub lance chaque étape avec `bash -e`).
+          set +e
+          set -u
           CANDIDATES="$SSH_PORT"
           [ -n "${DJ_PORT_HINT:-}" ] && CANDIDATES="$DJ_PORT_HINT $CANDIDATES"
           for p in 22 2222; do
@@ -148,7 +151,7 @@ jobs:
           for p in $CANDIDATES; do
             ssh-keyscan -p "$p" "$DJ_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
             OUT=$(ssh -i ~/.ssh/id_djounes -p "$p" -o BatchMode=yes -o ConnectTimeout=12 \
-                    -o StrictHostKeyChecking=accept-new "$DJ_USER@$DJ_HOST" 'echo TAGTOA_SSH_OK' 2>&1)
+                    -o StrictHostKeyChecking=accept-new "$DJ_USER@$DJ_HOST" 'echo TAGTOA_SSH_OK' 2>&1) || true
             if printf '%s' "$OUT" | grep -q TAGTOA_SSH_OK; then
               echo "Connexion réussie sur le port $p."
               FOUND="$p"; break
