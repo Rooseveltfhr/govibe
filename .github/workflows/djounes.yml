@@ -16,6 +16,15 @@ name: Djounes.com — inventaire & maintenance
 #   DJOUNES_SSH_HOST / DJOUNES_SSH_USER / DJOUNES_SSH_KEY  (+ DJOUNES_SSH_PORT si ≠ 22)
 # Procédure d'obtention pas à pas : docs/DJOUNES.md
 on:
+  # Temporaire : tant que ce workflow n'est pas sur `main`, GitHub n'affiche pas
+  # son bouton dans l'onglet Actions. On le déclenche donc aussi sur push de la
+  # branche de travail, avec l'action « inventaire » (lecture seule) par défaut.
+  # À retirer une fois la PR fusionnée.
+  push:
+    branches: ["claude/hebergement-web-djounes-9z6q6i"]
+    paths:
+      - ".github/workflows/djounes.yml"
+      - ".github/scripts/djounes-ops.sh"
   workflow_dispatch:
     inputs:
       action:
@@ -56,8 +65,8 @@ jobs:
 
       - name: Valider les entrées (anti-injection)
         env:
-          IN_ACTION: ${{ inputs.action }}
-          IN_DOMAIN: ${{ inputs.domain }}
+          IN_ACTION: ${{ inputs.action || 'inventaire' }}
+          IN_DOMAIN: ${{ inputs.domain || 'djounes.com' }}
           IN_FETCH: ${{ inputs.fetch_file }}
         run: |
           set -euo pipefail
@@ -98,8 +107,8 @@ jobs:
 
       - name: Exécuter l'inventaire / l'action
         env:
-          IN_ACTION: ${{ inputs.action }}
-          IN_DOMAIN: ${{ inputs.domain }}
+          IN_ACTION: ${{ inputs.action || 'inventaire' }}
+          IN_DOMAIN: ${{ inputs.domain || 'djounes.com' }}
         run: |
           set -uo pipefail
           ssh -i ~/.ssh/id_djounes -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
@@ -111,7 +120,7 @@ jobs:
       - name: Récupérer le fichier demandé
         if: ${{ inputs.fetch_file != '' }}
         env:
-          IN_DOMAIN: ${{ inputs.domain }}
+          IN_DOMAIN: ${{ inputs.domain || 'djounes.com' }}
           IN_FETCH: ${{ inputs.fetch_file }}
         run: |
           set -uo pipefail
