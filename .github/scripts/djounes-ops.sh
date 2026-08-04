@@ -69,9 +69,35 @@ command -v quota >/dev/null && quota -s 2>&1 | head -10 || echo "(quota non disp
 egrp
 
 # --- 3. Détection de la stack ----------------------------------------------
+# Beaucoup de scripts PHP vendus clé en main (CodeCanyon & co) placent Laravel
+# dans un sous-dossier (« core/ », « laravel/ ») avec un index.php de façade à
+# la racine. On cherche donc artisan à plusieurs endroits, pas seulement au
+# docroot.
+APPDIR=""
+for c in "$DOCROOT" "$DOCROOT/core" "$DOCROOT/laravel" "$D/laravel" "$DOCROOT/app"; do
+  [ -f "$c/artisan" ] && { APPDIR="$c"; break; }
+done
+
 STACK="inconnue"
 grp "Stack détectée"
-if [ -f "$DOCROOT/wp-config.php" ]; then
+if [ -n "$APPDIR" ]; then
+  STACK="laravel"
+  echo "Laravel détecté : $APPDIR"
+  [ "$APPDIR" != "$DOCROOT" ] && echo "→ disposition « script clé en main » : façade publique au docroot, application dans $(basename "$APPDIR")/"
+  ( cd "$APPDIR" && php artisan --version 2>&1 | head -2 ) || true
+  echo "-- identité du paquet (composer.json) --"
+  grep -E '"(name|description|version|type)"' "$APPDIR/composer.json" 2>/dev/null | head -6 || true
+  echo "-- dépendances principales --"
+  grep -E '"(laravel/framework|nwidart/laravel-modules|stancl/tenancy|livewire/|filament/)' "$APPDIR/composer.json" 2>/dev/null | head -8 || true
+  echo "-- contenu de $(basename "$APPDIR")/ --"
+  ls -1 "$APPDIR" 2>/dev/null | head -25
+  echo "-- modules / sections de l'application --"
+  for d in "$APPDIR/Modules" "$APPDIR/app/Http/Controllers"; do
+    [ -d "$d" ] && { echo "[$d]"; ls -1 "$d" 2>/dev/null | head -20; }
+  done
+  echo "-- façade publique (index.php à la racine) --"
+  head -25 "$DOCROOT/index.php" 2>/dev/null | redact || true
+elif [ -f "$DOCROOT/wp-config.php" ]; then
   STACK="wordpress"
   echo "WordPress détecté (wp-config.php présent)."
   V=$(grep -E "^\\\$wp_version *=" "$DOCROOT/wp-includes/version.php" 2>/dev/null | head -1 | cut -d"'" -f2)
@@ -79,12 +105,6 @@ if [ -f "$DOCROOT/wp-config.php" ]; then
   echo "-- thèmes --";  ls -1 "$DOCROOT/wp-content/themes"  2>/dev/null | head -20 || true
   echo "-- extensions --"; ls -1 "$DOCROOT/wp-content/plugins" 2>/dev/null | head -40 || true
   echo "-- taille des uploads --"; du -sh "$DOCROOT/wp-content/uploads" 2>/dev/null || true
-elif [ -f "$DOCROOT/artisan" ] || [ -f "$D/laravel/artisan" ]; then
-  STACK="laravel"
-  APPDIR="$DOCROOT"; [ -f "$APPDIR/artisan" ] || APPDIR="$D/laravel"
-  echo "Laravel détecté : $APPDIR"
-  ( cd "$APPDIR" && php artisan --version 2>&1 | head -2 ) || true
-  grep -E '"name"|"laravel/framework"' "$APPDIR/composer.json" 2>/dev/null | head -4 || true
 elif ls "$DOCROOT"/index.htm* >/dev/null 2>&1 && ! ls "$DOCROOT"/*.php >/dev/null 2>&1; then
   STACK="statique"
   echo "Site statique (HTML) — aucun PHP à la racine."
@@ -112,10 +132,9 @@ if [ "$STACK" = "wordpress" ] && [ -f "$DOCROOT/wp-config.php" ]; then
   echo "-- URLs WordPress --"
   grep -E "WP_HOME|WP_SITEURL" "$DOCROOT/wp-config.php" 2>/dev/null || echo "(définies en base, pas dans wp-config)"
 elif [ "$STACK" = "laravel" ]; then
-  APPDIR="$DOCROOT"; [ -f "$APPDIR/artisan" ] || APPDIR="$D/laravel"
   ENVF="$APPDIR/.env"
   if [ -f "$ENVF" ]; then
-    for k in APP_ENV APP_DEBUG APP_KEY APP_URL DB_CONNECTION DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD; do
+    for k in APP_NAME APP_ENV APP_DEBUG APP_KEY APP_URL DB_CONNECTION DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD; do
       v=$(grep "^$k=" "$ENVF" 2>/dev/null | head -1 | cut -d= -f2-)
       case "$k" in
         APP_KEY|DB_PASSWORD) [ -n "$v" ] && echo "$k = [présent]" || echo "$k = [absent/VIDE ⚠]";;
@@ -180,6 +199,24 @@ done
 find "$D/logs" -maxdepth 1 -type f -name "*error*" 2>/dev/null | head -5 || true
 egrp
 
+# Restes d'installation : un installeur laissé en place permet souvent de
+# reconfigurer le site (et sa base) sans être connecté.
+grp "Contrôles de sécurité (lecture seule)"
+for leftover in install installer setup update; do
+  [ -d "$DOCROOT/$leftover" ] && echo "⚠ dossier « $leftover/ » toujours présent dans le docroot ($(ls -1 "$DOCROOT/$leftover" 2>/dev/null | wc -l) fichiers)"
+done
+if [ -n "$APPDIR" ] && [ -f "$APPDIR/.env" ]; then
+  case "$APPDIR" in
+    "$DOCROOT"|"$DOCROOT"/*) echo "⚠ le .env est SOUS le docroot ($APPDIR/.env) — vérifier qu'une règle .htaccess en interdit l'accès web";;
+    *) echo "le .env est hors du docroot (bon)";;
+  esac
+  echo "-- règles .htaccess protégeant .env / dossiers sensibles --"
+  grep -iE "\.env|Files|deny|require all denied" "$DOCROOT/.htaccess" 2>/dev/null | head -10 || echo "(aucune règle de ce type)"
+fi
+echo "-- écriture publique éventuelle (droits 777) --"
+find "$DOCROOT" -maxdepth 2 -type d -perm -o+w 2>/dev/null | head -10 || true
+egrp
+
 grp "Tâches cron liées à $DOM"
 crontab -l 2>/dev/null | grep -i "${DOM%%.*}" || echo "(aucune)"
 egrp
@@ -188,8 +225,7 @@ egrp
 case "$ACTION" in
   vider_cache)
     grp "Vidage des caches"
-    if [ "$STACK" = "laravel" ]; then
-      APPDIR="$DOCROOT"; [ -f "$APPDIR/artisan" ] || APPDIR="$D/laravel"
+    if [ "$STACK" = "laravel" ] && [ -n "$APPDIR" ]; then
       ( cd "$APPDIR" && php artisan optimize:clear 2>&1 ) || true
       chmod -R ug+rwX "$APPDIR/storage" "$APPDIR/bootstrap/cache" 2>/dev/null || true
     elif [ "$STACK" = "wordpress" ]; then
