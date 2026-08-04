@@ -249,6 +249,47 @@ case "$ACTION" in
     fi
     egrp
     ;;
+  scan_marque)
+    # Avant de renommer quoi que ce soit : savoir OÙ la marque du script
+    # apparaît. Un remplacement global casserait des chemins d'actifs, des
+    # noms de classes ou des espaces de noms qui contiennent le même mot.
+    grp "Où apparaît la marque du script (lecture seule)"
+    BRAND="${BRAND:-visermart}"
+    echo "recherche de « $BRAND » hors vendor/ et node_modules/"
+    echo "-- fichiers concernés, avec le nombre d'occurrences --"
+    grep -ric --include="*.php" --include="*.json" --include="*.js" --include="*.css" \
+      --include="*.txt" --include="*.xml" --include="*.md" \
+      --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=.git \
+      "$BRAND" "$DOCROOT" 2>/dev/null | grep -v ':0$' | sed "s|$DOCROOT/||" | head -60
+    echo "-- formes exactes rencontrées (casse comprise) --"
+    grep -rohi --include="*.php" --include="*.json" --include="*.js" \
+      --exclude-dir=vendor --exclude-dir=node_modules \
+      -E "viser[a-z]*" "$DOCROOT" 2>/dev/null | sort | uniq -c | sort -rn | head -15
+    echo "-- contextes typiques (30 premières lignes) --"
+    grep -rn --include="*.php" --exclude-dir=vendor --exclude-dir=node_modules \
+      -i "$BRAND" "$DOCROOT" 2>/dev/null | sed "s|$DOCROOT/||" | head -30 | redact
+    egrp
+
+    grp "Réglages du site (lecture seule)"
+    if command -v mysql >/dev/null 2>&1 && [ -n "$DBU" ] && [ -n "$DBP" ]; then
+      CNF2=$(mktemp); chmod 600 "$CNF2"
+      printf '[client]\nuser=%s\npassword=%s\nhost=%s\n' "$DBU" "$DBP" "${DBH:-localhost}" > "$CNF2"
+      SAFE=$(printf '%s' "$DBN" | tr -cd 'A-Za-z0-9_')
+      echo "-- colonnes de general_settings --"
+      mysql --defaults-extra-file="$CNF2" -N -e "SHOW COLUMNS FROM \`$SAFE\`.general_settings;" 2>&1 | awk '{print $1}' | tr '\n' ' '
+      echo ""
+      echo "-- sections de contenu éditables (frontends) --"
+      mysql --defaults-extra-file="$CNF2" -N -e "SELECT data_keys, COUNT(*) FROM \`$SAFE\`.frontends GROUP BY data_keys;" 2>&1 | head -60
+      echo "-- pages statiques --"
+      mysql --defaults-extra-file="$CNF2" -N -e "SELECT name, slug FROM \`$SAFE\`.pages;" 2>&1 | head -20
+      echo "-- passerelles de paiement disponibles --"
+      mysql --defaults-extra-file="$CNF2" -N -e "SELECT name, status FROM \`$SAFE\`.gateways ORDER BY name;" 2>&1 | head -40
+      rm -f "$CNF2"
+    else
+      echo "(base inaccessible)"
+    fi
+    egrp
+    ;;
   securiser_install)
     # Un installeur laissé dans le docroot permet souvent de reconfigurer le
     # site et sa base sans être connecté. On le RENOMME (jamais de suppression) :
