@@ -47,11 +47,15 @@
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Espace</label>
-                <select name="space" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
-                    <option value="">-- Sélectionner --</option>
-                    @foreach(['Salle de réunion A','Salle de réunion B','Espace open coworking','Salle de formation','Studio Media','Lab IA','Salle de conférence'] as $s)
-                    <option value="{{ $s }}" {{ old('space')===$s?'selected':'' }}>{{ $s }}</option>
-                    @endforeach
+                <select name="space_id" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                    <option value="">-- Aucun espace --</option>
+                    @forelse($spaces as $s)
+                    <option value="{{ $s->id }}" {{ old('space_id') == $s->id ? 'selected' : '' }}>
+                        {{ $s->name }}@if($s->type) ({{ $s->type }})@endif
+                    </option>
+                    @empty
+                    <option value="" disabled>Aucun espace actif — créer dans Inventaire</option>
+                    @endforelse
                 </select>
             </div>
             <div>

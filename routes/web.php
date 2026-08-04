@@ -20,6 +20,7 @@ use App\Http\Controllers\ERP\Inventory\InventoryController;
 use App\Http\Controllers\ERP\Reports\ReportController;
 use App\Http\Controllers\ERP\Academy\AcademyERPController;
 use App\Http\Controllers\ERP\Academy\BootcampAdminController;
+use App\Http\Controllers\ERP\Academy\InscriptionERPController;
 use App\Http\Controllers\ERP\Services\ServiceController;
 use App\Http\Controllers\ERP\CRM\NotificationController;
 use App\Http\Controllers\ERP\CRM\ContractController;
@@ -90,6 +91,8 @@ Route::prefix('erp')->name('erp.')->group(function () {
         // ── CRM ──────────────────────────────────────────
         Route::prefix('crm')->name('crm.')->group(function () {
             Route::resource('clients', ClientController::class);
+            Route::get('/anniversaires', [ClientController::class, 'anniversaires'])->name('anniversaires');
+            Route::post('/anniversaires/send', [ClientController::class, 'sendBirthdayManual'])->name('anniversaires.send');
             Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
             Route::post('/notifications/send', [NotificationController::class, 'send'])->name('notifications.send');
         });
@@ -171,11 +174,34 @@ Route::prefix('erp')->name('erp.')->group(function () {
         // ── Reports ───────────────────────────────────────
         Route::prefix('reports')->name('reports.')->group(function () {
             Route::get('/', [ReportController::class, 'index'])->name('index');
+            Route::get('/formations', [ReportController::class, 'formations'])->name('formations');
+            Route::get('/bootcamp', [ReportController::class, 'bootcamp'])->name('bootcamp');
+            Route::get('/reservations', [ReportController::class, 'reservations'])->name('reservations');
+            Route::get('/pos', [ReportController::class, 'pos'])->name('pos');
+            Route::get('/clients', [ReportController::class, 'clients'])->name('clients');
+            // PDF exports
+            Route::get('/pdf/global', [ReportController::class, 'pdfGlobal'])->name('pdf.global');
+            Route::get('/pdf/formations', [ReportController::class, 'pdfFormations'])->name('pdf.formations');
+            Route::get('/pdf/bootcamp', [ReportController::class, 'pdfBootcamp'])->name('pdf.bootcamp');
+            Route::get('/pdf/reservations', [ReportController::class, 'pdfReservations'])->name('pdf.reservations');
+            Route::get('/pdf/pos', [ReportController::class, 'pdfPos'])->name('pdf.pos');
+            Route::get('/pdf/clients', [ReportController::class, 'pdfClients'])->name('pdf.clients');
         });
 
         // ── Academy ERP ───────────────────────────────────
         Route::prefix('academy')->name('academy.')->group(function () {
             Route::get('/', [AcademyERPController::class, 'index'])->name('index');
+
+            // Inscriptions (formations classiques)
+            Route::prefix('inscriptions')->name('inscriptions.')->group(function () {
+                Route::get('/', [InscriptionERPController::class, 'index'])->name('index');
+                Route::get('/{inscription}', [InscriptionERPController::class, 'show'])->name('show');
+                Route::post('/{inscription}/presence', [InscriptionERPController::class, 'togglePresence'])->name('presence');
+                Route::get('/{inscription}/attestation', [InscriptionERPController::class, 'attestation'])->name('attestation');
+                Route::delete('/{inscription}', [InscriptionERPController::class, 'destroy'])->name('destroy');
+            });
+
+            // Bootcamp IA 2026
             Route::prefix('bootcamp')->name('bootcamp.')->group(function () {
                 Route::get('/', [BootcampAdminController::class, 'index'])->name('index');
                 Route::get('/export', [BootcampAdminController::class, 'export'])->name('export');
