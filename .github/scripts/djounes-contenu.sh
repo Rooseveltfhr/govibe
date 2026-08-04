@@ -201,20 +201,25 @@ if ($ignores) echo "\nSections absentes ou illisibles (ignorées) : " . implode(
 /* Coupon de bienvenue — inséré seulement si la table s'y prête et qu'il n'existe pas. */
 try {
     $cols = array_column($pdo->query('SHOW COLUMNS FROM coupons')->fetchAll(PDO::FETCH_ASSOC), 'Field');
-    if (!in_array('code', $cols, true)) {
-        echo "\nCoupon non créé : la table coupons n'a pas de colonne « code ».\n";
+    if (!in_array('coupon_code', $cols, true)) {
+        echo "\nCoupon non créé : colonne « coupon_code » absente.\n";
         echo "Colonnes réelles : " . implode(', ', $cols) . "\n";
-    } elseif ($pdo->query("SELECT COUNT(*) FROM coupons WHERE code = 'FIRST15'")->fetchColumn()) {
+    } elseif ($pdo->query("SELECT COUNT(*) FROM coupons WHERE coupon_code = 'FIRST15'")->fetchColumn()) {
         echo "\nCoupon FIRST15 : déjà présent — inchangé.\n";
     } else {
-        $v = ['code' => 'FIRST15', 'name' => 'Welcome 15%', 'title' => 'Welcome 15%',
-              'discount' => 15, 'discount_type' => 1, 'type' => 1, 'status' => 1,
-              'minimum_spend' => 0, 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')];
+        $v = ['coupon_name' => 'Welcome 15%', 'coupon_code' => 'FIRST15',
+              'discount_type' => 1, 'coupon_amount' => 15,
+              'minimum_spend' => 0, 'maximum_spend' => 0,
+              'usage_limit_per_coupon' => 0, 'usage_limit_per_user' => 1,
+              'exclude_sale_items' => 0, 'status' => 1,
+              'expired_at' => date('Y-m-d H:i:s', strtotime('+1 year')),
+              'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')];
         $v = array_intersect_key($v, array_flip($cols));
         $pdo->prepare(sprintf('INSERT INTO coupons (%s) VALUES (%s)',
             implode(',', array_keys($v)), implode(',', array_fill(0, count($v), '?'))))
             ->execute(array_values($v));
-        echo "\nCoupon FIRST15 créé (15%, à vérifier dans l'administration).\n";
+        echo "\nCoupon FIRST15 créé : 15 pour cent, une utilisation par client, valable un an.\n";
+        echo "À vérifier dans l'administration : le sens de discount_type (pourcentage ou montant fixe) est propre au script.\n";
     }
 } catch (Throwable $e) {
     echo "\nCoupon non créé (schéma différent) : " . $e->getMessage() . "\n";
