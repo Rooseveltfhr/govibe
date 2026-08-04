@@ -228,7 +228,7 @@ class ChatService
         );
 
         return new ChatRequest(
-            messages: array_values($normalized),
+            messages: $normalized,
             model: $model,
             temperature: $temperature,
             maxTokens: $maxTokens,

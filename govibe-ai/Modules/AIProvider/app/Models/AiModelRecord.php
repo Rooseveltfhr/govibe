@@ -11,6 +11,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property string $provider_key
  * @property string $key
+ * @property string|null $name
+ * @property array<int, string> $capabilities
+ * @property int $input_price_per_million
+ * @property int $output_price_per_million
+ * @property int $context_window
+ * @property int $quality
+ * @property array<string, int>|null $quality_by_language
+ * @property int $expected_latency_ms
  * @property bool $is_active
  */
 class AiModelRecord extends Model
