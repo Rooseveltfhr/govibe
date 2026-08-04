@@ -276,6 +276,32 @@ promotion s'affiche.
 L'action est **rejouable sans risque** : elle ne sème le catalogue que si la
 boutique est vide, donc elle ne dupliquera ni n'écrasera de vrais produits.
 
+### Textes, politiques et exploitation (même jour)
+
+| Élément | Détail |
+|---|---|
+| Accroche d'accueil | *Built for the 12-hour shift* + sous-titre, sur bannière, encarts et citation |
+| Arguments (4) | Free shipping over $75 · 30-day returns · Made for healthcare · Secure checkout |
+| Services (4) | Scrubs & apparel · Body care · Accessories · Support that answers |
+| About Us | histoire de marque en trois paragraphes |
+| Newsletter | *Get 15% off your first order* |
+| Pied de page | description et mention de copyright |
+| **Politiques (3)** | Shipping Policy · Return & Refund Policy · Privacy Policy, rédigées |
+| SEO | titre, description et mots-clés de la page d'accueil |
+| Coupon | **FIRST15**, 15 %, une utilisation par client, valable un an |
+| **Sauvegarde quotidienne** | `~/bin/djounes-backup.sh` via cron à 3h17 — base + `assets/images`, rotation 14 jours |
+
+Le contenu du thème est du JSON dont la forme appartient au script acheté. Le
+script de contenu ne le reconstruit pas : il le relit et ne remplace que les clés
+déjà présentes portant une chaîne. Images, objets imbriqués et valeurs numériques
+restent intacts. Vérifié après coup : `/`, `/categories`, `/products`, `/contact`,
+`/about-us` et `/faq` répondent tous 200.
+
+Deux points à confirmer dans l'administration : le sens de `discount_type` sur le
+coupon (pourcentage ou montant fixe, le script ne le documente pas), et le fait
+que la section `services.content` n'existe pas dans cette installation — seuls ses
+quatre éléments existent, et ils sont remplis.
+
 ## 11. Ce qu'il reste à ajouter
 
 Par ordre : ce qui empêche de vendre, puis ce qui fait vendre plus.
@@ -287,7 +313,7 @@ Par ordre : ce qui empêche de vendre, puis ce qui fait vendre plus.
 | Configurer **Stripe** et **PayPal** | admin → passerelles | 32 passerelles listées, **aucune configurée** : aujourd'hui personne ne peut payer. Demande les comptes marchands. |
 | Configurer l'**envoi d'e-mails** (`mail_config`) | admin | sans SMTP, aucune confirmation de commande ne part. Un client qui paie sans rien recevoir ouvre un litige. |
 | **Adresse du bureau US**, téléphone, e-mail de contact | pied de page + page Contact | exigé par Stripe et PayPal à l'ouverture du compte marchand, et décisif pour la confiance. |
-| **Pages légales** : Shipping, Returns, Privacy, Terms | `policy_pages` (3 emplacements) + pages | mêmes exigences des processeurs de paiement. |
+| ~~Politiques Shipping, Returns, Privacy~~ | `policy_pages` | ✅ rédigées. Reste **Terms of Service**, et l'adresse US à insérer dedans. |
 
 ### Important — le catalogue réel
 
@@ -302,9 +328,9 @@ Par ordre : ce qui empêche de vendre, puis ce qui fait vendre plus.
 
 | À faire | Note |
 |---|---|
-| Coupon de bienvenue `FIRST15` | contre inscription e-mail — alimente le seul canal que la marque possède |
-| Sections d'accueil : `banner` (8), `feature` (4), `services` (4), `counter` (4) | y écrire la promesse de marque, pas le texte d'exemple |
-| Liens sociaux (`social_icon`, 3 emplacements) | Instagram et TikTok en premier |
+| ~~Coupon de bienvenue `FIRST15`~~ | ✅ créé — reste à vérifier le sens de `discount_type` |
+| ~~Sections d'accueil~~ | ✅ écrites — `counter` (chiffres) reste à remplir quand il y aura des chiffres réels |
+| Liens sociaux (`social_icon`, 3 emplacements) | Instagram et TikTok en premier — demande les comptes |
 | **Analytics** (Google Analytics, Meta Pixel) | via `global_shortcodes` — sans mesure, aucune décision marketing n'est vérifiable |
 | `seo.data` et métadonnées produits | descriptions uniques, jamais celles d'un fournisseur |
 | Collections « Shift Kit », « New », « Best sellers » | via `product_collections`, sans toucher au menu |
@@ -314,7 +340,7 @@ Par ordre : ce qui empêche de vendre, puis ce qui fait vendre plus.
 
 | À faire | Note |
 |---|---|
-| **Sauvegardes régulières** | aucune tâche cron sur le compte aujourd'hui. La seule sauvegarde existante est celle prise avant ces changements. |
+| ~~**Sauvegardes régulières**~~ | ✅ cron quotidien à 3h17, base + images, rotation 14 jours |
 | Changer le mot de passe administrateur | l'installeur est resté exposé un temps |
 | Taxe de vente selon le *nexus* | à valider avec un comptable |
 | API de livraison (Shippo) | quand le volume dépasse une dizaine de commandes par jour — chapitre 8 |
