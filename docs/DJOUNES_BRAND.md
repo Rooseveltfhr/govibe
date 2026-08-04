@@ -63,11 +63,15 @@ aux badges : un bouton entièrement doré avec du texte blanc est illisible.
 
 ## 3. Logo
 
-Pas de logo à ce jour. Proposition livrée dans `docs/brand/` :
+La marque n'avait pas de logo. Créé et **posé sur le site** le 4 août 2026 —
+sources dans `docs/brand/`, rendus dans `docs/brand/png/` :
 
-- `djounes-wordmark.svg` — mot-symbole complet, pour l'en-tête et les e-mails
-- `djounes-monogram.svg` — monogramme carré, pour le favicon, l'avatar social et
-  l'étiquette produit
+| Fichier | Usage | Installé en |
+|---|---|---|
+| `png/logo.png` (fond transparent) | en-tête du site | `assets/images/logo_icon/logo.png` |
+| `png/logo-dark-bg.png` (fond vert) | pied de page, e-mails | `assets/images/logo_icon/logo_dark.png` |
+| `png/favicon.png` (512 px) | onglet du navigateur | `assets/images/logo_icon/favicon.png` |
+| `djounes-wordmark.svg` · `djounes-monogram.svg` | sources vectorielles, impression et broderie | — |
 
 Le mot-symbole joue sur une lettrine dorée et une barre horizontale qui évoque à
 la fois un liseré d'uniforme et une ligne de rythme cardiaque. Il fonctionne en
