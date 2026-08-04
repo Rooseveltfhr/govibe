@@ -189,7 +189,7 @@ foreach ($elements as $section => $liste) {
             'title' => $titre, 'heading' => $titre, 'name' => $titre,
             'short_description' => $texte, 'description' => $texte, 'details' => $texte,
             'content' => $texte,
-        ], $journal, "$section[$i]");
+        ], $journal, $section . '[' . $i . ']');
         $upd->execute([json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $row['id']]);
     }
 }
@@ -201,8 +201,12 @@ if ($ignores) echo "\nSections absentes ou illisibles (ignorées) : " . implode(
 /* Coupon de bienvenue — inséré seulement si la table s'y prête et qu'il n'existe pas. */
 try {
     $cols = array_column($pdo->query('SHOW COLUMNS FROM coupons')->fetchAll(PDO::FETCH_ASSOC), 'Field');
-    $existe = $pdo->query("SELECT COUNT(*) FROM coupons WHERE code = 'FIRST15'")->fetchColumn();
-    if (!$existe && in_array('code', $cols, true)) {
+    if (!in_array('code', $cols, true)) {
+        echo "\nCoupon non créé : la table coupons n'a pas de colonne « code ».\n";
+        echo "Colonnes réelles : " . implode(', ', $cols) . "\n";
+    } elseif ($pdo->query("SELECT COUNT(*) FROM coupons WHERE code = 'FIRST15'")->fetchColumn()) {
+        echo "\nCoupon FIRST15 : déjà présent — inchangé.\n";
+    } else {
         $v = ['code' => 'FIRST15', 'name' => 'Welcome 15%', 'title' => 'Welcome 15%',
               'discount' => 15, 'discount_type' => 1, 'type' => 1, 'status' => 1,
               'minimum_spend' => 0, 'created_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')];
@@ -211,8 +215,6 @@ try {
             implode(',', array_keys($v)), implode(',', array_fill(0, count($v), '?'))))
             ->execute(array_values($v));
         echo "\nCoupon FIRST15 créé (15%, à vérifier dans l'administration).\n";
-    } else {
-        echo "\nCoupon FIRST15 : déjà présent ou table inattendue — inchangé.\n";
     }
 } catch (Throwable $e) {
     echo "\nCoupon non créé (schéma différent) : " . $e->getMessage() . "\n";
