@@ -35,6 +35,7 @@ on:
           - inventaire
           - scan_marque
           - schema_catalogue
+          - demarrage_marque
           - vider_cache
           - securiser_install
           - mettre_en_pause
@@ -74,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$IN_ACTION" in
-            inventaire|scan_marque|schema_catalogue|vider_cache|securiser_install|mettre_en_pause|reprendre_site) ;;
+            inventaire|scan_marque|schema_catalogue|demarrage_marque|vider_cache|securiser_install|mettre_en_pause|reprendre_site) ;;
             *) echo "::error::action invalide"; exit 1;;
           esac
           # Domaine : lettres/chiffres/point/tiret uniquement.
@@ -186,6 +187,21 @@ jobs:
           ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
             -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
             "ACTION='$IN_ACTION' DOMAIN='$IN_DOMAIN' bash -s" < .github/scripts/djounes-ops.sh
+
+      # Mise à la marque : envoie les images puis exécute le script d'amorçage.
+      # Séparé des autres actions parce que c'est la seule qui écrit en base.
+      - name: Poser la marque et amorcer le catalogue
+        if: ${{ inputs.action == 'demarrage_marque' }}
+        run: |
+          set -uo pipefail
+          echo "Envoi des images (logo + démonstration)…"
+          tar czf - -C docs/brand png demo \
+            | ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+                "$DJ_USER@$DJ_HOST" \
+                'rm -rf ~/djounes-brand-upload && mkdir -p ~/djounes-brand-upload && tar xzf - -C ~/djounes-brand-upload && ls -1 ~/djounes-brand-upload'
+          ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
+            "DOMAIN='${{ inputs.domain || 'djounes.com' }}' bash -s" < .github/scripts/djounes-bootstrap.sh
 
       # Récupération d'un fichier de configuration : passe par un artefact et
       # jamais par le log (le masquage de secrets corromprait le contenu).
