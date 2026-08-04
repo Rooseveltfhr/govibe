@@ -12,7 +12,8 @@
 | IP du site | `173.225.109.155` |
 | Panneau de contrôle | DirectAdmin — `https://vda8400.is.cc:2222` |
 | IP du panneau | `173.225.109.154` (même bloc réseau que le site) |
-| Stack du site | **inconnue** — indéterminable sans accès (voir §4) |
+| SSH | `vda8400.is.cc`, **port 22** (le 2222 du panneau n'expose pas SSH) |
+| Stack du site | **Visermart** — e-commerce Laravel, voir §5 |
 
 **Important : ce n'est PAS le serveur de TAGTOA.** `tagtoa.com` et `govibepay.com`
 répondent depuis `67.217.56.29`, sur le VPS décrit dans `CLAUDE.md` §6.
@@ -153,9 +154,62 @@ contenu.
 - les entrées du workflow sont validées côté runner (liste blanche pour l'action,
   caractères autorisés pour le domaine et le chemin, `..` interdit).
 
-## 5. Ensuite
+## 5. Résultat de l'inventaire (4 août 2026)
 
-Une fois l'inventaire disponible, on saura ce qu'héberge réellement djounes.com et
-on pourra décider de la suite : remise en état, refonte, migration vers le VPS
-TAGTOA, ou déploiement continu depuis ce dépôt. **Ce document sera mis à jour avec
-les résultats de l'inventaire.**
+### Ce qui tourne
+
+**Visermart**, un e-commerce Laravel vendu clé en main (ViserLab) : `index.php` de
+façade au docroot, application dans `core/`, thème `basic` dans
+`core/resources/views/templates`. PHP 8.3.31, `APP_ENV=production`,
+`APP_DEBUG=false`, HTTP 200, certificat Let's Encrypt valable jusqu'au
+21 octobre 2026. 119 Mo sur disque. Le compte n'héberge que ce domaine.
+
+### La boutique est vide
+
+Base de 59 tables, 1,5 Mo. `products`, `categories`, `brands`, `orders`, `users`,
+`carts` : **0 ligne**. 1 compte admin, 32 passerelles de paiement disponibles mais
+**aucune configurée** (`gateway_currencies` vide), 1 langue, 58 sections de contenu
+front (`frontends`), 7 pages, 19 modèles de notification.
+
+### Ce que le schéma permet déjà, sans développement
+
+- **Variantes** : `attributes`, `attribute_values`, `attribute_product`,
+  `product_variants`, `variant_media` → taille et couleur par produit, avec photos
+  par variante. C'est ce dont DJOUNES a besoin pour les scrubs, sous-vêtements,
+  chaussettes et headbands — et c'est précisément ce qui manque au module STORE de
+  TAGTOA. **Conclusion : garder Visermart pour la boutique, ne pas la reconstruire
+  sur TAGTOA.**
+- Marques, catégories, collections, types de produits
+- Stock avec journal (`stock_logs`), livraison (`shipping_methods`, `shipping_addresses`)
+- Coupons, offres, bannières promotionnelles
+- Avis clients avec photos et réponses, wishlist, comparateur
+- Portefeuille client (`deposits`), tickets de support, newsletter
+
+### Sécurité
+
+- `install/` était toujours présent dans le docroot — un installeur accessible
+  permet souvent de reconfigurer le site et sa base sans être connecté. **Neutralisé
+  le 4 août 2026** → `install.desactive-20260804183724` (renommé, pas supprimé ;
+  `mv` inverse si besoin).
+- `.env` est sous le docroot mais protégé par `<Files .env> Deny from all` dans le
+  `.htaccess` : correct.
+- `APP_URL=https://djounes.com/` a un slash final, ce qui produit des URLs à double
+  slash — à corriger.
+
+## 6. Mise à la marque DJOUNES — plan
+
+8 lignes de produits : scrubs infirmières, chaussettes de compression, tote bag,
+whipped body butter, oil, savon, headband, sous-vêtements.
+
+| Étape | Contenu | Où |
+|---|---|---|
+| 1. Sécurité | installeur neutralisé ✅ · changer le mot de passe admin · corriger `APP_URL` | SSH / panneau |
+| 2. Identité | logo, favicon, couleurs, bannière d'accueil, « À propos », pied de page, réseaux sociaux, 7 pages statiques | admin (`frontends`, `general_settings`) |
+| 3. Catalogue | 3 catégories : **Vêtements médicaux** (scrubs, sous-vêtements, chaussettes de compression, headband) · **Soins du corps** (body butter, oil, savon) · **Accessoires** (tote bag) | admin |
+| 4. Variantes | Taille XS→3XL et Couleur pour les vêtements · mmHg pour les chaussettes · format (2/4/8 oz) et parfum pour les soins | admin (`attributes`) |
+| 5. Paiement & livraison | activer les passerelles utiles parmi les 32, définir les méthodes de livraison | admin |
+| 6. Contenu | photos, descriptions, prix, stock par variante | admin |
+
+Répartition : les étapes en admin demandent le compte administrateur du site (à ne
+pas partager). Le travail sur les fichiers — thème, `.env`, sécurité, performance,
+sauvegardes — passe par SSH et ce dépôt.

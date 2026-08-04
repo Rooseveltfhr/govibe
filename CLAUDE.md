@@ -200,8 +200,14 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
   173.225.109.155) — PA menm sèvè ak tagtoa.com/govibepay.com (67.217.56.29).
   Zouti: `.github/workflows/djounes.yml` + `.github/scripts/djounes-ops.sh`
   (envantè lekti sèl, vide cache, pause/reprann, rale yon fichye an atefak).
-  ⚠ Bezwen aksyon fondatè: sekrè `DJOUNES_SSH_HOST/USER/KEY` (pwosedi nan
-  `docs/DJOUNES.md`). Sekrè `VPS_*` yo PA valab la — workflow la refize yo espre.
+  Sekrè `DJOUNES_SSH_HOST/USER/KEY` konfigire ✅ (SSH sou **pò 22**, pa 2222).
+  Sekrè `VPS_*` yo PA valab la — workflow la refize yo espre.
+  **Sa ki sou li**: **Visermart** (e-commerce Laravel ViserLab), app nan
+  `public_html/core/`, PHP 8.3.31. Boutik la **vid** (0 pwodwi/kategori/kòmand),
+  59 tab, 32 pasrèl disponib men 0 konfigire. Schema a gen **varyant**
+  (`product_variants`+`attributes`) — se sa TAGTOA STORE pa genyen, donk boutik
+  DJOUNES rete sou Visermart. `install/` neutralize (4 out 2026). Konsta konplè +
+  plan mak la: `docs/DJOUNES.md`.
 
 ## 7. Done demo (pou teste)
 - MENU: `demo-menu` · PAY: `demo` · LINKS: `demo-links` · EVENT: `demo-concert` · BOOKING: `demo-booking`
