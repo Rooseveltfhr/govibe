@@ -246,7 +246,80 @@ visible et casserait l'identifiant de licence — **on ne le fait pas.**
 par une mise à jour de l'éditeur. Les changements sont donc consignés ici pour être
 rejoués, et on privilégie toujours un réglage d'administration quand il existe.
 
-## 10. Carte de l'administration
+## 10. État au 4 août 2026 — ce qui est posé
+
+Appliqué sur le site en production, après sauvegarde complète de la base, des
+logos et du `.env` (`~/djounes-backups/`), et vérifié : accueil, `/categories` et
+`/products` répondent 200.
+
+| Élément | Valeur posée |
+|---|---|
+| Nom du site | DJOUNES (déjà en place), `APP_NAME` aligné |
+| `APP_URL` | slash final retiré |
+| `base_color` | `0B3B2E` (remplaçait un vert vif `159913`) |
+| `secondary_color` | `D4AF37` (remplaçait un gris `ebebeb`) |
+| Devise | USD `$` |
+| Logos | `logo.png`, `logo_dark.png`, `favicon.png` dans `assets/images/logo_icon/` |
+| Paiement à la livraison | **désactivé** — sans objet pour une marque qui expédie |
+| Commande sans compte | activée |
+| Avis clients | actifs, **sans** approbation automatique |
+| Catégories | Scrubs & Apparel · Body Care · Accessories |
+| Marque | DJOUNES |
+| Produits | 8, publiés, avec prix, SKU, stock 25 et image de remplacement |
+| Livraison | Standard 5,95 $ · Free over 75 $ · Express 14,95 $ |
+
+Les 8 produits sont des **modèles à modifier** : chacun a un nom, un résumé, un
+prix, un SKU et une image marquée « photo à remplacer ». Deux portent un prix
+barré (Nurse Scrub Set 64 → 54 $, Body Butter 26 → 22 $) pour montrer comment une
+promotion s'affiche.
+
+L'action est **rejouable sans risque** : elle ne sème le catalogue que si la
+boutique est vide, donc elle ne dupliquera ni n'écrasera de vrais produits.
+
+## 11. Ce qu'il reste à ajouter
+
+Par ordre : ce qui empêche de vendre, puis ce qui fait vendre plus.
+
+### Bloquant — sans ça, une commande ne peut pas aboutir
+
+| À faire | Où | Pourquoi |
+|---|---|---|
+| Configurer **Stripe** et **PayPal** | admin → passerelles | 32 passerelles listées, **aucune configurée** : aujourd'hui personne ne peut payer. Demande les comptes marchands. |
+| Configurer l'**envoi d'e-mails** (`mail_config`) | admin | sans SMTP, aucune confirmation de commande ne part. Un client qui paie sans rien recevoir ouvre un litige. |
+| **Adresse du bureau US**, téléphone, e-mail de contact | pied de page + page Contact | exigé par Stripe et PayPal à l'ouverture du compte marchand, et décisif pour la confiance. |
+| **Pages légales** : Shipping, Returns, Privacy, Terms | `policy_pages` (3 emplacements) + pages | mêmes exigences des processeurs de paiement. |
+
+### Important — le catalogue réel
+
+| À faire | Note |
+|---|---|
+| **Variantes** taille et couleur | à créer depuis l'administration : l'encodage du lien variante ↔ valeurs d'attribut est propre au script, l'écrire directement en base est fragile. |
+| **Vraies photos** (5 par produit) | remplacent les images de démonstration, mêmes noms de fichiers ou via l'administration. |
+| **Guide des tailles** en pouces | première cause d'abandon et de retour sur du vêtement. |
+| Prix, stocks et SKU réels | les modèles portent des valeurs d'exemple. |
+
+### Croissance
+
+| À faire | Note |
+|---|---|
+| Coupon de bienvenue `FIRST15` | contre inscription e-mail — alimente le seul canal que la marque possède |
+| Sections d'accueil : `banner` (8), `feature` (4), `services` (4), `counter` (4) | y écrire la promesse de marque, pas le texte d'exemple |
+| Liens sociaux (`social_icon`, 3 emplacements) | Instagram et TikTok en premier |
+| **Analytics** (Google Analytics, Meta Pixel) | via `global_shortcodes` — sans mesure, aucune décision marketing n'est vérifiable |
+| `seo.data` et métadonnées produits | descriptions uniques, jamais celles d'un fournisseur |
+| Collections « Shift Kit », « New », « Best sellers » | via `product_collections`, sans toucher au menu |
+| Sollicitation d'avis 10 jours après livraison | les avis avec photo sont gérés nativement |
+
+### Exploitation
+
+| À faire | Note |
+|---|---|
+| **Sauvegardes régulières** | aucune tâche cron sur le compte aujourd'hui. La seule sauvegarde existante est celle prise avant ces changements. |
+| Changer le mot de passe administrateur | l'installeur est resté exposé un temps |
+| Taxe de vente selon le *nexus* | à valider avec un comptable |
+| API de livraison (Shippo) | quand le volume dépasse une dizaine de commandes par jour — chapitre 8 |
+
+## 12. Carte de l'administration
 
 Ce que le scan a révélé des réglages disponibles — utile pour savoir quoi faire
 sans toucher au code.
