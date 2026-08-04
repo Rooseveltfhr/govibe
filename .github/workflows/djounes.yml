@@ -1,0 +1,132 @@
+name: Djounes.com — inventaire & maintenance
+
+# Bouton manuel pour travailler sur djounes.com depuis GitHub Actions, sans
+# jamais exposer d'identifiants dans le dépôt.
+#
+# ⚠ djounes.com est sur un hébergement web SÉPARÉ (panneau DirectAdmin
+# vda8400.is.cc:2222) — PAS sur le VPS qui héberge tagtoa.com / govibepay.com.
+# Les deux serveurs sont distincts (djounes.com → 173.225.109.155,
+# tagtoa.com → 67.217.56.29), donc ce workflow n'utilise JAMAIS les secrets
+# VPS_* : il exige ses propres identifiants, sinon il s'arrête.
+#
+# Par défaut : LECTURE SEULE (inventaire). Les actions qui modifient quelque
+# chose doivent être choisies explicitement dans le menu déroulant.
+#
+# Secrets requis (Settings > Secrets and variables > Actions) :
+#   DJOUNES_SSH_HOST / DJOUNES_SSH_USER / DJOUNES_SSH_KEY  (+ DJOUNES_SSH_PORT si ≠ 22)
+# Procédure d'obtention pas à pas : docs/DJOUNES.md
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action (inventaire = lecture seule)"
+        type: choice
+        default: inventaire
+        options:
+          - inventaire
+          - vider_cache
+          - mettre_en_pause
+          - reprendre_site
+      domain:
+        description: "Domaine à inspecter"
+        type: string
+        default: djounes.com
+      fetch_file:
+        description: "Chemin RELATIF au dossier du domaine à récupérer en artefact (ex: public_html/wp-config.php)"
+        type: string
+        default: ""
+
+concurrency:
+  group: djounes-ops
+  cancel-in-progress: false
+
+jobs:
+  ops:
+    name: Inventaire / maintenance djounes.com
+    runs-on: ubuntu-latest
+    env:
+      # Hébergement propre à djounes.com — aucun repli sur les secrets VPS_*
+      # (autre serveur : s'y connecter par erreur ne trouverait rien, ou pire,
+      # agirait sur le mauvais compte).
+      SSH_HOST: ${{ secrets.DJOUNES_SSH_HOST }}
+      SSH_USER: ${{ secrets.DJOUNES_SSH_USER }}
+      SSH_PORT: ${{ secrets.DJOUNES_SSH_PORT || '22' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Valider les entrées (anti-injection)
+        env:
+          IN_ACTION: ${{ inputs.action }}
+          IN_DOMAIN: ${{ inputs.domain }}
+          IN_FETCH: ${{ inputs.fetch_file }}
+        run: |
+          set -euo pipefail
+          case "$IN_ACTION" in
+            inventaire|vider_cache|mettre_en_pause|reprendre_site) ;;
+            *) echo "::error::action invalide"; exit 1;;
+          esac
+          # Domaine : lettres/chiffres/point/tiret uniquement.
+          printf '%s' "$IN_DOMAIN" | grep -qE '^[A-Za-z0-9.-]+$' \
+            || { echo "::error::domaine invalide"; exit 1; }
+          # Fichier : chemin relatif simple, pas de remontée de dossier ni de métacaractère.
+          if [ -n "$IN_FETCH" ]; then
+            printf '%s' "$IN_FETCH" | grep -qE '^[A-Za-z0-9._/-]+$' \
+              || { echo "::error::chemin de fichier invalide"; exit 1; }
+            case "$IN_FETCH" in
+              /*|*..*) echo "::error::chemin absolu ou remontée (..) interdits"; exit 1;;
+            esac
+          fi
+          echo "Entrées valides : action=$IN_ACTION domaine=$IN_DOMAIN"
+
+      - name: Préparer la clé SSH
+        env:
+          KEY_DJOUNES: ${{ secrets.DJOUNES_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          MISSING=""
+          [ -n "${SSH_HOST:-}" ]   || MISSING="$MISSING DJOUNES_SSH_HOST"
+          [ -n "${SSH_USER:-}" ]   || MISSING="$MISSING DJOUNES_SSH_USER"
+          [ -n "${KEY_DJOUNES:-}" ] || MISSING="$MISSING DJOUNES_SSH_KEY"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Secrets manquants :$MISSING — djounes.com est sur un hébergement séparé, il lui faut ses propres identifiants (procédure : docs/DJOUNES.md)."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY_DJOUNES" > ~/.ssh/id_djounes
+          chmod 600 ~/.ssh/id_djounes
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Exécuter l'inventaire / l'action
+        env:
+          IN_ACTION: ${{ inputs.action }}
+          IN_DOMAIN: ${{ inputs.domain }}
+        run: |
+          set -uo pipefail
+          ssh -i ~/.ssh/id_djounes -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 "$SSH_USER@$SSH_HOST" \
+            "ACTION='$IN_ACTION' DOMAIN='$IN_DOMAIN' bash -s" < .github/scripts/djounes-ops.sh
+
+      # Récupération d'un fichier de configuration : passe par un artefact et
+      # jamais par le log (le masquage de secrets corromprait le contenu).
+      - name: Récupérer le fichier demandé
+        if: ${{ inputs.fetch_file != '' }}
+        env:
+          IN_DOMAIN: ${{ inputs.domain }}
+          IN_FETCH: ${{ inputs.fetch_file }}
+        run: |
+          set -uo pipefail
+          ssh -i ~/.ssh/id_djounes -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
+            "$SSH_USER@$SSH_HOST" "D='$IN_DOMAIN' F='$IN_FETCH' bash -s" <<'EOSSH' > fetched-file
+          BASE="$HOME/domains/$D"
+          [ -d "$BASE" ] || BASE="$HOME/$D"
+          cat "$BASE/$F"
+          EOSSH
+          echo "Fichier récupéré ($(wc -c < fetched-file) octets)."
+
+      - name: Publier le fichier en artefact
+        if: ${{ inputs.fetch_file != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: djounes-fetched-file
+          path: fetched-file
+          retention-days: 1

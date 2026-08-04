@@ -196,6 +196,12 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
   (down → dump-autoload → migrate → smoke → seed demo → up; rollback otomatik).
 - Seed demo idempotent sou chak deploy (`TAGTOA_SEED_DEMO=0` pou koupe).
 - Smoke piblik opsyonèl: mete `TAGTOA_SMOKE_BASE=https://tagtoa.com/tapbiz/public`.
+- **djounes.com = ebèjman APA** (panèl DirectAdmin `vda8400.is.cc:2222`, IP
+  173.225.109.155) — PA menm sèvè ak tagtoa.com/govibepay.com (67.217.56.29).
+  Zouti: `.github/workflows/djounes.yml` + `.github/scripts/djounes-ops.sh`
+  (envantè lekti sèl, vide cache, pause/reprann, rale yon fichye an atefak).
+  ⚠ Bezwen aksyon fondatè: sekrè `DJOUNES_SSH_HOST/USER/KEY` (pwosedi nan
+  `docs/DJOUNES.md`). Sekrè `VPS_*` yo PA valab la — workflow la refize yo espre.
 
 ## 7. Done demo (pou teste)
 - MENU: `demo-menu` · PAY: `demo` · LINKS: `demo-links` · EVENT: `demo-concert` · BOOKING: `demo-booking`
