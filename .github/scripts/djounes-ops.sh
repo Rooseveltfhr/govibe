@@ -249,6 +249,43 @@ case "$ACTION" in
     fi
     egrp
     ;;
+  schema_catalogue)
+    # Avant d'insérer quoi que ce soit : connaître les colonnes exactes et les
+    # emplacements d'images attendus. Une insertion à l'aveugle produit des
+    # lignes incomplètes qui font planter la boutique côté client.
+    grp "Emplacements d'images du thème"
+    for d in "$DOCROOT/assets/images" "$DOCROOT/assets/templates"; do
+      [ -d "$d" ] && { echo "[$d]"; find "$d" -maxdepth 2 -type d 2>/dev/null | sed "s|$DOCROOT/||" | head -25; }
+    done
+    echo "-- fichiers logo / favicon existants --"
+    find "$DOCROOT/assets" -maxdepth 4 \( -iname "logo*" -o -iname "favicon*" \) 2>/dev/null \
+      | sed "s|$DOCROOT/||" | head -20
+    echo "-- dossier des images produits (écriture nécessaire) --"
+    ls -ld "$DOCROOT/assets/images" "$DOCROOT/assets/images/product" 2>/dev/null || true
+    egrp
+
+    grp "Schéma des tables du catalogue"
+    if command -v mysql >/dev/null 2>&1 && [ -n "$DBU" ] && [ -n "$DBP" ]; then
+      CNF3=$(mktemp); chmod 600 "$CNF3"
+      printf '[client]\nuser=%s\npassword=%s\nhost=%s\n' "$DBU" "$DBP" "${DBH:-localhost}" > "$CNF3"
+      SAFE=$(printf '%s' "$DBN" | tr -cd 'A-Za-z0-9_')
+      for t in categories brands products product_variants attributes attribute_values \
+               attribute_product attribute_value_product media media_product \
+               product_types product_collections shipping_methods; do
+        echo "== $t =="
+        mysql --defaults-extra-file="$CNF3" -N -e "SHOW COLUMNS FROM \`$SAFE\`.$t;" 2>&1 \
+          | awk '{printf "%s(%s%s) ", $1, $2, ($3=="NO"?",requis":"")}' | fold -s -w 150
+        echo ""
+      done
+      echo "== réglages actuels =="
+      mysql --defaults-extra-file="$CNF3" -e \
+        "SELECT site_name, base_color, secondary_color, cur_text, cur_sym, active_template, guest_checkout, cod FROM \`$SAFE\`.general_settings\\G" 2>&1 | head -15
+      rm -f "$CNF3"
+    else
+      echo "(base inaccessible)"
+    fi
+    egrp
+    ;;
   scan_marque)
     # Avant de renommer quoi que ce soit : savoir OÙ la marque du script
     # apparaît. Un remplacement global casserait des chemins d'actifs, des
