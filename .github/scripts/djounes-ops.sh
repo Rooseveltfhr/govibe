@@ -92,9 +92,12 @@ if [ -n "$APPDIR" ]; then
   echo "-- contenu de $(basename "$APPDIR")/ --"
   ls -1 "$APPDIR" 2>/dev/null | head -25
   echo "-- modules / sections de l'application --"
-  for d in "$APPDIR/Modules" "$APPDIR/app/Http/Controllers"; do
-    [ -d "$d" ] && { echo "[$d]"; ls -1 "$d" 2>/dev/null | head -20; }
+  for d in "$APPDIR/Modules" "$APPDIR/app/Http/Controllers" "$APPDIR/app/Http/Controllers/Admin" "$APPDIR/app/Http/Controllers/Gateway"; do
+    [ -d "$d" ] && { echo "[$(basename "$d")]"; ls -1 "$d" 2>/dev/null | head -40; }
   done
+  echo "-- thème / vues disponibles --"
+  ls -1 "$APPDIR/resources/views" 2>/dev/null | head -15 || true
+  ls -1 "$APPDIR/resources/views/templates" 2>/dev/null | head -10 || true
   echo "-- façade publique (index.php à la racine) --"
   head -25 "$DOCROOT/index.php" 2>/dev/null | redact || true
 elif [ -f "$DOCROOT/wp-config.php" ]; then
@@ -166,6 +169,11 @@ if command -v mysql >/dev/null 2>&1 && [ -n "$DBU" ] && [ -n "$DBP" ]; then
     mysql --defaults-extra-file="$CNF" -N -e \
       "SELECT COUNT(*), IFNULL(ROUND(SUM(data_length+index_length)/1048576,1),0) FROM information_schema.tables WHERE table_schema='$SAFE_DBN';" 2>&1 | head -3
     echo "(tables, Mo)"
+    # Le schéma dit ce que l'application sait faire, et les compteurs disent
+    # ce qui est déjà rempli — indispensable avant de planifier une refonte.
+    echo "-- tables et nombre de lignes (approx. InnoDB) --"
+    mysql --defaults-extra-file="$CNF" -N -e \
+      "SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema='$SAFE_DBN' ORDER BY table_name;" 2>&1 | head -120
   fi
   rm -f "$CNF"
 else
