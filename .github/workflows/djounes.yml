@@ -36,6 +36,7 @@ on:
           - scan_marque
           - schema_catalogue
           - demarrage_marque
+          - contenu_marque
           - vider_cache
           - securiser_install
           - mettre_en_pause
@@ -75,7 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$IN_ACTION" in
-            inventaire|scan_marque|schema_catalogue|demarrage_marque|vider_cache|securiser_install|mettre_en_pause|reprendre_site) ;;
+            inventaire|scan_marque|schema_catalogue|demarrage_marque|contenu_marque|vider_cache|securiser_install|mettre_en_pause|reprendre_site) ;;
             *) echo "::error::action invalide"; exit 1;;
           esac
           # Domaine : lettres/chiffres/point/tiret uniquement.
@@ -202,6 +203,14 @@ jobs:
           ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
             -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
             "DOMAIN='${{ inputs.domain || 'djounes.com' }}' bash -s" < .github/scripts/djounes-bootstrap.sh
+
+      - name: Écrire les textes de marque et installer la sauvegarde
+        if: ${{ inputs.action == 'contenu_marque' }}
+        run: |
+          set -uo pipefail
+          ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
+            "DOMAIN='${{ inputs.domain || 'djounes.com' }}' bash -s" < .github/scripts/djounes-contenu.sh
 
       # Récupération d'un fichier de configuration : passe par un artefact et
       # jamais par le log (le masquage de secrets corromprait le contenu).
