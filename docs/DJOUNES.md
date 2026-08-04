@@ -48,31 +48,66 @@ Dépôt GitHub → **Settings → Secrets and variables → Actions → New repo
 | `DJOUNES_SSH_KEY` | la **clé privée** SSH (contenu complet, `-----BEGIN` … `-----END`) | générée à l'étape ci-dessous |
 | `DJOUNES_SSH_PORT` | *(optionnel)* `22` par défaut ; certains serveurs DirectAdmin utilisent `2222` | à tester si la connexion échoue |
 
-### Générer la clé (sur ta machine, une seule fois)
+### Le mot de passe DirectAdmin ne sert pas ici — et ne doit pas circuler
 
-```bash
-ssh-keygen -t ed25519 -C "github-actions-djounes" -f ~/.ssh/djounes_deploy
-```
+Le mot de passe du panneau ouvre **tout** le compte (fichiers, bases, e-mails,
+DNS) et ne peut ni être révoqué séparément ni limité. Une clé SSH dédiée, au
+contraire, se supprime en un clic dans le panneau sans toucher au reste. C'est
+donc une clé, jamais le mot de passe, qu'on met dans les secrets GitHub — et un
+mot de passe collé dans un message, une issue ou une PR est à considérer comme
+compromis, donc à changer.
 
-1. Dans DirectAdmin : **Advanced Features → SSH Keys → Add Key**, colle le
-   contenu de `~/.ssh/djounes_deploy.pub` (la clé **publique**), coche
-   l'autorisation d'accès.
-2. Dans GitHub : colle le contenu de `~/.ssh/djounes_deploy` (la clé **privée**,
-   sans la partager ailleurs) dans le secret `DJOUNES_SSH_KEY`.
+### Créer la clé depuis le panneau (le plus simple)
 
-**Ne colle jamais un mot de passe, une clé ou un identifiant dans un message, une
-issue ou une PR** — uniquement dans les secrets GitHub.
+Le panneau tourne sur la skin Evolution (`/evo/` dans l'URL) et sait générer la
+paire de clés lui-même — rien à installer.
+
+1. Se connecter sur `https://vda8400.is.cc:2222` avec le compte de djounes.com.
+2. Menu **Advanced Features → SSH Keys**.
+   *Si l'entrée n'existe pas, l'offre n'inclut pas SSH → voir la section suivante.*
+3. Bouton **Create Key** :
+   - *Key Type* : `ed25519` (à défaut `rsa` en 4096 bits) ;
+   - *Key Name* : `github-actions-djounes` ;
+   - *Passphrase* : **laisser vide** — un runner GitHub ne peut pas la saisir ;
+   - cocher **Authorize** (ajoute la clé aux `authorized_keys`).
+4. Valider : le navigateur télécharge la **clé privée** (un fichier sans
+   extension ou en `.key`). C'est le seul moment où elle est téléchargeable.
+5. Ouvrir ce fichier dans un éditeur de texte et copier **tout** le contenu, de
+   `-----BEGIN OPENSSH PRIVATE KEY-----` à `-----END OPENSSH PRIVATE KEY-----`
+   incluses, retour à la ligne final compris.
+6. GitHub → dépôt `Rooseveltfhr/govibe` → **Settings → Secrets and variables →
+   Actions → New repository secret** → créer `DJOUNES_SSH_KEY` avec ce contenu,
+   puis `DJOUNES_SSH_HOST` et `DJOUNES_SSH_USER` (valeurs du tableau ci-dessus).
+7. Supprimer le fichier téléchargé une fois le secret enregistré.
+
+Variante en ligne de commande, si tu préfères garder la clé sur ta machine :
+`ssh-keygen -t ed25519 -C "github-actions-djounes" -f ~/.ssh/djounes_deploy`,
+puis coller le `.pub` dans **SSH Keys → Add Key** et le fichier privé dans le
+secret GitHub.
+
+### Vérifier que ça marche
+
+Fusionner la PR dans `main` (le bouton n'apparaît dans l'onglet **Actions**
+qu'une fois le workflow présent sur la branche par défaut), puis lancer
+*Djounes.com — inventaire & maintenance* en laissant `action = inventaire`.
+
+- Le job passe → l'inventaire est dans le journal, rien n'a été modifié.
+- `Permission denied (publickey)` → la clé n'est pas autorisée (revoir l'étape 3)
+  ou `DJOUNES_SSH_USER` n'est pas le bon nom d'utilisateur.
+- `Connection refused` / *timeout* → mauvais port : créer `DJOUNES_SSH_PORT` avec
+  `2222`, certains serveurs DirectAdmin y placent aussi SSH.
 
 ### Si l'hébergement ne propose pas SSH
 
-Certaines formules mutualisées désactivent SSH. Dans ce cas, deux replis :
+Sur beaucoup de formules mutualisées, SSH est désactivé. Dans ce cas :
 
-- activer l'accès SSH depuis DirectAdmin si l'option existe (souvent sur demande
-  au support de l'hébergeur) ;
-- sinon, exporter à la main ce qu'il faut : dans DirectAdmin, **File Manager**
-  (arborescence de `public_html`), **MySQL Management** (nom des bases), et coller
-  ici la liste. Sans SSH, l'automatisation n'est pas possible, mais le diagnostic
-  et les correctifs de code le restent.
+- demander l'activation au support de l'hébergeur (un shell restreint « jailed »
+  suffit largement pour ce workflow) ;
+- en attendant, relever à la main dans le panneau : **File Manager** (contenu de
+  `domains/djounes.com/public_html` — la présence de `wp-config.php`, `artisan`
+  ou d'un simple `index.html` suffit à identifier la stack), **MySQL Management**
+  (noms des bases) et la version PHP. Sans SSH l'automatisation est impossible,
+  mais le diagnostic et les correctifs de code restent faisables.
 
 ## 4. Ce qui est déjà en place dans ce dépôt
 
