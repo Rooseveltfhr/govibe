@@ -249,6 +249,37 @@ case "$ACTION" in
     fi
     egrp
     ;;
+  scan_admin)
+    # Le panneau d'administration a sa propre charte (bleu) et affiche le nom
+    # et la version du script en pied de barre latérale. On localise les deux
+    # avant d'y toucher.
+    grp "Nom et version du script dans l'administration"
+    grep -rn --include="*.php" --include="*.blade.php" \
+      --exclude-dir=vendor --exclude-dir=node_modules \
+      -iE "visermart|systemDetails|version" "$APPDIR/resources/views/admin" 2>/dev/null \
+      | grep -iE "visermart|version" | sed "s|$APPDIR/||" | head -20
+    echo "-- d'où vient le nom et la version --"
+    grep -rn --include="*.php" -E "\\\$system\s*\[|'version'|systemDetails" \
+      "$APPDIR/app/Http/Helpers/helpers.php" 2>/dev/null | head -10
+    echo "-- pied de la barre latérale --"
+    for f in "$APPDIR/resources/views/admin/partials/sidenav.blade.php" \
+             "$APPDIR/resources/views/admin/partials/sidebar.blade.php" \
+             "$APPDIR/resources/views/admin/layouts/master.blade.php"; do
+      [ -f "$f" ] && { echo "[$(basename "$f")]"; grep -niE "version|visermart|sidebar__footer|copyright" "$f" | head -8; }
+    done
+    egrp
+
+    grp "Charte du panneau d'administration"
+    ADM="$DOCROOT/assets/admin"
+    [ -d "$ADM" ] && ls -1 "$ADM/css" 2>/dev/null | head -10
+    echo "-- couleurs les plus fréquentes dans le CSS admin --"
+    grep -rhoE "#[0-9a-fA-F]{6}" "$ADM/css" 2>/dev/null | tr 'A-F' 'a-f' | sort | uniq -c | sort -rn | head -12
+    echo "-- variables CSS (--*color*) --"
+    grep -rhoE "\-\-[a-z-]*color[a-z-]*: *[^;]+" "$ADM/css" 2>/dev/null | sort -u | head -12
+    echo "-- feuille de style chargée par l'admin --"
+    grep -rn "assets/admin/css" "$APPDIR/resources/views/admin/layouts/master.blade.php" 2>/dev/null | head -8
+    egrp
+    ;;
   schema_catalogue)
     # Avant d'insérer quoi que ce soit : connaître les colonnes exactes et les
     # emplacements d'images attendus. Une insertion à l'aveugle produit des
