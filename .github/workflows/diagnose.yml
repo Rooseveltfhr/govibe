@@ -24,6 +24,10 @@ on:
         description: "Chemin ABSOLU d'un fichier à récupérer tel quel (artefact, sans passage par le log — évite le masquage de secrets)"
         type: string
         default: ""
+      find_pattern:
+        description: "grep -rl SÛR dans resources/views : affiche seulement les CHEMINS des fichiers qui matchent (jamais le contenu, zéro risque de masquage)"
+        type: string
+        default: ""
 
 concurrency:
   group: diagnose-tagtoa
@@ -47,10 +51,11 @@ jobs:
           CLEAR: ${{ inputs.clear_cache }}
           PAUSE: ${{ inputs.pause_sites }}
           UNPAUSE: ${{ inputs.unpause_sites }}
+          FIND_PATTERN: ${{ inputs.find_pattern }}
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
           ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' PAUSE='$PAUSE' UNPAUSE='$UNPAUSE' bash -s" <<'EOSSH'
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' PAUSE='$PAUSE' UNPAUSE='$UNPAUSE' FIND_PATTERN='$FIND_PATTERN' bash -s" <<'EOSSH'
           set -uo pipefail
 
           echo "::group::Contexte SSH"
@@ -116,28 +121,8 @@ jobs:
           fi
           echo "::endgroup::"
 
-          echo "::group::CPU RÉEL — le compte a-t-il vraiment accès à 4 cœurs, ou est-il limité (CloudLinux LVE / cgroup) ?"
-          echo "== nproc (limité par affinité/cgroup) vs nproc --all (cœurs physiques visibles) =="
+          echo "::group::CPU — nproc (VPS redimensionné, vérif rapide seulement)"
           nproc 2>&1 || true
-          nproc --all 2>&1 || true
-          echo "== /proc/cpuinfo : nombre de processeurs listés =="
-          grep -c ^processor /proc/cpuinfo 2>&1 || echo "illisible"
-          echo "== lscpu (si disponible) =="
-          lscpu 2>&1 | head -15 || echo "lscpu non disponible"
-          echo "== CloudLinux LVE (limite par COMPTE, indépendante du plan VPS — très courant en hébergement mutualisé/revendeur) =="
-          command -v lveinfo >/dev/null && lveinfo "$(whoami)" 2>&1 || echo "lveinfo absent (pas de CloudLinux, ou non exécutable par cet utilisateur)"
-          [ -f /proc/user_beancounters ] && echo "OpenVZ détecté :" && cat /proc/user_beancounters 2>&1 | head -20 || echo "pas d'OpenVZ (/proc/user_beancounters absent)"
-          echo "== cgroup CPU quota (limite réelle, même si nproc affiche plus) =="
-          echo "-- cgroup v2 --"
-          [ -f /sys/fs/cgroup/cpu.max ] && cat /sys/fs/cgroup/cpu.max 2>&1 || echo "pas de cpu.max (v2) lisible ici"
-          echo "-- cgroup v1 --"
-          for f in /sys/fs/cgroup/cpu/cpu.cfs_quota_us /sys/fs/cgroup/cpu/cpu.cfs_period_us /sys/fs/cgroup/cpu,cpuacct/cpu.cfs_quota_us /sys/fs/cgroup/cpu,cpuacct/cpu.cfs_period_us; do
-            [ -f "$f" ] && echo "$f = $(cat "$f" 2>&1)"
-          done
-          echo "-- cgroup du process courant (montre si on est dans un conteneur/LVE limité) --"
-          cat /proc/self/cgroup 2>&1 | head -10 || true
-          echo "== type de virtualisation (si détectable sans sudo) =="
-          command -v systemd-detect-virt >/dev/null && systemd-detect-virt 2>&1 || echo "systemd-detect-virt non disponible"
           echo "::endgroup::"
 
           echo "::group::PERFORMANCE — charge serveur, timing HTTP, drivers, taille des logs"
@@ -196,9 +181,11 @@ jobs:
           ( cd "$L" && ls storage/framework/views/*.php 2>/dev/null | wc -l | xargs -I{} echo "  vues Blade compilées en cache: {}" ) || true
           echo "::endgroup::"
 
-          echo "::group::MENU LATERAL — layouts/menu.blade.php (recupere via artefact, pas via le log)"
-          echo "voir l'etape 'Fetch file for artifact' + l'artefact 'fetched-file' de ce run"
-          echo "::endgroup::"
+          if [ -n "${FIND_PATTERN:-}" ]; then
+            echo "::group::Recherche de fichiers (CHEMINS seulement — jamais le contenu)"
+            grep -rl -- "$FIND_PATTERN" "$L/resources/views" 2>/dev/null | sed "s|^$L/||" || echo "aucun résultat"
+            echo "::endgroup::"
+          fi
 
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
           LOG="$L/storage/logs/laravel.log"
