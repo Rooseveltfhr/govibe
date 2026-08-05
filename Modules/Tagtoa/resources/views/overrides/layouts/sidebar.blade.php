@@ -1,3 +1,10 @@
+{{-- TAGTOA — nudge visuel léger (police) vers l'identité TAGTOA, sans toucher
+     layouts/app.blade.php (cœur, complexe : cropper, livewire-tables, Stripe,
+     2FA...). Portée volontairement étroite : body seulement, pas de !important
+     ni de sélecteur générique, pour ne jamais casser les polices d'icônes
+     (Font Awesome/Bootstrap Icons déclarent leur propre font-family). --}}
+<link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
+<style>body{font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}</style>
 <div class="aside-menu-container" id="sidebar">
     <script>
         if (localStorage.getItem('sidebar_collapsed') === '1' && window.innerWidth > 1200) {
@@ -36,6 +43,13 @@
     </form>
     <div class="sidebar-scrolling {{ Request::is('*') ? 'pb-15' : '' }}">
         <ul class="aside-menu-container__aside-menu nav flex-column">
+            {{-- TAGTOA — retour rapide vers le hub, visible depuis n'importe
+                 quelle page Biztap (kat vizit, paramètres, etc.). --}}
+            <li class="nav-item" style="margin:2px 10px 12px">
+                <a href="{{ url('/tagtoa/home') }}" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:11px;background:#2cb809;color:#fff;font-weight:700;text-decoration:none;font-size:14px">
+                    <i class="fa-solid fa-arrow-left"></i> {{ __('Retour à TAGTOA') }}
+                </a>
+            </li>
             @include('layouts.menu')
             @role(App\Models\Role::ROLE_ADMIN)
                 @include('tagtoa::layouts.tagtoa-menu-items')
