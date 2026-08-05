@@ -28,6 +28,10 @@ on:
         description: "grep -rl SÛR dans resources/views : affiche seulement les CHEMINS des fichiers qui matchent (jamais le contenu, zéro risque de masquage)"
         type: string
         default: ""
+      inspect_skeleton:
+        description: "Chemin RELATIF (depuis resources/views) d'une vue à inspecter : affiche seulement les lignes structurelles (@yield/@include/<title>/<link>/<script>/<style>/<body>), jamais le fichier complet — sûr contre le masquage"
+        type: string
+        default: ""
 
 concurrency:
   group: diagnose-tagtoa
@@ -52,10 +56,11 @@ jobs:
           PAUSE: ${{ inputs.pause_sites }}
           UNPAUSE: ${{ inputs.unpause_sites }}
           FIND_PATTERN: ${{ inputs.find_pattern }}
+          INSPECT_SKELETON: ${{ inputs.inspect_skeleton }}
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
           ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' PAUSE='$PAUSE' UNPAUSE='$UNPAUSE' FIND_PATTERN='$FIND_PATTERN' bash -s" <<'EOSSH'
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' PAUSE='$PAUSE' UNPAUSE='$UNPAUSE' FIND_PATTERN='$FIND_PATTERN' INSPECT_SKELETON='$INSPECT_SKELETON' bash -s" <<'EOSSH'
           set -uo pipefail
 
           echo "::group::Contexte SSH"
@@ -184,6 +189,20 @@ jobs:
           if [ -n "${FIND_PATTERN:-}" ]; then
             echo "::group::Recherche de fichiers (CHEMINS seulement — jamais le contenu)"
             grep -rl -- "$FIND_PATTERN" "$L/resources/views" 2>/dev/null | sed "s|^$L/||" || echo "aucun résultat"
+            echo "::endgroup::"
+          fi
+
+          if [ -n "${INSPECT_SKELETON:-}" ]; then
+            echo "::group::Squelette de vue (lignes structurelles seulement — jamais le fichier complet)"
+            F="$L/resources/views/$INSPECT_SKELETON"
+            if [ -f "$F" ]; then
+              echo "wc -l : $(wc -l < "$F")"
+              grep -n -E "@yield|@include|@extends|@stack|@push|<title|<link |<script |<style|</?body|</?head|</?html" "$F" \
+                | cut -c1-200 \
+                | sed -E 's/(password|pwd|secret|token)([=" :]+)[^ "]+/\1\2[REDACTED]/gi'
+            else
+              echo "introuvable: $INSPECT_SKELETON"
+            fi
             echo "::endgroup::"
           fi
 
