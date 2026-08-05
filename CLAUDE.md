@@ -180,15 +180,17 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
   vidaj cache + relye asèt, SAN DB). Deklanche via Actions (input `clear_cache`).
 - **GOVIBEPAY fusion** (out 2026): workflow `.github/workflows/govibepay-merge.yml`
   (bouton, mode `inspect`/`merge`/`landing`/`brand`/`rollback`) pou fizyone
-  app.govibepay.com sou rasin govibepay.com (WordPress sovgade, jamè efase; sou-domèn
-  `app.` vin redireksyon 301). Nouvo home enstale **andedan script la**
-  (`Modules/Tagtoa/deploy/govibepay/landing.html` → `resources/views/govibepay/landing.blade.php`
-  + wout `GET /` nan fen `routes/web.php`, makè `GOVIBEPAY-LANDING-ROUTE`; fallback
-  statique `DirectoryIndex` si script la pa Laravel). Mode `brand` renome
-  `appdev` → `GOVIBEPay` (.env + views/lang/config/public sèlman, backup + `php -l`;
-  si non an rete, li nan DB Settings panèl admin script la). Doc:
-  `Modules/Tagtoa/deploy/govibepay/README.md`. **Kouri `inspect` AVAN `merge`**
-  (verifye selektè PHP govibepay.com = menm vèsyon ak app la).
+  app.govibepay.com sou rasin govibepay.com. **Estrikti reyèl (verifye pa `inspect`)**:
+  `govibepay.com/public_html` **PA gen WordPress** — se `index.php` (~82 Ko = paj akèy
+  la) + `app/` (ViserPay dekonprese + zip 123 Mo + `install/` **ekspoze piblikman ⚠️**)
+  + `my/`; script la se **QRPay (AppDevs)** nan `app.govibepay.com/public_html`
+  (Laravel nan docroot, `APP_NAME="GOVIBEPAY WALLET"`, PHP 8.3).
+  Donk: workflow la **pa deplase docroot la an blòk** — li konsève paj akèy egzistan an
+  (`index.php` → `govibepay-home.php`, rete nan docroot pou asèt relatif yo) epi ajoute
+  yon wout `GET /` nan fen `routes/web.php` ki sèvi l (makè `GOVIBEPAY-LANDING-ROUTE`).
+  **« appdev » se URL founisè a** (`appdevs.cloud`, `cdn.appdevs.net`, `qrpay.appdevs.net`)
+  — mode `brand` **pa janm touche URL** (sa t ap kraze CSS/JS), sèlman mansyon vizib.
+  Doc: `Modules/Tagtoa/deploy/govibepay/README.md`. **Kouri `inspect` AVAN `merge`**.
 - ⚠️ Aksyon itilizatè toujou: woule `DB_PASSWORD` (te ekspoze), `TAGTOA_CONTACT_WHATSAPP`
   (bouton Solutions), `TAGTOA_TWILIO_*` (WhatsApp), kle NTAG424 (Faz 7).
 - Login admin: `https://tagtoa.com/login` (rasin). Konekte → LandingController redirije
