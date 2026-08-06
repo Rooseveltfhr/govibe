@@ -22,6 +22,7 @@ on:
         options:
           - inspect
           - diagnose
+          - assets
           - merge
           - landing
           - brand
@@ -247,6 +248,18 @@ jobs:
           ' 2>/dev/null)
           if [ -z "$PFX" ]; then
             echo "  ⚠️ préfixe admin illisible en base — on teste /admin par défaut"
+            echo "  --- colonnes contenant « prefix » (noms seuls, aucune valeur) ---"
+            L="$LROOT" php -r '
+              $e=@file(getenv("L")."/.env"); $c=[];
+              foreach((array)$e as $l){ if(preg_match("/^\s*([A-Z_]+)\s*=\s*\"?([^\"\r\n]*)\"?/",$l,$m)) $c[$m[1]]=$m[2]; }
+              try{
+                $db=$c["DB_DATABASE"]??"";
+                $p=new PDO("mysql:host=".($c["DB_HOST"]??"127.0.0.1").";dbname=".$db,$c["DB_USERNAME"]??"",$c["DB_PASSWORD"]??"");
+                $q=$p->prepare("SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND COLUMN_NAME LIKE ?");
+                $q->execute([$db,"%prefix%"]);
+                foreach($q->fetchAll(PDO::FETCH_NUM) as $r){ echo "    ".$r[0].".".$r[1]."\n"; }
+              }catch(Throwable $t){ echo "    (connexion base impossible : ".get_class($t).")\n"; }
+            ' 2>/dev/null
             PFX="admin"
           else
             echo "  ✅ préfixe admin lu en base (valeur masquée : ${#PFX} caractères)"
@@ -569,6 +582,87 @@ jobs:
           EOSSH
 
       # ------------------------------------------------------------------
+      # ASSETS — supprime la dépendance externe du script à cdn.appdevs.net,
+      # qui NE RÉPOND PLUS (timeout) alors que les pages d'authentification
+      # y chargent leur CSS et leurs modules JS : le formulaire de connexion
+      # reste donc inerte. Les fichiers sont téléchargés en local quand c'est
+      # possible, sinon repointés vers appdevs.cloud (l'hôte encore vivant).
+      # Sauvegarde par fichier + php -l ; annulable par rollback.
+      # ------------------------------------------------------------------
+      - name: Assets (retirer la dépendance au CDN mort)
+        if: ${{ inputs.mode == 'assets' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          TS=$(date +%Y%m%d-%H%M%S)
+          DOM="$HOME/domains/govibepay.com"
+          LROOT=""
+          for c in "$HOME/domains/app.govibepay.com/public_html" "$DOM/public_html/app" "$DOM/govibepay-app"; do
+            [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+          done
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          VDIR="$LROOT/public/vendor/fileholder/v1.0"
+          BK="$DOM/assets-backup-$TS"
+          mkdir -p "$VDIR/css" "$VDIR/js" "$BK"
+
+          echo "=== Fichiers servis par le CDN mort, référencés par le script ==="
+          FILES="css/fileholder-style.css js/fileholder-script.js js/fileholder-settings.js"
+          OKDL=1
+          for F in $FILES; do
+            # appdevs.cloud (vivant) sert les mêmes chemins sous /cdn/
+            if curl -fsS -m 25 -o "$VDIR/$F" "https://appdevs.cloud/cdn/fileholder/v1.0/$F" 2>/dev/null; then
+              echo "  ✅ $F téléchargé ($(wc -c < "$VDIR/$F") octets)"
+            else
+              echo "  🔴 $F : téléchargement impossible"
+              OKDL=0
+            fi
+          done
+          echo ""
+
+          if [ "$OKDL" = "1" ]; then
+            MODE="local"; echo "→ les assets seront servis LOCALEMENT (/vendor/fileholder/v1.0/...)"
+          else
+            MODE="cloud"; echo "→ téléchargement partiel : on repointe simplement vers appdevs.cloud"
+          fi
+          echo ""
+
+          echo "=== Réécriture des références (sauvegarde par fichier) ==="
+          COUNT=0
+          while IFS= read -r f; do
+            case "$f" in *"/resources"[A-Z]*|*".bak/"*|*"/vendor/"*|*"/node_modules/"*) continue;; esac
+            rel="${f#$LROOT/}"
+            mkdir -p "$BK/$(dirname "$rel")"
+            cp -a "$f" "$BK/$rel"
+            if [ "$MODE" = "local" ]; then
+              sed -i -e 's#https://cdn\.appdevs\.net/fileholder/v1\.0/#/vendor/fileholder/v1.0/#g' \
+                     -e 's#https://appdevs\.cloud/cdn/fileholder/v1\.0/#/vendor/fileholder/v1.0/#g' "$f"
+            else
+              sed -i -e 's#https://cdn\.appdevs\.net/fileholder/v1\.0/#https://appdevs.cloud/cdn/fileholder/v1.0/#g' "$f"
+            fi
+            case "$f" in
+              *.php) php -l "$f" >/dev/null 2>&1 || { echo "  !! $rel cassé — restauré"; cp -a "$BK/$rel" "$f"; continue; };;
+            esac
+            echo "  • $rel"
+            COUNT=$((COUNT+1))
+          done < <(grep -rIl --exclude-dir=vendor --exclude-dir=node_modules -e 'cdn\.appdevs\.net\|appdevs\.cloud' "$LROOT/resources" 2>/dev/null)
+          echo "→ $COUNT fichier(s) modifié(s) ; sauvegarde : $BK"
+          echo "  (marqueur pour rollback)"
+          echo "assets_backup=$BK" >> "$DOM/.govibepay-assets.meta"
+
+          ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
+          echo ""
+          echo "=== Vérification : références externes restantes dans resources/ ==="
+          grep -rIo --exclude-dir=vendor --exclude-dir=node_modules -e 'cdn\.appdevs\.net' "$LROOT/resources" 2>/dev/null | wc -l | sed 's/^/  cdn.appdevs.net (mort) : /'
+          echo "=== Les assets locaux répondent-ils ? ==="
+          for F in $FILES; do
+            curl -skS -m 10 -o /dev/null -w "  /vendor/fileholder/v1.0/$F -> %{http_code}\n" \
+              -H "Host: app.govibepay.com" "https://127.0.0.1/vendor/fileholder/v1.0/$F" || true
+          done
+          EOSSH
+
+      # ------------------------------------------------------------------
       # ROLLBACK — remet tout dans l'état d'avant la fusion.
       # ------------------------------------------------------------------
       - name: Rollback
@@ -608,6 +702,12 @@ jobs:
             else
               rm -f "$VDIR/.htaccess"; echo "→ redirection du sous-domaine retirée"
             fi
+          fi
+          # 3b) assets vendorisés (mode assets) : restaurer les vues d'origine
+          AB=$(ls -dt "$DOM"/assets-backup-* 2>/dev/null | head -1)
+          if [ -n "$AB" ] && [ -d "$AB" ] && [ -n "$LROOT" ]; then
+            cp -a "$AB/." "$LROOT/"; rm -f "$DOM/.govibepay-assets.meta"
+            echo "→ références d'assets restaurées depuis $AB"
           fi
           # 4) route '/' + marque dans le script
           if [ -n "$LROOT" ] && [ -d "$LROOT" ]; then
