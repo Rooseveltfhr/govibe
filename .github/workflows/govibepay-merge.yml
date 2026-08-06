@@ -147,15 +147,28 @@ jobs:
           echo "Script : $LROOT"
           echo ""
 
-          echo "=== 1. Réponse HTTP du login admin ==="
-          for U in "/admin" "/admin/login"; do
-            for H in app.govibepay.com govibepay.com; do
-              read -r CODE REDIR SIZE <<<"$(curl -skS -m 15 -o /dev/null \
-                -w '%{http_code} %{redirect_url} %{size_download}' \
-                -H "Host: $H" "https://127.0.0.1$U" 2>/dev/null)"
-              echo "  https://$H$U -> code=$CODE taille=${SIZE:-0} ${REDIR:+redirige_vers=$REDIR}"
-            done
+          echo "=== 1. Réponse HTTP par chemin (hôte app.govibepay.com) ==="
+          for U in "/" "/login" "/register" "/user/login" "/merchant/login" "/agent/login" "/admin" "/admin/login"; do
+            CODE=$(curl -skS -m 15 -o /dev/null -w '%{http_code}' -H "Host: app.govibepay.com" "https://127.0.0.1$U" 2>/dev/null)
+            SIZE=$(curl -skS -m 15 -o /dev/null -w '%{size_download}' -H "Host: app.govibepay.com" "https://127.0.0.1$U" 2>/dev/null)
+            printf '  %-22s code=%s taille=%s\n' "$U" "$CODE" "$SIZE"
           done
+          echo "  (une taille ~355 = page d'erreur Apache : la requête n'atteint PAS Laravel)"
+          echo ""
+
+          echo "=== 1b. Réécriture Apache (pourquoi une requête n'atteint pas Laravel) ==="
+          echo "--- .htaccess à la racine du script ---"
+          [ -f "$LROOT/.htaccess" ] && cat "$LROOT/.htaccess" || echo "  (ABSENT)"
+          echo "--- public/index.php présent ? ---"
+          [ -f "$LROOT/public/index.php" ] && echo "  oui" || echo "  🔴 NON"
+          echo "--- public/.htaccess ---"
+          [ -f "$LROOT/public/.htaccess" ] && head -25 "$LROOT/public/.htaccess" || echo "  (ABSENT)"
+          echo ""
+
+          echo "=== 1c. Le chemin du login admin existe-t-il dans le script ? ==="
+          grep -rIn --include='*.php' -iE "prefix\(?['\"]?admin|'admin/login'|admin\.login" "$LROOT/routes" 2>/dev/null | head -10 || echo "  (rien trouvé dans routes/)"
+          echo "--- fichiers de routes présents ---"
+          ls "$LROOT/routes" 2>/dev/null
           echo ""
           echo "--- le formulaire contient-il un jeton CSRF ? ---"
           BODY=$(curl -skS -m 15 -H "Host: app.govibepay.com" "https://127.0.0.1/admin/login" 2>/dev/null)
@@ -179,11 +192,15 @@ jobs:
           done
           echo ""
 
-          echo "=== 4. Journal Laravel (40 dernières lignes d'erreur) ==="
+          echo "=== 4. Journal Laravel — erreurs DISTINCTES (pas 40 fois la même) ==="
           LOG="$LROOT/storage/logs/laravel.log"
           if [ -f "$LOG" ]; then
             echo "  (fichier : $(du -h "$LOG" | cut -f1), modifié $(date -r "$LOG" '+%Y-%m-%d %H:%M'))"
-            grep -aE 'ERROR|CRITICAL|EMERGENCY|Exception' "$LOG" 2>/dev/null | tail -40 || tail -40 "$LOG"
+            echo "  --- types d'erreur les plus fréquents ---"
+            grep -aoE '(ERROR|CRITICAL|EMERGENCY): [^{]{0,90}' "$LOG" 2>/dev/null \
+              | sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}//g' | sort | uniq -c | sort -rn | head -12
+            echo "  --- 10 dernières erreurs (horodatées) ---"
+            grep -aE 'ERROR|CRITICAL|EMERGENCY' "$LOG" 2>/dev/null | tail -10 | cut -c1-180
           else
             echo "  (aucun laravel.log)"
           fi
