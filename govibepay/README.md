@@ -1,11 +1,29 @@
-# GOVIBEPAY — Fusion app.govibepay.com → govibepay.com
+# GOVIBEPAY — pwojè apa (PA TAGTOA)
+
+> ⚠️ **GOVIBEPAY ak TAGTOA se DE PWOJÈ DIFERAN.**
+>
+> | | GOVIBEPAY | TAGTOA |
+> |---|---|---|
+> | Pwodwi | Pòtfèy mobil / MFS (script **QRPay**, AppDevs) | Platfòm NFC/QR pou machann (`Modules/Tagtoa/`) |
+> | Kòd sous | **PA nan repo sa a** — li sou sèvè a sèlman | Nan repo sa a |
+> | Domèn | `govibepay.com` (+ `app.govibepay.com`) | `tagtoa.com` |
+> | Dosye repo | **`govibepay/`** (sa a) | `Modules/Tagtoa/` |
+> | Deplwaman | Workflow `govibepay-merge.yml` (bouton sèlman) | `deploy.yml` (otomatik sou `main`) |
+>
+> Yo pataje sèlman **menm kont hosting** (`govibepay.com` = kont prensipal,
+> `tagtoa.com` = addon domain) epi menm sekrè SSH.
+>
+> **PA JANM mete fichye GOVIBEPAY anba `Modules/Tagtoa/`**: `deploy.yml` deklanche
+> sou `paths: ["Modules/Tagtoa/**"]`, donk yon senp chanjman dokiman GOVIBEPay ta
+> deklanche yon **deplwaman pwodiksyon tagtoa.com** (down → migrate → up) san rezon.
+
+## Fusion app.govibepay.com → govibepay.com
 
 Objektif: fè **yon sèl sit**. Script la (ki sou app.govibepay.com) vin sèvi dirèkteman
 sou `https://govibepay.com/`, epi `app.govibepay.com` vin **redireksyon 301** vè rasin lan.
 
 Tout bagay fèt ak workflow GitHub Actions: **Actions → « GOVIBEPAY — Fusion
-app.govibepay.com → govibepay.com »** (menm sekrè SSH ak deploy TAGTOA a:
-`VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_PORT`).
+app.govibepay.com → govibepay.com »** (`VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER`, `VPS_PORT`).
 
 ## Sa `inspect` te revele (5 out 2026) — enpòtan
 
