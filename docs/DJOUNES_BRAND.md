@@ -306,6 +306,39 @@ coupon (pourcentage ou montant fixe, le script ne le documente pas), et le fait
 que la section `services.content` n'existe pas dans cette installation — seuls ses
 quatre éléments existent, et ils sont remplis.
 
+### Panneau d'administration (6 août 2026)
+
+Le panneau était bleu et signé du nom du script. Après sauvegarde horodatée de
+chaque fichier touché dans `~/djounes-backups/admin-<date>/` :
+
+| Élément | Avant | Après |
+|---|---|---|
+| Couleur principale | `#4634ff` (76 occurrences dans `app.css`) | `#0B3B2E` |
+| Nuance survolée | `#2948ff` | `#082C22` — plus foncée que le vert principal, pour que le survol reste visible |
+| Transparences | `rgba(70, 52, 255, …)` | `rgba(11, 59, 46, …)` |
+| Surcharges ciblées | — | bloc délimité dans `custom.css`, chargé après `app.css` et prévu pour ça |
+| Pied de barre latérale | *Visermart · V2.3* | **DJOUNES** |
+
+Plus aucune occurrence de « visermart » dans les vues d'administration.
+`/`, `/admin` et `/products` répondent 200 après coup.
+
+**Ce qui n'a pas été touché, et pourquoi.** Le scan a montré que `helpers.php`
+définit `systemDetails()['name'] = 'visermart'`, et que cette valeur alimente
+l'appel de vérification de licence du script :
+
+```php
+$url = VugiChugi::gttmp() . systemDetails()['name'];   // helpers.php:177
+```
+
+On a donc changé **ce que la vue affiche**, pas ce dont le script a besoin pour
+se valider. Le résultat est identique à l'écran, sans risquer de casser la
+licence ou les mises à jour.
+
+Les images de démonstration sont passées de simples cartons de texte à des
+illustrations à la charte (haut de scrub, chaussettes, pot, flacon, savon, tote,
+headband, sous-vêtement) sur fond ivoire. Ce sont des **illustrations**, pas des
+photographies : elles tiennent la place jusqu'aux vraies prises de vue.
+
 ## 11. Ce qu'il reste à ajouter
 
 Par ordre : ce qui empêche de vendre, puis ce qui fait vendre plus.
