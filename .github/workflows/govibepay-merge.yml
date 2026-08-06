@@ -237,15 +237,27 @@ jobs:
           echo "=== 5b. Page de connexion admin : pourquoi le champ ne réagit pas ? ==="
           # Le préfixe admin vient de la base. On le lit pour ATTEINDRE la page,
           # mais on ne l'affiche JAMAIS (dépôt public) — seuls les constats sortent.
-          PFX=$(L="$LROOT" php -r '
-            $e=@file(getenv("L")."/.env"); $c=[];
-            foreach((array)$e as $l){ if(preg_match("/^\s*([A-Z_]+)\s*=\s*\"?([^\"\r\n]*)\"?/",$l,$m)) $c[$m[1]]=$m[2]; }
-            try{
-              $p=new PDO("mysql:host=".($c["DB_HOST"]??"127.0.0.1").";dbname=".($c["DB_DATABASE"]??""),$c["DB_USERNAME"]??"",$c["DB_PASSWORD"]??"");
-              $v=$p->query("SELECT admin_prefix FROM basic_settings LIMIT 1")->fetchColumn();
-              echo $v ?: "";
-            }catch(Throwable $t){ echo ""; }
-          ' 2>/dev/null)
+          # On interroge la base VIA LARAVEL (sa propre config) : analyser le .env
+          # à la main échouait silencieusement. Le préfixe n'est jamais affiché.
+          cat > "$LROOT/.govibepay-prefix.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          try {
+              $row = Illuminate\Support\Facades\DB::table('basic_settings')->first();
+              foreach (['admin_prefix', 'admin_panel_prefix', 'prefix'] as $col) {
+                  if ($row && isset($row->$col) && $row->$col !== '') { echo $row->$col; exit; }
+              }
+              fwrite(STDERR, "colonnes de basic_settings contenant 'prefix' : ");
+              fwrite(STDERR, implode(',', array_values(array_filter(array_keys((array) $row), fn ($k) => str_contains($k, 'prefix')))) ?: '(aucune)');
+          } catch (Throwable $e) {
+              fwrite(STDERR, 'base inaccessible : '.get_class($e).' — '.substr($e->getMessage(), 0, 80));
+          }
+          EOPHP
+          PFX=$( cd "$LROOT" && php .govibepay-prefix.php 2>>/tmp/gvp-prefix.err )
+          rm -f "$LROOT/.govibepay-prefix.php"
+          [ -s /tmp/gvp-prefix.err ] && { echo "  (info base : $(cat /tmp/gvp-prefix.err))"; rm -f /tmp/gvp-prefix.err; }
           if [ -z "$PFX" ]; then
             echo "  ⚠️ préfixe admin illisible en base — on teste /admin par défaut"
             echo "  --- colonnes contenant « prefix » (noms seuls, aucune valeur) ---"
