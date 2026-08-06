@@ -66,6 +66,7 @@ ak restorasyon otomatik si l kase.
 | Mode | Sa l fè |
 |---|---|
 | **`inspect`** (defo) | Odit sèlman, **okenn chanjman**. Estrikti, paj akèy, script, PHP, **ekspozisyon piblik** (`.env`, `.envMM`, `install/`, zip), kòd HTTP lokal. |
+| **`diagnose`** | Poukisa `https://app.govibepay.com/admin/login` pa mache: kòd HTTP paj la, prezans jeton CSRF + cookie sesyon, konfig sesyon/cache, **pèmisyon `storage/` ak `bootstrap/cache`**, 40 dènye erè `laravel.log`, wout admin yo. Apre sa li fè yon **reparasyon san danje**: vide cache + remete pèmisyon yo, epi li reteste. Okenn done sansib pa afiche. |
 | **`merge`** | Sèvi script la sou rasin lan (front controller jenere + `php -l`, asèt script la kopye **san ekrase** anyen, `storage` relye, `APP_URL`), konsève paj akèy la, mete redireksyon 301 sou sou-domèn nan, epi kouri `brand`. Idanpotan (makè `.govibepay-merge.meta`). |
 | **`landing`** | Re-enstale sèlman wout `/` ki sèvi paj akèy la. |
 | **`brand`** | Mak GOVIBEPay — `APP_NAME` **sèlman si** li gen « appdev » ladan, epi mansyon vizib nan `resources/views` + `lang`. **Jamè URL**, jamè `app/`, jamè `vendor/`. Backup pa fichye + `php -l` ak auto-restore. |

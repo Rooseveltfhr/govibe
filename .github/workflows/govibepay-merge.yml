@@ -17,10 +17,11 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "inspect = audit seul (aucun changement) · merge = fusionner · landing = réinstaller la home · brand = marque GOVIBEPay seulement · rollback = tout défaire"
+        description: "inspect = audit seul · diagnose = pourquoi /admin/login ne marche pas (lecture + vidage de cache) · merge = fusionner · landing = réinstaller la home · brand = marque GOVIBEPay · rollback = tout défaire"
         type: choice
         options:
           - inspect
+          - diagnose
           - merge
           - landing
           - brand
@@ -121,6 +122,93 @@ jobs:
           echo ""
           echo "=== Sauvegardes de fusion présentes ==="
           ls -d "$DOM"/govibepay-merge-backup-* 2>/dev/null || echo "(aucune)"
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # DIAGNOSE — pourquoi https://app.govibepay.com/admin/login ne marche pas.
+      # Lecture seule, SAUF un vidage de cache et une remise en ordre des
+      # permissions storage/ + bootstrap/cache (causes n°1 des 419/500 au login).
+      # Aucune donnée sensible n'est affichée (pas de mot de passe, pas d'APP_KEY).
+      # ------------------------------------------------------------------
+      - name: Diagnose (login admin)
+        if: ${{ inputs.mode == 'diagnose' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          APPDOM="$HOME/domains/app.govibepay.com"
+          LROOT=""
+          for c in "$APPDOM/public_html" "$DOM/public_html/app" "$DOM/govibepay-app"; do
+            [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+          done
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          echo "Script : $LROOT"
+          echo ""
+
+          echo "=== 1. Réponse HTTP du login admin ==="
+          for U in "/admin" "/admin/login"; do
+            for H in app.govibepay.com govibepay.com; do
+              read -r CODE REDIR SIZE <<<"$(curl -skS -m 15 -o /dev/null \
+                -w '%{http_code} %{redirect_url} %{size_download}' \
+                -H "Host: $H" "https://127.0.0.1$U" 2>/dev/null)"
+              echo "  https://$H$U -> code=$CODE taille=${SIZE:-0} ${REDIR:+redirige_vers=$REDIR}"
+            done
+          done
+          echo ""
+          echo "--- le formulaire contient-il un jeton CSRF ? ---"
+          BODY=$(curl -skS -m 15 -H "Host: app.govibepay.com" "https://127.0.0.1/admin/login" 2>/dev/null)
+          echo "$BODY" | grep -qi 'csrf-token\|_token' && echo "  ✅ jeton CSRF présent dans la page" || echo "  ⚠️ AUCUN jeton CSRF trouvé (page d'erreur ? page vide ?)"
+          echo "  titre de la page : $(echo "$BODY" | grep -oiE '<title>[^<]*' | head -1)"
+          echo "  cookie de session émis : $(curl -skS -m 15 -D - -o /dev/null -H "Host: app.govibepay.com" "https://127.0.0.1/admin/login" 2>/dev/null | grep -ci '^set-cookie') en-tête(s)"
+          echo ""
+
+          echo "=== 2. Configuration (clés non sensibles) ==="
+          grep -E '^(APP_ENV|APP_DEBUG|APP_URL|SESSION_DRIVER|SESSION_DOMAIN|SESSION_SECURE_COOKIE|CACHE_DRIVER|CACHE_STORE|QUEUE_CONNECTION|DB_CONNECTION|DB_HOST|DB_DATABASE)=' "$LROOT/.env" 2>/dev/null || echo "(.env illisible)"
+          echo ""
+
+          echo "=== 3. Permissions (cause n°1 des 500/419) ==="
+          for d in storage storage/framework storage/framework/sessions storage/framework/views storage/framework/cache storage/logs bootstrap/cache; do
+            if [ -d "$LROOT/$d" ]; then
+              W=$([ -w "$LROOT/$d" ] && echo "inscriptible" || echo "🔴 NON INSCRIPTIBLE")
+              printf '  %-34s %s  %s\n' "$d" "$(stat -c '%a %U' "$LROOT/$d" 2>/dev/null)" "$W"
+            else
+              echo "  🔴 $d ABSENT"
+            fi
+          done
+          echo ""
+
+          echo "=== 4. Journal Laravel (40 dernières lignes d'erreur) ==="
+          LOG="$LROOT/storage/logs/laravel.log"
+          if [ -f "$LOG" ]; then
+            echo "  (fichier : $(du -h "$LOG" | cut -f1), modifié $(date -r "$LOG" '+%Y-%m-%d %H:%M'))"
+            grep -aE 'ERROR|CRITICAL|EMERGENCY|Exception' "$LOG" 2>/dev/null | tail -40 || tail -40 "$LOG"
+          else
+            echo "  (aucun laravel.log)"
+          fi
+          echo ""
+
+          echo "=== 5. Routes admin déclarées ==="
+          ( cd "$LROOT" && php artisan route:list --path=admin 2>/dev/null | head -20 ) || echo "  (route:list indisponible sur ce script)"
+          echo ""
+
+          echo "=== 6. Réparation sûre : vidage des caches ==="
+          ( cd "$LROOT" && for c in config:clear cache:clear route:clear view:clear; do
+              printf '  artisan %-14s ' "$c"; php artisan $c >/dev/null 2>&1 && echo "ok" || echo "échec (ignoré)"
+            done ) || true
+          echo "--- permissions remises en ordre ---"
+          chmod -R u+rwX "$LROOT/storage" "$LROOT/bootstrap/cache" 2>/dev/null && echo "  storage/ + bootstrap/cache : ok" || echo "  (chmod partiel)"
+          echo ""
+
+          echo "=== 7. Nouvelle réponse après réparation ==="
+          for H in app.govibepay.com; do
+            curl -skS -m 15 -o /dev/null -w "  https://$H/admin/login -> code=%{http_code}\n" -H "Host: $H" "https://127.0.0.1/admin/login" || true
+          done
+          echo ""
+          echo "NOTE: si le code est 200 et qu'un jeton CSRF est présent, la page marche —"
+          echo "le problème est alors le mot de passe. Dites-le moi : je peux ajouter un mode"
+          echo "de réinitialisation du mot de passe administrateur."
           EOSSH
 
       # ------------------------------------------------------------------
