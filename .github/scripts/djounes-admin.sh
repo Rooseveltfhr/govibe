@@ -44,6 +44,9 @@ if [ -f "$CSS" ]; then
   echo "avant : $AVANT occurrence(s) de $BLEU, $RGBA_AVANT en rgba"
   sed -i "s/${BLEU}/${VERT}/gI" "$CSS"
   sed -i -E "s/rgba\( *70, *52, *255/rgba(11, 59, 46/gI" "$CSS"
+  # Nuance foncée du thème (états survolés) → vert plus foncé, pas le même vert,
+  # sinon le survol ne se voit plus.
+  sed -i "s/#2948ff/#082C22/gI" "$CSS"
   APRES=$(grep -oiE "$BLEU" "$CSS" | wc -l)
   echo "après : $APRES occurrence(s) restante(s) de $BLEU"
   echo "-- autres bleus encore présents (à surveiller) --"
