@@ -603,7 +603,11 @@ jobs:
             [ -f "$c/artisan" ] && { LROOT="$c"; break; }
           done
           [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
-          VDIR="$LROOT/public/vendor/fileholder/v1.0"
+          # NB: on n'utilise PAS /vendor/ dans l'URL — beaucoup d'hébergeurs
+          # bloquent ce chemin pour protéger le dossier Composer (constaté ici :
+          # les fichiers existaient mais répondaient 404).
+          WEBDIR="gvp-assets/fileholder/v1.0"
+          VDIR="$LROOT/public/$WEBDIR"
           BK="$DOM/assets-backup-$TS"
           mkdir -p "$VDIR/css" "$VDIR/js" "$BK"
 
@@ -621,8 +625,9 @@ jobs:
           done
           echo ""
 
+          chmod -R a+rX "$LROOT/public/gvp-assets" 2>/dev/null || true
           if [ "$OKDL" = "1" ]; then
-            MODE="local"; echo "→ les assets seront servis LOCALEMENT (/vendor/fileholder/v1.0/...)"
+            MODE="local"; echo "→ les assets seront servis LOCALEMENT (/$WEBDIR/...)"
           else
             MODE="cloud"; echo "→ téléchargement partiel : on repointe simplement vers appdevs.cloud"
           fi
@@ -636,17 +641,20 @@ jobs:
             mkdir -p "$BK/$(dirname "$rel")"
             cp -a "$f" "$BK/$rel"
             if [ "$MODE" = "local" ]; then
-              sed -i -e 's#https://cdn\.appdevs\.net/fileholder/v1\.0/#/vendor/fileholder/v1.0/#g' \
-                     -e 's#https://appdevs\.cloud/cdn/fileholder/v1\.0/#/vendor/fileholder/v1.0/#g' "$f"
+              # /vendor/... = chemin d'un passage précédent, bloqué par l'hébergeur : on le corrige aussi
+              sed -i -e "s#https://cdn\.appdevs\.net/fileholder/v1\.0/#/$WEBDIR/#g" \
+                     -e "s#https://appdevs\.cloud/cdn/fileholder/v1\.0/#/$WEBDIR/#g" \
+                     -e "s#/vendor/fileholder/v1\.0/#/$WEBDIR/#g" "$f"
             else
-              sed -i -e 's#https://cdn\.appdevs\.net/fileholder/v1\.0/#https://appdevs.cloud/cdn/fileholder/v1.0/#g' "$f"
+              sed -i -e 's#https://cdn\.appdevs\.net/fileholder/v1\.0/#https://appdevs.cloud/cdn/fileholder/v1.0/#g' \
+                     -e 's#/vendor/fileholder/v1\.0/#https://appdevs.cloud/cdn/fileholder/v1.0/#g' "$f"
             fi
             case "$f" in
               *.php) php -l "$f" >/dev/null 2>&1 || { echo "  !! $rel cassé — restauré"; cp -a "$BK/$rel" "$f"; continue; };;
             esac
             echo "  • $rel"
             COUNT=$((COUNT+1))
-          done < <(grep -rIl --exclude-dir=vendor --exclude-dir=node_modules -e 'cdn\.appdevs\.net\|appdevs\.cloud' "$LROOT/resources" 2>/dev/null)
+          done < <(grep -rIl --exclude-dir=vendor --exclude-dir=node_modules -e 'cdn\.appdevs\.net\|appdevs\.cloud\|/vendor/fileholder/' "$LROOT/resources" 2>/dev/null)
           echo "→ $COUNT fichier(s) modifié(s) ; sauvegarde : $BK"
           echo "  (marqueur pour rollback)"
           echo "assets_backup=$BK" >> "$DOM/.govibepay-assets.meta"
@@ -656,10 +664,23 @@ jobs:
           echo "=== Vérification : références externes restantes dans resources/ ==="
           grep -rIo --exclude-dir=vendor --exclude-dir=node_modules -e 'cdn\.appdevs\.net' "$LROOT/resources" 2>/dev/null | wc -l | sed 's/^/  cdn.appdevs.net (mort) : /'
           echo "=== Les assets locaux répondent-ils ? ==="
+          ALLOK=1
           for F in $FILES; do
-            curl -skS -m 10 -o /dev/null -w "  /vendor/fileholder/v1.0/$F -> %{http_code}\n" \
-              -H "Host: app.govibepay.com" "https://127.0.0.1/vendor/fileholder/v1.0/$F" || true
+            RC=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' -H "Host: app.govibepay.com" "https://127.0.0.1/$WEBDIR/$F" 2>/dev/null)
+            echo "  /$WEBDIR/$F -> $RC"
+            [ "$RC" = "200" ] || ALLOK=0
           done
+          if [ "$ALLOK" = "1" ]; then
+            echo "  ✅ les assets sont servis correctement — la page de connexion a ce qu'il lui faut"
+          else
+            echo "  🔴 les assets ne sont pas servis : on REVIENT aux URLs externes (appdevs.cloud, vivant)"
+            while IFS= read -r f; do
+              case "$f" in *"/vendor/"*|*"/node_modules/"*) continue;; esac
+              sed -i "s#/$WEBDIR/#https://appdevs.cloud/cdn/fileholder/v1.0/#g" "$f"
+            done < <(grep -rIl --exclude-dir=vendor --exclude-dir=node_modules -e "/$WEBDIR/" "$LROOT/resources" 2>/dev/null)
+            ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+            echo "  → références repointées vers appdevs.cloud (hôte joignable)"
+          fi
           EOSSH
 
       # ------------------------------------------------------------------
