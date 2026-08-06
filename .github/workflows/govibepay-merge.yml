@@ -17,11 +17,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "inspect = audit seul · diagnose = pourquoi /admin/login ne marche pas (lecture + vidage de cache) · merge = fusionner · landing = réinstaller la home · brand = marque GOVIBEPay · rollback = tout défaire"
+        description: "inspect = audit seul · diagnose = pourquoi le login ne marche pas · assets = retirer la dépendance au CDN mort · merge = fusionner · landing = réinstaller la home · brand = marque GOVIBEPay · rollback = tout défaire"
         type: choice
         options:
           - inspect
           - diagnose
+          - assets
           - merge
           - landing
           - brand
@@ -102,7 +103,7 @@ jobs:
           echo "=== ⚠️ EXPOSITIONS PUBLIQUES (à vérifier d'urgence) ==="
           for U in "/.env" "/.envMM" "/.env.example" "/install/" "/app/install/"; do
             for H in govibepay.com app.govibepay.com; do
-              C=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' -H "Host: $H" "https://127.0.0.1$U" 2>/dev/null)
+              C=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' --resolve "$H:443:127.0.0.1" "https://$H$U" 2>/dev/null)
               case "$C" in 200) echo "  🔴 https://$H$U -> $C  ACCESSIBLE PUBLIQUEMENT";; 403|404) echo "  ✅ https://$H$U -> $C";; *) echo "  ?  https://$H$U -> $C";; esac
             done
           done
@@ -114,7 +115,7 @@ jobs:
           echo ""
           echo "=== HTTP local (sans DNS/CDN) ==="
           for H in govibepay.com app.govibepay.com; do
-            curl -skS -m 12 -o /dev/null -w "  https://$H -> code=%{http_code} time=%{time_total}s\n" -H "Host: $H" "https://127.0.0.1/" || echo "  $H -> échec"
+            curl -skS -m 12 -o /dev/null -w "  https://$H -> code=%{http_code} time=%{time_total}s\n" --resolve "$H:443:127.0.0.1" "https://$H/" || echo "  $H -> échec"
           done
           echo ""
           echo "=== Fusion déjà effectuée ? ==="
@@ -147,21 +148,34 @@ jobs:
           echo "Script : $LROOT"
           echo ""
 
-          echo "=== 1. Réponse HTTP du login admin ==="
-          for U in "/admin" "/admin/login"; do
-            for H in app.govibepay.com govibepay.com; do
-              read -r CODE REDIR SIZE <<<"$(curl -skS -m 15 -o /dev/null \
-                -w '%{http_code} %{redirect_url} %{size_download}' \
-                -H "Host: $H" "https://127.0.0.1$U" 2>/dev/null)"
-              echo "  https://$H$U -> code=$CODE taille=${SIZE:-0} ${REDIR:+redirige_vers=$REDIR}"
-            done
+          echo "=== 1. Réponse HTTP par chemin (hôte app.govibepay.com) ==="
+          for U in "/" "/login" "/register" "/user/login" "/merchant/login" "/agent/login" "/admin" "/admin/login"; do
+            CODE=$(curl -skS -m 15 -o /dev/null -w '%{http_code}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com$U" 2>/dev/null)
+            SIZE=$(curl -skS -m 15 -o /dev/null -w '%{size_download}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com$U" 2>/dev/null)
+            printf '  %-22s code=%s taille=%s\n' "$U" "$CODE" "$SIZE"
           done
+          echo "  (une taille ~355 = page d'erreur Apache : la requête n'atteint PAS Laravel)"
+          echo ""
+
+          echo "=== 1b. Réécriture Apache (pourquoi une requête n'atteint pas Laravel) ==="
+          echo "--- .htaccess à la racine du script ---"
+          [ -f "$LROOT/.htaccess" ] && cat "$LROOT/.htaccess" || echo "  (ABSENT)"
+          echo "--- public/index.php présent ? ---"
+          [ -f "$LROOT/public/index.php" ] && echo "  oui" || echo "  🔴 NON"
+          echo "--- public/.htaccess ---"
+          [ -f "$LROOT/public/.htaccess" ] && head -25 "$LROOT/public/.htaccess" || echo "  (ABSENT)"
+          echo ""
+
+          echo "=== 1c. Le chemin du login admin existe-t-il dans le script ? ==="
+          grep -rIn --include='*.php' -iE "prefix\(?['\"]?admin|'admin/login'|admin\.login" "$LROOT/routes" 2>/dev/null | head -10 || echo "  (rien trouvé dans routes/)"
+          echo "--- fichiers de routes présents ---"
+          ls "$LROOT/routes" 2>/dev/null
           echo ""
           echo "--- le formulaire contient-il un jeton CSRF ? ---"
-          BODY=$(curl -skS -m 15 -H "Host: app.govibepay.com" "https://127.0.0.1/admin/login" 2>/dev/null)
+          BODY=$(curl -skS -m 15 --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/admin/login" 2>/dev/null)
           echo "$BODY" | grep -qi 'csrf-token\|_token' && echo "  ✅ jeton CSRF présent dans la page" || echo "  ⚠️ AUCUN jeton CSRF trouvé (page d'erreur ? page vide ?)"
           echo "  titre de la page : $(echo "$BODY" | grep -oiE '<title>[^<]*' | head -1)"
-          echo "  cookie de session émis : $(curl -skS -m 15 -D - -o /dev/null -H "Host: app.govibepay.com" "https://127.0.0.1/admin/login" 2>/dev/null | grep -ci '^set-cookie') en-tête(s)"
+          echo "  cookie de session émis : $(curl -skS -m 15 -D - -o /dev/null --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/admin/login" 2>/dev/null | grep -ci '^set-cookie') en-tête(s)"
           echo ""
 
           echo "=== 2. Configuration (clés non sensibles) ==="
@@ -179,18 +193,137 @@ jobs:
           done
           echo ""
 
-          echo "=== 4. Journal Laravel (40 dernières lignes d'erreur) ==="
+          echo "=== 4. Journal Laravel — erreurs DISTINCTES (pas 40 fois la même) ==="
           LOG="$LROOT/storage/logs/laravel.log"
           if [ -f "$LOG" ]; then
             echo "  (fichier : $(du -h "$LOG" | cut -f1), modifié $(date -r "$LOG" '+%Y-%m-%d %H:%M'))"
-            grep -aE 'ERROR|CRITICAL|EMERGENCY|Exception' "$LOG" 2>/dev/null | tail -40 || tail -40 "$LOG"
+            echo "  --- types d'erreur les plus fréquents ---"
+            grep -aoE '(ERROR|CRITICAL|EMERGENCY): [^{]{0,90}' "$LOG" 2>/dev/null \
+              | sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}//g' | sort | uniq -c | sort -rn | head -12
+            echo "  --- 10 dernières erreurs (horodatées) ---"
+            grep -aE 'ERROR|CRITICAL|EMERGENCY' "$LOG" 2>/dev/null | tail -10 | cut -c1-180
           else
             echo "  (aucun laravel.log)"
           fi
           echo ""
 
-          echo "=== 5. Routes admin déclarées ==="
-          ( cd "$LROOT" && php artisan route:list --path=admin 2>/dev/null | head -20 ) || echo "  (route:list indisponible sur ce script)"
+          echo "=== 5. Table de routes RÉELLEMENT enregistrée ==="
+          # route:list plante sur ce script (constructeur de contrôleur qui échoue) :
+          # on amorce Laravel sans instancier aucun contrôleur.
+          cat > "$LROOT/.govibepay-routes.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          $routes = app('router')->getRoutes();
+          echo "TOTAL ROUTES: ".count($routes)."\n";
+          // Routes d'administration : c'est la réponse à « quelle est l'URL du login ».
+          $adm = [];
+          foreach ($routes as $r) {
+              $n = (string) $r->getName();
+              if (str_starts_with($n, 'admin.')) { $adm[] = implode('|', $r->methods()).' /'.$r->uri().'  ['.$n.']'; }
+          }
+          echo "ROUTES ADMIN ENREGISTREES: ".count($adm)."\n";
+          foreach ($adm as $h) {
+              if (preg_match('#login|auth|^GET\|HEAD /admin  #i', $h)) { echo "  $h\n"; }
+          }
+          if (! $adm) { echo "  🔴 AUCUNE route admin : routes/admin.php n'est PAS chargé\n"; }
+          // Routes web de connexion (hors API)
+          $web = [];
+          foreach ($routes as $r) {
+              $u = $r->uri();
+              if (preg_match('#login#i', $u) && ! str_starts_with($u, 'api') && ! str_contains($u, '-api/')) {
+                  $web[] = implode('|', $r->methods()).' /'.$u.'  ['.($r->getName() ?: '-').']';
+              }
+          }
+          echo "ROUTES WEB CONTENANT « login » (".count($web)."):\n";
+          foreach (array_slice($web, 0, 20) as $h) { echo "  $h\n"; }
+          EOPHP
+          ( cd "$LROOT" && php .govibepay-routes.php 2>&1 | head -35 ) || echo "  🔴 l'amorçage de Laravel ÉCHOUE (voir l'erreur ci-dessus) — c'est la cause du 404 partout"
+          rm -f "$LROOT/.govibepay-routes.php"
+          echo ""
+          echo "--- comment les fichiers de routes sont chargés ---"
+          sed -n '1,80p' "$LROOT/app/Providers/RouteServiceProvider.php" 2>/dev/null | grep -nE 'loadRoutesFrom|prefix|group|middleware|function boot|routes/' | head -20
+          echo "--- préfixe admin configurable ? ---"
+          grep -rIn --include='*.php' -iE "admin_prefix|ADMIN_PREFIX|'prefix'\s*=>\s*'?admin" "$LROOT/config" "$LROOT/app/Providers" 2>/dev/null | head -8 || echo "  (aucun préfixe configurable trouvé)"
+          echo ""
+
+          echo "=== 5b. Page de connexion admin : pourquoi le champ ne réagit pas ? ==="
+          # Le préfixe admin vient de la base. On le lit pour ATTEINDRE la page,
+          # mais on ne l'affiche JAMAIS (dépôt public) — seuls les constats sortent.
+          # On interroge la base VIA LARAVEL (sa propre config) : analyser le .env
+          # à la main échouait silencieusement. Le préfixe n'est jamais affiché.
+          cat > "$LROOT/.govibepay-prefix.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          try {
+              $row = Illuminate\Support\Facades\DB::table('basic_settings')->first();
+              foreach (['admin_prefix', 'admin_panel_prefix', 'prefix'] as $col) {
+                  if ($row && isset($row->$col) && $row->$col !== '') { echo $row->$col; exit; }
+              }
+              fwrite(STDERR, "colonnes de basic_settings contenant 'prefix' : ");
+              fwrite(STDERR, implode(',', array_values(array_filter(array_keys((array) $row), fn ($k) => str_contains($k, 'prefix')))) ?: '(aucune)');
+          } catch (Throwable $e) {
+              fwrite(STDERR, 'base inaccessible : '.get_class($e).' — '.substr($e->getMessage(), 0, 80));
+          }
+          EOPHP
+          PFX=$( cd "$LROOT" && php .govibepay-prefix.php 2>>/tmp/gvp-prefix.err )
+          rm -f "$LROOT/.govibepay-prefix.php"
+          [ -s /tmp/gvp-prefix.err ] && { echo "  (info base : $(cat /tmp/gvp-prefix.err))"; rm -f /tmp/gvp-prefix.err; }
+          if [ -z "$PFX" ]; then
+            echo "  ⚠️ préfixe admin illisible en base — on teste /admin par défaut"
+            echo "  --- colonnes contenant « prefix » (noms seuls, aucune valeur) ---"
+            L="$LROOT" php -r '
+              $e=@file(getenv("L")."/.env"); $c=[];
+              foreach((array)$e as $l){ if(preg_match("/^\s*([A-Z_]+)\s*=\s*\"?([^\"\r\n]*)\"?/",$l,$m)) $c[$m[1]]=$m[2]; }
+              try{
+                $db=$c["DB_DATABASE"]??"";
+                $p=new PDO("mysql:host=".($c["DB_HOST"]??"127.0.0.1").";dbname=".$db,$c["DB_USERNAME"]??"",$c["DB_PASSWORD"]??"");
+                $q=$p->prepare("SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND COLUMN_NAME LIKE ?");
+                $q->execute([$db,"%prefix%"]);
+                foreach($q->fetchAll(PDO::FETCH_NUM) as $r){ echo "    ".$r[0].".".$r[1]."\n"; }
+              }catch(Throwable $t){ echo "    (connexion base impossible : ".get_class($t).")\n"; }
+            ' 2>/dev/null
+            PFX="admin"
+          else
+            echo "  ✅ préfixe admin lu en base (valeur masquée : ${#PFX} caractères)"
+          fi
+          PAGE=$(curl -skS -m 20 --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/$PFX/login" 2>/dev/null)
+          CODE=$(curl -skS -m 20 -o /dev/null -w '%{http_code}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/$PFX/login" 2>/dev/null)
+          echo "  page de connexion : code=$CODE taille=$(printf '%s' "$PAGE" | wc -c) octets"
+          echo "  jeton CSRF        : $(printf '%s' "$PAGE" | grep -c 'csrf-token\|_token') occurrence(s)"
+          echo ""
+          echo "  --- champs de saisie bloqués côté HTML ? ---"
+          for ATTR in readonly disabled 'pointer-events' 'user-select'; do
+            N=$(printf '%s' "$PAGE" | grep -ci "$ATTR")
+            [ "$N" != "0" ] && echo "  ⚠️ « $ATTR » présent $N fois dans la page" || echo "  ✅ pas de « $ATTR »"
+          done
+          echo ""
+          echo "  --- superpositions qui peuvent intercepter le toucher ---"
+          for W in preloader loader overlay modal-backdrop 'position:fixed' 'z-index'; do
+            N=$(printf '%s' "$PAGE" | grep -ci "$W")
+            [ "$N" != "0" ] && echo "  • « $W » : $N occurrence(s)" || true
+          done
+          echo ""
+          echo "  --- viewport mobile déclaré ? ---"
+          printf '%s' "$PAGE" | grep -qi 'name="viewport"' && echo "  ✅ balise viewport présente" || echo "  🔴 AUCUNE balise viewport : sur mobile la page est rendue en taille bureau"
+          echo ""
+          echo "  --- assets EXTERNES dont dépend la page (SPOF si injoignables) ---"
+          printf '%s' "$PAGE" | grep -oE '(src|href)="https?://[^"]+"' | sed -E 's/.*"https?:\/\/([^\/"]+).*/\1/' | sort | uniq -c | sort -rn | head -10
+          echo "  --- ces hôtes répondent-ils DEPUIS LE SERVEUR ? ---"
+          for H in appdevs.cloud cdn.appdevs.net; do
+            RC=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' "https://$H/" 2>/dev/null)
+            case "$RC" in 000) echo "  🔴 $H INJOIGNABLE (timeout) — le CSS/JS qu'il sert ne charge pas";; *) echo "  ✅ $H -> $RC";; esac
+          done
+          echo ""
+          echo "  --- assets LOCAUX référencés qui manquent sur le disque ---"
+          MISS=0
+          for P in $(printf '%s' "$PAGE" | grep -oE '(src|href)="/[^"]+\.(css|js)"' | sed -E 's/.*"(\/[^"]+)"/\1/' | sort -u | head -25); do
+            [ -f "$LROOT/public$P" ] || { echo "  🔴 manquant : $P"; MISS=$((MISS+1)); }
+          done
+          [ "$MISS" = "0" ] && echo "  ✅ tous les assets locaux référencés existent"
           echo ""
 
           echo "=== 6. Réparation sûre : vidage des caches ==="
@@ -203,7 +336,7 @@ jobs:
 
           echo "=== 7. Nouvelle réponse après réparation ==="
           for H in app.govibepay.com; do
-            curl -skS -m 15 -o /dev/null -w "  https://$H/admin/login -> code=%{http_code}\n" -H "Host: $H" "https://127.0.0.1/admin/login" || true
+            curl -skS -m 15 -o /dev/null -w "  https://$H/admin/login -> code=%{http_code}\n" --resolve "$H:443:127.0.0.1" "https://$H/admin/login" || true
           done
           echo ""
           echo "NOTE: si le code est 200 et qu'un jeton CSRF est présent, la page marche —"
@@ -385,7 +518,7 @@ jobs:
           fi
           ( cd "$LROOT" && php artisan route:clear >/dev/null 2>&1; php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
           echo "→ route '/' installée dans le script, servant : $HOMEFILE"
-          curl -skS -m 12 -o /dev/null -w "  https://govibepay.com/ -> code=%{http_code}\n" -H "Host: govibepay.com" "https://127.0.0.1/" || true
+          curl -skS -m 12 -o /dev/null -w "  https://govibepay.com/ -> code=%{http_code}\n" --resolve "govibepay.com:443:127.0.0.1" "https://govibepay.com/" || true
           EOSSH
 
       # ------------------------------------------------------------------
@@ -475,6 +608,108 @@ jobs:
           EOSSH
 
       # ------------------------------------------------------------------
+      # ASSETS — supprime la dépendance externe du script à cdn.appdevs.net,
+      # qui NE RÉPOND PLUS (timeout) alors que les pages d'authentification
+      # y chargent leur CSS et leurs modules JS : le formulaire de connexion
+      # reste donc inerte. Les fichiers sont téléchargés en local quand c'est
+      # possible, sinon repointés vers appdevs.cloud (l'hôte encore vivant).
+      # Sauvegarde par fichier + php -l ; annulable par rollback.
+      # ------------------------------------------------------------------
+      - name: Assets (retirer la dépendance au CDN mort)
+        if: ${{ inputs.mode == 'assets' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          TS=$(date +%Y%m%d-%H%M%S)
+          DOM="$HOME/domains/govibepay.com"
+          LROOT=""
+          for c in "$HOME/domains/app.govibepay.com/public_html" "$DOM/public_html/app" "$DOM/govibepay-app"; do
+            [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+          done
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          # NB: on n'utilise PAS /vendor/ dans l'URL — beaucoup d'hébergeurs
+          # bloquent ce chemin pour protéger le dossier Composer (constaté ici :
+          # les fichiers existaient mais répondaient 404).
+          WEBDIR="gvp-assets/fileholder/v1.0"
+          VDIR="$LROOT/public/$WEBDIR"
+          BK="$DOM/assets-backup-$TS"
+          mkdir -p "$VDIR/css" "$VDIR/js" "$BK"
+
+          echo "=== Fichiers servis par le CDN mort, référencés par le script ==="
+          FILES="css/fileholder-style.css js/fileholder-script.js js/fileholder-settings.js"
+          OKDL=1
+          for F in $FILES; do
+            # appdevs.cloud (vivant) sert les mêmes chemins sous /cdn/
+            if curl -fsS -m 25 -o "$VDIR/$F" "https://appdevs.cloud/cdn/fileholder/v1.0/$F" 2>/dev/null; then
+              echo "  ✅ $F téléchargé ($(wc -c < "$VDIR/$F") octets)"
+            else
+              echo "  🔴 $F : téléchargement impossible"
+              OKDL=0
+            fi
+          done
+          echo ""
+
+          chmod -R a+rX "$LROOT/public/gvp-assets" 2>/dev/null || true
+          if [ "$OKDL" = "1" ]; then
+            MODE="local"; echo "→ les assets seront servis LOCALEMENT (/$WEBDIR/...)"
+          else
+            MODE="cloud"; echo "→ téléchargement partiel : on repointe simplement vers appdevs.cloud"
+          fi
+          echo ""
+
+          echo "=== Réécriture des références (sauvegarde par fichier) ==="
+          COUNT=0
+          while IFS= read -r f; do
+            case "$f" in *"/resources"[A-Z]*|*".bak/"*|*"/vendor/"*|*"/node_modules/"*) continue;; esac
+            rel="${f#$LROOT/}"
+            mkdir -p "$BK/$(dirname "$rel")"
+            cp -a "$f" "$BK/$rel"
+            if [ "$MODE" = "local" ]; then
+              # /vendor/... = chemin d'un passage précédent, bloqué par l'hébergeur : on le corrige aussi
+              sed -i -e "s#https://cdn\.appdevs\.net/fileholder/v1\.0/#/$WEBDIR/#g" \
+                     -e "s#https://appdevs\.cloud/cdn/fileholder/v1\.0/#/$WEBDIR/#g" \
+                     -e "s#/vendor/fileholder/v1\.0/#/$WEBDIR/#g" "$f"
+            else
+              sed -i -e 's#https://cdn\.appdevs\.net/fileholder/v1\.0/#https://appdevs.cloud/cdn/fileholder/v1.0/#g' \
+                     -e 's#/vendor/fileholder/v1\.0/#https://appdevs.cloud/cdn/fileholder/v1.0/#g' "$f"
+            fi
+            case "$f" in
+              *.php) php -l "$f" >/dev/null 2>&1 || { echo "  !! $rel cassé — restauré"; cp -a "$BK/$rel" "$f"; continue; };;
+            esac
+            echo "  • $rel"
+            COUNT=$((COUNT+1))
+          done < <(grep -rIl --exclude-dir=vendor --exclude-dir=node_modules -e 'cdn\.appdevs\.net\|appdevs\.cloud\|/vendor/fileholder/' "$LROOT/resources" 2>/dev/null)
+          echo "→ $COUNT fichier(s) modifié(s) ; sauvegarde : $BK"
+          echo "  (marqueur pour rollback)"
+          echo "assets_backup=$BK" >> "$DOM/.govibepay-assets.meta"
+
+          ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
+          echo ""
+          echo "=== Vérification : références externes restantes dans resources/ ==="
+          grep -rIo --exclude-dir=vendor --exclude-dir=node_modules -e 'cdn\.appdevs\.net' "$LROOT/resources" 2>/dev/null | wc -l | sed 's/^/  cdn.appdevs.net (mort) : /'
+          echo "=== Les assets locaux répondent-ils ? ==="
+          ALLOK=1
+          for F in $FILES; do
+            RC=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/$WEBDIR/$F" 2>/dev/null)
+            echo "  /$WEBDIR/$F -> $RC"
+            [ "$RC" = "200" ] || ALLOK=0
+          done
+          if [ "$ALLOK" = "1" ]; then
+            echo "  ✅ les assets sont servis correctement — la page de connexion a ce qu'il lui faut"
+          else
+            echo "  🔴 les assets ne sont pas servis : on REVIENT aux URLs externes (appdevs.cloud, vivant)"
+            while IFS= read -r f; do
+              case "$f" in *"/vendor/"*|*"/node_modules/"*) continue;; esac
+              sed -i "s#/$WEBDIR/#https://appdevs.cloud/cdn/fileholder/v1.0/#g" "$f"
+            done < <(grep -rIl --exclude-dir=vendor --exclude-dir=node_modules -e "/$WEBDIR/" "$LROOT/resources" 2>/dev/null)
+            ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+            echo "  → références repointées vers appdevs.cloud (hôte joignable)"
+          fi
+          EOSSH
+
+      # ------------------------------------------------------------------
       # ROLLBACK — remet tout dans l'état d'avant la fusion.
       # ------------------------------------------------------------------
       - name: Rollback
@@ -515,6 +750,12 @@ jobs:
               rm -f "$VDIR/.htaccess"; echo "→ redirection du sous-domaine retirée"
             fi
           fi
+          # 3b) assets vendorisés (mode assets) : restaurer les vues d'origine
+          AB=$(ls -dt "$DOM"/assets-backup-* 2>/dev/null | head -1)
+          if [ -n "$AB" ] && [ -d "$AB" ] && [ -n "$LROOT" ]; then
+            cp -a "$AB/." "$LROOT/"; rm -f "$DOM/.govibepay-assets.meta"
+            echo "→ références d'assets restaurées depuis $AB"
+          fi
           # 4) route '/' + marque dans le script
           if [ -n "$LROOT" ] && [ -d "$LROOT" ]; then
             if [ -f "$LROOT/routes/web.php.bak-govibepay" ]; then
@@ -528,6 +769,6 @@ jobs:
           rm -f "$MARK"
           echo "=== Rollback OK ==="
           for H in govibepay.com app.govibepay.com; do
-            curl -skS -m 12 -o /dev/null -w "  https://$H -> code=%{http_code}\n" -H "Host: $H" "https://127.0.0.1/" || true
+            curl -skS -m 12 -o /dev/null -w "  https://$H -> code=%{http_code}\n" --resolve "$H:443:127.0.0.1" "https://$H/" || true
           done
           EOSSH
