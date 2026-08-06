@@ -217,13 +217,27 @@ jobs:
           $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
           $routes = app('router')->getRoutes();
           echo "TOTAL ROUTES: ".count($routes)."\n";
-          $hits = [];
+          // Routes d'administration : c'est la réponse à « quelle est l'URL du login ».
+          $adm = [];
+          foreach ($routes as $r) {
+              $n = (string) $r->getName();
+              if (str_starts_with($n, 'admin.')) { $adm[] = implode('|', $r->methods()).' /'.$r->uri().'  ['.$n.']'; }
+          }
+          echo "ROUTES ADMIN ENREGISTREES: ".count($adm)."\n";
+          foreach ($adm as $h) {
+              if (preg_match('#login|auth|^GET\|HEAD /admin  #i', $h)) { echo "  $h\n"; }
+          }
+          if (! $adm) { echo "  🔴 AUCUNE route admin : routes/admin.php n'est PAS chargé\n"; }
+          // Routes web de connexion (hors API)
+          $web = [];
           foreach ($routes as $r) {
               $u = $r->uri();
-              if (preg_match('#(^|/)(login|register|dashboard)#i', $u)) { $hits[] = implode('|', $r->methods()).' /'.$u.'  ['.($r->getName() ?: '-').']'; }
+              if (preg_match('#login#i', $u) && ! str_starts_with($u, 'api') && ! str_contains($u, '-api/')) {
+                  $web[] = implode('|', $r->methods()).' /'.$u.'  ['.($r->getName() ?: '-').']';
+              }
           }
-          echo "ROUTES DE CONNEXION (".count($hits)."):\n";
-          foreach (array_slice($hits, 0, 25) as $h) { echo "  $h\n"; }
+          echo "ROUTES WEB CONTENANT « login » (".count($web)."):\n";
+          foreach (array_slice($web, 0, 20) as $h) { echo "  $h\n"; }
           EOPHP
           ( cd "$LROOT" && php .govibepay-routes.php 2>&1 | head -35 ) || echo "  🔴 l'amorçage de Laravel ÉCHOUE (voir l'erreur ci-dessus) — c'est la cause du 404 partout"
           rm -f "$LROOT/.govibepay-routes.php"
