@@ -206,8 +206,31 @@ jobs:
           fi
           echo ""
 
-          echo "=== 5. Routes admin déclarées ==="
-          ( cd "$LROOT" && php artisan route:list --path=admin 2>/dev/null | head -20 ) || echo "  (route:list indisponible sur ce script)"
+          echo "=== 5. Table de routes RÉELLEMENT enregistrée ==="
+          # route:list plante sur ce script (constructeur de contrôleur qui échoue) :
+          # on amorce Laravel sans instancier aucun contrôleur.
+          cat > "$LROOT/.govibepay-routes.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          $routes = app('router')->getRoutes();
+          echo "TOTAL ROUTES: ".count($routes)."\n";
+          $hits = [];
+          foreach ($routes as $r) {
+              $u = $r->uri();
+              if (preg_match('#(^|/)(login|register|dashboard)#i', $u)) { $hits[] = implode('|', $r->methods()).' /'.$u.'  ['.($r->getName() ?: '-').']'; }
+          }
+          echo "ROUTES DE CONNEXION (".count($hits)."):\n";
+          foreach (array_slice($hits, 0, 25) as $h) { echo "  $h\n"; }
+          EOPHP
+          ( cd "$LROOT" && php .govibepay-routes.php 2>&1 | head -35 ) || echo "  🔴 l'amorçage de Laravel ÉCHOUE (voir l'erreur ci-dessus) — c'est la cause du 404 partout"
+          rm -f "$LROOT/.govibepay-routes.php"
+          echo ""
+          echo "--- comment les fichiers de routes sont chargés ---"
+          sed -n '1,80p' "$LROOT/app/Providers/RouteServiceProvider.php" 2>/dev/null | grep -nE 'loadRoutesFrom|prefix|group|middleware|function boot|routes/' | head -20
+          echo "--- préfixe admin configurable ? ---"
+          grep -rIn --include='*.php' -iE "admin_prefix|ADMIN_PREFIX|'prefix'\s*=>\s*'?admin" "$LROOT/config" "$LROOT/app/Providers" 2>/dev/null | head -8 || echo "  (aucun préfixe configurable trouvé)"
           echo ""
 
           echo "=== 6. Réparation sûre : vidage des caches ==="
