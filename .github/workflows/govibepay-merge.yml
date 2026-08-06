@@ -233,6 +233,60 @@ jobs:
           grep -rIn --include='*.php' -iE "admin_prefix|ADMIN_PREFIX|'prefix'\s*=>\s*'?admin" "$LROOT/config" "$LROOT/app/Providers" 2>/dev/null | head -8 || echo "  (aucun préfixe configurable trouvé)"
           echo ""
 
+          echo "=== 5b. Page de connexion admin : pourquoi le champ ne réagit pas ? ==="
+          # Le préfixe admin vient de la base. On le lit pour ATTEINDRE la page,
+          # mais on ne l'affiche JAMAIS (dépôt public) — seuls les constats sortent.
+          PFX=$(L="$LROOT" php -r '
+            $e=@file(getenv("L")."/.env"); $c=[];
+            foreach((array)$e as $l){ if(preg_match("/^\s*([A-Z_]+)\s*=\s*\"?([^\"\r\n]*)\"?/",$l,$m)) $c[$m[1]]=$m[2]; }
+            try{
+              $p=new PDO("mysql:host=".($c["DB_HOST"]??"127.0.0.1").";dbname=".($c["DB_DATABASE"]??""),$c["DB_USERNAME"]??"",$c["DB_PASSWORD"]??"");
+              $v=$p->query("SELECT admin_prefix FROM basic_settings LIMIT 1")->fetchColumn();
+              echo $v ?: "";
+            }catch(Throwable $t){ echo ""; }
+          ' 2>/dev/null)
+          if [ -z "$PFX" ]; then
+            echo "  ⚠️ préfixe admin illisible en base — on teste /admin par défaut"
+            PFX="admin"
+          else
+            echo "  ✅ préfixe admin lu en base (valeur masquée : ${#PFX} caractères)"
+          fi
+          PAGE=$(curl -skS -m 20 -H "Host: app.govibepay.com" "https://127.0.0.1/$PFX/login" 2>/dev/null)
+          CODE=$(curl -skS -m 20 -o /dev/null -w '%{http_code}' -H "Host: app.govibepay.com" "https://127.0.0.1/$PFX/login" 2>/dev/null)
+          echo "  page de connexion : code=$CODE taille=$(printf '%s' "$PAGE" | wc -c) octets"
+          echo "  jeton CSRF        : $(printf '%s' "$PAGE" | grep -c 'csrf-token\|_token') occurrence(s)"
+          echo ""
+          echo "  --- champs de saisie bloqués côté HTML ? ---"
+          for ATTR in readonly disabled 'pointer-events' 'user-select'; do
+            N=$(printf '%s' "$PAGE" | grep -ci "$ATTR")
+            [ "$N" != "0" ] && echo "  ⚠️ « $ATTR » présent $N fois dans la page" || echo "  ✅ pas de « $ATTR »"
+          done
+          echo ""
+          echo "  --- superpositions qui peuvent intercepter le toucher ---"
+          for W in preloader loader overlay modal-backdrop 'position:fixed' 'z-index'; do
+            N=$(printf '%s' "$PAGE" | grep -ci "$W")
+            [ "$N" != "0" ] && echo "  • « $W » : $N occurrence(s)" || true
+          done
+          echo ""
+          echo "  --- viewport mobile déclaré ? ---"
+          printf '%s' "$PAGE" | grep -qi 'name="viewport"' && echo "  ✅ balise viewport présente" || echo "  🔴 AUCUNE balise viewport : sur mobile la page est rendue en taille bureau"
+          echo ""
+          echo "  --- assets EXTERNES dont dépend la page (SPOF si injoignables) ---"
+          printf '%s' "$PAGE" | grep -oE '(src|href)="https?://[^"]+"' | sed -E 's/.*"https?:\/\/([^\/"]+).*/\1/' | sort | uniq -c | sort -rn | head -10
+          echo "  --- ces hôtes répondent-ils DEPUIS LE SERVEUR ? ---"
+          for H in appdevs.cloud cdn.appdevs.net; do
+            RC=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' "https://$H/" 2>/dev/null)
+            case "$RC" in 000) echo "  🔴 $H INJOIGNABLE (timeout) — le CSS/JS qu'il sert ne charge pas";; *) echo "  ✅ $H -> $RC";; esac
+          done
+          echo ""
+          echo "  --- assets LOCAUX référencés qui manquent sur le disque ---"
+          MISS=0
+          for P in $(printf '%s' "$PAGE" | grep -oE '(src|href)="/[^"]+\.(css|js)"' | sed -E 's/.*"(\/[^"]+)"/\1/' | sort -u | head -25); do
+            [ -f "$LROOT/public$P" ] || { echo "  🔴 manquant : $P"; MISS=$((MISS+1)); }
+          done
+          [ "$MISS" = "0" ] && echo "  ✅ tous les assets locaux référencés existent"
+          echo ""
+
           echo "=== 6. Réparation sûre : vidage des caches ==="
           ( cd "$LROOT" && for c in config:clear cache:clear route:clear view:clear; do
               printf '  artisan %-14s ' "$c"; php artisan $c >/dev/null 2>&1 && echo "ok" || echo "échec (ignoré)"
