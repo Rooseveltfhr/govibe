@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "inspect = audit seul · diagnose = pourquoi /admin/login ne marche pas (lecture + vidage de cache) · merge = fusionner · landing = réinstaller la home · brand = marque GOVIBEPay · rollback = tout défaire"
+        description: "inspect = audit seul · diagnose = pourquoi le login ne marche pas · assets = retirer la dépendance au CDN mort · merge = fusionner · landing = réinstaller la home · brand = marque GOVIBEPay · rollback = tout défaire"
         type: choice
         options:
           - inspect
@@ -103,7 +103,7 @@ jobs:
           echo "=== ⚠️ EXPOSITIONS PUBLIQUES (à vérifier d'urgence) ==="
           for U in "/.env" "/.envMM" "/.env.example" "/install/" "/app/install/"; do
             for H in govibepay.com app.govibepay.com; do
-              C=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' -H "Host: $H" "https://127.0.0.1$U" 2>/dev/null)
+              C=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' --resolve "$H:443:127.0.0.1" "https://$H$U" 2>/dev/null)
               case "$C" in 200) echo "  🔴 https://$H$U -> $C  ACCESSIBLE PUBLIQUEMENT";; 403|404) echo "  ✅ https://$H$U -> $C";; *) echo "  ?  https://$H$U -> $C";; esac
             done
           done
@@ -115,7 +115,7 @@ jobs:
           echo ""
           echo "=== HTTP local (sans DNS/CDN) ==="
           for H in govibepay.com app.govibepay.com; do
-            curl -skS -m 12 -o /dev/null -w "  https://$H -> code=%{http_code} time=%{time_total}s\n" -H "Host: $H" "https://127.0.0.1/" || echo "  $H -> échec"
+            curl -skS -m 12 -o /dev/null -w "  https://$H -> code=%{http_code} time=%{time_total}s\n" --resolve "$H:443:127.0.0.1" "https://$H/" || echo "  $H -> échec"
           done
           echo ""
           echo "=== Fusion déjà effectuée ? ==="
@@ -150,8 +150,8 @@ jobs:
 
           echo "=== 1. Réponse HTTP par chemin (hôte app.govibepay.com) ==="
           for U in "/" "/login" "/register" "/user/login" "/merchant/login" "/agent/login" "/admin" "/admin/login"; do
-            CODE=$(curl -skS -m 15 -o /dev/null -w '%{http_code}' -H "Host: app.govibepay.com" "https://127.0.0.1$U" 2>/dev/null)
-            SIZE=$(curl -skS -m 15 -o /dev/null -w '%{size_download}' -H "Host: app.govibepay.com" "https://127.0.0.1$U" 2>/dev/null)
+            CODE=$(curl -skS -m 15 -o /dev/null -w '%{http_code}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com$U" 2>/dev/null)
+            SIZE=$(curl -skS -m 15 -o /dev/null -w '%{size_download}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com$U" 2>/dev/null)
             printf '  %-22s code=%s taille=%s\n' "$U" "$CODE" "$SIZE"
           done
           echo "  (une taille ~355 = page d'erreur Apache : la requête n'atteint PAS Laravel)"
@@ -172,10 +172,10 @@ jobs:
           ls "$LROOT/routes" 2>/dev/null
           echo ""
           echo "--- le formulaire contient-il un jeton CSRF ? ---"
-          BODY=$(curl -skS -m 15 -H "Host: app.govibepay.com" "https://127.0.0.1/admin/login" 2>/dev/null)
+          BODY=$(curl -skS -m 15 --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/admin/login" 2>/dev/null)
           echo "$BODY" | grep -qi 'csrf-token\|_token' && echo "  ✅ jeton CSRF présent dans la page" || echo "  ⚠️ AUCUN jeton CSRF trouvé (page d'erreur ? page vide ?)"
           echo "  titre de la page : $(echo "$BODY" | grep -oiE '<title>[^<]*' | head -1)"
-          echo "  cookie de session émis : $(curl -skS -m 15 -D - -o /dev/null -H "Host: app.govibepay.com" "https://127.0.0.1/admin/login" 2>/dev/null | grep -ci '^set-cookie') en-tête(s)"
+          echo "  cookie de session émis : $(curl -skS -m 15 -D - -o /dev/null --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/admin/login" 2>/dev/null | grep -ci '^set-cookie') en-tête(s)"
           echo ""
 
           echo "=== 2. Configuration (clés non sensibles) ==="
@@ -264,8 +264,8 @@ jobs:
           else
             echo "  ✅ préfixe admin lu en base (valeur masquée : ${#PFX} caractères)"
           fi
-          PAGE=$(curl -skS -m 20 -H "Host: app.govibepay.com" "https://127.0.0.1/$PFX/login" 2>/dev/null)
-          CODE=$(curl -skS -m 20 -o /dev/null -w '%{http_code}' -H "Host: app.govibepay.com" "https://127.0.0.1/$PFX/login" 2>/dev/null)
+          PAGE=$(curl -skS -m 20 --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/$PFX/login" 2>/dev/null)
+          CODE=$(curl -skS -m 20 -o /dev/null -w '%{http_code}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/$PFX/login" 2>/dev/null)
           echo "  page de connexion : code=$CODE taille=$(printf '%s' "$PAGE" | wc -c) octets"
           echo "  jeton CSRF        : $(printf '%s' "$PAGE" | grep -c 'csrf-token\|_token') occurrence(s)"
           echo ""
@@ -310,7 +310,7 @@ jobs:
 
           echo "=== 7. Nouvelle réponse après réparation ==="
           for H in app.govibepay.com; do
-            curl -skS -m 15 -o /dev/null -w "  https://$H/admin/login -> code=%{http_code}\n" -H "Host: $H" "https://127.0.0.1/admin/login" || true
+            curl -skS -m 15 -o /dev/null -w "  https://$H/admin/login -> code=%{http_code}\n" --resolve "$H:443:127.0.0.1" "https://$H/admin/login" || true
           done
           echo ""
           echo "NOTE: si le code est 200 et qu'un jeton CSRF est présent, la page marche —"
@@ -492,7 +492,7 @@ jobs:
           fi
           ( cd "$LROOT" && php artisan route:clear >/dev/null 2>&1; php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
           echo "→ route '/' installée dans le script, servant : $HOMEFILE"
-          curl -skS -m 12 -o /dev/null -w "  https://govibepay.com/ -> code=%{http_code}\n" -H "Host: govibepay.com" "https://127.0.0.1/" || true
+          curl -skS -m 12 -o /dev/null -w "  https://govibepay.com/ -> code=%{http_code}\n" --resolve "govibepay.com:443:127.0.0.1" "https://govibepay.com/" || true
           EOSSH
 
       # ------------------------------------------------------------------
@@ -666,7 +666,7 @@ jobs:
           echo "=== Les assets locaux répondent-ils ? ==="
           ALLOK=1
           for F in $FILES; do
-            RC=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' -H "Host: app.govibepay.com" "https://127.0.0.1/$WEBDIR/$F" 2>/dev/null)
+            RC=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/$WEBDIR/$F" 2>/dev/null)
             echo "  /$WEBDIR/$F -> $RC"
             [ "$RC" = "200" ] || ALLOK=0
           done
@@ -743,6 +743,6 @@ jobs:
           rm -f "$MARK"
           echo "=== Rollback OK ==="
           for H in govibepay.com app.govibepay.com; do
-            curl -skS -m 12 -o /dev/null -w "  https://$H -> code=%{http_code}\n" -H "Host: $H" "https://127.0.0.1/" || true
+            curl -skS -m 12 -o /dev/null -w "  https://$H -> code=%{http_code}\n" --resolve "$H:443:127.0.0.1" "https://$H/" || true
           done
           EOSSH
