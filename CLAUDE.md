@@ -178,17 +178,8 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
   (mix-manifest + dosye asèt public_html → laravel/public) + `config:cache`+`view:cache`.
 - Zouti dyagnostik/reparasyon: `.github/workflows/diagnose.yml` (bouton, lekti log +
   vidaj cache + relye asèt, SAN DB). Deklanche via Actions (input `clear_cache`).
-- **GOVIBEPAY fusion** (out 2026): workflow `.github/workflows/govibepay-merge.yml`
-  (bouton, mode `inspect`/`merge`/`landing`/`brand`/`rollback`) pou fizyone
-  app.govibepay.com sou rasin govibepay.com (WordPress sovgade, jamè efase; sou-domèn
-  `app.` vin redireksyon 301). Nouvo home enstale **andedan script la**
-  (`Modules/Tagtoa/deploy/govibepay/landing.html` → `resources/views/govibepay/landing.blade.php`
-  + wout `GET /` nan fen `routes/web.php`, makè `GOVIBEPAY-LANDING-ROUTE`; fallback
-  statique `DirectoryIndex` si script la pa Laravel). Mode `brand` renome
-  `appdev` → `GOVIBEPay` (.env + views/lang/config/public sèlman, backup + `php -l`;
-  si non an rete, li nan DB Settings panèl admin script la). Doc:
-  `Modules/Tagtoa/deploy/govibepay/README.md`. **Kouri `inspect` AVAN `merge`**
-  (verifye selektè PHP govibepay.com = menm vèsyon ak app la).
+- ⚠️ **GOVIBEPAY se yon LÒT PWOJÈ** (gade seksyon 9) — li pataje sèlman kont hosting
+  la. PA mete fichye GOVIBEPay anba `Modules/Tagtoa/`.
 - ⚠️ Aksyon itilizatè toujou: woule `DB_PASSWORD` (te ekspoze), `TAGTOA_CONTACT_WHATSAPP`
   (bouton Solutions), `TAGTOA_TWILIO_*` (WhatsApp), kle NTAG424 (Faz 7).
 - Login admin: `https://tagtoa.com/login` (rasin). Konekte → LandingController redirije
@@ -228,3 +219,42 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
   lòt direktiv Blade — parser la kase (« Unclosed '[' ») e paj la crash an prod (PR #41).
   Mete lojik la nan `@php ... @endphp` (san `use` — non konplè klas), pase yon varyab senp.
   AVAN chak push vue: konpile ak vrè konpilatè Blade (illuminate/view) + `php -l` rezilta a.
+
+---
+
+## 9. GOVIBEPAY — PWOJÈ APA (pa konfonn ak TAGTOA)
+
+> **Seksyon 1–8 anwo a se TAGTOA sèlman.** GOVIBEPAY se yon dezyèm pwodwi, apa.
+
+| | **GOVIBEPAY** | **TAGTOA** |
+|---|---|---|
+| Pwodwi | Pòtfèy mobil / MFS (kat, transfè, ajan, faktir) | Platfòm NFC/QR pou machann |
+| Script | **QRPay** (AppDevs) — achte, **kòd sous PA nan repo sa a** | Modil pa nou sou Biztap |
+| Domèn | `govibepay.com` + `app.govibepay.com` | `tagtoa.com` |
+| Dosye repo | **`govibepay/`** (dokiman sèlman) | `Modules/Tagtoa/` |
+| Deplwaman | `.github/workflows/govibepay-merge.yml` — **bouton sèlman** | `deploy.yml` — otomatik sou `main` |
+
+Sèl bagay yo pataje: **menm kont hosting** (`govibepay.com` = kont prensipal,
+`tagtoa.com` = addon domain, donk `$HOME` = kont govibepay) ak menm sekrè SSH.
+
+**RÈG**: PA JANM mete fichye GOVIBEPAY anba `Modules/Tagtoa/`. `deploy.yml` deklanche
+sou `paths: ["Modules/Tagtoa/**"]` — yon chanjman dokiman GOVIBEPay ta deklanche yon
+deplwaman pwodiksyon **tagtoa.com** (down → migrate → up) san okenn rezon.
+
+### Fusion app.govibepay.com → govibepay.com
+Workflow `govibepay-merge.yml` (mode `inspect`/`merge`/`landing`/`brand`/`rollback`).
+**Estrikti reyèl (verifye pa `inspect`, 5 out 2026)**:
+- `govibepay.com/public_html` **PA gen WordPress** — se `index.php` (~82 Ko = paj akèy la)
+  + `app/` (ViserPay dekonprese + zip 123 Mo + `install/` **ekspoze piblikman ⚠️**) + `my/`.
+- Script la nan `app.govibepay.com/public_html` (Laravel nan docroot, `APP_NAME="GOVIBEPAY WALLET"`,
+  PHP 8.3).
+- Donk workflow la **pa deplase docroot la an blòk**: li konsève paj akèy egzistan an
+  (`index.php` → `govibepay-home.php`, rete nan docroot pou asèt relatif yo) epi ajoute yon
+  wout `GET /` nan fen `routes/web.php` script la (makè `GOVIBEPAY-LANDING-ROUTE`).
+- **« appdev » se URL founisè a** (`appdevs.cloud`, `cdn.appdevs.net`, `qrpay.appdevs.net`)
+  — mode `brand` **pa janm touche URL** (sa t ap kraze CSS/JS), sèlman mansyon vizib.
+- **Kouri `inspect` AVAN `merge`.** Doc konplè: `govibepay/README.md`.
+
+### Odit
+Odit sekirite ki fèt jiskaprezan (out 2026) se sou **TAGTOA** (`Modules/Tagtoa/`).
+Kòd QRPay la **poko odite** — li pa nan repo a, li sou sèvè a sèlman.
