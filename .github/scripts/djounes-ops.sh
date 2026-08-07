@@ -188,6 +188,38 @@ echo "-- handler PHP déclaré dans .htaccess (version par domaine) --"
 grep -riE "AddHandler|php[0-9]|SetHandler" "$DOCROOT/.htaccess" 2>/dev/null | head -10 || echo "(aucun)"
 egrp
 
+# Un code 200 ne dit pas si le catalogue s'affiche : on compte les produits
+# réellement rendus dans la page, et on les compare à la base.
+grp "Le catalogue s'affiche-t-il ?"
+if command -v mysql >/dev/null 2>&1 && [ -n "$DBU" ] && [ -n "$DBP" ]; then
+  CNF4=$(mktemp); chmod 600 "$CNF4"
+  printf '[client]\nuser=%s\npassword=%s\nhost=%s\n' "$DBU" "$DBP" "${DBH:-localhost}" > "$CNF4"
+  SAFE4=$(printf '%s' "$DBN" | tr -cd 'A-Za-z0-9_')
+  SLUGS=$(mysql --defaults-extra-file="$CNF4" -N -e \
+    "SELECT slug FROM \`$SAFE4\`.products WHERE is_published=1 ORDER BY id;" 2>/dev/null)
+  NB=$(printf '%s\n' "$SLUGS" | grep -c . )
+  echo "produits publiés en base : $NB"
+  for page in "products" ""; do
+    HTML=$(curl -sS -m 25 "https://$DOM/$page" 2>/dev/null)
+    VUS=0
+    for s in $SLUGS; do
+      printf '%s' "$HTML" | grep -q -- "$s" && VUS=$((VUS+1))
+    done
+    echo "  https://$DOM/$page → $VUS produit(s) visible(s) dans la page"
+  done
+  echo "-- un produit pris au hasard --"
+  UN=$(printf '%s\n' "$SLUGS" | head -1)
+  if [ -n "$UN" ]; then
+    for forme in "product/$UN" "products/$UN" "$UN"; do
+      echo "  /$forme → $(curl -sS -o /dev/null -m 20 -w '%{http_code}' "https://$DOM/$forme" 2>/dev/null)"
+    done
+  fi
+  rm -f "$CNF4"
+else
+  echo "(base inaccessible)"
+fi
+egrp
+
 grp "Réponse HTTP & certificat"
 echo "-- depuis le serveur lui-même --"
 curl -sS -o /dev/null -m 20 -w "https://$DOM/ → %{http_code} (%{time_total}s)\n" "https://$DOM/" 2>&1 || true
