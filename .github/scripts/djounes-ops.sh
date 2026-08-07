@@ -201,10 +201,14 @@ if command -v mysql >/dev/null 2>&1 && [ -n "$DBU" ] && [ -n "$DBP" ]; then
   echo "produits publiés en base : $NB"
   for page in "products" ""; do
     HTML=$(curl -sS -m 25 "https://$DOM/$page" 2>/dev/null)
+    # La taille est affichée : sans elle, une réponse vide (serveur qui tousse)
+    # se lit comme « aucun produit visible » et envoie chercher un problème de
+    # catalogue qui n'existe pas.
     VUS=0
     for s in $SLUGS; do
-      printf '%s' "$HTML" | grep -q -- "$s" && VUS=$((VUS+1))
+      case "$HTML" in *"$s"*) VUS=$((VUS+1));; esac
     done
+    echo "  (page de $(printf '%s' "$HTML" | wc -c) octets)"
     echo "  https://$DOM/$page → $VUS produit(s) visible(s) dans la page"
   done
   echo "-- un produit pris au hasard --"
