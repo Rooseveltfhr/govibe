@@ -33,6 +33,7 @@ on:
         default: inventaire
         options:
           - inventaire
+          - diag_catalogue
           - scan_marque
           - scan_admin
           - admin_marque
@@ -78,7 +79,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$IN_ACTION" in
-            inventaire|scan_marque|scan_admin|admin_marque|schema_catalogue|demarrage_marque|contenu_marque|vider_cache|securiser_install|mettre_en_pause|reprendre_site) ;;
+            inventaire|diag_catalogue|scan_marque|scan_admin|admin_marque|schema_catalogue|demarrage_marque|contenu_marque|vider_cache|securiser_install|mettre_en_pause|reprendre_site) ;;
             *) echo "::error::action invalide"; exit 1;;
           esac
           # Domaine : lettres/chiffres/point/tiret uniquement.

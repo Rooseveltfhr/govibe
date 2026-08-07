@@ -281,6 +281,52 @@ case "$ACTION" in
     fi
     egrp
     ;;
+  diag_catalogue)
+    # Les fiches produit répondent 200 mais les listes semblent vides : soit la
+    # requête de liste filtre sur une colonne qu'on n'a pas remplie, soit la
+    # grille est chargée en JavaScript et curl ne peut pas la voir.
+    grp "État des produits en base"
+    if command -v mysql >/dev/null 2>&1 && [ -n "$DBU" ] && [ -n "$DBP" ]; then
+      CNF5=$(mktemp); chmod 600 "$CNF5"
+      printf '[client]\nuser=%s\npassword=%s\nhost=%s\n' "$DBU" "$DBP" "${DBH:-localhost}" > "$CNF5"
+      S5=$(printf '%s' "$DBN" | tr -cd 'A-Za-z0-9_')
+      mysql --defaults-extra-file="$CNF5" -t -e \
+        "SELECT id, slug, is_published, show_in_products_page, product_type, product_type_id,
+                in_stock, main_image_id, brand_id
+         FROM \`$S5\`.products ORDER BY id;" 2>&1 | head -15
+      echo "-- rattachement aux catégories --"
+      mysql --defaults-extra-file="$CNF5" -t -e \
+        "SELECT cp.category_id, c.slug, COUNT(*) AS produits
+         FROM \`$S5\`.category_product cp
+         LEFT JOIN \`$S5\`.categories c ON c.id = cp.category_id
+         GROUP BY cp.category_id, c.slug;" 2>&1 | head -10
+      echo "-- médias liés --"
+      mysql --defaults-extra-file="$CNF5" -N -e \
+        "SELECT CONCAT('media=', (SELECT COUNT(*) FROM \`$S5\`.media),
+                       ' liens media_product=', (SELECT COUNT(*) FROM \`$S5\`.media_product));" 2>&1
+      rm -f "$CNF5"
+    fi
+    egrp
+
+    grp "Requête de liste dans le contrôleur"
+    for f in "$APPDIR/app/Http/Controllers/ProductController.php" \
+             "$APPDIR/app/Http/Controllers/SiteController.php"; do
+      [ -f "$f" ] || continue
+      echo "== $(basename "$f") =="
+      grep -nE "function (products|index|home)|Product::|->where|whereHas|active\(\)|published" "$f" 2>/dev/null | head -24
+    done
+    egrp
+
+    grp "Ce que la page renvoie réellement"
+    HTML=$(curl -sS -m 25 "https://$DOM/products" 2>/dev/null)
+    echo "taille de la page : $(printf '%s' "$HTML" | wc -c) octets"
+    echo "liens vers une fiche produit : $(printf '%s' "$HTML" | grep -oc 'product/' || echo 0)"
+    echo "-- marqueurs de liste vide --"
+    printf '%s' "$HTML" | grep -oiE "no data found|not found|aucun|empty|data-not-found" | sort | uniq -c | head -5 || echo "(aucun)"
+    echo "-- indices de chargement en JavaScript --"
+    printf '%s' "$HTML" | grep -oiE "ajax|load-?more|infinite|fetch\(" | sort | uniq -c | head -6 || echo "(aucun)"
+    egrp
+    ;;
   scan_admin)
     # Le panneau d'administration a sa propre charte (bleu) et affiche le nom
     # et la version du script en pied de barre latérale. On localise les deux
