@@ -149,11 +149,18 @@ jobs:
           # erreur de script (GitHub lance chaque étape avec `bash -e`).
           set +e
           set -u
+          # Ordre voulu : le port configuré, puis 22. Un port collé à l'hôte
+          # vient du panneau (2222) et n'expose presque jamais SSH : il passe en
+          # DERNIER. Le tenter en premier faisait une connexion perdue à chaque
+          # exécution — exactement ce qu'une protection anti-brute-force compte.
           CANDIDATES="$SSH_PORT"
-          [ -n "${DJ_PORT_HINT:-}" ] && CANDIDATES="$DJ_PORT_HINT $CANDIDATES"
-          for p in 22 2222; do
-            case " $CANDIDATES " in *" $p "*) ;; *) CANDIDATES="$CANDIDATES $p";; esac
-          done
+          case " $CANDIDATES " in *" 22 "*) ;; *) CANDIDATES="$CANDIDATES 22";; esac
+          if [ -n "${DJ_PORT_HINT:-}" ]; then
+            case " $CANDIDATES " in
+              *" $DJ_PORT_HINT "*) ;;
+              *) CANDIDATES="$CANDIDATES $DJ_PORT_HINT";;
+            esac
+          fi
 
           FOUND=""; DENIED=""
           for p in $CANDIDATES; do
