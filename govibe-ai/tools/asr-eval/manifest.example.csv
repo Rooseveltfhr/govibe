@@ -1,0 +1,14 @@
+file,intent,item,qty,date,time,person,phone,notes,region,gender,noise,duration_s,code_switch,transcript_ref
+# ── EGZANP — efase liy sa yo epi mete pa w ────────────────────────────────────
+# intent    : order | price | booking | info | complaint | other
+# region    : ouest | nord | sud | artibonite | centre | diaspora
+# gender    : f | m
+# noise     : kalm | mwayen | fò
+# code_switch: wi | non   (kreyòl melanje ak fransè/anglè)
+# transcript_ref : sa moun nan di VRE. Opsyonèl, men li bay WER la.
+#                  Ranpli l sou omwen 30 clip — se sa ki pèmèt konpare founisè.
+n001.opus,order,poul,2,,,,,,ouest,f,mwayen,9,non,mwen ta renmen de poul ak yon diri kole
+n002.opus,price,bannann,,,,,,,sud,m,fò,6,non,konbyen bannann peze a koute
+n003.opus,booking,,,25,10,Marie,,,ouest,f,kalm,14,wi,mwen vle yon randevou 25 la a dis zè pou Marie
+n004.opus,info,,,,,,,,nord,m,mwayen,7,non,kilè nou fèmen jodi a
+n005.opus,complaint,,,,,,,livrezon an poko rive,ouest,f,kalm,18,non,kòmand mwen an poko rive depi inè
