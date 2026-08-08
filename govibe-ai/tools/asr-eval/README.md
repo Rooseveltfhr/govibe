@@ -10,6 +10,33 @@
 
 ---
 
+## 0. Ou sou telefòn ou? Sèvi ak paj kolèk la
+
+Si ou pa gen òdinatè devan w, `kolekte.php` regle tout pati kolèk la depi navigatè
+telefòn ou: ou depoze yon nòt, ou tape etikèt yo, li ekri nan `clips/` **epi** nan
+`manifest.csv` poukont li. Pa gen SFTP, pa gen CSV pou ranpli alamen.
+
+```bash
+# Sou VPS la — mete fichye a yon kote sèvè web la sèvi
+cp kolekte.php /chemen/sit/ou/kolekte.php
+
+# Chanje TOKEN an (liy 27) pou yon bagay ki lakay ou
+nano /chemen/sit/ou/kolekte.php
+```
+
+Apre sa louvri sou telefòn ou: `https://sit-ou.com/kolekte.php?k=TOKEN-OU-A`
+
+Paj la montre yon **tablo pwogrè** pa entansyon, rejyon, bri ak sèks — konsa ou wè
+touswit ki kategori ki poko plen (« Nò: 4/20 ») epi ou konnen ki moun pou w rele.
+Bar vèt = objektif la ranpli.
+
+> ⚠️ **Efase `kolekte.php` lè kolèk la fini.** Yon paj ki aksepte fichye sou entènèt
+> pa dwe rete louvri. Li deja gen yon token obligatwa, yon lis ekstansyon fèmen
+> (odyo sèlman), yon limit 25 Mo, epi li depoze yon `.htaccess` ki bloke tout
+> egzekisyon nan `clips/` — men pi bon pwoteksyon an se retire l.
+
+---
+
 ## 1. Kote pou mete 100 nòt vokal yo
 
 **Dirèkteman soti nan WhatsApp — pa gen konvèsyon pou fè.**
@@ -195,3 +222,4 @@ Pa abandone touswit — nan lòd:
 | `report.py` | Rapò konsòl + HTML. |
 | `asr_eval.py` | Oganizatè + liy kòmand. |
 | `test_scoring.py` | 28 tès sou lojik la. Kouri yo anvan ou depanse. |
+| `kolekte.php` | Paj kolèk depi telefòn (gade seksyon 0). Efase l apre. |
