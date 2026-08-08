@@ -285,6 +285,29 @@ case "$ACTION" in
     fi
     egrp
     ;;
+  scan_collection)
+    # Les emplacements collection_1..7 sont déjà actifs sur l'accueil. Reste à
+    # savoir sous quelle forme le thème attend product_ids et unique_key.
+    grp "Modèle ProductCollection"
+    sed -n '1,60p' "$APPDIR/app/Models/ProductCollection.php" 2>/dev/null
+    egrp
+    grp "Comment l'admin enregistre une collection"
+    sed -n '/function \(store\|save\|update\)/,/^    }/p' \
+      "$APPDIR/app/Http/Controllers/Admin/ProductCollectionController.php" 2>/dev/null | head -45
+    egrp
+    grp "Section qui rend une collection"
+    F=$(ls "$APPDIR/resources/views/templates/basic/sections/"collection*.blade.php 2>/dev/null | head -1)
+    [ -n "$F" ] && { echo "[$(basename "$F")]"; head -40 "$F"; } \
+      || { echo "(pas de section collection*.blade.php)"; grep -rln "collection" "$APPDIR/resources/views/templates/basic/sections" 2>/dev/null | head; }
+    echo "-- déclaration dans sections.json --"
+    grep -A6 -i "collection" "$APPDIR/resources/views/templates/basic/sections.json" 2>/dev/null | head -25
+    egrp
+    grp "Fiche produit : gabarit à styliser"
+    wc -l "$APPDIR/resources/views/templates/basic/product_details.blade.php" 2>/dev/null
+    grep -nE "attribute|variant|size|color|add-to-cart|addToCart|product-thumb|main-image" \
+      "$APPDIR/resources/views/templates/basic/product_details.blade.php" 2>/dev/null | head -25
+    egrp
+    ;;
   scan_accueil)
     # Où accrocher une vitrine de produits sur l'accueil : ce que le contrôleur
     # passe à la vue, comment les sections sont assemblées, et si le thème sait
