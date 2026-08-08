@@ -75,7 +75,7 @@
 
 {{-- Template produit/service --}}
 <template id="itemtpl">
-    <div class="itemrow" style="background:#fff;border:1px solid var(--bd);border-radius:11px;padding:10px;margin-bottom:8px">
+    <div class="itemrow" data-ci="CIDX" data-ii="IIDX" style="background:#fff;border:1px solid var(--bd);border-radius:11px;padding:10px;margin-bottom:8px">
         <div style="display:flex;gap:8px;align-items:center">
             <input name="cats[CIDX][items][IIDX][emoji]" class="inp" placeholder="🍔" style="max-width:56px;text-align:center">
             <input name="cats[CIDX][items][IIDX][name]" class="inp" placeholder="{{ __('Nom du produit / service') }}">
@@ -84,17 +84,94 @@
         </div>
         <input name="cats[CIDX][items][IIDX][description]" class="inp" placeholder="{{ __('Description (optionnel)') }}" style="margin-top:8px">
         <div style="display:flex;gap:16px;align-items:center;margin-top:8px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:8px">
+                <img class="itemphoto" style="height:40px;width:40px;border-radius:8px;object-fit:cover;display:none">
+                <input name="cats[CIDX][items][IIDX][image]" class="inp" type="file" accept="image/*" style="max-width:190px" onchange="previewItemImage(this)">
+                <label class="switch removeimgwrap" style="flex:0;display:none"><input type="checkbox" name="cats[CIDX][items][IIDX][remove_image]" value="1"> {{ __('Retirer') }}</label>
+            </div>
             <input name="cats[CIDX][items][IIDX][badge]" class="inp" placeholder="{{ __('Badge: Nouveau, Promo…') }}" style="max-width:200px">
             <input name="cats[CIDX][items][IIDX][stock]" class="inp" type="number" min="0" placeholder="{{ __('Stock (vide = illimité)') }}" style="max-width:170px" title="{{ __('Laisser vide pour ne pas suivre le stock') }}">
             <label class="switch" style="flex:0"><input type="hidden" name="cats[CIDX][items][IIDX][is_available]" value="0"><input type="checkbox" name="cats[CIDX][items][IIDX][is_available]" value="1" checked> {{ __('Disponible') }}</label>
             <label class="switch" style="flex:0"><input type="checkbox" name="cats[CIDX][items][IIDX][is_featured]" value="1"> {{ __('Mis en avant') }}</label>
         </div>
+        <div class="options" style="margin-top:8px"></div>
+        <button type="button" class="btn btn-o btn-sm" onclick="addOption(this.closest('.itemrow'))" style="margin-top:6px"><i class="fa-solid fa-plus"></i> {{ __('Option (taille, extra…)') }}</button>
+    </div>
+</template>
+
+{{-- Template groupe d'options (ex. Taille, Suppléments) --}}
+<template id="opttpl">
+    <div class="optblock" data-ci="CIDX" data-ii="IIDX" data-oi="OIDX" style="border:1px dashed var(--bd);border-radius:10px;padding:8px;margin-top:8px;background:#fafafa">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input name="cats[CIDX][items][IIDX][options][OIDX][name]" class="inp" placeholder="{{ __('Nom du groupe (ex. Taille)') }}" style="flex:1;min-width:140px">
+            <label class="switch" style="flex:0"><input type="checkbox" name="cats[CIDX][items][IIDX][options][OIDX][required]" value="1"> {{ __('Obligatoire') }}</label>
+            <label class="switch" style="flex:0"><input type="checkbox" name="cats[CIDX][items][IIDX][options][OIDX][multiple]" value="1"> {{ __('Choix multiples') }}</label>
+            <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.optblock').remove()"><i class="fa-solid fa-trash"></i></button>
+        </div>
+        <div class="choices" style="margin-top:6px"></div>
+        <button type="button" class="btn btn-o btn-sm" onclick="addChoice(this.closest('.optblock'))" style="margin-top:4px"><i class="fa-solid fa-plus"></i> {{ __('Choix') }}</button>
+    </div>
+</template>
+
+{{-- Template choix d'un groupe d'options --}}
+<template id="choicetpl">
+    <div class="choicerow" style="display:flex;gap:8px;align-items:center;margin-top:4px">
+        <input name="cats[CIDX][items][IIDX][options][OIDX][choices][CHIDX][label]" class="inp" placeholder="{{ __('Libellé (ex. Grand)') }}">
+        <input name="cats[CIDX][items][IIDX][options][OIDX][choices][CHIDX][price_delta]" class="inp" type="number" step="0.01" placeholder="{{ __('+/- prix') }}" style="max-width:110px">
+        <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.choicerow').remove()"><i class="fa-solid fa-trash"></i></button>
     </div>
 </template>
 
 @push('scripts')
 <script>
 var cIdx = 0;
+
+function previewItemImage(input){
+    var row = input.closest('.itemrow');
+    var img = row.querySelector('.itemphoto');
+    if (input.files && input.files[0]){
+        var reader = new FileReader();
+        reader.onload = function(e){ img.src = e.target.result; img.style.display='inline-block'; };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function addOption(itemRow, d){
+    var ci = itemRow.getAttribute('data-ci');
+    var ii = itemRow.getAttribute('data-ii');
+    var oi = parseInt(itemRow.getAttribute('data-oi') || '0', 10);
+    itemRow.setAttribute('data-oi', oi + 1);
+    var html = document.getElementById('opttpl').innerHTML.replace(/CIDX/g, ci).replace(/IIDX/g, ii).replace(/OIDX/g, oi);
+    var box = document.createElement('div'); box.innerHTML = html;
+    var row = box.firstElementChild;
+    itemRow.querySelector('.options').appendChild(row);
+    if (d){
+        row.querySelector('[name$="[name]"]').value = d.name || '';
+        row.querySelector('[name$="[required]"]').checked = !!d.required;
+        row.querySelector('[name$="[multiple]"]').checked = !!d.multiple;
+        var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][items]['+ii+'][options]['+oi+'][id]'; h.value=d.id; row.appendChild(h);
+        (d.choices || []).forEach(function(ch){ addChoice(row, ch); });
+    }
+    return row;
+}
+
+function addChoice(optRow, d){
+    var ci = optRow.getAttribute('data-ci');
+    var ii = optRow.getAttribute('data-ii');
+    var oi = optRow.getAttribute('data-oi');
+    var chi = parseInt(optRow.getAttribute('data-chi') || '0', 10);
+    optRow.setAttribute('data-chi', chi + 1);
+    var html = document.getElementById('choicetpl').innerHTML.replace(/CIDX/g, ci).replace(/IIDX/g, ii).replace(/OIDX/g, oi).replace(/CHIDX/g, chi);
+    var box = document.createElement('div'); box.innerHTML = html;
+    var row = box.firstElementChild;
+    optRow.querySelector('.choices').appendChild(row);
+    if (d){
+        row.querySelector('[name$="[label]"]').value = d.label || '';
+        row.querySelector('[name$="[price_delta]"]').value = (d.price_delta != null ? d.price_delta : '');
+        var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][items]['+ii+'][options]['+oi+'][choices]['+chi+'][id]'; h.value=d.id; row.appendChild(h);
+    }
+    return row;
+}
 
 function addItem(catEl, d){
     var ci = catEl.getAttribute('data-ci');
@@ -114,6 +191,12 @@ function addItem(catEl, d){
         row.querySelector('input[type=checkbox][name$="[is_available]"]').checked = d.is_available !== false;
         row.querySelector('[name$="[is_featured]"]').checked = !!d.is_featured;
         var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][items]['+ii+'][id]'; h.value=d.id; row.appendChild(h);
+        if (d.image_url){
+            row.querySelector('.itemphoto').src = d.image_url;
+            row.querySelector('.itemphoto').style.display = 'inline-block';
+            row.querySelector('.removeimgwrap').style.display = 'flex';
+        }
+        (d.options || []).forEach(function(o){ addOption(row, o); });
     }
     return row;
 }
@@ -137,7 +220,15 @@ function addCat(d){
     $catData = $menu->relationLoaded('categories')
         ? $menu->categories->map(fn ($c) => [
             'id' => $c->id, 'name' => $c->name, 'icon' => $c->icon,
-            'items' => $c->items->map(fn ($i) => ['id' => $i->id, 'name' => $i->name, 'emoji' => $i->emoji, 'price' => $i->price, 'description' => $i->description, 'badge' => $i->badge, 'is_available' => $i->is_available, 'is_featured' => $i->is_featured, 'stock' => $i->stock])->values(),
+            'items' => $c->items->map(fn ($i) => [
+                'id' => $i->id, 'name' => $i->name, 'emoji' => $i->emoji, 'price' => $i->price,
+                'description' => $i->description, 'badge' => $i->badge, 'is_available' => $i->is_available,
+                'is_featured' => $i->is_featured, 'stock' => $i->stock, 'image_url' => $i->image_url,
+                'options' => $i->options->map(fn ($o) => [
+                    'id' => $o->id, 'name' => $o->name, 'required' => $o->required, 'multiple' => $o->multiple,
+                    'choices' => $o->choices->map(fn ($ch) => ['id' => $ch->id, 'label' => $ch->label, 'price_delta' => $ch->price_delta])->values(),
+                ])->values(),
+            ])->values(),
         ])->values()
         : [];
 @endphp

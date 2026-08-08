@@ -86,6 +86,23 @@
         .cin{width:100%;padding:12px 14px;border:1px solid var(--bd);border-radius:11px;font:15px var(--fb);background:var(--surf);color:var(--fg)}
         .cin:focus{outline:0;border-color:var(--acc)}
         .cta button:disabled{opacity:.6;cursor:default}
+        /* Type de commande + pourboire */
+        .otype{display:flex;gap:8px;margin:6px 0 14px}
+        .otbtn{flex:1;border:1px solid var(--bd);background:var(--surf);color:var(--fg);border-radius:11px;padding:10px 6px;font:600 12.5px var(--fh);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+        .otbtn.on{background:var(--acc);color:#fff;border-color:transparent}
+        .tiprow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+        .tiplbl{font:600 13.5px var(--fh);color:var(--mut)}
+        .tipbtns{display:flex;gap:6px}
+        .tipbtn{border:1px solid var(--bd);background:var(--surf);color:var(--fg);border-radius:9px;padding:7px 12px;font:700 12.5px var(--fh);cursor:pointer}
+        .tipbtn.on{background:var(--acc);color:#fff;border-color:transparent}
+        /* Options de plat (modificateurs) */
+        .optgrp{margin-bottom:14px}
+        .optgrp .oh{font:700 14px var(--fh);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+        .optgrp .req{font-size:10.5px;color:#fff;background:var(--acc);border-radius:999px;padding:1px 8px;text-transform:uppercase}
+        .optchoice{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bd);font-size:14.5px;cursor:pointer}
+        .optchoice:last-child{border-bottom:0}
+        .optchoice input{margin-right:10px}
+        .optchoice .od{color:var(--mut);font-size:13px}
         @media (prefers-reduced-motion:reduce){*{transition:none!important}}
     </style>
 </head>
@@ -129,7 +146,13 @@
                             <div class="ft">
                                 @if($menu->show_prices)<span class="price">{{ \Modules\Tagtoa\App\Support\Money::format($it->price, $cur) }}</span>@else<span></span>@endif
                                 @if($canOrder && ! $out)
-                                    <button class="add" aria-label="{{ __('Ajouter') }}" data-id="{{ $it->id }}" data-name="{{ $it->name }}" data-price="{{ (float) $it->price }}" onclick="add(this)"><i class="fa-solid fa-plus"></i></button>
+                                    @php
+                                        $opts = $it->options->map(fn ($o) => [
+                                            'id' => $o->id, 'name' => $o->name, 'required' => $o->required, 'multiple' => $o->multiple,
+                                            'choices' => $o->choices->map(fn ($c) => ['id' => $c->id, 'label' => $c->label, 'price_delta' => (float) $c->price_delta])->values(),
+                                        ])->values();
+                                    @endphp
+                                    <button class="add" aria-label="{{ __('Ajouter') }}" data-id="{{ $it->id }}" data-name="{{ $it->name }}" data-price="{{ (float) $it->price }}" data-options='@json($opts)' onclick="add(this)"><i class="fa-solid fa-plus"></i></button>
                                 @endif
                             </div>
                         </div>
@@ -157,11 +180,32 @@
             {{-- État 1 : panier + infos client --}}
             <div id="orderForm">
                 <div id="clist"></div>
+
+                <div class="otype" id="otype">
+                    <button type="button" class="otbtn on" data-type="dine_in" onclick="setOrderType('dine_in')"><i class="fa-solid fa-utensils"></i> {{ __('Sur place') }}</button>
+                    <button type="button" class="otbtn" data-type="pickup" onclick="setOrderType('pickup')"><i class="fa-solid fa-bag-shopping"></i> {{ __('À emporter') }}</button>
+                    <button type="button" class="otbtn" data-type="delivery" onclick="setOrderType('delivery')"><i class="fa-solid fa-motorcycle"></i> {{ __('Livraison') }}</button>
+                </div>
+
+                <div class="tiprow">
+                    <span class="tiplbl">{{ __('Pourboire') }}</span>
+                    <div class="tipbtns" id="tipbtns">
+                        <button type="button" class="tipbtn on" data-pct="0" onclick="setTipPct(0)">0%</button>
+                        <button type="button" class="tipbtn" data-pct="5" onclick="setTipPct(5)">5%</button>
+                        <button type="button" class="tipbtn" data-pct="10" onclick="setTipPct(10)">10%</button>
+                        <button type="button" class="tipbtn" data-pct="15" onclick="setTipPct(15)">15%</button>
+                    </div>
+                </div>
+
+                <div class="tot" style="font-weight:500;font-size:14px;color:var(--mut)"><span>{{ __('Sous-total') }}</span><span id="subtotal">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
+                <div class="tot" id="tiprowtot" style="display:none;font-weight:500;font-size:14px;color:var(--mut)"><span>{{ __('Pourboire') }}</span><span id="tipamt">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
                 <div class="tot"><span>{{ __('Total') }}</span><span id="total">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
+
                 <div class="custf">
                     <input id="cName" class="cin" placeholder="{{ __('Votre nom') }}" maxlength="120">
                     <input id="cPhone" class="cin" type="tel" placeholder="{{ __('Téléphone (WhatsApp)') }}" maxlength="40">
                     <input id="cTable" class="cin" placeholder="{{ __('N° table (optionnel)') }}" maxlength="40">
+                    <input id="cAddress" class="cin" placeholder="{{ __('Adresse de livraison') }}" maxlength="200" style="display:none">
                 </div>
                 <div class="cta">
                     <button class="wa" id="confirmBtn" onclick="submitOrder()"><i class="fa-solid fa-bag-shopping"></i> {{ __('Confirmer la commande') }}</button>
@@ -178,6 +222,7 @@
                     <div style="color:var(--mut)">{{ __('Total') }} : <b id="okTotal"></b></div>
                 </div>
                 <div class="cta" style="margin-top:8px">
+                    <a class="pay" id="okTrack" href="#"><i class="fa-solid fa-location-crosshairs"></i> {{ __('Suivre ma commande') }}</a>
                     <a class="wa" id="okWa" href="#" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> {{ __('Commander sur WhatsApp') }}</a>
                     <a class="pay" id="okPay" href="#" style="display:none"><i class="fa-solid fa-credit-card"></i> {{ __('Payer maintenant') }}</a>
                     <button class="clr" onclick="newOrder()">{{ __('Nouvelle') }}</button>
@@ -186,12 +231,27 @@
         </div>
     </div>
 
+    {{-- Sélecteur d'options d'un plat (taille, extras…) avant ajout au panier --}}
+    <div class="sheet" id="modsheet">
+        <div class="ov" onclick="closeMod()"></div>
+        <div class="pan">
+            <h3 id="modTitle">{{ __('Options') }} <button class="x" onclick="closeMod()">&times;</button></h3>
+            <div id="modBody"></div>
+            <div class="cta" style="margin-top:12px">
+                <button class="wa" id="modAdd" onclick="confirmModAdd()"><i class="fa-solid fa-plus"></i> {{ __('Ajouter au panier') }}</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         var CURMETA = @json(\Modules\Tagtoa\App\Support\Money::meta($cur));
         var ORDER_URL = @json(route('tagtoa.menu.order', $menu->alias));
         var CSRF = document.querySelector('meta[name=csrf-token]').getAttribute('content');
-        var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')) };
+        var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')) };
         var cart = {};
+        var orderType = 'dine_in';
+        var tipPct = 0;
+        var modItem = null, modChosen = {};
         var ORDER_UUID = 'mo-' + Date.now().toString(36) + Math.random().toString(36).slice(2,10);
         function fmt(n){
             var d = (CURMETA.decimals==null) ? 2 : CURMETA.decimals;
@@ -200,44 +260,108 @@
         }
         function val(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
         function add(el){
-            var id = el.getAttribute('data-id');
-            if(!cart[id]) cart[id] = {name:el.getAttribute('data-name'), price:parseFloat(el.getAttribute('data-price'))||0, qty:0};
-            cart[id].qty++; render();
+            var opts = [];
+            try { opts = JSON.parse(el.getAttribute('data-options') || '[]'); } catch(e){}
+            var id = el.getAttribute('data-id'), name = el.getAttribute('data-name'), price = parseFloat(el.getAttribute('data-price'))||0;
+            if (opts.length){ openMod(id, name, price, opts); return; }
+            addToCart(id, name, price, [], '');
+        }
+        function addToCart(id, name, price, optionIds, optionLabel){
+            var key = String(id) + (optionIds.length ? '|'+optionIds.slice().sort(function(a,b){return a-b;}).join(',') : '');
+            if(!cart[key]) cart[key] = {id:Number(id), name:name, price:price, qty:0, options:optionIds, optionLabel:optionLabel};
+            cart[key].qty++; render();
         }
         function chg(id,d){ if(!cart[id])return; cart[id].qty+=d; if(cart[id].qty<=0) delete cart[id]; render(); }
         function clearCart(){ cart={}; render(); closeCart(); }
         function totals(){ var n=0,t=0; for(var k in cart){ n+=cart[k].qty; t+=cart[k].qty*cart[k].price; } return {n:n,t:t}; }
+        function tipAmount(subtotal){ return Math.round(subtotal*tipPct)/100; }
+        function setOrderType(t){
+            orderType = t;
+            document.querySelectorAll('#otype .otbtn').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-type')===t); });
+            document.getElementById('cTable').style.display = (t==='dine_in') ? '' : 'none';
+            document.getElementById('cAddress').style.display = (t==='delivery') ? '' : 'none';
+        }
+        function setTipPct(p){
+            tipPct = p;
+            document.querySelectorAll('#tipbtns .tipbtn').forEach(function(b){ b.classList.toggle('on', Number(b.getAttribute('data-pct'))===p); });
+            render();
+        }
         function render(){
             var s = totals();
+            var tip = tipAmount(s.t);
             document.getElementById('cnt').textContent = s.n;
-            document.getElementById('bartot').textContent = fmt(s.t);
-            document.getElementById('total').textContent = fmt(s.t);
+            document.getElementById('bartot').textContent = fmt(s.t+tip);
+            document.getElementById('subtotal').textContent = fmt(s.t);
+            document.getElementById('tipamt').textContent = fmt(tip);
+            document.getElementById('tiprowtot').style.display = tip>0 ? '' : 'none';
+            document.getElementById('total').textContent = fmt(s.t+tip);
             document.getElementById('cartbar').classList.toggle('show', s.n>0);
             var list = document.getElementById('clist'), html='';
             if(s.n===0){ html = '<div class="empty">'+T.empty+'</div>'; }
             else { for(var k in cart){ var c=cart[k];
-                html += '<div class="crow"><div class="cn">'+esc(c.name)+'<div class="cp">'+fmt(c.price)+'</div></div>'+
+                html += '<div class="crow"><div class="cn">'+esc(c.name)+(c.optionLabel?'<div class="od" style="font-weight:400">'+esc(c.optionLabel)+'</div>':'')+'<div class="cp">'+fmt(c.price)+'</div></div>'+
                         '<div class="qty"><button onclick="chg(\''+k+'\',-1)">−</button><span>'+c.qty+'</span><button onclick="chg(\''+k+'\',1)">+</button></div></div>';
             }}
             list.innerHTML = html;
         }
+        function openMod(id, name, price, opts){
+            modItem = {id:id, name:name, price:price, opts:opts}; modChosen = {};
+            document.getElementById('modTitle').innerHTML = esc(name)+' <button class="x" onclick="closeMod()">&times;</button>';
+            var html = '';
+            opts.forEach(function(g){
+                modChosen[g.id] = [];
+                html += '<div class="optgrp" data-gid="'+g.id+'"><div class="oh">'+esc(g.name)+(g.required?' <span class="req">'+@json(__('Requis'))+'</span>':'')+'</div>';
+                g.choices.forEach(function(c){
+                    var inputType = g.multiple ? 'checkbox' : 'radio';
+                    html += '<label class="optchoice"><span><input type="'+inputType+'" name="grp'+g.id+'" onchange="toggleChoice('+g.id+','+c.id+',this,'+(g.multiple?'true':'false')+')"> '+esc(c.label)+'</span><span class="od">'+(c.price_delta ? (c.price_delta>0?'+':'')+fmt(c.price_delta) : '')+'</span></label>';
+                });
+                html += '</div>';
+            });
+            document.getElementById('modBody').innerHTML = html;
+            document.getElementById('modsheet').classList.add('show');
+        }
+        function toggleChoice(gid, cid, el, multiple){
+            if (!modChosen[gid]) modChosen[gid] = [];
+            if (multiple){
+                if (el.checked){ modChosen[gid].push(cid); } else { modChosen[gid] = modChosen[gid].filter(function(x){return x!==cid;}); }
+            } else {
+                modChosen[gid] = el.checked ? [cid] : [];
+            }
+        }
+        function closeMod(){ document.getElementById('modsheet').classList.remove('show'); modItem=null; }
+        function confirmModAdd(){
+            if (!modItem) return;
+            var ids = [], labels = [], extra = 0;
+            for (var i=0;i<modItem.opts.length;i++){
+                var g = modItem.opts[i]; var chosen = modChosen[g.id] || [];
+                if (g.required && chosen.length===0){ alert(T.required); return; }
+                chosen.forEach(function(cid){
+                    var c = g.choices.find(function(x){return x.id===cid;});
+                    if (c){ ids.push(cid); labels.push(c.label); extra += Number(c.price_delta)||0; }
+                });
+            }
+            addToCart(modItem.id, modItem.name, modItem.price+extra, ids, labels.join(', '));
+            closeMod(); openCart();
+        }
         function submitOrder(){
             var s = totals(); if(s.n===0) return;
-            var items=[]; for(var k in cart){ items.push({id:Number(k), qty:cart[k].qty}); }
+            var items=[]; for(var k in cart){ items.push({id:cart[k].id, qty:cart[k].qty, options:cart[k].options}); }
             var btn=document.getElementById('confirmBtn'); btn.disabled=true; var old=btn.innerHTML; btn.textContent=T.wait;
             fetch(ORDER_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF},
-                body:JSON.stringify({items:items,client_uuid:ORDER_UUID,channel:'menu',
-                    customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable')})})
+                body:JSON.stringify({items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
+                    customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),delivery_address:val('cAddress')})})
             .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
             .then(function(res){
-                if(!res.ok||!res.j.ok){ throw new Error(); }
+                if(!res.ok||!res.j.ok){ throw new Error(res.j && res.j.message); }
                 showConfirmed(res.j);
             })
-            .catch(function(){ btn.disabled=false; btn.innerHTML=old; alert(T.err); });
+            .catch(function(e){ btn.disabled=false; btn.innerHTML=old; alert((e && e.message) || T.err); });
         }
         function showConfirmed(j){
             document.getElementById('okRef').textContent = j.reference;
             document.getElementById('okTotal').textContent = j.total;
+            var track=document.getElementById('okTrack');
+            if(j.track_url){ track.href=j.track_url; track.style.display=''; } else { track.style.display='none'; }
             var wa=document.getElementById('okWa');
             if(j.whatsapp_url){ wa.href=j.whatsapp_url; wa.style.display=''; } else { wa.style.display='none'; }
             var pay=document.getElementById('okPay');
