@@ -23,6 +23,7 @@ on:
           - inspect
           - diagnose
           - assets
+          - session
           - merge
           - landing
           - brand
@@ -809,6 +810,102 @@ jobs:
             ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
             echo "  → références repointées vers appdevs.cloud (hôte joignable)"
           fi
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # SESSION — corrige le 419 « Page Expired » sur les pages de connexion.
+      #
+      # Symptôme : /admin/login renvoie 419 dans le navigateur alors que le
+      # rendu par le kernel (sans cookie) renvoie 200. Le journal contient des
+      # milliers de DecryptException « The payload is invalid » : les cookies
+      # de session détenus par les navigateurs ne sont plus déchiffrables, donc
+      # la session est jetée et le jeton CSRF ne correspond jamais.
+      #
+      # Plutôt que de demander à chaque utilisateur de vider ses cookies, on
+      # CHANGE LE NOM du cookie de session : les anciens deviennent sans objet
+      # et chacun repart sur une session propre au premier chargement.
+      # ------------------------------------------------------------------
+      - name: Session (corriger le 419 « Page Expired »)
+        if: ${{ inputs.mode == 'session' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          TS=$(date +%Y%m%d-%H%M%S)
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html" "$DOM/public_html/app"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          echo "Script : $LROOT"
+          ENVF="$LROOT/.env"
+          [ -f "$ENVF" ] || { echo "ERREUR: .env introuvable."; exit 1; }
+          cp -a "$ENVF" "$ENVF.bak-session-$TS"
+          echo "→ .env sauvegardé : .env.bak-session-$TS"
+          echo ""
+
+          echo "=== Réglages de session AVANT ==="
+          grep -E '^(APP_URL|SESSION_DRIVER|SESSION_LIFETIME|SESSION_DOMAIN|SESSION_COOKIE|SESSION_SECURE_COOKIE|SESSION_SAME_SITE)=' "$ENVF" || echo "(aucun réglage explicite)"
+          echo ""
+
+          # 1) Nouveau nom de cookie → les anciens cookies illisibles sont ignorés
+          NEWCOOKIE="govibepay_session_$(date +%s)"
+          if grep -q '^SESSION_COOKIE=' "$ENVF"; then
+            sed -i "s#^SESSION_COOKIE=.*#SESSION_COOKIE=$NEWCOOKIE#" "$ENVF"
+          else
+            printf '\nSESSION_COOKIE=%s\n' "$NEWCOOKIE" >> "$ENVF"
+          fi
+          echo "→ nom du cookie de session renouvelé"
+
+          # 2) Le domaine a changé (app.govibepay.com → govibepay.com) : un
+          #    SESSION_DOMAIN figé sur l'ancien hôte empêcherait l'envoi du cookie.
+          if grep -qE '^SESSION_DOMAIN=.*app\.govibepay\.com' "$ENVF"; then
+            sed -i 's#^SESSION_DOMAIN=.*#SESSION_DOMAIN=.govibepay.com#' "$ENVF"
+            echo "→ SESSION_DOMAIN recalé sur .govibepay.com (il pointait sur l'ancien sous-domaine)"
+          else
+            echo "→ SESSION_DOMAIN : rien à corriger"
+          fi
+
+          # 3) Purger les sessions serveur devenues inutilisables
+          if [ -d "$LROOT/storage/framework/sessions" ]; then
+            N=$(find "$LROOT/storage/framework/sessions" -type f ! -name '.gitignore' 2>/dev/null | wc -l)
+            find "$LROOT/storage/framework/sessions" -type f ! -name '.gitignore' -delete 2>/dev/null || true
+            echo "→ $N fichier(s) de session purgé(s)"
+          fi
+
+          ( cd "$LROOT" && php artisan config:clear >/dev/null 2>&1; php artisan cache:clear >/dev/null 2>&1; php artisan view:clear >/dev/null 2>&1 ) || true
+          echo ""
+          echo "=== Réglages de session APRÈS ==="
+          grep -E '^(APP_URL|SESSION_DRIVER|SESSION_DOMAIN|SESSION_COOKIE|SESSION_SECURE_COOKIE|SESSION_SAME_SITE)=' "$ENVF"
+          echo ""
+
+          # 4) Vérification : la page de connexion doit poser un cookie ET un jeton
+          cat > "$LROOT/.govibepay-session-check.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+          $req = Illuminate\Http\Request::create('https://govibepay.com/admin/login', 'GET');
+          $res = $kernel->handle($req);
+          $body = (string) $res->getContent();
+          echo '  status=', $res->getStatusCode(), "\n";
+          echo '  jeton CSRF=', (str_contains($body, 'csrf-token') || str_contains($body, '_token')) ? 'oui' : 'non', "\n";
+          $names = [];
+          foreach ($res->headers->getCookies() as $c) { $names[] = $c->getName(); }
+          echo '  cookies posés=', $names ? implode(', ', $names) : '(aucun)', "\n";
+          EOPHP
+          echo "=== Rendu de /admin/login après correction ==="
+          ( cd "$LROOT" && php .govibepay-session-check.php ) || echo "  (échec du rendu)"
+          rm -f "$LROOT/.govibepay-session-check.php"
+          echo ""
+          echo "→ Le cookie ayant changé de nom, les anciens cookies illisibles sont ignorés."
+          echo "  Rechargez la page : plus besoin de vider les cookies à la main."
           EOSSH
 
       # ------------------------------------------------------------------
