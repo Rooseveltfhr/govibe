@@ -285,6 +285,45 @@ case "$ACTION" in
     fi
     egrp
     ;;
+  scan_accueil)
+    # Où accrocher une vitrine de produits sur l'accueil : ce que le contrôleur
+    # passe à la vue, comment les sections sont assemblées, et si le thème sait
+    # déjà afficher une collection.
+    grp "Assemblage de la page d'accueil"
+    echo "== SiteController::index() =="
+    sed -n '/function index()/,/^    }/p' "$APPDIR/app/Http/Controllers/SiteController.php" 2>/dev/null | head -25
+    echo "== sections du thème =="
+    for d in "$APPDIR/resources/views/templates/basic/sections" \
+             "$APPDIR/resources/views/templates/basic/partials"; do
+      [ -d "$d" ] && { echo "[$(basename "$d")]"; ls -1 "$d" 2>/dev/null | head -30; }
+    done
+    echo "== gabarit de l'accueil =="
+    ls -1 "$APPDIR/resources/views/templates/basic/"*.blade.php 2>/dev/null | sed "s|.*/||" | head -20
+    egrp
+
+    grp "Le thème sait-il afficher une collection ?"
+    grep -rln "product_collection\|ProductCollection\|productCollection" \
+      "$APPDIR/app" "$APPDIR/resources/views/templates" 2>/dev/null | sed "s|$APPDIR/||" | head -12 || echo "(aucun)"
+    echo "-- où la vitrine « top selling » est rendue --"
+    grep -rn "top_selling" "$APPDIR/resources/views/templates/basic" 2>/dev/null | sed "s|$APPDIR/||" | head -8
+    echo "-- comment un produit est affiché (composant de carte) --"
+    grep -rln "add.to.cart\|addToCart" "$APPDIR/resources/views/templates/basic" 2>/dev/null | sed "s|$APPDIR/||" | head -8
+    egrp
+
+    grp "Sections activées sur la page d'accueil"
+    if command -v mysql >/dev/null 2>&1 && [ -n "$DBU" ] && [ -n "$DBP" ]; then
+      CNF6=$(mktemp); chmod 600 "$CNF6"
+      printf '[client]\nuser=%s\npassword=%s\nhost=%s\n' "$DBU" "$DBP" "${DBH:-localhost}" > "$CNF6"
+      S6=$(printf '%s' "$DBN" | tr -cd 'A-Za-z0-9_')
+      mysql --defaults-extra-file="$CNF6" -t -e \
+        "SELECT id, name, slug, tempname FROM \`$S6\`.pages WHERE slug='/';" 2>&1 | head -8
+      echo "-- liste des sections de l'accueil (colonne secs) --"
+      mysql --defaults-extra-file="$CNF6" -N -e \
+        "SELECT secs FROM \`$S6\`.pages WHERE slug='/';" 2>&1 | head -3
+      rm -f "$CNF6"
+    fi
+    egrp
+    ;;
   diag_catalogue)
     # Les fiches produit répondent 200 mais les listes semblent vides : soit la
     # requête de liste filtre sur une colonne qu'on n'a pas remplie, soit la
