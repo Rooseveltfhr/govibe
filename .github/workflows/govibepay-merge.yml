@@ -327,6 +327,49 @@ jobs:
           [ "$MISS" = "0" ] && echo "  ✅ tous les assets locaux référencés existent"
           echo ""
 
+          echo "=== 5c. Pourquoi les champs ne prennent pas le focus ==="
+          cat > "$LROOT/.govibepay-focus.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+          $res = $kernel->handle(Illuminate\Http\Request::create('https://govibepay.com/admin/login', 'GET'));
+          $body = (string) $res->getContent();
+
+          echo "  --- contexte de « pointer-events » ---\n";
+          if (preg_match_all('#.{160}pointer-events\s*:\s*none.{60}#is', $body, $m)) {
+              foreach ($m[0] as $frag) {
+                  echo '   …', preg_replace('/\s+/', ' ', $frag), "…\n";
+              }
+          } else {
+              echo "   (aucune occurrence)\n";
+          }
+
+          echo "  --- reCAPTCHA ---\n";
+          echo '   script Google présent dans la page : ',
+              (str_contains($body, 'recaptcha/api.js') ? 'OUI' : 'non'), "\n";
+          try {
+              $row = Illuminate\Support\Facades\DB::table('basic_settings')->first();
+              foreach ((array) $row as $k => $v) {
+                  if (stripos($k, 'captcha') !== false || stripos($k, 'recaptcha') !== false) {
+                      $shown = is_scalar($v) ? (strlen((string) $v) > 20 ? '(valeur longue)' : (string) $v) : '(objet)';
+                      echo '   réglage ', $k, ' = ', $shown, "\n";
+                  }
+              }
+          } catch (Throwable $e) {
+              echo '   (base inaccessible : ', substr($e->getMessage(), 0, 80), ")\n";
+          }
+
+          echo "  --- éléments pouvant recouvrir le formulaire ---\n";
+          foreach (['preloader', 'loader', 'overlay', 'modal-backdrop', 'position:fixed'] as $w) {
+              $n = substr_count(strtolower($body), strtolower($w));
+              if ($n) { echo '   « ', $w, " » ×", $n, "\n"; }
+          }
+          EOPHP
+          ( cd "$LROOT" && php .govibepay-focus.php ) || echo "  (échec du rendu)"
+          rm -f "$LROOT/.govibepay-focus.php"
+          echo ""
+
           echo "=== 6. Réparation sûre : vidage des caches ==="
           ( cd "$LROOT" && for c in config:clear cache:clear route:clear view:clear; do
               printf '  artisan %-14s ' "$c"; php artisan $c >/dev/null 2>&1 && echo "ok" || echo "échec (ignoré)"
