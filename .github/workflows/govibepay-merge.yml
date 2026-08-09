@@ -24,6 +24,7 @@ on:
           - diagnose
           - assets
           - session
+          - restore-login
           - merge
           - landing
           - brand
@@ -1093,6 +1094,113 @@ jobs:
           echo ""
           echo "→ Le cookie ayant changé de nom, les anciens cookies illisibles sont ignorés."
           echo "  Rechargez la page : plus besoin de vider les cookies à la main."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # RESTORE-LOGIN — remet les vues d'authentification d'ORIGINE du script.
+      #
+      # La page de connexion actuelle n'est pas celle du script : ses classes
+      # sont gvpa-* (GoVibePay Admin), donc quelqu'un l'a réécrite. Côté serveur
+      # tout est correct — page en 200, jeton CSRF, viewport, CSS livré, aucun
+      # champ bloqué, aucun calque — et pourtant les champs ne prennent pas le
+      # focus sur mobile. Le dossier resourcesBBBB, laissé sur le serveur,
+      # contient les vues d'origine : on y revient.
+      #
+      # Les versions personnalisées sont conservées pour pouvoir les reprendre.
+      # ------------------------------------------------------------------
+      - name: Restore login (revenir aux vues d'origine du script)
+        if: ${{ inputs.mode == 'restore-login' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          TS=$(date +%Y%m%d-%H%M%S)
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          ORIG="$LROOT/resourcesBBBB"
+          [ -d "$ORIG/views" ] || { echo "ERREUR: $ORIG/views introuvable — pas de vues d'origine à restaurer."; exit 1; }
+          BK="$DOM/login-perso-backup-$TS"
+          mkdir -p "$BK"
+          echo "Script  : $LROOT"
+          echo "Origine : $ORIG"
+          echo ""
+
+          # Les vues réécrites se reconnaissent à leurs classes gvpa-*.
+          echo "=== Vues personnalisées (classes gvpa-*) et leur équivalent d'origine ==="
+          COUNT=0
+          while IFS= read -r f; do
+            rel="${f#$LROOT/resources/}"
+            src="$ORIG/$rel"
+            if [ ! -f "$src" ]; then
+              echo "  ⚠️  $rel — aucune version d'origine, laissée telle quelle"
+              continue
+            fi
+            mkdir -p "$BK/$(dirname "$rel")"
+            cp -a "$f" "$BK/$rel"
+            cp -a "$src" "$f"
+            if ! php -l "$f" >/dev/null 2>&1; then
+              echo "  !! $rel — version d'origine invalide, on remet la personnalisée"
+              cp -a "$BK/$rel" "$f"
+              continue
+            fi
+            echo "  ↩️  $rel restaurée (perso sauvegardée)"
+            COUNT=$((COUNT+1))
+          done < <(grep -rIl --exclude-dir=node_modules --exclude-dir=vendor -e 'gvpa-' "$LROOT/resources/views" 2>/dev/null)
+          echo "→ $COUNT vue(s) restaurée(s) ; versions personnalisées dans : $BK"
+          [ "$COUNT" = "0" ] && { echo "Rien à restaurer — on s'arrête ici."; exit 0; }
+
+          ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
+          echo ""
+
+          # Vérification par rendu réel, avec retour arrière si la page ne répond plus.
+          cat > "$LROOT/.govibepay-login-verify.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+          $ok = true;
+          foreach (['/admin/login', '/register'] as $uri) {
+              try {
+                  $res = $kernel->handle(Illuminate\Http\Request::create('https://govibepay.com'.$uri, 'GET'));
+                  $body = (string) $res->getContent();
+                  $code = $res->getStatusCode();
+                  printf("  %-14s status=%d taille=%d csrf=%s form=%s gvpa=%s\n", $uri, $code, strlen($body),
+                      (str_contains($body, '_token') ? 'oui' : 'non'),
+                      (str_contains($body, '<form') ? 'oui' : 'NON'),
+                      (str_contains($body, 'gvpa-') ? 'encore' : 'parti'));
+                  if ($uri === '/admin/login' && ($code >= 500 || ! str_contains($body, '<form'))) { $ok = false; }
+              } catch (Throwable $e) {
+                  printf("  %-14s EXCEPTION %s\n", $uri, substr($e->getMessage(), 0, 120));
+                  if ($uri === '/admin/login') { $ok = false; }
+              }
+          }
+          exit($ok ? 0 : 1);
+          EOPHP
+          echo "=== Rendu après restauration ==="
+          if ( cd "$LROOT" && php .govibepay-login-verify.php ); then
+            rm -f "$LROOT/.govibepay-login-verify.php"
+            echo ""
+            echo "✅ Page de connexion d'origine en place."
+            echo "   Les versions personnalisées sont conservées dans $BK"
+            echo "   pour être reprises proprement ensuite."
+          else
+            rm -f "$LROOT/.govibepay-login-verify.php"
+            echo ""
+            echo "🔴 La page ne répond plus — RETOUR AUX VERSIONS PERSONNALISÉES."
+            cp -a "$BK/." "$LROOT/resources/"
+            ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+            echo "→ versions personnalisées remises en place."
+            exit 1
+          fi
           EOSSH
 
       # ------------------------------------------------------------------
