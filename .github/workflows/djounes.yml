@@ -43,6 +43,7 @@ on:
           - schema_catalogue
           - demarrage_marque
           - contenu_marque
+          - catalogue_variantes
           - vider_cache
           - securiser_install
           - mettre_en_pause
@@ -82,7 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$IN_ACTION" in
-            inventaire|scan_accueil|scan_collection|scan_modeles|diag_catalogue|scan_marque|scan_admin|admin_marque|schema_catalogue|demarrage_marque|contenu_marque|vider_cache|securiser_install|mettre_en_pause|reprendre_site) ;;
+            inventaire|scan_accueil|scan_collection|scan_modeles|diag_catalogue|scan_marque|scan_admin|admin_marque|schema_catalogue|demarrage_marque|contenu_marque|catalogue_variantes|vider_cache|securiser_install|mettre_en_pause|reprendre_site) ;;
             *) echo "::error::action invalide"; exit 1;;
           esac
           # Domaine : lettres/chiffres/point/tiret uniquement.
@@ -232,6 +233,19 @@ jobs:
           ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
             -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
             "DOMAIN='${{ inputs.domain || 'djounes.com' }}' bash -s" < .github/scripts/djounes-admin.sh
+
+      - name: Vitrine, découpes, attributs et variantes
+        if: ${{ inputs.action == 'catalogue_variantes' }}
+        run: |
+          set -uo pipefail
+          echo "Envoi des découpes transparentes…"
+          tar czf - -C docs/brand demo-cut \
+            | ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+                "$DJ_USER@$DJ_HOST" \
+                'mkdir -p ~/djounes-brand-upload && tar xzf - -C ~/djounes-brand-upload && ls -1 ~/djounes-brand-upload/demo-cut | wc -l'
+          ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
+            "DOMAIN='${{ inputs.domain || 'djounes.com' }}' bash -s" < .github/scripts/djounes-catalogue.sh
 
       - name: Écrire les textes de marque et installer la sauvegarde
         if: ${{ inputs.action == 'contenu_marque' }}
