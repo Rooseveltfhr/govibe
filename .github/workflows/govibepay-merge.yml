@@ -790,6 +790,66 @@ jobs:
 
           ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
           echo ""
+          # ----------------------------------------------------------------
+          # Après la fusion, le docroot du domaine doit contenir TOUT ce que
+          # contient public/ du script, sinon le CSS, le JS et les images ne
+          # sont pas servis. Or un formulaire dont le JavaScript ne tourne pas
+          # n'envoie pas ses champs cachés : c'est ce qui produit les erreurs
+          # « The register type field is required » / « The credentials field
+          # is required » à l'inscription, et un champ qui ne réagit pas au
+          # toucher sur la page de connexion.
+          # ----------------------------------------------------------------
+          MARKF="$DOM/.govibepay-merge.meta"
+          if [ -f "$MARKF" ]; then
+            PUB=$(grep '^pub=' "$MARKF" | cut -d= -f2-)
+            echo ""
+            echo "=== Synchronisation public/ du script → docroot du domaine ==="
+            MISSING=0
+            for entry in "$LROOT/public"/* "$LROOT/public"/.[!.]*; do
+              [ -e "$entry" ] || continue
+              b=$(basename "$entry")
+              # on ne touche jamais à ce qui appartient au domaine, ni au front controller
+              case "$b" in app|my|index.php|govibepay-home.php|.htaccess|storage) continue;; esac
+              if [ ! -e "$PUB/$b" ]; then
+                cp -a "$entry" "$PUB/$b" && echo "  + $b (manquait — copié)"
+                MISSING=$((MISSING+1))
+              fi
+            done
+            [ "$MISSING" = "0" ] && echo "  ✅ rien ne manquait dans le docroot"
+            chmod -R a+rX "$PUB" 2>/dev/null || true
+            echo ""
+            echo "=== Les assets référencés par les pages publiques existent-ils ? ==="
+            cat > "$LROOT/.govibepay-assets-check.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+          $pub = $argv[1] ?? '';
+          foreach (['/register', '/admin/login'] as $uri) {
+              try {
+                  $res = $kernel->handle(Illuminate\Http\Request::create('https://govibepay.com'.$uri, 'GET'));
+                  $body = (string) $res->getContent();
+                  preg_match_all('#(?:src|href)="https://govibepay\.com/([^"?]+\.(?:js|css))#', $body, $m);
+                  $refs = array_unique($m[1] ?? []);
+                  $miss = [];
+                  foreach ($refs as $r) { if (! is_file($pub.'/'.$r)) { $miss[] = $r; } }
+                  printf("  %-14s status=%d  assets=%d  manquants=%d %s\n", $uri, $res->getStatusCode(),
+                      count($refs), count($miss), $miss ? '→ '.implode(' ', array_slice($miss, 0, 4)) : '');
+                  if ($uri === '/register') {
+                      foreach (['register_type', 'credentials'] as $f) {
+                          echo '    champ « ', $f, ' » présent dans le formulaire : ',
+                              (str_contains($body, $f) ? 'oui' : 'NON'), "\n";
+                      }
+                  }
+              } catch (Throwable $e) {
+                  printf("  %-14s EXCEPTION %s\n", $uri, substr($e->getMessage(), 0, 120));
+              }
+          }
+          EOPHP
+            ( cd "$LROOT" && php .govibepay-assets-check.php "$PUB" ) || echo "  (échec du rendu)"
+            rm -f "$LROOT/.govibepay-assets-check.php"
+          fi
+          echo ""
           echo "=== Vérification : références externes restantes dans resources/ ==="
           grep -rIo --exclude-dir=vendor --exclude-dir=node_modules -e 'cdn\.appdevs\.net' "$LROOT/resources" 2>/dev/null | wc -l | sed 's/^/  cdn.appdevs.net (mort) : /'
           echo "=== Les assets locaux répondent-ils ? ==="
