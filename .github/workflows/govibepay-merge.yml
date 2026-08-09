@@ -381,8 +381,31 @@ jobs:
           } else {
               echo "   🔴 AUCUNE balise <form> dans la page — c'est la cause : rien à remplir.\n";
           }
+
+          // Le formulaire utilise des classes gvpa-* : page personnalisée, pas le
+          // gabarit d'origine. Sans son CSS, le lien « afficher le mot de passe »
+          // n'est plus positionné et peut recouvrir les champs — un toucher tombe
+          // alors sur un javascript:void(0) et il ne se passe rien.
+          echo "  --- le CSS des classes gvpa-* est-il livré ? ---\n";
+          $inline = preg_match_all('#<style[^>]*>(.*?)</style>#is', $body, $st) ? implode("\n", $st[1]) : '';
+          echo '   défini dans un <style> de la page : ',
+              (str_contains($inline, 'gvpa-input') || str_contains($inline, '.gvpa-') ? 'OUI' : 'non'), "\n";
+          preg_match_all('#(?:src|href)="https://govibepay\.com/([^"?]+\.css)#', $body, $cssm);
+          $found = false;
+          foreach (array_unique($cssm[1] ?? []) as $rel) {
+              $file = ($argv[1] ?? '').'/'.$rel;
+              if (is_file($file) && str_contains((string) file_get_contents($file), '.gvpa-')) {
+                  echo '   défini dans la feuille de style : ', $rel, "\n";
+                  $found = true;
+              }
+          }
+          if (! $found && ! str_contains($inline, '.gvpa-')) {
+              echo "   🔴 INTROUVABLE — aucune feuille chargée ne définit .gvpa-* :\n";
+              echo "      le formulaire s'affiche sans mise en page, et le lien\n";
+              echo "      « afficher le mot de passe » se retrouve par-dessus les champs.\n";
+          }
           EOPHP
-          ( cd "$LROOT" && php .govibepay-focus.php ) || echo "  (échec du rendu)"
+          ( cd "$LROOT" && php .govibepay-focus.php "$DOM/public_html" ) || echo "  (échec du rendu)"
           rm -f "$LROOT/.govibepay-focus.php"
           echo ""
 
