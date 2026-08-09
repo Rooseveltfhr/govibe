@@ -816,6 +816,23 @@ jobs:
               fi
             done
             [ "$MISSING" = "0" ] && echo "  ✅ rien ne manquait dans le docroot"
+
+            # Le script génère ses URLs d'assets AVEC le segment « public/ »
+            # (asset('public/frontend/...')) : il était conçu pour être servi
+            # depuis la racine Laravel, où public/ est un vrai dossier. Le
+            # docroot contient désormais le CONTENU de public/, pas le dossier
+            # lui-même, donc /public/... tombe en 404 et ni le CSS ni le JS ne
+            # se chargent. Un lien règle le cas pour toutes ces URLs d'un coup.
+            if [ ! -e "$PUB/public" ]; then
+              if ln -s "../govibepay-app/public" "$PUB/public" 2>/dev/null && [ -d "$PUB/public" ]; then
+                echo "  + lien public/ → ../govibepay-app/public (URLs asset('public/...'))"
+              else
+                rm -f "$PUB/public" 2>/dev/null || true
+                cp -a "$LROOT/public" "$PUB/public" && echo "  + dossier public/ copié (lien impossible)"
+              fi
+            else
+              echo "  ✅ public/ déjà présent dans le docroot"
+            fi
             chmod -R a+rX "$PUB" 2>/dev/null || true
             echo ""
             echo "=== Les assets référencés par les pages publiques existent-ils ? ==="
