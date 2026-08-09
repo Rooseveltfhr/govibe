@@ -5,6 +5,12 @@
 @section('content')
 {{-- Vue CROSS-TENANT réservée au fondateur (super_admin). Lecture seule. --}}
 
+<div class="h-row" style="gap:8px;margin-bottom:16px">
+    <a href="{{ route('tagtoa.superadmin.plans') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-tags"></i> {{ __('Forfaits') }}</a>
+    <a href="{{ route('tagtoa.superadmin.credits') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-credit-card"></i> {{ __('Crédits cartes') }}</a>
+    <a href="{{ route('tagtoa.superadmin.status') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-server"></i> {{ __('État système') }}</a>
+</div>
+
 {{-- Compteurs de tête --}}
 <div class="grid g3" style="margin-bottom:16px">
     <div class="stat"><div class="ic" style="background:#eef2ff;color:#3344aa"><i class="fa-solid fa-store"></i></div><div class="v">{{ $totals['merchants'] }}</div><div class="k">{{ __('Marchands') }}</div></div>

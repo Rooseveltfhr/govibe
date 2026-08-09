@@ -5,6 +5,7 @@ namespace Modules\Tagtoa\App\Http\Controllers\Menu;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Menu\Menu;
@@ -19,26 +20,35 @@ use Modules\Tagtoa\App\Support\Money;
  */
 class PublicController extends Controller
 {
+    /**
+     * Durée de cache des DONNÉES de la page (secondes) — jamais le HTML rendu :
+     * la page contient un jeton CSRF lié à la session du visiteur (formulaire de
+     * commande) ; mettre en cache le rendu figerait le jeton du premier visiteur
+     * et casserait la commande de tous les suivants pendant la fenêtre de cache.
+     * On cache donc uniquement les requêtes BD (coûteuses), le rendu Blade
+     * (rapide, déjà compilé) reste frais à chaque requête.
+     */
+    private const PUBLIC_CACHE_TTL = 20;
+
     public function show(string $alias): View
     {
-        $menu = Menu::where('alias', $alias)->where('is_active', true)
-            ->with(['payPage', 'activeCategories.availableItems.options.choices'])
-            ->firstOrFail();
+        $data = Cache::remember("tagtoa:menu:show:$alias", self::PUBLIC_CACHE_TTL, function () use ($alias) {
+            $menu = Menu::where('alias', $alias)->where('is_active', true)
+                ->with(['payPage', 'activeCategories.availableItems.options.choices'])
+                ->firstOrFail();
 
-        $menu->incrementQuietly('views');
+            $menu->incrementQuietly('views');
 
-        // Catégories non vides uniquement.
-        $categories = $menu->activeCategories->filter(fn ($c) => $c->availableItems->isNotEmpty())->values();
+            // Catégories non vides uniquement.
+            $categories = $menu->activeCategories->filter(fn ($c) => $c->availableItems->isNotEmpty())->values();
 
-        $summary = app(ReviewService::class)->summary('menu', (int) $menu->id);
-        $reviews = Review::query()->forSubject('menu', (int) $menu->id)->approved()->latest()->limit(20)->get();
+            $summary = app(ReviewService::class)->summary('menu', (int) $menu->id);
+            $reviews = Review::query()->forSubject('menu', (int) $menu->id)->approved()->latest()->limit(20)->get();
 
-        return view('tagtoa::menu.show', [
-            'menu'       => $menu,
-            'categories' => $categories,
-            'reviews'    => $reviews,
-            'summary'    => $summary,
-        ]);
+            return compact('menu', 'categories', 'reviews', 'summary');
+        });
+
+        return view('tagtoa::menu.show', $data);
     }
 
     /** Capture une commande (prix imposés côté serveur). Renvoie JSON. */

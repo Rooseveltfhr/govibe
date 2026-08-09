@@ -5,6 +5,7 @@ namespace Modules\Tagtoa\App\Http\Controllers\Pay;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Pay\PaymentMethod;
@@ -17,12 +18,19 @@ use Modules\Tagtoa\App\Notifications\PayProofReceived;
  */
 class PublicController extends Controller
 {
+    /** Cache des DONNÉES seulement (jamais le HTML rendu — voir Menu\PublicController). */
+    private const PUBLIC_CACHE_TTL = 20;
+
     public function show(string $alias): View
     {
-        $page = PaymentPage::where('alias', $alias)->where('is_active', true)
-            ->with(['activeMethods', 'vcard'])->firstOrFail();
+        $page = Cache::remember("tagtoa:pay:show:$alias", self::PUBLIC_CACHE_TTL, function () use ($alias) {
+            $page = PaymentPage::where('alias', $alias)->where('is_active', true)
+                ->with(['activeMethods', 'vcard'])->firstOrFail();
 
-        $page->incrementQuietly('views');
+            $page->incrementQuietly('views');
+
+            return $page;
+        });
 
         return view('tagtoa::pay.show', ['page' => $page, 'methods' => $page->activeMethods]);
     }

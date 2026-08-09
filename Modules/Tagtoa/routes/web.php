@@ -307,4 +307,6 @@ Route::middleware(['auth', 'valid.user', 'role:super_admin'])->prefix('tagtoa/ad
     // Crédits d'activation de cartes officielles (accorder/vendre aux revendeurs).
     Route::get('/card-credits', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\CardCreditController::class, 'index'])->name('tagtoa.superadmin.credits');
     Route::post('/card-credits', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\CardCreditController::class, 'grant'])->name('tagtoa.superadmin.credits.grant');
+    // État système en lecture seule (environnement, DB, cache, sécurité NFC, limites connues).
+    Route::get('/status', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\StatusController::class, 'index'])->name('tagtoa.superadmin.status');
 });
