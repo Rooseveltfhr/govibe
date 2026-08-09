@@ -255,6 +255,29 @@ Workflow `govibepay-merge.yml` (mode `inspect`/`merge`/`landing`/`brand`/`rollba
   — mode `brand` **pa janm touche URL** (sa t ap kraze CSS/JS), sèlman mansyon vizib.
 - **Kouri `inspect` AVAN `merge`.** Doc konplè: `govibepay/README.md`.
 
+**✅ FUSION FÈT (8 out 2026)** — script la sèvi sou `https://govibepay.com/`:
+- **Script la DEPLASE**: `domains/app.govibepay.com/public_html/` → `domains/govibepay.com/govibepay-app/`.
+  ⚠️ Premye tantativ la (kite script la nan lòt domèn nan, front controller ak chemen absoli)
+  **te kraze sit la** — `open_basedir` pa domèn anpeche lekti vendor/ yon lòt domèn.
+  Front controller la itilize **chemen relatif** (`__DIR__.'/../govibepay-app'`) kounye a.
+- Caches konpile yo (`bootstrap/cache/*.php`, `storage/framework/views/*`) **dwe pije**
+  apre deplasman an — yo gen ansyen chemen absoli ladan.
+- Paj akèy: `public_html/index.php` → `govibepay-home.php` (rete nan docroot pou asèt li yo),
+  sèvi pa yon wout `GET /` nan `routes/web.php` (makè `GOVIBEPAY-LANDING-ROUTE`).
+- `app.govibepay.com` → redireksyon 301. `APP_URL=https://govibepay.com`.
+- Makè `.govibepay-merge.meta` (gen `moved_from=`), backup `govibepay-merge-backup-*`.
+
+**Mode `verify` (nan `merge`)**: rann `/` ak `/admin/login` **via kernel HTTP Laravel la**
+(pa via Apache) epi **anile fusion an otomatikman** si paj akèy la pa reponn. Rezilta 8 out:
+`/` → 200 (81724 oktè = paj akèy orijinal la), `/admin/login` → 200 ak jeton CSRF.
+
+⚠️ **Tès HTTP depi sou sèvè a PA FYAB**: `curl` vè `127.0.0.1` (menm ak `--resolve`) pa
+rive sou vhost app la — li bay 404 sou wout ki egziste vre (396 wout admin anrejistre).
+Pa tire okenn konklizyon sou yo; **sèvi ak rendu kernel la** (gade mode `verify`).
+
+⚠️ **Fo alèt korije**: `.env` (403), `.envMM` (404), `install/` (404) **PA ekspoze** —
+premye rapò a te baze sou prezans fichye sou disk, pa sou aksè HTTP reyèl.
+
 ### Odit
 Odit sekirite ki fèt jiskaprezan (out 2026) se sou **TAGTOA** (`Modules/Tagtoa/`).
 Kòd QRPay la **poko odite** — li pa nan repo a, li sou sèvè a sèlman.

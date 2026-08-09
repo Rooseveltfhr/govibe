@@ -23,6 +23,8 @@ on:
           - inspect
           - diagnose
           - assets
+          - session
+          - restore-login
           - merge
           - landing
           - brand
@@ -326,6 +328,88 @@ jobs:
           [ "$MISS" = "0" ] && echo "  ✅ tous les assets locaux référencés existent"
           echo ""
 
+          echo "=== 5c. Pourquoi les champs ne prennent pas le focus ==="
+          cat > "$LROOT/.govibepay-focus.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+          $res = $kernel->handle(Illuminate\Http\Request::create('https://govibepay.com/admin/login', 'GET'));
+          $body = (string) $res->getContent();
+
+          echo "  --- contexte de « pointer-events » ---\n";
+          if (preg_match_all('#.{160}pointer-events\s*:\s*none.{60}#is', $body, $m)) {
+              foreach ($m[0] as $frag) {
+                  echo '   …', preg_replace('/\s+/', ' ', $frag), "…\n";
+              }
+          } else {
+              echo "   (aucune occurrence)\n";
+          }
+
+          echo "  --- reCAPTCHA ---\n";
+          echo '   script Google présent dans la page : ',
+              (str_contains($body, 'recaptcha/api.js') ? 'OUI' : 'non'), "\n";
+          try {
+              $row = Illuminate\Support\Facades\DB::table('basic_settings')->first();
+              foreach ((array) $row as $k => $v) {
+                  if (stripos($k, 'captcha') !== false || stripos($k, 'recaptcha') !== false) {
+                      $shown = is_scalar($v) ? (strlen((string) $v) > 20 ? '(valeur longue)' : (string) $v) : '(objet)';
+                      echo '   réglage ', $k, ' = ', $shown, "\n";
+                  }
+              }
+          } catch (Throwable $e) {
+              echo '   (base inaccessible : ', substr($e->getMessage(), 0, 80), ")\n";
+          }
+
+          echo "  --- éléments pouvant recouvrir le formulaire ---\n";
+          foreach (['preloader', 'loader', 'overlay', 'modal-backdrop', 'position:fixed'] as $w) {
+              $n = substr_count(strtolower($body), strtolower($w));
+              if ($n) { echo '   « ', $w, " » ×", $n, "\n"; }
+          }
+
+          // Assez deviné : on lit le balisage réel.
+          echo "  --- balise viewport telle qu'elle est envoyée ---\n";
+          if (preg_match('#<meta[^>]+name="viewport"[^>]*>#i', $body, $mv)) {
+              echo '   ', trim($mv[0]), "\n";
+          }
+          echo "  --- le formulaire de connexion, tel qu'il est envoyé ---\n";
+          if (preg_match('#<form[^>]*>.*?</form>#is', $body, $mf)) {
+              $form = preg_replace('#\s+#', ' ', $mf[0]);
+              foreach (str_split(substr($form, 0, 2400), 200) as $chunk) {
+                  echo '   ', $chunk, "\n";
+              }
+              echo '   [longueur totale du formulaire : ', strlen($mf[0]), " octets]\n";
+          } else {
+              echo "   🔴 AUCUNE balise <form> dans la page — c'est la cause : rien à remplir.\n";
+          }
+
+          // Le formulaire utilise des classes gvpa-* : page personnalisée, pas le
+          // gabarit d'origine. Sans son CSS, le lien « afficher le mot de passe »
+          // n'est plus positionné et peut recouvrir les champs — un toucher tombe
+          // alors sur un javascript:void(0) et il ne se passe rien.
+          echo "  --- le CSS des classes gvpa-* est-il livré ? ---\n";
+          $inline = preg_match_all('#<style[^>]*>(.*?)</style>#is', $body, $st) ? implode("\n", $st[1]) : '';
+          echo '   défini dans un <style> de la page : ',
+              (str_contains($inline, 'gvpa-input') || str_contains($inline, '.gvpa-') ? 'OUI' : 'non'), "\n";
+          preg_match_all('#(?:src|href)="https://govibepay\.com/([^"?]+\.css)#', $body, $cssm);
+          $found = false;
+          foreach (array_unique($cssm[1] ?? []) as $rel) {
+              $file = ($argv[1] ?? '').'/'.$rel;
+              if (is_file($file) && str_contains((string) file_get_contents($file), '.gvpa-')) {
+                  echo '   défini dans la feuille de style : ', $rel, "\n";
+                  $found = true;
+              }
+          }
+          if (! $found && ! str_contains($inline, '.gvpa-')) {
+              echo "   🔴 INTROUVABLE — aucune feuille chargée ne définit .gvpa-* :\n";
+              echo "      le formulaire s'affiche sans mise en page, et le lien\n";
+              echo "      « afficher le mot de passe » se retrouve par-dessus les champs.\n";
+          }
+          EOPHP
+          ( cd "$LROOT" && php .govibepay-focus.php "$DOM/public_html" ) || echo "  (échec du rendu)"
+          rm -f "$LROOT/.govibepay-focus.php"
+          echo ""
+
           echo "=== 6. Réparation sûre : vidage des caches ==="
           ( cd "$LROOT" && for c in config:clear cache:clear route:clear view:clear; do
               printf '  artisan %-14s ' "$c"; php artisan $c >/dev/null 2>&1 && echo "ok" || echo "échec (ignoré)"
@@ -345,11 +429,21 @@ jobs:
           EOSSH
 
       # ------------------------------------------------------------------
-      # MERGE — sert le script à la racine SANS déplacer le docroot existant.
-      # La home actuelle est conservée (avec ses assets) et devient la home
-      # du script via une route '/'. Idempotent (marqueur), non destructif.
+      # MERGE — DÉPLACE le script dans l'arborescence de govibepay.com.
+      #
+      # Une première tentative gardait le script dans domains/app.govibepay.com
+      # et le bootait depuis un front controller placé sous govibepay.com : le
+      # site est tombé. PHP est presque certainement soumis à open_basedir par
+      # domaine (le journal du script en contient des erreurs), donc lire le
+      # vendor/ d'un AUTRE domaine est refusé. Le script est donc déplacé sous
+      # domains/govibepay.com/govibepay-app/ : tout reste dans la même
+      # arborescence et la restriction ne s'applique plus.
+      #
+      # La home actuelle est conservée telle quelle et servie par une route '/'.
+      # Idempotent (marqueur) ; l'étape de vérification qui suit annule tout
+      # automatiquement si l'application ne répond pas.
       # ------------------------------------------------------------------
-      - name: Merge (fusion app → racine)
+      - name: Merge (déplacer le script sous govibepay.com)
         if: ${{ inputs.mode == 'merge' }}
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
@@ -362,106 +456,114 @@ jobs:
           APPDOM="$HOME/domains/app.govibepay.com"
           MARK="$DOM/.govibepay-merge.meta"
           BK="$DOM/govibepay-merge-backup-$TS"
+          NEWROOT="$DOM/govibepay-app"
           [ -d "$PUB" ] || { echo "ERREUR: $PUB introuvable"; exit 1; }
 
           if [ -f "$MARK" ]; then
             echo "Déjà fusionné — rien à refaire :"; cat "$MARK"; exit 0
           fi
 
-          # 1) Racine du script (Laravel attendu)
-          LROOT=""
-          for c in "$APPDOM/public_html" "$PUB/app" "$DOM/govibepay-app"; do
-            if [ -f "$c/artisan" ]; then LROOT="$c"; break; fi
-            if [ -f "$c/../artisan" ]; then LROOT="$(cd "$c/.." && pwd)"; break; fi
+          # 1) Localiser le script et vérifier qu'il est complet AVANT de bouger quoi que ce soit
+          SRC=""
+          for c in "$APPDOM/public_html" "$PUB/app" "$NEWROOT"; do
+            [ -f "$c/artisan" ] && { SRC="$c"; break; }
           done
-          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable — lancer 'inspect'."; exit 1; }
-          [ -d "$LROOT/public" ] || { echo "ERREUR: $LROOT/public absent — structure inattendue, abandon."; exit 1; }
-          [ -f "$LROOT/vendor/autoload.php" ] || { echo "ERREUR: vendor/ absent dans $LROOT — abandon."; exit 1; }
-          echo "Script : $LROOT"
-
+          [ -n "$SRC" ] || { echo "ERREUR: script introuvable — lancer 'inspect'."; exit 1; }
+          for need in public/index.php vendor/autoload.php bootstrap/app.php routes/web.php .env; do
+            [ -e "$SRC/$need" ] || { echo "ERREUR: $need absent dans $SRC — abandon avant toute modification."; exit 1; }
+          done
+          echo "Script trouvé : $SRC"
+          [ -e "$NEWROOT" ] && { echo "ERREUR: $NEWROOT existe déjà — nettoyer d'abord."; exit 1; }
           mkdir -p "$BK"
 
-          # 2) La home ACTUELLE de govibepay.com est conservée telle quelle.
-          #    Elle reste DANS le docroot pour que ses assets relatifs marchent,
-          #    et le script la servira sur '/'.
+          # 2) DÉPLACEMENT (renommage atomique : même système de fichiers)
+          mv "$SRC" "$NEWROOT" || { echo "ERREUR: déplacement impossible."; exit 1; }
+          echo "→ script déplacé : $SRC → $NEWROOT"
+          MOVED_FROM="$SRC"
+          mkdir -p "$MOVED_FROM"
+
+          # 3) Purger les caches compilés : ils contiennent les ANCIENS chemins absolus
+          rm -f "$NEWROOT"/bootstrap/cache/*.php 2>/dev/null || true
+          rm -f "$NEWROOT"/storage/framework/views/*.php 2>/dev/null || true
+          echo "→ caches compilés purgés (ils référençaient l'ancien chemin)"
+
+          # 4) La home actuelle du domaine est conservée, dans le docroot
           HOMEFILE=""
-          if [ -f "$PUB/index.php" ]; then
-            cp -a "$PUB/index.php" "$BK/index.php"
-            mv "$PUB/index.php" "$PUB/govibepay-home.php"
-            HOMEFILE="$PUB/govibepay-home.php"
-            echo "→ home actuelle conservée : $HOMEFILE ($(wc -c < "$HOMEFILE") octets)"
-          elif [ -f "$PUB/index.html" ]; then
-            cp -a "$PUB/index.html" "$BK/index.html"
-            mv "$PUB/index.html" "$PUB/govibepay-home.php"
-            HOMEFILE="$PUB/govibepay-home.php"
-            echo "→ home actuelle conservée : $HOMEFILE"
-          else
-            echo "→ aucune home existante trouvée (le script servira sa propre page d'accueil)"
-          fi
+          for f in index.php index.html; do
+            if [ -f "$PUB/$f" ]; then
+              cp -a "$PUB/$f" "$BK/$f"
+              mv "$PUB/$f" "$PUB/govibepay-home.php"
+              HOMEFILE="$PUB/govibepay-home.php"
+              echo "→ home conservée : $HOMEFILE ($(wc -c < "$HOMEFILE") octets)"
+              break
+            fi
+          done
+          [ -n "$HOMEFILE" ] || echo "→ aucune home existante (le script servira la sienne)"
 
-          # 3) Assets publics du script copiés dans le docroot SANS écraser
-          #    l'existant (les fichiers de la home actuelle sont préservés).
+          # 5) Assets publics du script, sans écraser l'existant
           [ -f "$PUB/.htaccess" ] && cp -a "$PUB/.htaccess" "$BK/.htaccess"
-          cp -an "$LROOT/public/." "$PUB/" 2>/dev/null || true
-          echo "→ assets du script copiés (sans écraser l'existant)"
+          cp -an "$NEWROOT/public/." "$PUB/" 2>/dev/null || true
 
-          # 4) Front controller pointé en ABSOLU sur la racine du script
-          cat > "$PUB/index.php" <<EOPHP
+          # 6) Front controller — chemins RELATIFS : tout est dans la même arborescence
+          cat > "$PUB/index.php" <<'EOPHP'
           <?php
-          // GOVIBEPAY — front controller genere (fusion app.govibepay.com -> govibepay.com)
+          // GOVIBEPAY — front controller genere (script servi a la racine du domaine).
+          // Chemins relatifs : l'application vit dans ../govibepay-app, sous le meme
+          // domaine, ce qui evite toute restriction open_basedir inter-domaines.
           define('LARAVEL_START', microtime(true));
-          if (file_exists(\$maintenance = '$LROOT/storage/framework/maintenance.php')) {
-              require \$maintenance;
+          $root = __DIR__.'/../govibepay-app';
+          if (file_exists($maintenance = $root.'/storage/framework/maintenance.php')) {
+              require $maintenance;
           }
-          require '$LROOT/vendor/autoload.php';
-          \$app = require_once '$LROOT/bootstrap/app.php';
-          \$kernel = \$app->make(Illuminate\Contracts\Http\Kernel::class);
-          \$response = \$kernel->handle(\$request = Illuminate\Http\Request::capture());
-          \$response->send();
-          \$kernel->terminate(\$request, \$response);
+          require $root.'/vendor/autoload.php';
+          $app = require_once $root.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+          $response = $kernel->handle($request = Illuminate\Http\Request::capture());
+          $response->send();
+          $kernel->terminate($request, $response);
           EOPHP
           php -l "$PUB/index.php" || { echo "ERREUR: front controller invalide"; exit 1; }
 
-          # 5) storage public + APP_URL
+          # 7) storage public + APP_URL
           [ -L "$PUB/storage" ] && rm -f "$PUB/storage"
-          [ -d "$LROOT/storage/app/public" ] && ln -s "$LROOT/storage/app/public" "$PUB/storage" 2>/dev/null || true
-          ENVF="$LROOT/.env"
-          if [ -f "$ENVF" ]; then
-            cp -a "$ENVF" "$BK/.env"
-            if grep -q '^APP_URL=' "$ENVF"; then
-              sed -i 's#^APP_URL=.*#APP_URL=https://govibepay.com#' "$ENVF"
-            else
-              echo 'APP_URL=https://govibepay.com' >> "$ENVF"
-            fi
-            grep -E '^APP_URL=' "$ENVF"
+          [ -d "$NEWROOT/storage/app/public" ] && ln -s "$NEWROOT/storage/app/public" "$PUB/storage" 2>/dev/null || true
+          ENVF="$NEWROOT/.env"
+          cp -a "$ENVF" "$BK/.env"
+          if grep -q '^APP_URL=' "$ENVF"; then
+            sed -i 's#^APP_URL=.*#APP_URL=https://govibepay.com#' "$ENVF"
+          else
+            echo 'APP_URL=https://govibepay.com' >> "$ENVF"
           fi
+          grep -E '^APP_URL=' "$ENVF"
 
-          # 6) app.govibepay.com → redirection 301. Le docroot du sous-domaine EST
-          #    la racine du script : on n'y écrit QUE le .htaccess de redirection
-          #    (conditionné sur l'hôte) et on laisse les fichiers du script intacts.
-          VDIR="$APPDOM/public_html"
-          if [ -d "$VDIR" ]; then
-            [ -f "$VDIR/.htaccess" ] && cp -a "$VDIR/.htaccess" "$BK/subdomain.htaccess"
-            cat > "$VDIR/.htaccess" <<'EOHT'
+          # 8) Sous-domaine vidé → redirection 301
+          cat > "$MOVED_FROM/index.php" <<'EOPHP'
+          <?php
+          $uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
+          header('Location: https://govibepay.com'.$uri, true, 301);
+          exit;
+          EOPHP
+          php -l "$MOVED_FROM/index.php" >/dev/null || true
+          cat > "$MOVED_FROM/.htaccess" <<'EOHT'
           # GOVIBEPAY-REDIRECT — app.govibepay.com est fusionné dans govibepay.com.
           RewriteEngine On
           RewriteCond %{HTTP_HOST} ^app\.govibepay\.com$ [NC]
           RewriteRule ^(.*)$ https://govibepay.com/$1 [R=301,L]
           EOHT
-            echo "→ app.govibepay.com : redirection 301 installée (fichiers du script intacts)"
-          fi
+          echo "→ $MOVED_FROM : redirection 301 installée"
 
-          # 7) Marqueur
+          # 9) Marqueur
           {
             echo "ts=$TS"
-            echo "lroot=$LROOT"
+            echo "lroot=$NEWROOT"
+            echo "moved_from=$MOVED_FROM"
             echo "pub=$PUB"
             echo "homefile=${HOMEFILE:-}"
-            echo "vacated=$VDIR"
+            echo "vacated=$MOVED_FROM"
             echo "backup=$BK"
           } > "$MARK"
-          ( cd "$LROOT" && php artisan config:clear >/dev/null 2>&1; php artisan cache:clear >/dev/null 2>&1 ) || true
-          echo ""; echo "=== Fusion OK ==="; cat "$MARK"
+          ( cd "$NEWROOT" && php artisan config:clear >/dev/null 2>&1; php artisan cache:clear >/dev/null 2>&1 ) || true
+          echo ""; echo "=== Déplacement OK (vérification à suivre) ==="; cat "$MARK"
           EOSSH
 
       # ------------------------------------------------------------------
@@ -608,6 +710,90 @@ jobs:
           EOSSH
 
       # ------------------------------------------------------------------
+      # VERIFY — après une fusion, rend réellement les pages via le kernel HTTP
+      # de Laravel. C'est la seule vérification fiable dont on dispose : les
+      # sondes curl vers 127.0.0.1 n'atteignent pas le vhost de l'application.
+      # Si la page d'accueil ne répond pas, TOUT est annulé automatiquement —
+      # le site ne doit jamais rester cassé.
+      # ------------------------------------------------------------------
+      - name: Verify (rendu réel, annulation auto si échec)
+        if: ${{ inputs.mode == 'merge' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          [ -f "$MARK" ] || { echo "ERREUR: pas de marqueur — fusion non effectuée."; exit 1; }
+          LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          PUB=$(grep '^pub=' "$MARK" | cut -d= -f2-)
+          MOVED_FROM=$(grep '^moved_from=' "$MARK" | cut -d= -f2-)
+          HOMEFILE=$(grep '^homefile=' "$MARK" | cut -d= -f2-)
+          BK=$(grep '^backup=' "$MARK" | cut -d= -f2-)
+
+          cat > "$LROOT/.govibepay-verify.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+          $ok = true;
+          foreach (['/', '/admin/login'] as $uri) {
+              try {
+                  $req = Illuminate\Http\Request::create('https://govibepay.com'.$uri, 'GET');
+                  $res = $kernel->handle($req);
+                  $code = $res->getStatusCode();
+                  $body = (string) $res->getContent();
+                  printf("  %-14s status=%d taille=%d csrf=%s cdn_mort=%s\n", $uri, $code, strlen($body),
+                      (str_contains($body, 'csrf-token') || str_contains($body, '_token')) ? 'oui' : 'non',
+                      str_contains($body, 'cdn.appdevs.net') ? 'OUI' : 'non');
+                  if ($uri === '/' && $code >= 500) { $ok = false; }
+              } catch (Throwable $e) {
+                  printf("  %-14s EXCEPTION %s : %s\n", $uri, get_class($e), substr($e->getMessage(), 0, 140));
+                  if ($uri === '/') { $ok = false; }
+              }
+          }
+          exit($ok ? 0 : 1);
+          EOPHP
+
+          echo "=== Rendu réel des pages (kernel Laravel, sans passer par Apache) ==="
+          if ( cd "$LROOT" && php .govibepay-verify.php ); then
+            VERIF=0
+          else
+            VERIF=1
+          fi
+          rm -f "$LROOT/.govibepay-verify.php"
+
+          if [ "$VERIF" = "0" ]; then
+            echo ""; echo "✅ L'application répond depuis son nouvel emplacement. Fusion conservée."
+            exit 0
+          fi
+
+          echo ""
+          echo "🔴 La page d'accueil ne répond pas — ANNULATION AUTOMATIQUE de la fusion."
+          # remettre le script à son emplacement d'origine
+          if [ -n "$MOVED_FROM" ] && [ -d "$LROOT" ]; then
+            rm -f "$MOVED_FROM/index.php" "$MOVED_FROM/.htaccess" 2>/dev/null || true
+            rmdir "$MOVED_FROM" 2>/dev/null || true
+            mv "$LROOT" "$MOVED_FROM" && echo "→ script remis : $LROOT → $MOVED_FROM"
+            rm -f "$MOVED_FROM"/bootstrap/cache/*.php 2>/dev/null || true
+            [ -f "$BK/.env" ] && cp -a "$BK/.env" "$MOVED_FROM/.env" && echo "→ .env restauré"
+            [ -f "$MOVED_FROM/routes/web.php.bak-govibepay" ] && cp -a "$MOVED_FROM/routes/web.php.bak-govibepay" "$MOVED_FROM/routes/web.php"
+          fi
+          # remettre la home du domaine
+          rm -f "$PUB/index.php"
+          [ -n "$HOMEFILE" ] && [ -f "$HOMEFILE" ] && rm -f "$HOMEFILE"
+          if   [ -f "$BK/index.php" ];  then cp -a "$BK/index.php"  "$PUB/index.php";  echo "→ home restaurée"
+          elif [ -f "$BK/index.html" ]; then cp -a "$BK/index.html" "$PUB/index.html"; echo "→ home restaurée"
+          fi
+          [ -f "$BK/.htaccess" ] && cp -a "$BK/.htaccess" "$PUB/.htaccess"
+          [ -L "$PUB/storage" ] && rm -f "$PUB/storage"
+          rm -f "$MARK"
+          echo "=== Annulation terminée — le site est revenu à son état d'avant ==="
+          exit 1
+          EOSSH
+
+      # ------------------------------------------------------------------
       # ASSETS — supprime la dépendance externe du script à cdn.appdevs.net,
       # qui NE RÉPOND PLUS (timeout) alors que les pages d'authentification
       # y chargent leur CSS et leurs modules JS : le formulaire de connexion
@@ -632,8 +818,13 @@ jobs:
           # NB: on n'utilise PAS /vendor/ dans l'URL — beaucoup d'hébergeurs
           # bloquent ce chemin pour protéger le dossier Composer (constaté ici :
           # les fichiers existaient mais répondaient 404).
-          WEBDIR="gvp-assets/fileholder/v1.0"
-          VDIR="$LROOT/public/$WEBDIR"
+          # Sur disque les fichiers vivent dans public/ du script ; côté URL le
+          # script sert ses assets sous /public/... (cf. asset('public/...')),
+          # chemin dont on sait qu'il fonctionne — contrairement à une racine
+          # /gvp-assets/ inventée, qui ne répond pas.
+          DISKDIR="gvp-assets/fileholder/v1.0"
+          WEBDIR="public/$DISKDIR"
+          VDIR="$LROOT/public/$DISKDIR"
           BK="$DOM/assets-backup-$TS"
           mkdir -p "$VDIR/css" "$VDIR/js" "$BK"
 
@@ -687,14 +878,114 @@ jobs:
 
           ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
           echo ""
+          # ----------------------------------------------------------------
+          # Après la fusion, le docroot du domaine doit contenir TOUT ce que
+          # contient public/ du script, sinon le CSS, le JS et les images ne
+          # sont pas servis. Or un formulaire dont le JavaScript ne tourne pas
+          # n'envoie pas ses champs cachés : c'est ce qui produit les erreurs
+          # « The register type field is required » / « The credentials field
+          # is required » à l'inscription, et un champ qui ne réagit pas au
+          # toucher sur la page de connexion.
+          # ----------------------------------------------------------------
+          MARKF="$DOM/.govibepay-merge.meta"
+          if [ -f "$MARKF" ]; then
+            PUB=$(grep '^pub=' "$MARKF" | cut -d= -f2-)
+            echo ""
+            echo "=== Synchronisation public/ du script → docroot du domaine ==="
+            MISSING=0
+            for entry in "$LROOT/public"/* "$LROOT/public"/.[!.]*; do
+              [ -e "$entry" ] || continue
+              b=$(basename "$entry")
+              # on ne touche jamais à ce qui appartient au domaine, ni au front controller
+              case "$b" in app|my|index.php|govibepay-home.php|.htaccess|storage) continue;; esac
+              if [ ! -e "$PUB/$b" ]; then
+                cp -a "$entry" "$PUB/$b" && echo "  + $b (manquait — copié)"
+                MISSING=$((MISSING+1))
+              fi
+            done
+            [ "$MISSING" = "0" ] && echo "  ✅ rien ne manquait dans le docroot"
+
+            # Le script génère ses URLs d'assets AVEC le segment « public/ »
+            # (asset('public/frontend/...')) : il était conçu pour être servi
+            # depuis la racine Laravel, où public/ est un vrai dossier. Le
+            # docroot contient désormais le CONTENU de public/, pas le dossier
+            # lui-même, donc /public/... tombe en 404 et ni le CSS ni le JS ne
+            # se chargent. Un lien règle le cas pour toutes ces URLs d'un coup.
+            if [ ! -e "$PUB/public" ]; then
+              if ln -s "../govibepay-app/public" "$PUB/public" 2>/dev/null && [ -d "$PUB/public" ]; then
+                echo "  + lien public/ → ../govibepay-app/public (URLs asset('public/...'))"
+              else
+                rm -f "$PUB/public" 2>/dev/null || true
+                cp -a "$LROOT/public" "$PUB/public" && echo "  + dossier public/ copié (lien impossible)"
+              fi
+            else
+              echo "  ✅ public/ déjà présent dans le docroot"
+            fi
+            chmod -R a+rX "$PUB" 2>/dev/null || true
+            echo ""
+            echo "=== Les assets référencés par les pages publiques existent-ils ? ==="
+            cat > "$LROOT/.govibepay-assets-check.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+          $pub = $argv[1] ?? '';
+          foreach (['/register', '/admin/login'] as $uri) {
+              try {
+                  $res = $kernel->handle(Illuminate\Http\Request::create('https://govibepay.com'.$uri, 'GET'));
+                  $body = (string) $res->getContent();
+                  preg_match_all('#(?:src|href)="https://govibepay\.com/([^"?]+\.(?:js|css))#', $body, $m);
+                  $refs = array_unique($m[1] ?? []);
+                  $miss = [];
+                  foreach ($refs as $r) { if (! is_file($pub.'/'.$r)) { $miss[] = $r; } }
+                  printf("  %-14s status=%d  assets=%d  manquants=%d %s\n", $uri, $res->getStatusCode(),
+                      count($refs), count($miss), $miss ? '→ '.implode(' ', array_slice($miss, 0, 4)) : '');
+                  if ($uri === '/register') {
+                      foreach (['register_type', 'credentials'] as $f) {
+                          echo '    champ « ', $f, ' » présent dans le formulaire : ',
+                              (str_contains($body, $f) ? 'oui' : 'NON'), "\n";
+                      }
+                  }
+                  // Pourquoi un champ n'accepterait-il pas le focus sur mobile ?
+                  echo "    viewport=", (preg_match('#name="viewport"#i', $body) ? 'oui' : 'NON (page rendue en taille bureau)'), "\n";
+                  preg_match_all('#<input[^>]*type="(?:text|email|password|tel)"[^>]*>#i', $body, $ins);
+                  foreach (array_slice($ins[0], 0, 6) as $tag) {
+                      $flags = [];
+                      foreach (['readonly', 'disabled', 'inputmode', 'autocomplete'] as $a) {
+                          if (stripos($tag, $a) !== false) { $flags[] = $a; }
+                      }
+                      preg_match('#name="([^"]*)"#i', $tag, $nm);
+                      echo '    input name=', $nm[1] ?? '?', ' ', $flags ? '⚠️ '.implode(',', $flags) : 'aucun attribut bloquant', "\n";
+                  }
+                  foreach (['preloader', 'loader-wrapper', 'overlay', 'pointer-events:none', 'user-select:none'] as $w) {
+                      $n = substr_count(strtolower($body), strtolower($w));
+                      if ($n) { echo '    « ', $w, " » ×", $n, "\n"; }
+                  }
+                  preg_match_all('#<script[^>]+src="([^"]+)"#i', $body, $sc);
+                  $ext = array_values(array_filter($sc[1] ?? [], fn ($u) => str_starts_with($u, 'http') && ! str_contains($u, 'govibepay.com')));
+                  echo '    scripts EXTERNES (bloquants si injoignables) : ', $ext ? implode(' ', array_unique($ext)) : 'aucun', "\n";
+              } catch (Throwable $e) {
+                  printf("  %-14s EXCEPTION %s\n", $uri, substr($e->getMessage(), 0, 120));
+              }
+          }
+          EOPHP
+            ( cd "$LROOT" && php .govibepay-assets-check.php "$PUB" ) || echo "  (échec du rendu)"
+            rm -f "$LROOT/.govibepay-assets-check.php"
+          fi
+          echo ""
           echo "=== Vérification : références externes restantes dans resources/ ==="
           grep -rIo --exclude-dir=vendor --exclude-dir=node_modules -e 'cdn\.appdevs\.net' "$LROOT/resources" 2>/dev/null | wc -l | sed 's/^/  cdn.appdevs.net (mort) : /'
-          echo "=== Les assets locaux répondent-ils ? ==="
+          # Vérification SUR DISQUE : les sondes curl locales n'atteignent pas le
+          # vhost et renvoient 404 sur des fichiers qui existent — s'y fier avait
+          # fait repointer inutilement vers l'hôte externe.
+          echo "=== Les assets locaux sont-ils en place sur le disque ? ==="
           ALLOK=1
           for F in $FILES; do
-            RC=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/$WEBDIR/$F" 2>/dev/null)
-            echo "  /$WEBDIR/$F -> $RC"
-            [ "$RC" = "200" ] || ALLOK=0
+            if [ -s "$VDIR/$F" ]; then
+              echo "  ✅ $VDIR/$F ($(wc -c < "$VDIR/$F") octets)"
+            else
+              echo "  🔴 $VDIR/$F absent ou vide"; ALLOK=0
+            fi
           done
           if [ "$ALLOK" = "1" ]; then
             echo "  ✅ les assets sont servis correctement — la page de connexion a ce qu'il lui faut"
@@ -706,6 +997,209 @@ jobs:
             done < <(grep -rIl --exclude-dir=vendor --exclude-dir=node_modules -e "/$WEBDIR/" "$LROOT/resources" 2>/dev/null)
             ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
             echo "  → références repointées vers appdevs.cloud (hôte joignable)"
+          fi
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # SESSION — corrige le 419 « Page Expired » sur les pages de connexion.
+      #
+      # Symptôme : /admin/login renvoie 419 dans le navigateur alors que le
+      # rendu par le kernel (sans cookie) renvoie 200. Le journal contient des
+      # milliers de DecryptException « The payload is invalid » : les cookies
+      # de session détenus par les navigateurs ne sont plus déchiffrables, donc
+      # la session est jetée et le jeton CSRF ne correspond jamais.
+      #
+      # Plutôt que de demander à chaque utilisateur de vider ses cookies, on
+      # CHANGE LE NOM du cookie de session : les anciens deviennent sans objet
+      # et chacun repart sur une session propre au premier chargement.
+      # ------------------------------------------------------------------
+      - name: Session (corriger le 419 « Page Expired »)
+        if: ${{ inputs.mode == 'session' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          TS=$(date +%Y%m%d-%H%M%S)
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html" "$DOM/public_html/app"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          echo "Script : $LROOT"
+          ENVF="$LROOT/.env"
+          [ -f "$ENVF" ] || { echo "ERREUR: .env introuvable."; exit 1; }
+          cp -a "$ENVF" "$ENVF.bak-session-$TS"
+          echo "→ .env sauvegardé : .env.bak-session-$TS"
+          echo ""
+
+          echo "=== Réglages de session AVANT ==="
+          grep -E '^(APP_URL|SESSION_DRIVER|SESSION_LIFETIME|SESSION_DOMAIN|SESSION_COOKIE|SESSION_SECURE_COOKIE|SESSION_SAME_SITE)=' "$ENVF" || echo "(aucun réglage explicite)"
+          echo ""
+
+          # 1) Nouveau nom de cookie → les anciens cookies illisibles sont ignorés
+          NEWCOOKIE="govibepay_session_$(date +%s)"
+          if grep -q '^SESSION_COOKIE=' "$ENVF"; then
+            sed -i "s#^SESSION_COOKIE=.*#SESSION_COOKIE=$NEWCOOKIE#" "$ENVF"
+          else
+            printf '\nSESSION_COOKIE=%s\n' "$NEWCOOKIE" >> "$ENVF"
+          fi
+          echo "→ nom du cookie de session renouvelé"
+
+          # 2) Le domaine a changé (app.govibepay.com → govibepay.com) : un
+          #    SESSION_DOMAIN figé sur l'ancien hôte empêcherait l'envoi du cookie.
+          if grep -qE '^SESSION_DOMAIN=.*app\.govibepay\.com' "$ENVF"; then
+            sed -i 's#^SESSION_DOMAIN=.*#SESSION_DOMAIN=.govibepay.com#' "$ENVF"
+            echo "→ SESSION_DOMAIN recalé sur .govibepay.com (il pointait sur l'ancien sous-domaine)"
+          else
+            echo "→ SESSION_DOMAIN : rien à corriger"
+          fi
+
+          # 3) Purger les sessions serveur devenues inutilisables
+          if [ -d "$LROOT/storage/framework/sessions" ]; then
+            N=$(find "$LROOT/storage/framework/sessions" -type f ! -name '.gitignore' 2>/dev/null | wc -l)
+            find "$LROOT/storage/framework/sessions" -type f ! -name '.gitignore' -delete 2>/dev/null || true
+            echo "→ $N fichier(s) de session purgé(s)"
+          fi
+
+          ( cd "$LROOT" && php artisan config:clear >/dev/null 2>&1; php artisan cache:clear >/dev/null 2>&1; php artisan view:clear >/dev/null 2>&1 ) || true
+          echo ""
+          echo "=== Réglages de session APRÈS ==="
+          grep -E '^(APP_URL|SESSION_DRIVER|SESSION_DOMAIN|SESSION_COOKIE|SESSION_SECURE_COOKIE|SESSION_SAME_SITE)=' "$ENVF"
+          echo ""
+
+          # 4) Vérification : la page de connexion doit poser un cookie ET un jeton
+          cat > "$LROOT/.govibepay-session-check.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+          $req = Illuminate\Http\Request::create('https://govibepay.com/admin/login', 'GET');
+          $res = $kernel->handle($req);
+          $body = (string) $res->getContent();
+          echo '  status=', $res->getStatusCode(), "\n";
+          echo '  jeton CSRF=', (str_contains($body, 'csrf-token') || str_contains($body, '_token')) ? 'oui' : 'non', "\n";
+          $names = [];
+          foreach ($res->headers->getCookies() as $c) { $names[] = $c->getName(); }
+          echo '  cookies posés=', $names ? implode(', ', $names) : '(aucun)', "\n";
+          EOPHP
+          echo "=== Rendu de /admin/login après correction ==="
+          ( cd "$LROOT" && php .govibepay-session-check.php ) || echo "  (échec du rendu)"
+          rm -f "$LROOT/.govibepay-session-check.php"
+          echo ""
+          echo "→ Le cookie ayant changé de nom, les anciens cookies illisibles sont ignorés."
+          echo "  Rechargez la page : plus besoin de vider les cookies à la main."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # RESTORE-LOGIN — remet les vues d'authentification d'ORIGINE du script.
+      #
+      # La page de connexion actuelle n'est pas celle du script : ses classes
+      # sont gvpa-* (GoVibePay Admin), donc quelqu'un l'a réécrite. Côté serveur
+      # tout est correct — page en 200, jeton CSRF, viewport, CSS livré, aucun
+      # champ bloqué, aucun calque — et pourtant les champs ne prennent pas le
+      # focus sur mobile. Le dossier resourcesBBBB, laissé sur le serveur,
+      # contient les vues d'origine : on y revient.
+      #
+      # Les versions personnalisées sont conservées pour pouvoir les reprendre.
+      # ------------------------------------------------------------------
+      - name: Restore login (revenir aux vues d'origine du script)
+        if: ${{ inputs.mode == 'restore-login' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          TS=$(date +%Y%m%d-%H%M%S)
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          ORIG="$LROOT/resourcesBBBB"
+          [ -d "$ORIG/views" ] || { echo "ERREUR: $ORIG/views introuvable — pas de vues d'origine à restaurer."; exit 1; }
+          BK="$DOM/login-perso-backup-$TS"
+          mkdir -p "$BK"
+          echo "Script  : $LROOT"
+          echo "Origine : $ORIG"
+          echo ""
+
+          # Les vues réécrites se reconnaissent à leurs classes gvpa-*.
+          echo "=== Vues personnalisées (classes gvpa-*) et leur équivalent d'origine ==="
+          COUNT=0
+          while IFS= read -r f; do
+            rel="${f#$LROOT/resources/}"
+            src="$ORIG/$rel"
+            if [ ! -f "$src" ]; then
+              echo "  ⚠️  $rel — aucune version d'origine, laissée telle quelle"
+              continue
+            fi
+            mkdir -p "$BK/$(dirname "$rel")"
+            cp -a "$f" "$BK/$rel"
+            cp -a "$src" "$f"
+            if ! php -l "$f" >/dev/null 2>&1; then
+              echo "  !! $rel — version d'origine invalide, on remet la personnalisée"
+              cp -a "$BK/$rel" "$f"
+              continue
+            fi
+            echo "  ↩️  $rel restaurée (perso sauvegardée)"
+            COUNT=$((COUNT+1))
+          done < <(grep -rIl --exclude-dir=node_modules --exclude-dir=vendor -e 'gvpa-' "$LROOT/resources/views" 2>/dev/null)
+          echo "→ $COUNT vue(s) restaurée(s) ; versions personnalisées dans : $BK"
+          [ "$COUNT" = "0" ] && { echo "Rien à restaurer — on s'arrête ici."; exit 0; }
+
+          ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
+          echo ""
+
+          # Vérification par rendu réel, avec retour arrière si la page ne répond plus.
+          cat > "$LROOT/.govibepay-login-verify.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+          $ok = true;
+          foreach (['/admin/login', '/register'] as $uri) {
+              try {
+                  $res = $kernel->handle(Illuminate\Http\Request::create('https://govibepay.com'.$uri, 'GET'));
+                  $body = (string) $res->getContent();
+                  $code = $res->getStatusCode();
+                  printf("  %-14s status=%d taille=%d csrf=%s form=%s gvpa=%s\n", $uri, $code, strlen($body),
+                      (str_contains($body, '_token') ? 'oui' : 'non'),
+                      (str_contains($body, '<form') ? 'oui' : 'NON'),
+                      (str_contains($body, 'gvpa-') ? 'encore' : 'parti'));
+                  if ($uri === '/admin/login' && ($code >= 500 || ! str_contains($body, '<form'))) { $ok = false; }
+              } catch (Throwable $e) {
+                  printf("  %-14s EXCEPTION %s\n", $uri, substr($e->getMessage(), 0, 120));
+                  if ($uri === '/admin/login') { $ok = false; }
+              }
+          }
+          exit($ok ? 0 : 1);
+          EOPHP
+          echo "=== Rendu après restauration ==="
+          if ( cd "$LROOT" && php .govibepay-login-verify.php ); then
+            rm -f "$LROOT/.govibepay-login-verify.php"
+            echo ""
+            echo "✅ Page de connexion d'origine en place."
+            echo "   Les versions personnalisées sont conservées dans $BK"
+            echo "   pour être reprises proprement ensuite."
+          else
+            rm -f "$LROOT/.govibepay-login-verify.php"
+            echo ""
+            echo "🔴 La page ne répond plus — RETOUR AUX VERSIONS PERSONNALISÉES."
+            cp -a "$BK/." "$LROOT/resources/"
+            ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+            echo "→ versions personnalisées remises en place."
+            exit 1
           fi
           EOSSH
 
@@ -728,6 +1222,20 @@ jobs:
           HOMEFILE=$(grep '^homefile=' "$MARK" | cut -d= -f2-)
           VDIR=$(grep '^vacated=' "$MARK" | cut -d= -f2-)
           BK=$(grep '^backup=' "$MARK" | cut -d= -f2-)
+          MOVED_FROM=$(grep '^moved_from=' "$MARK" | cut -d= -f2-)
+
+          # 0) si le script avait été DÉPLACÉ, le remettre à sa place d'origine
+          if [ -n "$MOVED_FROM" ] && [ -d "$LROOT" ] && [ "$LROOT" != "$MOVED_FROM" ]; then
+            rm -f "$MOVED_FROM/index.php" "$MOVED_FROM/.htaccess" 2>/dev/null || true
+            rmdir "$MOVED_FROM" 2>/dev/null || true
+            if mv "$LROOT" "$MOVED_FROM"; then
+              echo "→ script remis à son emplacement d'origine : $MOVED_FROM"
+              rm -f "$MOVED_FROM"/bootstrap/cache/*.php 2>/dev/null || true
+              LROOT="$MOVED_FROM"
+            else
+              echo "!! déplacement inverse impossible — intervention manuelle nécessaire"
+            fi
+          fi
 
           # 1) home d'origine remise en index.php
           if [ -n "$BK" ] && [ -f "$BK/index.php" ]; then
