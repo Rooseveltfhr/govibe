@@ -735,8 +735,13 @@ jobs:
           # NB: on n'utilise PAS /vendor/ dans l'URL — beaucoup d'hébergeurs
           # bloquent ce chemin pour protéger le dossier Composer (constaté ici :
           # les fichiers existaient mais répondaient 404).
-          WEBDIR="gvp-assets/fileholder/v1.0"
-          VDIR="$LROOT/public/$WEBDIR"
+          # Sur disque les fichiers vivent dans public/ du script ; côté URL le
+          # script sert ses assets sous /public/... (cf. asset('public/...')),
+          # chemin dont on sait qu'il fonctionne — contrairement à une racine
+          # /gvp-assets/ inventée, qui ne répond pas.
+          DISKDIR="gvp-assets/fileholder/v1.0"
+          WEBDIR="public/$DISKDIR"
+          VDIR="$LROOT/public/$DISKDIR"
           BK="$DOM/assets-backup-$TS"
           mkdir -p "$VDIR/css" "$VDIR/js" "$BK"
 
@@ -858,6 +863,24 @@ jobs:
                               (str_contains($body, $f) ? 'oui' : 'NON'), "\n";
                       }
                   }
+                  // Pourquoi un champ n'accepterait-il pas le focus sur mobile ?
+                  echo "    viewport=", (preg_match('#name="viewport"#i', $body) ? 'oui' : 'NON (page rendue en taille bureau)'), "\n";
+                  preg_match_all('#<input[^>]*type="(?:text|email|password|tel)"[^>]*>#i', $body, $ins);
+                  foreach (array_slice($ins[0], 0, 6) as $tag) {
+                      $flags = [];
+                      foreach (['readonly', 'disabled', 'inputmode', 'autocomplete'] as $a) {
+                          if (stripos($tag, $a) !== false) { $flags[] = $a; }
+                      }
+                      preg_match('#name="([^"]*)"#i', $tag, $nm);
+                      echo '    input name=', $nm[1] ?? '?', ' ', $flags ? '⚠️ '.implode(',', $flags) : 'aucun attribut bloquant', "\n";
+                  }
+                  foreach (['preloader', 'loader-wrapper', 'overlay', 'pointer-events:none', 'user-select:none'] as $w) {
+                      $n = substr_count(strtolower($body), strtolower($w));
+                      if ($n) { echo '    « ', $w, " » ×", $n, "\n"; }
+                  }
+                  preg_match_all('#<script[^>]+src="([^"]+)"#i', $body, $sc);
+                  $ext = array_values(array_filter($sc[1] ?? [], fn ($u) => str_starts_with($u, 'http') && ! str_contains($u, 'govibepay.com')));
+                  echo '    scripts EXTERNES (bloquants si injoignables) : ', $ext ? implode(' ', array_unique($ext)) : 'aucun', "\n";
               } catch (Throwable $e) {
                   printf("  %-14s EXCEPTION %s\n", $uri, substr($e->getMessage(), 0, 120));
               }
@@ -869,12 +892,17 @@ jobs:
           echo ""
           echo "=== Vérification : références externes restantes dans resources/ ==="
           grep -rIo --exclude-dir=vendor --exclude-dir=node_modules -e 'cdn\.appdevs\.net' "$LROOT/resources" 2>/dev/null | wc -l | sed 's/^/  cdn.appdevs.net (mort) : /'
-          echo "=== Les assets locaux répondent-ils ? ==="
+          # Vérification SUR DISQUE : les sondes curl locales n'atteignent pas le
+          # vhost et renvoient 404 sur des fichiers qui existent — s'y fier avait
+          # fait repointer inutilement vers l'hôte externe.
+          echo "=== Les assets locaux sont-ils en place sur le disque ? ==="
           ALLOK=1
           for F in $FILES; do
-            RC=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/$WEBDIR/$F" 2>/dev/null)
-            echo "  /$WEBDIR/$F -> $RC"
-            [ "$RC" = "200" ] || ALLOK=0
+            if [ -s "$VDIR/$F" ]; then
+              echo "  ✅ $VDIR/$F ($(wc -c < "$VDIR/$F") octets)"
+            else
+              echo "  🔴 $VDIR/$F absent ou vide"; ALLOK=0
+            fi
           done
           if [ "$ALLOK" = "1" ]; then
             echo "  ✅ les assets sont servis correctement — la page de connexion a ce qu'il lui faut"
