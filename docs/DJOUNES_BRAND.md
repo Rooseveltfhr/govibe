@@ -339,6 +339,29 @@ illustrations à la charte (haut de scrub, chaussettes, pot, flacon, savon, tote
 headband, sous-vêtement) sur fond ivoire. Ce sont des **illustrations**, pas des
 photographies : elles tiennent la place jusqu'aux vraies prises de vue.
 
+### Vitrine, variantes et découpes (9 août 2026)
+
+| Élément | Résultat |
+|---|---|
+| Vitrine d'accueil | collection **« Shift favorites »** (`collection_1`), 6 produits — vérifiée présente dans le HTML de l'accueil |
+| Attributs | Size (XS→3XL) · Color (Forest Green, Black, Navy, Wine) · Compression (15-20, 20-30 mmHg) · Shoe size (S/M, L/XL) · Volume (2/4/8 oz) |
+| Variantes | **42**, une par combinaison, stock 12 chacune |
+| Images produit | basculées sur les **découpes PNG transparentes** (les JPEG restent sur le disque) |
+
+Rien n'a été écrit en SQL brut : le script amorce l'application et passe par
+ses propres modèles, donc les casts décident de la forme de `product_ids` et
+d'`attribute_values`, et les constantes `ATTRIBUTE_TYPE_*` décident du type
+d'un attribut. La collection est nommée `collection_<id>` exactement comme
+l'administration le ferait, ce qui la fait tomber dans un des sept
+emplacements déjà actifs sur l'accueil — sans toucher un fichier du thème.
+
+Reste la refonte mobile de la fiche produit (`product_details.blade.php`,
+207 lignes) : sélecteur de taille en colonne, pastilles de couleur, produit
+détouré flottant au-dessus d'une boîte verte DJOUNES, et geste vers le bas
+pour ajouter au panier — avec un bouton classique conservé à côté, parce
+qu'un « swipe down » entre en conflit avec le tirer-pour-actualiser du
+navigateur mobile.
+
 ## 11. Ce qu'il reste à ajouter
 
 Par ordre : ce qui empêche de vendre, puis ce qui fait vendre plus.
