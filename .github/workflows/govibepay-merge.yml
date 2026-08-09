@@ -365,6 +365,22 @@ jobs:
               $n = substr_count(strtolower($body), strtolower($w));
               if ($n) { echo '   « ', $w, " » ×", $n, "\n"; }
           }
+
+          // Assez deviné : on lit le balisage réel.
+          echo "  --- balise viewport telle qu'elle est envoyée ---\n";
+          if (preg_match('#<meta[^>]+name="viewport"[^>]*>#i', $body, $mv)) {
+              echo '   ', trim($mv[0]), "\n";
+          }
+          echo "  --- le formulaire de connexion, tel qu'il est envoyé ---\n";
+          if (preg_match('#<form[^>]*>.*?</form>#is', $body, $mf)) {
+              $form = preg_replace('#\s+#', ' ', $mf[0]);
+              foreach (str_split(substr($form, 0, 2400), 200) as $chunk) {
+                  echo '   ', $chunk, "\n";
+              }
+              echo '   [longueur totale du formulaire : ', strlen($mf[0]), " octets]\n";
+          } else {
+              echo "   🔴 AUCUNE balise <form> dans la page — c'est la cause : rien à remplir.\n";
+          }
           EOPHP
           ( cd "$LROOT" && php .govibepay-focus.php ) || echo "  (échec du rendu)"
           rm -f "$LROOT/.govibepay-focus.php"
