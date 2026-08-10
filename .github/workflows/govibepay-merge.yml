@@ -1340,7 +1340,9 @@ jobs:
           fi
           echo ""
           echo "=== Dates de modification des vues d'authentification ==="
-          find "$LROOT/resources/views" -path '*/auth/*' -name '*.blade.php' -printf '  %TY-%Tm-%Td %TH:%TM  %s octets  %P\n' 2>/dev/null | sort | head -12
+          # `head` ferme le tube et fait échouer le pipeline sous pipefail (SIGPIPE,
+          # code 141) : on neutralise, l'étape ne doit pas échouer pour si peu.
+          find "$LROOT/resources/views" -path '*/auth/*' -name '*.blade.php' -printf '  %TY-%Tm-%Td %TH:%TM  %s octets  %P\n' 2>/dev/null | sort | head -12 || true
           EOSSH
 
       # ------------------------------------------------------------------
