@@ -26,6 +26,7 @@ on:
           - session
           - restore-login
           - login-perso
+          - login-diff
           - merge
           - landing
           - brand
@@ -1275,6 +1276,71 @@ jobs:
           rm -f "$LROOT/.govibepay-login-verify.php"
           echo ""
           echo "→ Pour revenir aux vues d'origine : relancer le mode restore-login."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # LOGIN-DIFF — répond par des empreintes, pas par une affirmation :
+      # les vues d'authentification en place sont-elles identiques à celles
+      # d'avant nos interventions, ou ont-elles été modifiées en chemin ?
+      # Lecture seule.
+      # ------------------------------------------------------------------
+      - name: Login diff (les vues ont-elles été modifiées ?)
+        if: ${{ inputs.mode == 'login-diff' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+
+          REL=""
+          for cand in $(find "$LROOT/resources/views" -path '*/auth/login.blade.php' 2>/dev/null); do
+            grep -q 'gvpa-' "$cand" && REL="${cand#$LROOT/resources/}" && break
+          done
+          [ -n "$REL" ] || REL=$(find "$LROOT/resources/views" -path '*/auth/login.blade.php' 2>/dev/null | head -1 | sed "s#$LROOT/resources/##")
+          [ -n "$REL" ] || { echo "ERREUR: page de connexion introuvable."; exit 1; }
+          CUR="$LROOT/resources/$REL"
+          echo "Fichier examiné : resources/$REL"
+          echo "  en place    : $(md5sum "$CUR" | cut -c1-32)  $(wc -c < "$CUR") octets"
+          echo ""
+
+          echo "=== Comparaison avec chaque sauvegarde, de la plus ancienne à la plus récente ==="
+          FOUND=0
+          for BK in $(ls -dtr "$DOM"/brand-backup-* "$DOM"/assets-backup-* "$DOM"/login-perso-backup-* "$DOM"/login-origine-backup-* 2>/dev/null); do
+            SRC="$BK/$REL"
+            [ -f "$SRC" ] || continue
+            FOUND=1
+            if cmp -s "$CUR" "$SRC"; then
+              echo "  ✅ IDENTIQUE à $(basename "$BK")"
+            else
+              echo "  ✏️  DIFFÈRE de $(basename "$BK") ($(wc -c < "$SRC") octets)"
+              echo "     lignes qui changent :"
+              diff "$SRC" "$CUR" 2>/dev/null | head -12 | sed 's/^/       /'
+            fi
+          done
+          [ "$FOUND" = "0" ] && echo "  (aucune sauvegarde ne contient ce fichier — il n'a jamais été touché par nos modes)"
+          echo ""
+          echo "=== Le fichier a-t-il été modifié depuis son installation d'origine ? ==="
+          ORIG="$LROOT/resourcesBBBB/$REL"
+          if [ -f "$ORIG" ]; then
+            cmp -s "$CUR" "$ORIG" \
+              && echo "  la version en place est celle d'origine du script" \
+              || echo "  la version en place est la version personnalisée (elle diffère de l'origine, c'est attendu)"
+          else
+            echo "  (pas de version d'origine pour ce fichier)"
+          fi
+          echo ""
+          echo "=== Dates de modification des vues d'authentification ==="
+          find "$LROOT/resources/views" -path '*/auth/*' -name '*.blade.php' -printf '  %TY-%Tm-%Td %TH:%TM  %s octets  %P\n' 2>/dev/null | sort | head -12
           EOSSH
 
       # ------------------------------------------------------------------
