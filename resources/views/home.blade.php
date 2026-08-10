@@ -33,7 +33,7 @@
   .gv-blob { position:absolute; border-radius:50%; filter:blur(80px); opacity:.2;
     animation:gvBlobFloat 20s ease-in-out infinite; pointer-events:none; z-index:2; }
   .gv-blob-1 { width:500px;height:500px;background:#DC2626;top:-100px;right:-100px;animation-delay:0s; }
-  .gv-blob-2 { width:400px;height:400px;background:#10B981;bottom:-80px;left:-80px;animation-delay:-7s; }
+  .gv-blob-2 { width:400px;height:400px;background:#7f1d1d;bottom:-80px;left:-80px;animation-delay:-7s; }
   .gv-blob-3 { width:300px;height:300px;background:#991b1b;top:40%;right:15%;animation-delay:-14s; }
   @keyframes gvBlobFloat {
     0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(30px,-30px) scale(1.05)} 66%{transform:translate(-20px,20px) scale(.95)}
@@ -113,7 +113,7 @@
   .about-blobs { position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:0; }
   .ab1,.ab2 { position:absolute; border-radius:50%; filter:blur(80px); opacity:.1; animation:blobFloat 20s ease-in-out infinite; }
   .ab1 { width:400px;height:400px;background:#DC2626;top:-100px;left:-100px; }
-  .ab2 { width:300px;height:300px;background:#10B981;bottom:-80px;right:-80px;animation-delay:-10s; }
+  .ab2 { width:300px;height:300px;background:#7f1d1d;bottom:-80px;right:-80px;animation-delay:-10s; }
   @keyframes blobFloat { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(30px,-40px) scale(1.08)} 66%{transform:translate(-20px,20px) scale(.95)} }
   .about-intro { position:relative; z-index:10; display:flex; flex-direction:column; align-items:center; width:100%; }
   .about-eyebrow { font-family:'Exo 2',sans-serif; font-size:.8rem; font-weight:700; letter-spacing:.3em; text-transform:uppercase; color:rgba(255,255,255,.35); margin-bottom:.5rem; text-align:center; }
@@ -141,7 +141,7 @@
   .bolt-svg { width:68%;height:68%;filter:drop-shadow(0 0 6px rgba(255,255,200,1));animation:boltFlash 3.5s ease-in-out infinite; }
   @keyframes boltFlash { 0%,90%,100%{opacity:1} 93%,97%{opacity:.3} }
   .energy-bar-wrap { width:clamp(280px,80vw,800px);height:5px;background:rgba(255,255,255,.05);border-radius:10px;overflow:hidden;opacity:0;animation:fadeInEl .5s 1.1s ease forwards; }
-  .energy-bar { height:100%;width:0;background:linear-gradient(90deg,#DC2626,#ffe800,#10B981,#ff6b6b,#a855f7,#DC2626);background-size:300% 100%;border-radius:10px;animation:barExpand 1s 1.1s ease forwards,colorFlow 2.5s 2.1s linear infinite;box-shadow:0 0 12px rgba(220,38,38,.7); }
+  .energy-bar { height:100%;width:0;background:linear-gradient(90deg,#DC2626,#991b1b,#10B981,#2563EB,#DC2626);background-size:300% 100%;border-radius:10px;animation:barExpand 1s 1.1s ease forwards,colorFlow 4s 2.1s linear infinite;box-shadow:0 0 12px rgba(220,38,38,.7); }
   @keyframes barExpand{from{width:0}to{width:100%}}
   @keyframes colorFlow{from{background-position:0% 0}to{background-position:300% 0}}
   @keyframes fadeInEl{to{opacity:1}}
@@ -154,7 +154,7 @@
   .slogan-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;opacity:0;animation:riseUp .8s 2.1s ease forwards;width:100%;padding:0 1rem;}
   .slogan-line{width:clamp(240px,60vw,650px);height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);}
   .slogan-txt{font-family:'Exo 2',sans-serif;font-size:clamp(11px,2.2vw,20px);font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.45);text-align:center;}
-  .slogan-txt em{color:#ffe800;font-style:normal;text-shadow:0 0 18px rgba(255,232,0,.6);}
+  .slogan-txt em{color:#DC2626;font-style:normal;text-shadow:0 0 18px rgba(220,38,38,.6);}
   .join-cta{display:flex;align-items:center;gap:12px;padding:12px 24px;border-radius:50px;border:1px solid rgba(220,38,38,.4);background:rgba(220,38,38,.07);cursor:pointer;opacity:0;animation:riseUp .6s 2.6s ease forwards;transition:transform .2s,box-shadow .2s,background .2s;text-decoration:none;white-space:nowrap;}
   .join-cta:hover{background:rgba(220,38,38,.15);box-shadow:0 0 30px rgba(220,38,38,.3);transform:translateY(-2px);}
   .jdot{width:10px;height:10px;border-radius:50%;background:#DC2626;box-shadow:0 0 10px #DC2626;animation:dotBlink 1.5s ease-in-out infinite;flex-shrink:0;}
@@ -164,11 +164,11 @@
   @keyframes arrowBounce{0%,100%{transform:translateX(0)}50%{transform:translateX(5px)}}
   .about-content-grid{position:relative;z-index:10;max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start;padding:60px 2rem 80px;width:100%;}
   .about-text-col h2{font-family:'Anton',sans-serif;font-size:clamp(1.6rem,4vw,2.8rem);color:#fff;line-height:1.15;margin-bottom:1.2rem;}
-  .about-text-col h2 span{color:#ffe800;}
+  .about-text-col h2 span{color:#DC2626;}
   .about-text-col p{color:rgba(255,255,255,.65);line-height:1.8;font-size:1rem;margin-bottom:1.2rem;font-family:'Exo 2',sans-serif;}
   .about-bullets{list-style:none;display:flex;flex-direction:column;gap:.7rem;margin-top:1.5rem;}
   .about-bullets li{display:flex;align-items:flex-start;gap:.8rem;color:rgba(255,255,255,.75);font-size:.95rem;font-family:'Exo 2',sans-serif;}
-  .about-bullets li i{color:#ffe800;flex-shrink:0;margin-top:2px;font-size:.8rem;}
+  .about-bullets li i{color:#DC2626;flex-shrink:0;margin-top:2px;font-size:.8rem;}
   .about-cards-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
   .about-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:1.3rem;transition:all .3s;text-decoration:none;display:block;}
   .about-card:hover{background:rgba(255,255,255,.08);border-color:rgba(220,38,38,.3);transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.3);}
@@ -299,7 +299,7 @@
       </a>
     </div>
     <div class="gv-stats">
-      <div class="gv-stat"><span class="gv-stat-n">50+</span><span class="gv-stat-l" data-i18n="stat_experts">Experts</span></div>
+      <div class="gv-stat"><span class="gv-stat-n">36</span><span class="gv-stat-l" data-i18n="stat_experts">Experts</span></div>
       <div class="gv-stat-div"></div>
       <div class="gv-stat"><span class="gv-stat-n">+1000</span><span class="gv-stat-l" data-i18n="stat_clients">Clients</span></div>
       <div class="gv-stat-div"></div>
@@ -338,13 +338,13 @@
       <div class="energy-bar-wrap"><div class="energy-bar"></div></div>
       <div class="service-tags">
         <a href="{{ route('coworking') }}" class="stag" style="--c:#2563EB"><span class="sdot"></span><i class="fas fa-building"></i> Coworking Space</a>
-        <a href="{{ route('startup-lab') }}" class="stag" style="--c:#ffe800"><span class="sdot"></span><i class="fas fa-chart-line"></i> Startup Lab</a>
+        <a href="{{ route('startup-lab') }}" class="stag" style="--c:#DC2626"><span class="sdot"></span><i class="fas fa-chart-line"></i> Startup Lab</a>
         <a href="https://1207.3cx.cloud/supporttechnical" class="stag" style="--c:#10B981" target="_blank" rel="noopener"><span class="sdot"></span><i class="fas fa-headset"></i> Call Center</a>
-        <a href="{{ route('startup-lab') }}#erp" class="stag" style="--c:#DC2626"><span class="sdot"></span><i class="fas fa-code"></i> ERP / CRM</a>
-        <a href="{{ route('startup-lab') }}#ai" class="stag" style="--c:#a855f7"><span class="sdot"></span><i class="fas fa-brain"></i> Intelligence Artificielle</a>
-        <a href="{{ route('about') }}" class="stag" style="--c:#00cfff"><span class="sdot"></span><i class="fas fa-globe"></i> Ecosystème</a>
-        <a href="{{ route('academy') }}" class="stag" style="--c:#10B981"><span class="sdot"></span><i class="fas fa-graduation-cap"></i> GOVIBE Academy</a>
-        <a href="{{ route('startup-lab') }}#saas" class="stag" style="--c:#ff8c00"><span class="sdot"></span><i class="fas fa-cloud"></i> SaaS Plateformes</a>
+        <a href="{{ route('startup-lab') }}#erp" class="stag" style="--c:#2563EB"><span class="sdot"></span><i class="fas fa-code"></i> ERP / CRM</a>
+        <a href="{{ route('startup-lab') }}#ai" class="stag" style="--c:#DC2626"><span class="sdot"></span><i class="fas fa-brain"></i> Intelligence Artificielle</a>
+        <a href="{{ route('about') }}" class="stag" style="--c:#10B981"><span class="sdot"></span><i class="fas fa-globe"></i> Ecosystème</a>
+        <a href="{{ route('academy') }}" class="stag" style="--c:#2563EB"><span class="sdot"></span><i class="fas fa-graduation-cap"></i> GOVIBE Academy</a>
+        <a href="{{ route('startup-lab') }}#saas" class="stag" style="--c:#10B981"><span class="sdot"></span><i class="fas fa-cloud"></i> SaaS Plateformes</a>
       </div>
       <div class="slogan-wrap">
         <div class="slogan-line"></div>
@@ -539,11 +539,11 @@
           <p>Les startups trouvent l'accompagnement pour croître</p>
         </div>
         <div style="display:flex;align-items:center;gap:1rem;background:rgba(255,255,255,.04);border-radius:16px;padding:1.2rem;">
-          <i class="fas fa-lightbulb" style="font-size:2rem;color:#ffe800;flex-shrink:0;"></i>
+          <i class="fas fa-lightbulb" style="font-size:2rem;color:#10B981;flex-shrink:0;"></i>
           <p>Les institutions trouvent des solutions digitales sur mesure</p>
         </div>
         <div style="display:flex;align-items:center;gap:1rem;background:rgba(255,255,255,.04);border-radius:16px;padding:1.2rem;">
-          <i class="fas fa-coins" style="font-size:2rem;color:#a855f7;flex-shrink:0;"></i>
+          <i class="fas fa-coins" style="font-size:2rem;color:#DC2626;flex-shrink:0;"></i>
           <p>Les entrepreneurs trouvent le financement pour réaliser leurs projets</p>
         </div>
       </div>
@@ -607,7 +607,7 @@
     <div class="slide-up" style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:24px;padding:2.5rem;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-top:3rem;color:#fff;gap:1.5rem;">
       <div>
         <h3 style="font-family:'Anton',sans-serif;font-size:1.8rem;margin-bottom:.5rem;">Prêt à lancer votre projet digital ?</h3>
-        <p style="color:rgba(255,255,255,.6);font-size:.92rem;">De l'idée au déploiement, notre équipe de 50+ experts vous accompagne.</p>
+        <p style="color:rgba(255,255,255,.6);font-size:.92rem;">De l'idée au déploiement, notre équipe de 36 experts vous accompagne.</p>
       </div>
       <a href="{{ route('startup-lab') }}" class="gv-btn-prim"><i class="fas fa-rocket"></i> Démarrer un projet →</a>
     </div>
@@ -629,17 +629,17 @@
         <p style="color:#64748b;font-size:.88rem;">Fondé en 2020 avec une vision internationale dès le départ.</p>
       </div>
       <div class="confiance-card slide-up delay-1">
-        <i class="fas fa-lock" style="font-size:2rem;color:#10B981;"></i>
+        <i class="fas fa-lock" style="font-size:2rem;color:#2563EB;"></i>
         <h3>Sécurité des données</h3>
         <p style="color:#64748b;font-size:.88rem;">Infrastructure sécurisée, protection et conformité RGPD.</p>
       </div>
       <div class="confiance-card slide-up delay-2">
-        <i class="fas fa-handshake" style="font-size:2rem;color:#2563EB;"></i>
+        <i class="fas fa-handshake" style="font-size:2rem;color:#10B981;"></i>
         <h3>Accompagnement sur mesure</h3>
         <p style="color:#64748b;font-size:.88rem;">Équipe dédiée de 36 experts passionnés pour vous servir.</p>
       </div>
       <div class="confiance-card slide-up delay-3">
-        <i class="fas fa-chart-line" style="font-size:2rem;color:#ffe800;"></i>
+        <i class="fas fa-chart-line" style="font-size:2rem;color:#DC2626;"></i>
         <h3>Résultats prouvés</h3>
         <p style="color:#64748b;font-size:.88rem;">+1000 clients satisfaits en Haïti, USA, Canada et Afrique.</p>
       </div>
@@ -709,7 +709,7 @@
         <p style="color:#94a3b8;">Physique + Numérique + Financier en un seul écosystème intégré.</p>
       </a>
       <a href="{{ route('about') }}" class="pourquoi-card slide-up delay-2">
-        <div style="font-size:1.9rem;margin-bottom:.55rem;color:#ffe800;"><i class="fas fa-globe-americas"></i></div>
+        <div style="font-size:1.9rem;margin-bottom:.55rem;color:#DC2626;"><i class="fas fa-globe-americas"></i></div>
         <h3>Base Haïtienne, Vision Mondiale</h3>
         <p style="color:#94a3b8;">Enregistré aux USA et en Haïti. Standards internationaux.</p>
       </a>
@@ -840,7 +840,7 @@
           <i class="fas fa-lock"></i> Vos informations sont sécurisées et confidentielles.
         </p>
         <div id="gvResSuccess" style="display:none;text-align:center;padding:1.2rem;background:rgba(16,185,129,.14);border:1px solid rgba(16,185,129,.28);border-radius:12px;color:#10b981;font-weight:600;margin-top:.9rem;">
-          <i class="fas fa-check-circle"></i> Merci ! Votre demande a été reçue. Nous vous contacterons sous 24h.
+          <i class="fab fa-whatsapp"></i> WhatsApp ouvert ! Envoyez le message pour confirmer votre demande.
         </div>
       </div>
     </div>
@@ -922,19 +922,31 @@ if(logo3d&&window.innerWidth>600){
 /* ── RESERVATION FORM ────────────────────────────── */
 function gvSubmitRes(){
   const fn=document.getElementById('gv_fname').value.trim();
+  const ln=document.getElementById('gv_lname').value.trim();
   const em=document.getElementById('gv_email').value.trim();
-  const sv=document.getElementById('gv_service').value;
+  const ph=document.getElementById('gv_phone').value.trim();
+  const sv=document.getElementById('gv_service');
+  const svText=sv.options[sv.selectedIndex]?sv.options[sv.selectedIndex].text:'';
   const dt=document.getElementById('gv_date').value;
-  if(!fn||!em||!sv||!dt){alert('Veuillez remplir tous les champs obligatoires (*).'); return;}
-  const btn=document.getElementById('gvResBtn');
-  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Envoi en cours...';btn.disabled=true;
-  setTimeout(function(){
-    btn.innerHTML='<i class="fas fa-paper-plane"></i> Envoyer la Demande de Réservation';btn.disabled=false;
-    document.getElementById('gvResSuccess').style.display='block';
-    ['gv_fname','gv_lname','gv_email','gv_phone','gv_msg'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    document.getElementById('gv_service').selectedIndex=0;document.getElementById('gv_date').value='';
-    setTimeout(()=>{document.getElementById('gvResSuccess').style.display='none';},6000);
-  },1200);
+  const pp=document.getElementById('gv_people');
+  const ppText=pp.options[pp.selectedIndex]?pp.options[pp.selectedIndex].text:'';
+  const msg=document.getElementById('gv_msg').value.trim();
+  if(!fn||!em||!sv.value||!dt){alert('Veuillez remplir tous les champs obligatoires (*).'); return;}
+  const waMsg=`*Demande de Réservation GOVIBE*\n\n`
+    +`*Nom:* ${fn} ${ln}\n`
+    +`*Email:* ${em}\n`
+    +`*Téléphone:* ${ph||'Non renseigné'}\n`
+    +`*Service:* ${svText}\n`
+    +`*Date:* ${dt}\n`
+    +`*Personnes:* ${ppText}\n`
+    +`*Message:* ${msg||'Aucun message'}\n\n`
+    +`_Envoyé depuis govibeht.com_`;
+  const waUrl='https://wa.me/50933988754?text='+encodeURIComponent(waMsg);
+  window.open(waUrl,'_blank');
+  document.getElementById('gvResSuccess').style.display='block';
+  ['gv_fname','gv_lname','gv_email','gv_phone','gv_msg'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  sv.selectedIndex=0;document.getElementById('gv_date').value='';
+  setTimeout(()=>{document.getElementById('gvResSuccess').style.display='none';},8000);
 }
 (function(){const d=document.getElementById('gv_date');if(d)d.setAttribute('min',new Date().toISOString().split('T')[0]);})();
 </script>
