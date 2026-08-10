@@ -25,6 +25,7 @@ on:
           - assets
           - session
           - restore-login
+          - login-perso
           - merge
           - landing
           - brand
@@ -1201,6 +1202,79 @@ jobs:
             echo "→ versions personnalisées remises en place."
             exit 1
           fi
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # LOGIN-PERSO — remet les vues d'authentification PERSONNALISÉES,
+      # celles que restore-login avait mises de côté. Permet de basculer
+      # entre les deux versions autant de fois qu'il le faut pour comparer.
+      # ------------------------------------------------------------------
+      - name: Login perso (remettre les vues personnalisées)
+        if: ${{ inputs.mode == 'login-perso' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          TS=$(date +%Y%m%d-%H%M%S)
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+
+          BK=$(ls -dt "$DOM"/login-perso-backup-* 2>/dev/null | head -1)
+          [ -n "$BK" ] && [ -d "$BK" ] || { echo "ERREUR: aucune sauvegarde de vues personnalisées."; exit 1; }
+          echo "Script : $LROOT"
+          echo "Source : $BK"
+          echo ""
+
+          # On sauvegarde d'abord ce qui est en place (les vues d'origine),
+          # pour pouvoir refaire l'aller-retour sans rien perdre.
+          ORIGBK="$DOM/login-origine-backup-$TS"
+          echo "=== Vues remises en place ==="
+          COUNT=0
+          while IFS= read -r src; do
+            rel="${src#$BK/}"
+            dst="$LROOT/resources/$rel"
+            [ -f "$dst" ] || { echo "  ⚠️  $rel — pas de fichier cible, ignoré"; continue; }
+            mkdir -p "$ORIGBK/$(dirname "$rel")"
+            cp -a "$dst" "$ORIGBK/$rel"
+            cp -a "$src" "$dst"
+            if ! php -l "$dst" >/dev/null 2>&1; then
+              echo "  !! $rel invalide — on remet la version d'origine"
+              cp -a "$ORIGBK/$rel" "$dst"; continue
+            fi
+            echo "  ↪️  $rel"
+            COUNT=$((COUNT+1))
+          done < <(find "$BK" -type f -name '*.blade.php')
+          echo "→ $COUNT vue(s) personnalisée(s) remise(s) ; versions d'origine dans : $ORIGBK"
+
+          ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
+          echo ""
+          cat > "$LROOT/.govibepay-login-verify.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+          $res = $kernel->handle(Illuminate\Http\Request::create('https://govibepay.com/admin/login', 'GET'));
+          $body = (string) $res->getContent();
+          printf("  /admin/login status=%d taille=%d csrf=%s form=%s gvpa=%s\n",
+              $res->getStatusCode(), strlen($body),
+              str_contains($body, '_token') ? 'oui' : 'non',
+              str_contains($body, '<form') ? 'oui' : 'NON',
+              str_contains($body, 'gvpa-') ? 'oui' : 'non');
+          EOPHP
+          echo "=== Rendu après bascule ==="
+          ( cd "$LROOT" && php .govibepay-login-verify.php ) || echo "  (échec du rendu)"
+          rm -f "$LROOT/.govibepay-login-verify.php"
+          echo ""
+          echo "→ Pour revenir aux vues d'origine : relancer le mode restore-login."
           EOSSH
 
       # ------------------------------------------------------------------
