@@ -396,6 +396,92 @@
   </div>
 </section>
 
+{{-- ===== CE QUE NOUS FAISONS ===== --}}
+<section id="ce-que-nous-faisons" style="background:#fff; padding:90px 2rem; border-top:4px solid #DC2626; position:relative; overflow:hidden;">
+  <div style="position:absolute;top:0;right:0;width:420px;height:420px;background:radial-gradient(circle,rgba(220,38,38,.05) 0%,transparent 70%);pointer-events:none;"></div>
+  <div style="position:absolute;bottom:0;left:0;width:320px;height:320px;background:radial-gradient(circle,rgba(37,99,235,.04) 0%,transparent 70%);pointer-events:none;"></div>
+  <div class="gv-wrap" style="position:relative;z-index:1;">
+
+    {{-- Mission statement --}}
+    <div class="slide-up" style="text-align:center; max-width:820px; margin:0 auto 4rem;">
+      <span class="gv-stag"><i class="fas fa-bolt"></i> CE QUE NOUS FAISONS</span>
+      <p style="font-family:'Anton',sans-serif; font-size:clamp(1.5rem,4vw,2.5rem); line-height:1.25; color:#0f172a; margin:.6rem 0 1.5rem; text-wrap:balance;">
+        Nous construisons les <span style="color:#DC2626;">infrastructures</span>,
+        <span style="color:#2563EB;">technologies</span> et
+        <span style="color:#10B981;">programmes</span>
+        qui permettent aux entrepreneurs, organisations et professionnels de
+        <strong>créer, travailler et grandir.</strong>
+      </p>
+      <div style="width:60px;height:3px;background:linear-gradient(90deg,#DC2626,#2563EB,#10B981);border-radius:2px;margin:0 auto;"></div>
+    </div>
+
+    {{-- 3 pillars --}}
+    <div class="slide-up delay-1" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1.8rem; margin-bottom:3.5rem;">
+
+      <div style="background:#fef2f2; border-radius:20px; padding:2rem; border-left:4px solid #DC2626; position:relative; overflow:hidden;">
+        <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(220,38,38,.06);border-radius:50%;"></div>
+        <div style="width:52px;height:52px;background:#DC2626;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:1.2rem;">
+          <i class="fas fa-building" style="color:#fff;font-size:1.3rem;"></i>
+        </div>
+        <h3 style="font-family:'Anton',sans-serif;font-size:1.4rem;color:#0f172a;margin-bottom:.6rem;letter-spacing:.03em;">Infrastructures</h3>
+        <p style="color:#64748b;line-height:1.7;font-size:.93rem;">Espaces de coworking, domiciliation, salles de réunion, call center et ressources physiques à Port-au-Prince — pour que votre business ait une base solide.</p>
+        <a href="{{ route('coworking') }}" style="display:inline-flex;align-items:center;gap:.3rem;color:#DC2626;font-weight:700;font-size:.85rem;margin-top:1rem;">Découvrir <i class="fas fa-arrow-right fa-xs"></i></a>
+      </div>
+
+      <div style="background:#eff6ff; border-radius:20px; padding:2rem; border-left:4px solid #2563EB; position:relative; overflow:hidden;">
+        <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(37,99,235,.06);border-radius:50%;"></div>
+        <div style="width:52px;height:52px;background:#2563EB;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:1.2rem;">
+          <i class="fas fa-microchip" style="color:#fff;font-size:1.3rem;"></i>
+        </div>
+        <h3 style="font-family:'Anton',sans-serif;font-size:1.4rem;color:#0f172a;margin-bottom:.6rem;letter-spacing:.03em;">Technologies</h3>
+        <p style="color:#64748b;line-height:1.7;font-size:.93rem;">Développement web &amp; mobile, ERP/CRM sur mesure, agents IA, plateformes SaaS, NFC et solutions digitales conçues pour les réalités haïtiennes.</p>
+        <a href="{{ route('startup-lab') }}" style="display:inline-flex;align-items:center;gap:.3rem;color:#2563EB;font-weight:700;font-size:.85rem;margin-top:1rem;">Explorer <i class="fas fa-arrow-right fa-xs"></i></a>
+      </div>
+
+      <div style="background:#f0fdf4; border-radius:20px; padding:2rem; border-left:4px solid #10B981; position:relative; overflow:hidden;">
+        <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(16,185,129,.06);border-radius:50%;"></div>
+        <div style="width:52px;height:52px;background:#10B981;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:1.2rem;">
+          <i class="fas fa-graduation-cap" style="color:#fff;font-size:1.3rem;"></i>
+        </div>
+        <h3 style="font-family:'Anton',sans-serif;font-size:1.4rem;color:#0f172a;margin-bottom:.6rem;letter-spacing:.03em;">Programmes</h3>
+        <p style="color:#64748b;line-height:1.7;font-size:.93rem;">Formations professionnelles, incubation de startups, crédit digital et mentorat — pour transformer les idées en projets concrets et les projets en succès.</p>
+        <a href="{{ route('academy') }}" style="display:inline-flex;align-items:center;gap:.3rem;color:#10B981;font-weight:700;font-size:.85rem;margin-top:1rem;">S'inscrire <i class="fas fa-arrow-right fa-xs"></i></a>
+      </div>
+    </div>
+
+    {{-- Pour qui ? --}}
+    <div class="slide-up delay-2" style="background:#0f172a; border-radius:20px; padding:2.2rem 2.5rem; display:flex; flex-wrap:wrap; align-items:center; gap:2rem; justify-content:space-between;">
+      <div>
+        <p style="color:rgba(255,255,255,.45);font-size:.78rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:.7rem;">Pour qui ?</p>
+        <div style="display:flex;flex-wrap:wrap;gap:.6rem;">
+          <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);border-radius:50px;padding:.38rem 1rem;color:#fff;font-size:.88rem;font-weight:600;">
+            <i class="fas fa-rocket" style="color:#DC2626;font-size:.75rem;"></i> Entrepreneurs
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(37,99,235,.15);border:1px solid rgba(37,99,235,.3);border-radius:50px;padding:.38rem 1rem;color:#fff;font-size:.88rem;font-weight:600;">
+            <i class="fas fa-landmark" style="color:#2563EB;font-size:.75rem;"></i> Organisations
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);border-radius:50px;padding:.38rem 1rem;color:#fff;font-size:.88rem;font-weight:600;">
+            <i class="fas fa-user-tie" style="color:#10B981;font-size:.75rem;"></i> Professionnels
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:50px;padding:.38rem 1rem;color:#fff;font-size:.88rem;font-weight:600;">
+            <i class="fas fa-seedling" style="color:#DC2626;font-size:.75rem;"></i> Startups
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:50px;padding:.38rem 1rem;color:#fff;font-size:.88rem;font-weight:600;">
+            <i class="fas fa-school" style="color:#2563EB;font-size:.75rem;"></i> Étudiants
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:50px;padding:.38rem 1rem;color:#fff;font-size:.88rem;font-weight:600;">
+            <i class="fas fa-store" style="color:#10B981;font-size:.75rem;"></i> PME Haïtiennes
+          </span>
+        </div>
+      </div>
+      <a href="#reservation" class="gv-btn-prim" style="white-space:nowrap; flex-shrink:0;">
+        <i class="fas fa-calendar-alt"></i> Commencer avec GOVIBE →
+      </a>
+    </div>
+
+  </div>
+</section>
+
 {{-- ===== CLIENTS ===== --}}
 <section id="clients-section" style="padding:60px 2rem; background:#fff; border-top:1px solid #f1f5f9;">
   <div class="gv-wrap">
