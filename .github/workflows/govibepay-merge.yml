@@ -27,6 +27,7 @@ on:
           - restore-login
           - login-perso
           - login-diff
+          - gateways
           - merge
           - landing
           - brand
@@ -1343,6 +1344,113 @@ jobs:
           # `head` ferme le tube et fait échouer le pipeline sous pipefail (SIGPIPE,
           # code 141) : on neutralise, l'étape ne doit pas échouer pour si peu.
           find "$LROOT/resources/views" -path '*/auth/*' -name '*.blade.php' -printf '  %TY-%Tm-%Td %TH:%TM  %s octets  %P\n' 2>/dev/null | sort | head -12 || true
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # GATEWAYS — inventaire des passerelles de paiement du script.
+      #
+      # LECTURE SEULE : aucune route, aucune URL, aucun fichier n'est modifié.
+      # Avant d'ajouter quoi que ce soit (CoinPayments pour les dépôts USDT/USDC,
+      # retraits automatiques PayPal, crypto, MonCash), il faut savoir ce que le
+      # script sait déjà faire — QRPay embarque un système de passerelles, et
+      # plusieurs de ces intégrations existent probablement déjà, en attente de
+      # leurs seules clés d'API.
+      # ------------------------------------------------------------------
+      - name: Gateways (inventaire, lecture seule)
+        if: ${{ inputs.mode == 'gateways' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          echo "Script : $LROOT"
+          echo ""
+
+          echo "=== Pilotes de passerelle présents dans le code ==="
+          for g in Coinpayments CoinPayments Paypal PayPal Moncash MonCash Flutterwave Stripe Razorpay Perfectmoney Tatum Binance; do
+            HITS=$(find "$LROOT/app" -iname "*${g}*" -type f 2>/dev/null | head -4)
+            [ -n "$HITS" ] && { echo "  ✅ $g :"; echo "$HITS" | sed "s#$LROOT/#     #"; }
+          done
+          echo ""
+          echo "--- répertoires dédiés aux passerelles ---"
+          find "$LROOT/app" -type d \( -iname '*gateway*' -o -iname '*payment*' \) 2>/dev/null | sed "s#$LROOT/#  #" | head -12
+          echo ""
+
+          echo "=== Ce que la BASE déclare (aucune écriture) ==="
+          cat > "$LROOT/.govibepay-gw.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          use Illuminate\Support\Facades\DB;
+          use Illuminate\Support\Facades\Schema;
+
+          foreach (['payment_gateways', 'payment_gateway_currencies'] as $t) {
+              if (! Schema::hasTable($t)) { echo "  (table $t absente)\n"; continue; }
+              echo "  --- $t ---\n";
+              foreach (DB::table($t)->get() as $r) {
+                  $a = (array) $r;
+                  $name  = $a['name'] ?? $a['title'] ?? $a['alias'] ?? '?';
+                  $alias = $a['alias'] ?? '';
+                  $type  = isset($a['type']) ? (is_numeric($a['type']) ? ($a['type'] == 1 ? 'AUTOMATIQUE' : 'manuel') : $a['type']) : '?';
+                  $on    = isset($a['status']) ? ($a['status'] ? 'activé' : 'désactivé') : '?';
+                  $cur   = $a['currency_code'] ?? $a['currency'] ?? '';
+                  printf("    %-26s %-12s %-11s %s\n", substr((string) $name, 0, 26).($alias ? " ($alias)" : ''), $type, $on, $cur);
+              }
+          }
+          echo "\n  --- une passerelle a-t-elle déjà des identifiants renseignés ? ---\n";
+          if (Schema::hasTable('payment_gateway_currencies')) {
+              foreach (DB::table('payment_gateway_currencies')->get() as $r) {
+                  $a = (array) $r;
+                  $cred = $a['gateway_parameter'] ?? $a['credentials'] ?? null;
+                  if ($cred) {
+                      $d = json_decode((string) $cred, true);
+                      $keys = is_array($d) ? implode(', ', array_keys($d)) : '(format non JSON)';
+                      $filled = 0; $total = 0;
+                      if (is_array($d)) {
+                          foreach ($d as $v) { $total++; if (is_array($v) ? ! empty($v['value']) : ! empty($v)) { $filled++; } }
+                      }
+                      printf("    %-22s champs: %-58s renseignés %d/%d\n",
+                          substr((string) ($a['name'] ?? $a['alias'] ?? '?'), 0, 22), substr($keys, 0, 58), $filled, $total);
+                  }
+              }
+          }
+          EOPHP
+          ( cd "$LROOT" && php .govibepay-gw.php 2>&1 | head -60 ) || echo "  (lecture base impossible)"
+          rm -f "$LROOT/.govibepay-gw.php"
+          echo ""
+
+          echo "=== Routes de dépôt et de retrait (INCHANGÉES — simple relevé) ==="
+          cat > "$LROOT/.govibepay-rt.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          $out = [];
+          foreach (app('router')->getRoutes() as $r) {
+              $u = $r->uri();
+              if (preg_match('#add-money|money-out|withdraw|deposit|crypto#i', $u)) {
+                  $out[] = sprintf('    %-9s /%-46s [%s]', implode('|', $r->methods()), $u, $r->getName() ?: '-');
+              }
+          }
+          echo '  ', count($out), " routes concernées\n";
+          foreach (array_slice($out, 0, 30) as $l) { echo $l, "\n"; }
+          EOPHP
+          ( cd "$LROOT" && php .govibepay-rt.php 2>&1 | head -40 ) || echo "  (lecture routes impossible)"
+          rm -f "$LROOT/.govibepay-rt.php"
+          echo ""
+          echo "NOTE : rien n'a été modifié. Cet inventaire sert à décider quoi ajouter"
+          echo "       et quelles clés d'API seront nécessaires."
           EOSSH
 
       # ------------------------------------------------------------------
