@@ -1563,6 +1563,52 @@ jobs:
             grep -oE '<input[^>]*>' /tmp/.gvp.login 2>/dev/null \
               | grep -iE 'type="(email|text|password)"' | sed 's/^/  /' | head -8 || echo "  (aucun champ trouvé)"
           fi
+          echo ""
+
+          # --- 6. Ce qui peut bloquer le toucher (overlay, preloader, CSS) -----
+          echo "=== ÉLÉMENTS SUSCEPTIBLES DE COUVRIR LE FORMULAIRE ==="
+          if [ -s /tmp/.gvp.login ]; then
+            grep -oiE '<(div|section|span)[^>]*class="[^"]*(preloader|loader|overlay|backdrop|modal|spinner)[^"]*"[^>]*>' /tmp/.gvp.login \
+              | sed 's/^/  /' | head -10 || echo "  (aucun)"
+            echo ""
+            echo "  --- balise <body> ---"
+            grep -oE '<body[^>]*>' /tmp/.gvp.login | sed 's/^/  /' || true
+            echo ""
+            echo "  --- <meta viewport> ---"
+            grep -oiE '<meta[^>]*viewport[^>]*>' /tmp/.gvp.login | sed 's/^/  /' || echo "  ⚠️  AUCUN viewport (zoom mobile cassé)"
+            echo ""
+            echo "  --- CSS en ligne pointant vers les champs ---"
+            sed -n '/<style/,/<\/style>/p' /tmp/.gvp.login \
+              | grep -inE 'pointer-events|user-select|position: *fixed|z-index|opacity: *0|display: *none' \
+              | sed 's/^/  /' | head -20 || echo "  (rien)"
+          fi
+          echo ""
+
+          # --- 7. Le HTML du formulaire, tel que reçu -------------------------
+          echo "=== HTML DU FORMULAIRE (tel que reçu par le navigateur) ==="
+          if [ -s /tmp/.gvp.login ]; then
+            awk '/<form/,/<\/form>/' /tmp/.gvp.login | cut -c1-240 | sed 's/^/  /' | head -60 || true
+          fi
+          echo ""
+
+          # --- 8. Pourquoi un asset renvoie 500 -------------------------------
+          echo "=== ASSET EN ÉCHEC : smoothscroll.js ==="
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          [ -n "$LROOT" ] || LROOT="$DOM/govibepay-app"
+          for P in "$DOM/public_html/public/backend/js/smoothscroll.js" "$LROOT/public/backend/js/smoothscroll.js"; do
+            if [ -f "$P" ]; then
+              echo "  ✅ présent : ${P#$HOME/} ($(stat -c%s "$P") octets)"
+            else
+              echo "  ❌ absent  : ${P#$HOME/}"
+            fi
+          done
+          echo "  --- 5 dernières erreurs du journal Laravel ---"
+          LOG="$LROOT/storage/logs/laravel.log"
+          [ -f "$LOG" ] && tail -c 200000 "$LOG" | grep -aoE '\] (production|local|GOVIBEPAY)\.ERROR: [^{]{0,180}' | tail -5 | sed 's/^/  /' || echo "  (journal illisible)"
+
           rm -f /tmp/.gvp.body /tmp/.gvp.login /tmp/.gvp.assets
           echo ""
           echo "NOTE : rien n'a été modifié. Un code 2xx ici = Apache sert bien le fichier."
