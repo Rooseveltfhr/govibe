@@ -29,6 +29,8 @@ on:
           - login-diff
           - gateways
           - http
+          - fix-tap
+          - fix-tap-undo
           - merge
           - landing
           - brand
@@ -1639,6 +1641,203 @@ jobs:
           rm -f /tmp/.gvp.body /tmp/.gvp.login /tmp/.gvp.assets
           echo ""
           echo "NOTE : rien n'a été modifié. Un code 2xx ici = Apache sert bien le fichier."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # FIX-TAP — rendre les champs de login utilisables au toucher.
+      #
+      # Constat du mode `http` : le bloc <style> servi stylise .gvpa-input /
+      # .gvpa-label, mais le HTML servi est celui d'origine du thème
+      # (div.form-group > input class="" + <label> sans for=). Les deux
+      # couches ne correspondent plus : le champ n'a aucun style et le label
+      # flottant du thème le recouvre. Sur mobile chaque tap atterrit sur le
+      # label, qui sans for= ne donne pas le focus → le clavier ne monte pas.
+      #
+      # Correctif : un pont CSS ajouté À LA FIN du bloc <style> existant.
+      # Aucune route, aucune URL, aucun HTML modifié. Idempotent (marqueur),
+      # sauvegarde .bak-tap, réversible par le mode `fix-tap-undo`.
+      # ------------------------------------------------------------------
+      - name: Fix tap (champs de login utilisables au toucher)
+        if: ${{ inputs.mode == 'fix-tap' || inputs.mode == 'fix-tap-undo' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          MODE="${{ inputs.mode }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "MODE='$MODE' bash -s" <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          echo "Script : $LROOT"
+
+          # --- Localiser le(s) fichier(s) portant le bloc <style> personnalisé
+          FILES=$(grep -rl 'gvpa-input' "$LROOT/resources/views" 2>/dev/null || true)
+          if [ -z "$FILES" ]; then
+            echo "ERREUR : aucun fichier de vue ne contient 'gvpa-input'."
+            echo "         Le bloc <style> personnalisé est introuvable — arrêt sans rien changer."
+            exit 1
+          fi
+          echo "Fichiers concernés :"
+          echo "$FILES" | sed "s#$LROOT/#  #"
+          echo ""
+
+          # --- ANNULATION ----------------------------------------------------
+          if [ "${MODE:-}" = "fix-tap-undo" ]; then
+            N=0
+            for F in $FILES; do
+              if [ -f "$F.bak-tap" ]; then
+                cp -f "$F.bak-tap" "$F" && { echo "  ↩️  restauré : ${F#$LROOT/}"; N=$((N+1)); }
+              else
+                echo "  (pas de sauvegarde pour ${F#$LROOT/})"
+              fi
+            done
+            ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+            echo ""
+            echo "$N fichier(s) restauré(s). Cache de vues vidé."
+            exit 0
+          fi
+
+          # --- APPLICATION ---------------------------------------------------
+          cat > /tmp/.gvp-tap.css <<'EOCSS'
+
+          /* ── GVPA-TAP-FIX ────────────────────────────────────────────────
+             Pont vers le balisage D'ORIGINE du thème (div.form-group >
+             input + label sans for=). Sans ceci le champ n'a aucun style et
+             le label flottant intercepte le toucher : le clavier mobile ne
+             monte jamais. N'affecte que la zone de connexion. */
+          .page-wrapper .account-form .form-group {
+            position: relative !important;
+            display: flex !important;
+            flex-direction: column-reverse !important;
+            align-items: stretch !important;
+            margin-bottom: 16px !important;
+          }
+          .page-wrapper .account-form .form-group > label {
+            position: static !important;
+            pointer-events: none !important;
+            transform: none !important;
+            display: block !important;
+            font-size: .78rem !important;
+            font-weight: 700 !important;
+            color: rgba(255,255,255,.6) !important;
+            text-transform: uppercase !important;
+            letter-spacing: .05em !important;
+            margin: 0 0 7px !important;
+          }
+          .page-wrapper .account-form .form-group > input,
+          .page-wrapper .account-form .form-group > select,
+          .page-wrapper .account-form .form-group > textarea {
+            position: relative !important;
+            z-index: 3 !important;
+            width: 100% !important;
+            height: 48px !important;
+            background: rgba(255,255,255,.04) !important;
+            border: 1px solid rgba(255,255,255,.1) !important;
+            border-radius: 12px !important;
+            color: #fff !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-size: 16px !important; /* < 16px déclenche un zoom auto sur iOS */
+            font-weight: 500 !important;
+            padding: 0 44px 0 16px !important;
+            outline: none !important;
+            opacity: 1 !important;
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            transition: all .22s !important;
+          }
+          .page-wrapper .account-form .form-group > input:focus {
+            border-color: #2cb809 !important;
+            background: rgba(44,184,9,.05) !important;
+            box-shadow: 0 0 0 3px rgba(44,184,9,.12) !important;
+          }
+          .page-wrapper .account-form .form-group .show-pass {
+            position: absolute !important;
+            right: 14px !important;
+            bottom: 0 !important;
+            height: 48px !important;
+            background: transparent !important;
+            border: none !important;
+            color: rgba(255,255,255,.3) !important;
+            z-index: 4 !important;
+          }
+          /* ── /GVPA-TAP-FIX ───────────────────────────────────────────── */
+          EOCSS
+          sed -i 's/^          //' /tmp/.gvp-tap.css
+
+          cat > "$LROOT/.gvp-tap.php" <<'EOPHP'
+          <?php
+          $files = array_filter(explode("\n", trim($argv[1] ?? '')));
+          $css   = file_get_contents('/tmp/.gvp-tap.css');
+          foreach ($files as $f) {
+              $f = trim($f);
+              if ($f === '' || ! is_file($f)) { continue; }
+              $src = file_get_contents($f);
+              if (strpos($src, 'GVPA-TAP-FIX') !== false) {
+                  echo "  = déjà appliqué : $f\n";
+                  continue;
+              }
+              $anchor = strpos($src, 'gvpa-input');
+              if ($anchor === false) { echo "  ! ancre absente : $f\n"; continue; }
+              $close = strpos($src, '</style>', $anchor);
+              if ($close === false) { echo "  ! </style> introuvable : $f\n"; continue; }
+              if (! file_exists($f.'.bak-tap')) { copy($f, $f.'.bak-tap'); }
+              $out = substr($src, 0, $close).$css.substr($src, $close);
+              file_put_contents($f, $out);
+              echo "  ✅ appliqué : $f (+".strlen($css)." octets)\n";
+          }
+          EOPHP
+          php "$LROOT/.gvp-tap.php" "$FILES"
+          rm -f "$LROOT/.gvp-tap.php" /tmp/.gvp-tap.css
+          ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+          echo ""
+
+          # --- Asset manquant qui renvoie 500 sur chaque page admin -----------
+          echo "=== smoothscroll.js (500 sur chaque chargement) ==="
+          TARGET="$DOM/public_html/public/backend/js/smoothscroll.js"
+          if [ -f "$TARGET" ]; then
+            echo "  = déjà présent"
+          else
+            SRC=$(find "$LROOT" "$DOM/public_html" -name 'smoothscroll*.js' -type f 2>/dev/null | head -1)
+            mkdir -p "$(dirname "$TARGET")"
+            if [ -n "$SRC" ]; then
+              cp -f "$SRC" "$TARGET" && echo "  ✅ copié depuis ${SRC#$HOME/}"
+            else
+              printf '/* smoothscroll.js — absent du paquet dorigine.\n   Fichier vide volontaire : evite un 500 a chaque chargement.\n   Le navigateur gere scroll-behavior nativement. */\n' > "$TARGET"
+              echo "  ✅ créé (vide) — supprime le 500, aucun effet visuel"
+            fi
+            chmod 644 "$TARGET" 2>/dev/null || true
+          fi
+          echo ""
+
+          # --- Vérification par HTTP réel ------------------------------------
+          echo "=== VÉRIFICATION (HTTP réel) ==="
+          IP=$(curl -s --max-time 8 https://api.ipify.org 2>/dev/null | tr -d '[:space:]')
+          case "$IP" in *[!0-9.]*|"") IP="";; esac
+          if [ -n "$IP" ]; then
+            CURL="curl -sS -k --max-time 25 --resolve govibepay.com:443:$IP"
+            $CURL -o /tmp/.gvp.v "https://govibepay.com/admin/login" >/dev/null 2>&1 || true
+            CODE=$($CURL -o /dev/null -w '%{http_code}' "https://govibepay.com/admin/login" 2>/dev/null)
+            echo "  /admin/login → $CODE"
+            if grep -q 'GVPA-TAP-FIX' /tmp/.gvp.v 2>/dev/null; then
+              echo "  ✅ le correctif CSS est bien servi"
+            else
+              echo "  ⚠️  le correctif n'apparaît pas dans la page servie"
+            fi
+            SC=$($CURL -o /dev/null -w '%{http_code}' "https://govibepay.com/public/backend/js/smoothscroll.js" 2>/dev/null)
+            echo "  smoothscroll.js → $SC"
+            rm -f /tmp/.gvp.v
+          else
+            echo "  (IP publique indisponible — vérification sautée)"
+          fi
+          echo ""
+          echo "Pour annuler : relancer ce workflow en mode « fix-tap-undo »."
           EOSSH
 
       # ------------------------------------------------------------------
