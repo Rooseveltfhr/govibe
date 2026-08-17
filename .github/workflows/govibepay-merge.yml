@@ -28,6 +28,7 @@ on:
           - login-perso
           - login-diff
           - gateways
+          - http
           - merge
           - landing
           - brand
@@ -1461,6 +1462,110 @@ jobs:
           echo ""
           echo "NOTE : rien n'a été modifié. Cet inventaire sert à décider quoi ajouter"
           echo "       et quelles clés d'API seront nécessaires."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # HTTP — ce qu'Apache SERT VRAIMENT au navigateur. Lecture seule.
+      #
+      # Toutes les sondes précédentes visaient 127.0.0.1 et n'atteignaient
+      # jamais le vhost de l'application (404 trompeurs). En résolvant le vrai
+      # nom de domaine vers l'IP publique du serveur, la requête passe par le
+      # même chemin qu'un navigateur : bon vhost, bon SSL, bon open_basedir.
+      # ------------------------------------------------------------------
+      - name: HTTP (ce qu'Apache sert réellement)
+        if: ${{ inputs.mode == 'http' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM_NAME="govibepay.com"
+
+          # --- 1. IP publique du serveur -------------------------------------
+          IP=""
+          for SVC in "https://api.ipify.org" "https://ifconfig.me/ip" "https://icanhazip.com"; do
+            IP=$(curl -s --max-time 8 "$SVC" 2>/dev/null | tr -d '[:space:]')
+            case "$IP" in *[!0-9.]*|"") IP="";; *) break;; esac
+          done
+          if [ -z "$IP" ]; then
+            IP=$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | grep -v '^10\.' | grep -v '^192\.168\.' | head -1)
+          fi
+          [ -n "$IP" ] || { echo "ERREUR : IP publique introuvable."; exit 1; }
+          echo "IP publique du serveur : $IP"
+          DNS_IP=$(getent hosts "$DOM_NAME" 2>/dev/null | awk '{print $1}' | head -1)
+          echo "DNS $DOM_NAME       : ${DNS_IP:-inconnu}"
+          [ -n "$DNS_IP" ] && [ "$DNS_IP" != "$IP" ] && echo "  ⚠️  le DNS pointe ailleurs que cette machine (CDN/proxy ?)"
+          echo ""
+
+          RES="--resolve ${DOM_NAME}:443:${IP} --resolve ${DOM_NAME}:80:${IP}"
+          CURL="curl -sS -k --max-time 25 $RES"
+
+          probe() { # $1=url  → "code taille type"
+            $CURL -o /tmp/.gvp.body -w '%{http_code} %{size_download} %{content_type}' "$1" 2>/dev/null || echo "000 0 -"
+          }
+
+          # --- 2. Les pages ---------------------------------------------------
+          echo "=== PAGES (vues comme par un navigateur) ==="
+          for U in "/" "/admin/login" "/user/login" "/register"; do
+            R=$(probe "https://${DOM_NAME}${U}")
+            printf '  %-14s → %s\n' "$U" "$R"
+          done
+          echo ""
+
+          # --- 3. Les assets référencés par /admin/login ----------------------
+          echo "=== ASSETS de /admin/login ==="
+          $CURL -o /tmp/.gvp.login "https://${DOM_NAME}/admin/login" >/dev/null 2>&1 || true
+          if [ ! -s /tmp/.gvp.login ]; then
+            echo "  (page vide — impossible d'extraire les assets)"
+          else
+            grep -oE '(src|href)="[^"]+\.(css|js)(\?[^"]*)?"' /tmp/.gvp.login 2>/dev/null \
+              | sed -E 's/^(src|href)="//; s/"$//' | sort -u > /tmp/.gvp.assets || true
+            TOTAL=$(wc -l < /tmp/.gvp.assets 2>/dev/null || echo 0)
+            echo "  $TOTAL fichier(s) css/js référencé(s)"
+            BAD=0; EXT=0
+            while IFS= read -r A; do
+              [ -n "$A" ] || continue
+              case "$A" in
+                //*)  A="https:$A" ;;
+                http*) : ;;
+                /*)   A="https://${DOM_NAME}${A}" ;;
+                *)    A="https://${DOM_NAME}/${A}" ;;
+              esac
+              case "$A" in
+                "https://${DOM_NAME}/"*) SCOPE="local" ;;
+                *) SCOPE="EXTERNE"; EXT=$((EXT+1)) ;;
+              esac
+              R=$(probe "$A")
+              CODE=${R%% *}
+              case "$CODE" in
+                2*) STATUS="ok" ;;
+                *)  STATUS="❌"; BAD=$((BAD+1)) ;;
+              esac
+              printf '  %-3s %-7s %-4s %s\n' "$STATUS" "$SCOPE" "$CODE" "${A#https://${DOM_NAME}}"
+            done < /tmp/.gvp.assets
+            echo ""
+            echo "  → $BAD asset(s) en échec, $EXT dépendance(s) externe(s)"
+          fi
+          echo ""
+
+          # --- 4. Scripts externes bloquants (recaptcha & co) ------------------
+          echo "=== DÉPENDANCES EXTERNES de /admin/login ==="
+          if [ -s /tmp/.gvp.login ]; then
+            grep -oE 'src="https?://[^"]+"' /tmp/.gvp.login 2>/dev/null \
+              | sed -E 's/^src="//; s/"$//' \
+              | grep -v "$DOM_NAME" | sort -u | sed 's/^/  /' || echo "  (aucune)"
+          fi
+          echo ""
+
+          # --- 5. Champs du formulaire (readonly/disabled ?) -------------------
+          echo "=== CHAMPS DU FORMULAIRE ==="
+          if [ -s /tmp/.gvp.login ]; then
+            grep -oE '<input[^>]*>' /tmp/.gvp.login 2>/dev/null \
+              | grep -iE 'type="(email|text|password)"' | sed 's/^/  /' | head -8 || echo "  (aucun champ trouvé)"
+          fi
+          rm -f /tmp/.gvp.body /tmp/.gvp.login /tmp/.gvp.assets
+          echo ""
+          echo "NOTE : rien n'a été modifié. Un code 2xx ici = Apache sert bien le fichier."
           EOSSH
 
       # ------------------------------------------------------------------
