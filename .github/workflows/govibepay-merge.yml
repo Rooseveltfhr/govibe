@@ -1609,6 +1609,33 @@ jobs:
           LOG="$LROOT/storage/logs/laravel.log"
           [ -f "$LOG" ] && tail -c 200000 "$LOG" | grep -aoE '\] (production|local|GOVIBEPAY)\.ERROR: [^{]{0,180}' | tail -5 | sed 's/^/  /' || echo "  (journal illisible)"
 
+          echo ""
+
+          # --- 9. Le label flottant intercepte-t-il le toucher ? ---------------
+          # Le champ est suivi d'un <label> SANS for=. Si le thème le place en
+          # absolu par-dessus l'input sans « pointer-events: none », chaque tap
+          # mobile atterrit sur le label et n'ouvre jamais le clavier.
+          echo "=== RÈGLES CSS DU LABEL FLOTTANT ==="
+          CSS=""
+          for C in "$DOM/public_html/public/backend/css/style.css" "$LROOT/public/backend/css/style.css"; do
+            [ -f "$C" ] && { CSS="$C"; break; }
+          done
+          if [ -n "$CSS" ]; then
+            echo "  fichier : ${CSS#$HOME/}"
+            awk '/(account-form|form-group)[^{]*label/,/}/' "$CSS" | head -40 | sed 's/^/  /' || true
+            echo ""
+            echo "  --- pointer-events déclaré quelque part ? ---"
+            grep -n 'pointer-events' "$CSS" | head -10 | sed 's/^/  /' || echo "  ⚠️  AUCUN pointer-events dans tout style.css"
+          else
+            echo "  (style.css introuvable sur disque)"
+          fi
+          echo ""
+          echo "  --- bloc <style> en ligne de la page de login ---"
+          $CURL -o /tmp/.gvp.login "https://${DOM_NAME}/admin/login" >/dev/null 2>&1 || true
+          if [ -s /tmp/.gvp.login ]; then
+            sed -n '/<style/,/<\/style>/p' /tmp/.gvp.login | cut -c1-200 | sed 's/^/  /' | head -90 || true
+          fi
+
           rm -f /tmp/.gvp.body /tmp/.gvp.login /tmp/.gvp.assets
           echo ""
           echo "NOTE : rien n'a été modifié. Un code 2xx ici = Apache sert bien le fichier."
