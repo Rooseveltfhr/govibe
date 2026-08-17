@@ -1,8 +1,10 @@
 {{--
     TAGTOA — liens des modules directement dans le menu latéral Biztap (au lieu
     du bouton flottant séparé, jugé peu clair). Inclus depuis l'override
-    Modules/Tagtoa/resources/views/overrides/layouts/sidebar.blade.php, juste
-    après @include('layouts.menu') — ne touche donc JAMAIS le menu Biztap natif.
+    Modules/Tagtoa/resources/views/overrides/layouts/sidebar.blade.php, EN
+    PREMIER (avant @include('layouts.menu'), démoté sous « Compte ») — la
+    navigation produit doit être ce que le marchand voit en premier. Ne touche
+    donc JAMAIS le menu Biztap natif, seulement sa position dans la liste.
     Même structure/markup que layouts/menu.blade.php (nav-item / nav-link /
     aside-menu-icon / aside-menu-title) pour un rendu visuel identique.
 --}}
