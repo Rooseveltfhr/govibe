@@ -910,20 +910,30 @@ jobs:
 
             # Le script génère ses URLs d'assets AVEC le segment « public/ »
             # (asset('public/frontend/...')) : il était conçu pour être servi
-            # depuis la racine Laravel, où public/ est un vrai dossier. Le
-            # docroot contient désormais le CONTENU de public/, pas le dossier
-            # lui-même, donc /public/... tombe en 404 et ni le CSS ni le JS ne
-            # se chargent. Un lien règle le cas pour toutes ces URLs d'un coup.
-            if [ ! -e "$PUB/public" ]; then
-              if ln -s "../govibepay-app/public" "$PUB/public" 2>/dev/null && [ -d "$PUB/public" ]; then
-                echo "  + lien public/ → ../govibepay-app/public (URLs asset('public/...'))"
-              else
-                rm -f "$PUB/public" 2>/dev/null || true
-                cp -a "$LROOT/public" "$PUB/public" && echo "  + dossier public/ copié (lien impossible)"
-              fi
-            else
-              echo "  ✅ public/ déjà présent dans le docroot"
+            # depuis la racine Laravel, où public/ est un vrai dossier.
+            #
+            # Un lien symbolique semblait suffire, mais il ne prouve rien :
+            # PHP le suit toujours, Apache seulement si FollowSymLinks est
+            # autorisé — ce que beaucoup d'hébergeurs refusent. Les fichiers
+            # existent alors sur le disque tout en répondant 404 sur le web,
+            # et le CSS comme le JavaScript ne se chargent pas. C'est
+            # exactement ce qui distingue l'ancien domaine du nouveau. On
+            # installe donc un VRAI dossier, qui ne dépend d'aucune option
+            # de serveur.
+            if [ -L "$PUB/public" ]; then
+              echo "  ⚠️  public/ était un lien symbolique — remplacement par un vrai dossier"
+              rm -f "$PUB/public"
             fi
+            if [ ! -d "$PUB/public" ]; then
+              SZ=$(du -sm "$LROOT/public" 2>/dev/null | cut -f1)
+              cp -a "$LROOT/public" "$PUB/public" \
+                && echo "  + dossier public/ copié (${SZ:-?} Mo) — plus aucune dépendance à FollowSymLinks" \
+                || echo "  🔴 copie impossible"
+            else
+              echo "  ✅ public/ est déjà un vrai dossier"
+            fi
+            echo "  --- options du .htaccess du docroot (FollowSymLinks ?) ---"
+            grep -inE '^\s*Options' "$PUB/.htaccess" 2>/dev/null | sed 's/^/     /' || echo "     (aucune directive Options)"
             chmod -R a+rX "$PUB" 2>/dev/null || true
             echo ""
             echo "=== Les assets référencés par les pages publiques existent-ils ? ==="
