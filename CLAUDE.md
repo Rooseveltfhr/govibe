@@ -271,9 +271,26 @@ Workflow `govibepay-merge.yml` (mode `inspect`/`merge`/`landing`/`brand`/`rollba
 (pa via Apache) epi **anile fusion an otomatikman** si paj akèy la pa reponn. Rezilta 8 out:
 `/` → 200 (81724 oktè = paj akèy orijinal la), `/admin/login` → 200 ak jeton CSRF.
 
-⚠️ **Tès HTTP depi sou sèvè a PA FYAB**: `curl` vè `127.0.0.1` (menm ak `--resolve`) pa
+⚠️ **Tès HTTP vè `127.0.0.1` PA FYAB**: `curl` vè lokalhòs (menm ak `--resolve`) pa
 rive sou vhost app la — li bay 404 sou wout ki egziste vre (396 wout admin anrejistre).
-Pa tire okenn konklizyon sou yo; **sèvi ak rendu kernel la** (gade mode `verify`).
+✅ **Solisyon: mode `http`** — sèvè a rele **pwòp IP piblik li** (`--resolve
+govibepay.com:443:<ip_piblik>`), donk demand lan swiv menm chemen ak yon navigatè
+(bon vhost, bon SSL, bon open_basedir). Se **sèl fason fyab** pou wè sa Apache sèvi.
+Mode `http` rapòte: kòd paj yo, eta chak css/js, depandans ekstèn, chan fòm nan,
+règ CSS label la, ak asèt ki an echèk. Lekti sèl.
+
+✅ **ADMIN LOGIN REPARE (mode `fix-tap`)**: klavye mobil la pa t monte lè w tape chan yo.
+Kòz: bloc `<style>` ki sèvi a stilize `.gvpa-input`/`.gvpa-label`, men **HTML ki sèvi a se
+sa d'orijin tèm nan** (`div.form-group > input class="" + <label>` san `for=`) — 2 kouch yo
+pa matche depi `restore-login`. Rezilta: chan an san okenn style (envizib sou fon `#070d07`)
+e label flotan tèm nan kouvri l; tap la frape label la ki san `for=` pa bay fokis.
+Sou òdinatè `autofocus` t ap kache pwoblèm nan. Korije ak yon **pon CSS** ajoute nan fen
+bloc `<style>` pataje a (`resources/views/partials/govibepay-admin-auth-theme.blade.php`,
+ki login + forgot + reset + 2FA enkli): label inèt (`pointer-events:none`, `position:static`)
+e mete anwo chan an (`flex-direction: column-reverse`), input restile + `z-index` + `16px`
+(anpeche zoom oto iOS). **Zewo wout, zewo URL, zewo HTML chanje.** Makè `GVPA-TAP-FIX`
+(idanpotan), backup `.bak-tap`, anile ak mode `fix-tap-undo`.
+Menm mode a retabli `public/backend/js/smoothscroll.js` (li te absan → 500 sou chak paj admin).
 
 ⚠️ **Fo alèt korije**: `.env` (403), `.envMM` (404), `install/` (404) **PA ekspoze** —
 premye rapò a te baze sou prezans fichye sou disk, pa sou aksè HTTP reyèl.
