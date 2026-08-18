@@ -1753,64 +1753,50 @@ jobs:
           cat > /tmp/.gvp-tap.css <<'EOCSS'
 
           /* ── GVPA-TAP-FIX ────────────────────────────────────────────────
-             Pont vers le balisage D'ORIGINE du thème (div.form-group >
-             input + label sans for=). Sans ceci le champ n'a aucun style et
-             le label flottant intercepte le toucher : le clavier mobile ne
-             monte jamais. N'affecte que la zone de connexion. */
-          .page-wrapper .account-form .form-group {
-            position: relative !important;
-            display: flex !important;
-            flex-direction: column-reverse !important;
-            align-items: stretch !important;
-            margin-bottom: 16px !important;
-          }
-          .page-wrapper .account-form .form-group > label {
-            position: static !important;
+             Le champ ne prenait pas le focus au toucher. Le label n'y est
+             pour rien : le thème lui met déjà pointer-events:none. Le vrai
+             obstacle est le fond de bulles animées du gabarit, qui traverse
+             toute la page sans jamais recevoir pointer-events:none, alors que
+             .account-area n'était relevé qu'à z-index 1. Sur ordinateur
+             autofocus plaçait le curseur seul, ce qui masquait le problème.
+             Purement additif : ne change ni le design du thème ni le label
+             flottant. */
+
+          /* 1. Les bulles sont décoratives — elles ne doivent jamais capter
+                le toucher ni le clic. */
+          .bg-bubbles,
+          .bg-bubbles li {
             pointer-events: none !important;
-            transform: none !important;
-            display: block !important;
-            font-size: .78rem !important;
-            font-weight: 700 !important;
-            color: rgba(255,255,255,.6) !important;
-            text-transform: uppercase !important;
-            letter-spacing: .05em !important;
-            margin: 0 0 7px !important;
           }
-          .page-wrapper .account-form .form-group > input,
-          .page-wrapper .account-form .form-group > select,
-          .page-wrapper .account-form .form-group > textarea {
+
+          /* 2. La zone de connexion passe au-dessus de toute couche décorative. */
+          .page-wrapper .account-area {
             position: relative !important;
-            z-index: 3 !important;
+            z-index: 10 !important;
+          }
+          .page-wrapper .account-wrapper {
+            position: relative !important;
+            z-index: 11 !important;
+          }
+
+          /* 3. Champs : pleine largeur et cible tactile confortable sur mobile,
+                inchangés à l'œil sur ordinateur. 16px empêche le zoom
+                automatique d'iOS à la mise au point. */
+          .account-form .form-group input,
+          .account-form .form-group select,
+          .account-form .form-group textarea {
+            position: relative !important;
+            z-index: 12 !important;
             width: 100% !important;
-            height: 48px !important;
-            background: rgba(255,255,255,.04) !important;
-            border: 1px solid rgba(255,255,255,.1) !important;
-            border-radius: 12px !important;
-            color: #fff !important;
-            font-family: 'Plus Jakarta Sans', sans-serif !important;
-            font-size: 16px !important; /* < 16px déclenche un zoom auto sur iOS */
-            font-weight: 500 !important;
-            padding: 0 44px 0 16px !important;
-            outline: none !important;
-            opacity: 1 !important;
+            display: block !important;
+            min-height: 48px !important;
+            font-size: 16px !important;
             -webkit-appearance: none !important;
             appearance: none !important;
-            transition: all .22s !important;
+            touch-action: manipulation !important;
           }
-          .page-wrapper .account-form .form-group > input:focus {
-            border-color: #2cb809 !important;
-            background: rgba(44,184,9,.05) !important;
-            box-shadow: 0 0 0 3px rgba(44,184,9,.12) !important;
-          }
-          .page-wrapper .account-form .form-group .show-pass {
-            position: absolute !important;
-            right: 14px !important;
-            bottom: 0 !important;
-            height: 48px !important;
-            background: transparent !important;
-            border: none !important;
-            color: rgba(255,255,255,.3) !important;
-            z-index: 4 !important;
+          .account-form .form-group .show-pass {
+            z-index: 13 !important;
           }
           /* ── /GVPA-TAP-FIX ───────────────────────────────────────────── */
           EOCSS
@@ -1823,11 +1809,13 @@ jobs:
           foreach ($files as $f) {
               $f = trim($f);
               if ($f === '' || ! is_file($f)) { continue; }
-              $src = file_get_contents($f);
-              if (strpos($src, 'GVPA-TAP-FIX') !== false) {
-                  echo "  = déjà appliqué : $f\n";
-                  continue;
+              // Toujours repartir de l'original : sinon un correctif antérieur
+              // resterait en place et se cumulerait avec le nouveau.
+              if (is_file($f.'.bak-tap')) {
+                  copy($f.'.bak-tap', $f);
+                  echo "  ↺ reparti de la sauvegarde : $f\n";
               }
+              $src = file_get_contents($f);
               $anchor = strpos($src, 'gvpa-input');
               if ($anchor === false) { echo "  ! ancre absente : $f\n"; continue; }
               $close = strpos($src, '</style>', $anchor);
