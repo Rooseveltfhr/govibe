@@ -1567,22 +1567,59 @@ jobs:
           fi
           echo ""
 
-          # --- 6. Ce qui peut bloquer le toucher (overlay, preloader, CSS) -----
-          echo "=== ÉLÉMENTS SUSCEPTIBLES DE COUVRIR LE FORMULAIRE ==="
+          # --- 6. Structure réelle : le CSS peut-il seulement atteindre le champ ?
+          echo "=== CHAÎNE D'ANCÊTRES : <body> → <form> ==="
           if [ -s /tmp/.gvp.login ]; then
-            grep -oiE '<(div|section|span)[^>]*class="[^"]*(preloader|loader|overlay|backdrop|modal|spinner)[^"]*"[^>]*>' /tmp/.gvp.login \
-              | sed 's/^/  /' | head -10 || echo "  (aucun)"
+            # toutes les balises ouvrantes de section entre <body> et <form>
+            awk '/<body/,/<form/' /tmp/.gvp.login \
+              | grep -oiE '<(body|div|section|main|form)[^>]*>' \
+              | grep -viE '^</' | cut -c1-150 | sed 's/^/  /' | head -25 || true
             echo ""
+            for C in page-wrapper account-area account-wrapper account-form form-group; do
+              if grep -q "$C" /tmp/.gvp.login 2>/dev/null; then
+                echo "  ✅ .$C présent dans la page"
+              else
+                echo "  ❌ .$C ABSENT — tout sélecteur CSS qui le préfixe est inerte"
+              fi
+            done
+          fi
+          echo ""
+
+          echo "=== LE CORRECTIF EST-IL SERVI, ET COMPLET ? ==="
+          if [ -s /tmp/.gvp.login ]; then
+            if grep -q 'GVPA-TAP-FIX' /tmp/.gvp.login; then
+              echo "  ✅ marqueur présent ($(grep -c 'GVPA-TAP-FIX' /tmp/.gvp.login) occurrence(s))"
+              echo "  --- règles telles que servies ---"
+              awk '/GVPA-TAP-FIX/,/\/GVPA-TAP-FIX/' /tmp/.gvp.login | cut -c1-160 | sed 's/^/  /' | head -55 || true
+            else
+              echo "  ❌ marqueur ABSENT de la page servie"
+            fi
+          fi
+          echo ""
+
+          echo "=== RESPONSIVE ET RECOUVREMENT ==="
+          if [ -s /tmp/.gvp.login ]; then
+            echo "  --- <meta viewport> ---"
+            grep -oiE '<meta[^>]*viewport[^>]*>' /tmp/.gvp.login | sed 's/^/  /' || echo "  ⚠️  AUCUN viewport"
             echo "  --- balise <body> ---"
             grep -oE '<body[^>]*>' /tmp/.gvp.login | sed 's/^/  /' || true
-            echo ""
-            echo "  --- <meta viewport> ---"
-            grep -oiE '<meta[^>]*viewport[^>]*>' /tmp/.gvp.login | sed 's/^/  /' || echo "  ⚠️  AUCUN viewport (zoom mobile cassé)"
-            echo ""
-            echo "  --- CSS en ligne pointant vers les champs ---"
-            sed -n '/<style/,/<\/style>/p' /tmp/.gvp.login \
-              | grep -inE 'pointer-events|user-select|position: *fixed|z-index|opacity: *0|display: *none' \
-              | sed 's/^/  /' | head -20 || echo "  (rien)"
+            echo "  --- @media dans le style en ligne ---"
+            sed -n '/<style/,/<\/style>/p' /tmp/.gvp.login | grep -n '@media' | sed 's/^/  /' | head -10 || echo "  (aucune)"
+            echo "  --- overlays / preloaders ---"
+            grep -oiE '<(div|section|span)[^>]*class="[^"]*(preloader|loader|overlay|backdrop|modal|spinner)[^"]*"[^>]*>' /tmp/.gvp.login \
+              | cut -c1-140 | sed 's/^/  /' | head -8 || echo "  (aucun)"
+          fi
+          echo ""
+
+          echo "=== CE QUE style.css IMPOSE AU LABEL FLOTTANT ==="
+          CSSF=""
+          for C in "$HOME/domains/govibepay.com/public_html/public/backend/css/style.css"; do
+            [ -f "$C" ] && CSSF="$C"
+          done
+          if [ -n "$CSSF" ]; then
+            grep -nE '\.account-form|\.form-group' "$CSSF" | cut -c1-140 | sed 's/^/  /' | head -30 || echo "  (aucune règle)"
+          else
+            echo "  (style.css introuvable)"
           fi
           echo ""
 
