@@ -1654,17 +1654,31 @@ jobs:
           # Le champ est suivi d'un <label> SANS for=. Si le thème le place en
           # absolu par-dessus l'input sans « pointer-events: none », chaque tap
           # mobile atterrit sur le label et n'ouvre jamais le clavier.
-          echo "=== RÈGLES CSS DU LABEL FLOTTANT ==="
+          # Le label porte DÉJÀ pointer-events:none dans le thème — il n'intercepte
+          # rien, l'hypothèse du label était fausse. Suspect restant : le fond de
+          # bulles animées du gabarit, qui couvre toute la page et n'a jamais reçu
+          # pointer-events:none. Il est dans le gabarit, pas dans la vue — ce qui
+          # expliquerait que les DEUX versions de la page échouent pareil.
+          echo "=== FOND DE BULLES ANIMÉES (suspect principal) ==="
           CSS=""
           for C in "$DOM/public_html/public/backend/css/style.css" "$LROOT/public/backend/css/style.css"; do
             [ -f "$C" ] && { CSS="$C"; break; }
           done
+          if [ -s /tmp/.gvp.login ]; then
+            echo "  --- présence dans la page servie ---"
+            grep -oiE '<(ul|div)[^>]*class="[^"]*bubble[^"]*"[^>]*>' /tmp/.gvp.login | cut -c1-120 | sed 's/^/  /' | head -4 \
+              || echo "  (aucun élément de bulles dans la page)"
+          fi
           if [ -n "$CSS" ]; then
-            echo "  fichier : ${CSS#$HOME/}"
-            awk '/(account-form|form-group)[^{]*label/,/}/' "$CSS" | head -40 | sed 's/^/  /' || true
+            echo "  --- règles .bg-bubbles dans style.css ---"
+            awk '/\.bg-bubbles/{f=1} f{print; if(/}/){c++; if(c>3) exit}}' "$CSS" | cut -c1-120 | sed 's/^/  /' | head -30 || true
             echo ""
-            echo "  --- pointer-events déclaré quelque part ? ---"
-            grep -n 'pointer-events' "$CSS" | head -10 | sed 's/^/  /' || echo "  ⚠️  AUCUN pointer-events dans tout style.css"
+            echo "  --- ce que le thème impose au conteneur et au champ ---"
+            awk '/^\.account-form \.form-group \{/,/^}/' "$CSS" | sed 's/^/  /' | head -12 || true
+            awk '/^\.account-form \.form-group input \{/,/^}/' "$CSS" | sed 's/^/  /' | head -14 || true
+            echo ""
+            echo "  --- z-index autour de la zone de connexion ---"
+            grep -nE 'account-area|account-wrapper|bg-bubbles' "$CSS" | cut -c1-110 | sed 's/^/  /' | head -12 || true
           else
             echo "  (style.css introuvable sur disque)"
           fi
