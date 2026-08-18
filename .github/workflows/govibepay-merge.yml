@@ -1668,12 +1668,6 @@ jobs:
           else
             echo "  (style.css introuvable sur disque)"
           fi
-          echo ""
-          echo "  --- bloc <style> en ligne de la page de login ---"
-          $CURL -o /tmp/.gvp.login "https://${DOM_NAME}/admin/login" >/dev/null 2>&1 || true
-          if [ -s /tmp/.gvp.login ]; then
-            sed -n '/<style/,/<\/style>/p' /tmp/.gvp.login | cut -c1-200 | sed 's/^/  /' | head -90 || true
-          fi
 
           rm -f /tmp/.gvp.body /tmp/.gvp.login /tmp/.gvp.assets
           echo ""
