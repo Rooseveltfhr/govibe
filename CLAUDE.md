@@ -279,17 +279,28 @@ govibepay.com:443:<ip_piblik>`), donk demand lan swiv menm chemen ak yon navigat
 Mode `http` rapòte: kòd paj yo, eta chak css/js, depandans ekstèn, chan fòm nan,
 règ CSS label la, ak asèt ki an echèk. Lekti sèl.
 
-✅ **ADMIN LOGIN REPARE (mode `fix-tap`)**: klavye mobil la pa t monte lè w tape chan yo.
-Kòz: bloc `<style>` ki sèvi a stilize `.gvpa-input`/`.gvpa-label`, men **HTML ki sèvi a se
-sa d'orijin tèm nan** (`div.form-group > input class="" + <label>` san `for=`) — 2 kouch yo
-pa matche depi `restore-login`. Rezilta: chan an san okenn style (envizib sou fon `#070d07`)
-e label flotan tèm nan kouvri l; tap la frape label la ki san `for=` pa bay fokis.
-Sou òdinatè `autofocus` t ap kache pwoblèm nan. Korije ak yon **pon CSS** ajoute nan fen
-bloc `<style>` pataje a (`resources/views/partials/govibepay-admin-auth-theme.blade.php`,
-ki login + forgot + reset + 2FA enkli): label inèt (`pointer-events:none`, `position:static`)
-e mete anwo chan an (`flex-direction: column-reverse`), input restile + `z-index` + `16px`
-(anpeche zoom oto iOS). **Zewo wout, zewo URL, zewo HTML chanje.** Makè `GVPA-TAP-FIX`
-(idanpotan), backup `.bak-tap`, anile ak mode `fix-tap-undo`.
+✅ **ADMIN LOGIN — KÒZ REYÈL LA (mode `fix-tap`)**: klavye mobil la pa t monte lè w tape chan yo.
+
+⚠️ **Premye dyagnostik la te FO** (konsève pou pa refè erè a): mwen te di label flotan an
+t ap entèsepte tap la. **Fo** — tèm nan gen deja `pointer-events: none` sou
+`.account-form .form-group label` (`style.css:5271`). Pon CSS sa a t ap konbat design tèm
+nan pou granmesi. Leson: **li CSS ki sèvi a anvan** ou fè ipotèz.
+
+**Vrè kòz**: `.bg-bubbles` — 8 `<li>` anime (`animation: square 25s infinite`) ki travèse
+tout paj la kòm dekorasyon. Nan 5000 liy `style.css`, `pointer-events: none` parèt sèlman
+2 fwa e **jamè sou bul yo**, pandan ke `.account-area` te leve sèlman nan `z-index: 1`.
+Bul yo nan **gabarit la** (pa nan vi a) — se poutèt sa **ansyen paj login lan AK vèsyon
+pèsonalize a echwe menm jan**. Sou òdinatè `autofocus` mete kursè a poukont li, sa kache
+pwoblèm nan nèt.
+
+**Korije** ak yon bloc CSS additif nan fen `<style>` pataje a
+(`resources/views/partials/govibepay-admin-auth-theme.blade.php` — login + forgot + reset
++ 2FA): (1) `.bg-bubbles, .bg-bubbles li { pointer-events: none }`, (2) `.account-area`
+`z-index: 10` / `.account-wrapper` `z-index: 11`, (3) chan yo `width: 100%`,
+`min-height: 48px`, `font-size: 16px` (anpeche zoom oto iOS), `touch-action: manipulation`.
+Label flotan tèm nan **pa touche**. **Zewo wout, zewo URL, zewo HTML chanje.**
+Makè `GVPA-TAP-FIX`, backup `.bak-tap`, mode a repati sou backup la anvan chak enjeksyon
+(re-aplikab san akimile), anile ak mode `fix-tap-undo`.
 Menm mode a retabli `public/backend/js/smoothscroll.js` (li te absan → 500 sou chak paj admin).
 
 ⚠️ **Fo alèt korije**: `.env` (403), `.envMM` (404), `install/` (404) **PA ekspoze** —
