@@ -3,5 +3,6 @@
     "AIProvider": true,
     "AIRouter": true,
     "AIServices": true,
-    "Usage": true
+    "Usage": true,
+    "Agents": true
 }

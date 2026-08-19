@@ -276,17 +276,17 @@ $lastNoise = $rows ? ($rows[$total - 1]['noise'] ?? '') : '';
   <h1>Kolèk nòt vokal</h1>
   <p class="sub">Yon clip alafwa. ~15 segond pa clip.</p>
 
-  <?php if ($flash !== null): ?>
+  <?php if ($flash !== null) { ?>
     <div class="flash <?= $flashType ?>"><?= htmlspecialchars($flash) ?></div>
-  <?php endif; ?>
+  <?php } ?>
 
   <div class="card">
     <div class="count"><b><?= $total ?></b><span>/ 100 clip</span></div>
     <div class="prog"><i style="width:<?= min(100, $total) ?>%"></i></div>
 
     <div class="tally">
-      <?php foreach (TARGETS as $key => $targets): ?>
-        <?php foreach ($targets as $value => $target):
+      <?php foreach (TARGETS as $key => $targets) { ?>
+        <?php foreach ($targets as $value => $target) {
             $have = $tallies[$key][$value] ?? 0;
             $pct = min(100, (int) round($have / $target * 100));
             ?>
@@ -295,9 +295,9 @@ $lastNoise = $rows ? ($rows[$total - 1]['noise'] ?? '') : '';
             <span class="tt"><i class="<?= $have >= $target ? 'done' : '' ?>" style="width:<?= $pct ?>%"></i></span>
             <span class="tn"><?= $have ?>/<?= $target ?></span>
           </div>
-        <?php endforeach; ?>
+        <?php } ?>
         <div style="height:.35rem"></div>
-      <?php endforeach; ?>
+      <?php } ?>
     </div>
     <p class="hint">Bar vèt = objektif la ranpli. Konsantre sou sa ki poko plen.</p>
   </div>
@@ -313,31 +313,31 @@ $lastNoise = $rows ? ($rows[$total - 1]['noise'] ?? '') : '';
     <div class="grp">
       <span class="lbl">2 · Kisa moun nan mande</span>
       <div class="chips">
-        <?php foreach (TARGETS['intent'] as $value => $target):
+        <?php foreach (TARGETS['intent'] as $value => $target) {
             $have = $tallies['intent'][$value] ?? 0; ?>
           <input type="radio" name="intent" id="i-<?= $value ?>" value="<?= $value ?>" required>
           <label for="i-<?= $value ?>" class="<?= $have >= $target ? 'full' : '' ?>">
             <?= ['order' => 'Kòmand', 'price' => 'Pri', 'booking' => 'Randevou',
-                 'info' => 'Enfòmasyon', 'complaint' => 'Plent'][$value] ?>
+                'info' => 'Enfòmasyon', 'complaint' => 'Plent'][$value] ?>
             <span class="need"><?= $have ?>/<?= $target ?></span>
           </label>
-        <?php endforeach; ?>
+        <?php } ?>
       </div>
     </div>
 
     <div class="grp">
       <span class="lbl">3 · Kote moun nan soti</span>
       <div class="chips">
-        <?php foreach (TARGETS['region'] as $value => $target):
+        <?php foreach (TARGETS['region'] as $value => $target) {
             $have = $tallies['region'][$value] ?? 0; ?>
           <input type="radio" name="region" id="r-<?= $value ?>" value="<?= $value ?>"
                  <?= $value === $lastRegion ? 'checked' : '' ?> required>
           <label for="r-<?= $value ?>" class="<?= $have >= $target ? 'full' : '' ?>">
             <?= ['ouest' => 'Lwès', 'nord' => 'Nò', 'sud' => 'Sid',
-                 'artibonite' => 'Atibonit'][$value] ?>
+                'artibonite' => 'Atibonit'][$value] ?>
             <span class="need"><?= $have ?>/<?= $target ?></span>
           </label>
-        <?php endforeach; ?>
+        <?php } ?>
       </div>
     </div>
 
@@ -354,11 +354,11 @@ $lastNoise = $rows ? ($rows[$total - 1]['noise'] ?? '') : '';
       <div class="grp">
         <span class="lbl">5 · Bri</span>
         <div class="chips">
-          <?php foreach (['kalm' => 'Kalm', 'mwayen' => 'Mwayen', 'fo' => 'Fò'] as $value => $label): ?>
+          <?php foreach (['kalm' => 'Kalm', 'mwayen' => 'Mwayen', 'fo' => 'Fò'] as $value => $label) { ?>
             <input type="radio" name="noise" id="n-<?= $value ?>" value="<?= $value ?>"
                    <?= $value === $lastNoise ? 'checked' : '' ?> required>
             <label for="n-<?= $value ?>"><?= $label ?></label>
-          <?php endforeach; ?>
+          <?php } ?>
         </div>
       </div>
     </div>
