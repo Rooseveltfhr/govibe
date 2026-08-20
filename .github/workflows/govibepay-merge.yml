@@ -34,6 +34,7 @@ on:
           - user-dash
           - user-ui
           - user-ui-undo
+          - support-scan
           - merge
           - landing
           - brand
@@ -1599,6 +1600,99 @@ jobs:
           echo ""
           echo "NOTE : rien n'a été modifié. Ce relevé sert à refaire l'interface"
           echo "       sans toucher aux routes ni aux URL."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # SUPPORT-SCAN — où est le bouton « Support Center » et où mène-t-il ?
+      # Lecture seule. Préalable avant de le transformer en panneau intégré.
+      # ------------------------------------------------------------------
+      - name: Support scan (relevé du bouton support, lecture seule)
+        if: ${{ inputs.mode == 'support-scan' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          V="$LROOT/resources/views"
+          echo "Script : $LROOT"
+          echo ""
+
+          echo "=== OÙ APPARAÎT « SUPPORT » DANS LES VUES UTILISATEUR ? ==="
+          grep -rlin 'support' "$V/user" 2>/dev/null | sed "s#$LROOT/#  #" | head -14
+          echo ""
+          echo "  --- lignes exactes (partials de navigation) ---"
+          for F in "$V/user/partials/side-nav.blade.php" "$V/user/partials/top-nav.blade.php" "$V/user/layouts/master.blade.php"; do
+            [ -f "$F" ] || continue
+            HITS=$(grep -in 'support\|ticket\|chat\|live-chat\|tawk\|crisp\|whatsapp' "$F" 2>/dev/null | cut -c1-165 | head -12)
+            if [ -n "$HITS" ]; then
+              echo "  ▸ ${F#$LROOT/}"
+              echo "$HITS" | sed 's/^/      /'
+            fi
+          done
+          echo ""
+
+          echo "=== LE BOUTON MÈNE-T-IL HORS DU SITE ? ==="
+          grep -rhoE 'href="[^"]*(support|ticket|chat|tawk|crisp|whatsapp|wa\.me|t\.me)[^"]*"' "$V/user" 2>/dev/null \
+            | sort -u | cut -c1-150 | sed 's/^/  /' | head -18 || echo "  (aucun href correspondant)"
+          echo ""
+          echo "  --- scripts de chat tiers déjà chargés ---"
+          grep -rhoE 'src="https?://[^"]*(tawk|crisp|intercom|zendesk|drift|smartsupp)[^"]*"' "$V" 2>/dev/null \
+            | sort -u | sed 's/^/  /' | head -8 || echo "  (aucun)"
+          echo ""
+
+          echo "=== ROUTES SUPPORT / TICKET / CONTACT DISPONIBLES ==="
+          cat > "$LROOT/.gvp-sup.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          $n = 0;
+          foreach (app('router')->getRoutes() as $r) {
+              $u = $r->uri();
+              $name = $r->getName() ?: '-';
+              if (! preg_match('#(support|ticket|contact|chat|message)#i', $u . ' ' . $name)) { continue; }
+              $m = implode('|', array_diff($r->methods(), ['HEAD']));
+              printf("  %-9s /%-46s %s\n", $m, $u, $name);
+              if (++$n >= 24) { break; }
+          }
+          if ($n === 0) { echo "  (aucune)\n"; }
+          EOPHP
+          ( cd "$LROOT" && php .gvp-sup.php 2>&1 | head -30 ) || echo "  (lecture routes impossible)"
+          rm -f "$LROOT/.gvp-sup.php"
+          echo ""
+
+          echo "=== COORDONNÉES CONFIGURÉES (téléphone / WhatsApp) ==="
+          cat > "$LROOT/.gvp-cnt.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          try {
+              $s = \App\Models\Admin\BasicSettings::first();
+              if (! $s) { echo "  (aucun enregistrement de réglages)\n"; exit; }
+              foreach ($s->getAttributes() as $k => $v) {
+                  if (! preg_match('#(phone|whatsapp|contact|email|address|support)#i', $k)) { continue; }
+                  if (is_string($v) && strlen($v) > 120) { $v = substr($v, 0, 120) . '…'; }
+                  printf("  %-28s = %s\n", $k, is_scalar($v) ? $v : gettype($v));
+              }
+          } catch (\Throwable $e) {
+              echo "  (réglages illisibles : ", substr($e->getMessage(), 0, 90), ")\n";
+          }
+          EOPHP
+          ( cd "$LROOT" && php .gvp-cnt.php 2>&1 | head -22 ) || echo "  (lecture réglages impossible)"
+          rm -f "$LROOT/.gvp-cnt.php"
+          echo ""
+          echo "NOTE : rien n'a été modifié."
           EOSSH
 
       # ------------------------------------------------------------------
