@@ -31,6 +31,7 @@ on:
           - http
           - fix-tap
           - fix-tap-undo
+          - user-dash
           - merge
           - landing
           - brand
@@ -1464,6 +1465,108 @@ jobs:
           echo ""
           echo "NOTE : rien n'a été modifié. Cet inventaire sert à décider quoi ajouter"
           echo "       et quelles clés d'API seront nécessaires."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # USER-DASH — relever le tableau de bord utilisateur AVANT d'y toucher.
+      #
+      # Objectif : connaître les noms de routes exacts, les variables que le
+      # contrôleur passe à la vue, et le balisage actuel. Sans ça, refaire
+      # l'interface casserait forcément quelque chose. Lecture seule.
+      # ------------------------------------------------------------------
+      - name: User dash (relevé du tableau de bord, lecture seule)
+        if: ${{ inputs.mode == 'user-dash' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          echo "Script : $LROOT"
+          echo ""
+
+          echo "=== ROUTES UTILISATEUR CONCERNÉES (ne jamais les modifier) ==="
+          cat > "$LROOT/.gvp-ud.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          $groups = [
+              'TABLEAU DE BORD' => '#^user/?(home|dashboard)?$#i',
+              'CARTE VIRTUELLE' => '#card#i',
+              'RECHARGE MOBILE' => '#(mobile|topup|recharge|airtime)#i',
+              'PAYLINK'         => '#(paylink|payment-link|pay-link)#i',
+          ];
+          foreach ($groups as $title => $re) {
+              echo "  --- $title ---\n";
+              $n = 0;
+              foreach (app('router')->getRoutes() as $r) {
+                  $u = $r->uri();
+                  $name = $r->getName() ?: '-';
+                  if (strpos($u, 'user') !== 0 && strpos($name, 'user.') !== 0) { continue; }
+                  if (! preg_match($re, $u) && ! preg_match($re, $name)) { continue; }
+                  $m = implode('|', array_diff($r->methods(), ['HEAD']));
+                  printf("    %-9s /%-42s %s\n", $m, $u, $name);
+                  if (++$n >= 14) { break; }
+              }
+              if ($n === 0) { echo "    (aucune)\n"; }
+          }
+          EOPHP
+          ( cd "$LROOT" && php .gvp-ud.php 2>&1 | head -70 ) || echo "  (lecture routes impossible)"
+          rm -f "$LROOT/.gvp-ud.php"
+          echo ""
+
+          echo "=== VUE DU TABLEAU DE BORD ==="
+          DASH=$(find "$LROOT/resources/views" -path '*user*' \( -name 'dashboard.blade.php' -o -name 'home.blade.php' \) 2>/dev/null | head -3)
+          if [ -z "$DASH" ]; then
+            echo "  introuvable — vues 'user' présentes :"
+            find "$LROOT/resources/views" -path '*user*' -name '*.blade.php' 2>/dev/null | sed "s#$LROOT/#  #" | head -20
+          else
+            for D in $DASH; do
+              echo "  ${D#$LROOT/} ($(stat -c%s "$D") octets, $(wc -l < "$D") lignes)"
+            done
+          fi
+          echo ""
+          echo "  --- gabarit(s) utilisé(s) et variables référencées ---"
+          for D in $DASH; do
+            grep -oE "@extends\('[^']+'\)" "$D" | sed 's/^/    /' | head -3
+            echo "    variables Blade citées :"
+            grep -oE '\$[a-zA-Z_][a-zA-Z0-9_]*' "$D" | sort -u | tr '\n' ' ' | fold -w 120 -s | sed 's/^/      /'
+            echo ""
+            echo "    routes citées :"
+            grep -oE "route\('[^']+'" "$D" | sed "s/route('//" | sort -u | sed 's/^/      /' | head -30
+          done
+          echo ""
+
+          echo "=== CONTRÔLEUR : QUE PASSE-T-IL À LA VUE ? ==="
+          CTRL=$(grep -rln "view('user\.\(dashboard\|home\)\|view(\"user\.\(dashboard\|home\)" "$LROOT/app" 2>/dev/null | head -3)
+          if [ -z "$CTRL" ]; then
+            CTRL=$(find "$LROOT/app/Http/Controllers/User" -maxdepth 1 -name '*.php' 2>/dev/null | head -6)
+          fi
+          for C in $CTRL; do
+            echo "  ${C#$LROOT/}"
+            awk '/function (home|dashboard)\(/{f=1} f{print "    "$0} f&&/^    \}/{exit}' "$C" | cut -c1-150 | head -45
+            echo ""
+          done
+
+          echo "=== FICHIERS DE VUE LIÉS AUX SERVICES À CONSERVER ==="
+          for K in card topup paylink; do
+            echo "  --- $K ---"
+            find "$LROOT/resources/views" -path '*user*' -iname "*${K}*" 2>/dev/null \
+              | sed "s#$LROOT/#    #" | head -8 || echo "    (aucun)"
+          done
+          echo ""
+          echo "NOTE : rien n'a été modifié. Ce relevé sert à refaire l'interface"
+          echo "       sans toucher aux routes ni aux URL."
           EOSSH
 
       # ------------------------------------------------------------------
