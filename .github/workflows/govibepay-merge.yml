@@ -1771,6 +1771,15 @@ jobs:
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
           SSH="ssh -i $HOME/.ssh/id_deploy -p $PORT -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
           if [ "${{ inputs.mode }}" = "user-ui" ]; then
+            # Garde-fou : la validation doit passer AVANT que quoi que ce soit
+            # ne parte sur le serveur. Elle refuse notamment tout nom de
+            # directive Blade cité dans un commentaire — la faute exacte qui a
+            # provoqué un 500 sur le tableau de bord (« Undefined variable
+            # $gvpCards ») alors que la compilation, elle, passait.
+            python3 govibepay/ui/validate.py || {
+              echo "Validation échouée — rien n'a été transféré ni modifié."
+              exit 1
+            }
             $SSH "cat > /tmp/.gvp-services.blade" < govibepay/ui/dashboard-services.blade.php
             $SSH "cat > /tmp/.gvp-services.css"   < govibepay/ui/dashboard-services.css
             echo "Fichiers d'interface transférés."
@@ -1857,12 +1866,24 @@ jobs:
           $php  = Illuminate\Support\Facades\Blade::compileString(file_get_contents($file));
           $tmp  = sys_get_temp_dir().'/.gvp-compiled.php';
           file_put_contents($tmp, $php);
+          // Compiler sans erreur ne suffit pas : la première version produisait
+          // du PHP valide où les déclarations de variables avaient été avalées
+          // par une directive citée dans un commentaire. On exige donc que les
+          // variables du bloc soient réellement ASSIGNÉES dans le code compilé.
+          foreach (['gvpCards', 'gvpCardCount', 'gvpCardBalance'] as $var) {
+              if (! preg_match('/\$' . $var . '\s*=/', $php)) {
+                  fwrite(STDERR, "ASSIGNATION MANQUANTE: \$$var\n");
+                  echo "MISSING\n";
+                  exit(0);
+              }
+          }
           echo $tmp, "\n";
           EOPHP
           COMPILED=$( cd "$LROOT" && php .gvp-check.php "$DASH" 2>&1 | tail -1 )
           rm -f "$LROOT/.gvp-check.php"
           if [ -f "$COMPILED" ] && php -l "$COMPILED" >/dev/null 2>&1; then
-            echo "  ✅ la vue compile et le PHP produit est valide"
+            echo "  ✅ la vue compile, le PHP produit est valide,"
+            echo "     et les variables du bloc y sont bien assignées"
             rm -f "$COMPILED"
           else
             echo "  ❌ compilation invalide :"

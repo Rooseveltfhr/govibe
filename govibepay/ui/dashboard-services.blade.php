@@ -1,19 +1,27 @@
 {{--
     GVPA-SERVICES — bloc « Mes services » du tableau de bord utilisateur.
 
-    Injecté juste après @section('content') de resources/views/user/dashboard.blade.php
+    Injecté au début de la section « content » de user/dashboard.blade.php
     par le mode « user-ui » du workflow govibepay-merge.
 
+    ATTENTION — AUCUN NOM DE DIRECTIVE BLADE NE DOIT APPARAÎTRE DANS CE
+    COMMENTAIRE. Blade compile les directives AVANT de supprimer les
+    commentaires : écrire le nom d'une directive ici la fait exécuter pour
+    de bon. C'est ce qui a cassé la première version de ce fichier — un nom
+    de directive cité en documentation ouvrait un bloc PHP parasite qui
+    avalait les déclarations de variables, d'où « Undefined variable
+    $gvpCards » et un 500 sur le tableau de bord.
+
     RÈGLES TENUES ICI :
-      · Aucune route n'est définie ni modifiée — seules les routes existantes sont
-        appelées, et chacune est protégée par Route::has() pour qu'une installation
-        sans ce module n'entraîne jamais de RouteNotFoundException.
+      · Aucune route n'est définie ni modifiée — seules les routes existantes
+        sont appelées, et chacune est protégée par Route::has() pour qu'une
+        installation sans ce module ne lève jamais de RouteNotFoundException.
       · Aucune URL n'est réécrite.
       · Les données viennent du helper userActiveCardData(), déjà utilisé par
-        DashboardController::index(), qui normalise les cinq fournisseurs de carte
-        (Stripe, Sudo, Strowallet, Cardyfie, Flutterwave).
-      · Pas de fonction fléchée ni de tableau dans une directive Blade : toute la
-        logique est dans un bloc @php, les classes sont nommées complètement.
+        DashboardController::index(), qui normalise les cinq fournisseurs de
+        carte (Stripe, Sudo, Strowallet, Cardyfie, Flutterwave).
+      · Pas de fonction fléchée ni de tableau littéral dans une directive :
+        toute la logique vit dans un bloc PHP, classes nommées complètement.
 --}}
 @php
     $gvpCards       = [];
