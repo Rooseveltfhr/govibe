@@ -35,6 +35,7 @@ on:
           - user-ui
           - user-ui-undo
           - support-scan
+          - logs
           - merge
           - landing
           - brand
@@ -1600,6 +1601,63 @@ jobs:
           echo ""
           echo "NOTE : rien n'a été modifié. Ce relevé sert à refaire l'interface"
           echo "       sans toucher aux routes ni aux URL."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # LOGS — dernières erreurs du journal Laravel, avec pile d'appels.
+      # Lecture seule. Sert à voir la cause exacte d'un 500 au lieu de la deviner.
+      # ------------------------------------------------------------------
+      - name: Logs (dernières erreurs Laravel)
+        if: ${{ inputs.mode == 'logs' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          LOG="$LROOT/storage/logs/laravel.log"
+          [ -f "$LOG" ] || { echo "Journal introuvable : ${LOG#$HOME/}"; exit 0; }
+          echo "Journal : ${LOG#$HOME/} ($(du -h "$LOG" | cut -f1))"
+          echo ""
+
+          echo "=== DERNIÈRE ERREUR COMPLÈTE ==="
+          # Chaque entrée commence par [date]. On isole la dernière qui porte ERROR.
+          tail -c 900000 "$LOG" \
+            | awk '/^\[[0-9]{4}-/{buf=""} {buf=buf $0 "\n"} /ERROR|Exception|Error:/{last=buf} END{print last}' \
+            | head -34 | cut -c1-190 | sed 's/^/  /'
+          echo ""
+
+          echo "=== LES 8 DERNIÈRES LIGNES D'ERREUR (résumé) ==="
+          grep -a 'ERROR' "$LOG" 2>/dev/null | tail -8 | cut -c1-215 | sed 's/^/  /'
+          echo ""
+
+          echo "=== MENTIONS DU TABLEAU DE BORD OU DU BLOC SERVICES ==="
+          grep -a -iE 'dashboard|gvps|gvpCard|userActiveCardData' "$LOG" 2>/dev/null \
+            | tail -6 | cut -c1-215 | sed 's/^/  /' || echo "  (aucune)"
+          echo ""
+
+          echo "=== ÉTAT DE LA VUE DU TABLEAU DE BORD ==="
+          D="$LROOT/resources/views/user/dashboard.blade.php"
+          if [ -f "$D" ]; then
+            echo "  taille actuelle : $(stat -c%s "$D") octets"
+            if grep -q 'GVPA-SERVICES' "$D"; then
+              echo "  ⚠️  le bloc « Mes services » est TOUJOURS en place"
+            else
+              echo "  ✅ le bloc « Mes services » n'est plus présent (vue d'origine)"
+            fi
+            [ -f "$D.bak-ui" ] && echo "  sauvegarde : $(stat -c%s "$D.bak-ui") octets"
+          fi
+          echo ""
+          echo "NOTE : rien n'a été modifié."
           EOSSH
 
       # ------------------------------------------------------------------
