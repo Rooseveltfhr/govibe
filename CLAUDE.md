@@ -303,6 +303,23 @@ Makè `GVPA-TAP-FIX`, backup `.bak-tap`, mode a repati sou backup la anvan chak 
 (re-aplikab san akimile), anile ak mode `fix-tap-undo`.
 Menm mode a retabli `public/backend/js/smoothscroll.js` (li te absan → 500 sou chak paj admin).
 
+✅ **DASHBOARD USER — REFONT UI (mode `user-ui`)**: bloc « Mes services » enjekte apre
+`@section('content')` nan `resources/views/user/dashboard.blade.php`, + CSS nan `@push('css')`.
+Sous nan repo a (relizib nan PR): `govibepay/ui/dashboard-services.blade.php` + `.css`.
+Kontni: kat vityèl yo **vizib jan yo ye** (rail scroll orizontal, vizyèl kat reyèl: chip,
+nimewo maske, tityilè, echeyans, solde), + 4 bouton (Rechaje kat / Kreye kat / Rechaj mobil /
+PayLink). Done soti nan helper **`userActiveCardData()`** (menm sa `DashboardController::index()`
+itilize) ki nòmalize 5 founisè (Stripe, Sudo, Strowallet, Cardyfie, Flutterwave) → bloc la pa
+depann de okenn modèl patikilye. Eta vid dedye si pa gen kat.
+**Zewo wout defini/modifye, zewo URL reekri** — 5 wout ki egziste deja, chak pwoteje ak
+`Route::has()` (pa ka gen `RouteNotFoundException`). Style prefikse `.gvps`, mobil-dabò
+(2 kolòn 96px sou telefòn → 4 kolòn 112px sou gran ekran).
+Mode a: repati sou backup `.bak-ui` (re-aplikab san akimile) → enjekte → **rekonpile vi a ak
+motè Blade + `php -l` sou PHP ki soti a** → restore backup la si echwe. Anile: `user-ui-undo`.
+Wout yo: `user.dashboard`, `user.virtual.card.index|create.page|fund.page`,
+`user.mobile.topup.index`, `user.payment-link.index`.
+Mode `user-dash` = relve lekti sèl (wout, helper, kontwolè, gabarit) — kouri l anvan tout refont.
+
 ⚠️ **Fo alèt korije**: `.env` (403), `.envMM` (404), `install/` (404) **PA ekspoze** —
 premye rapò a te baze sou prezans fichye sou disk, pa sou aksè HTTP reyèl.
 
