@@ -32,6 +32,8 @@ on:
           - fix-tap
           - fix-tap-undo
           - user-dash
+          - user-ui
+          - user-ui-undo
           - merge
           - landing
           - brand
@@ -1597,6 +1599,139 @@ jobs:
           echo ""
           echo "NOTE : rien n'a été modifié. Ce relevé sert à refaire l'interface"
           echo "       sans toucher aux routes ni aux URL."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # USER-UI — refonte de l'interface du tableau de bord utilisateur.
+      #
+      # Injecte le bloc « Mes services » (cartes virtuelles + recharge carte,
+      # création de carte, recharge mobile, PayLink) juste après
+      # @section('content'), et sa feuille de style en @push('css').
+      #
+      # GARANTIES : aucune route définie ni modifiée, aucune URL réécrite —
+      # seules des routes existantes sont appelées, chacune protégée par
+      # Route::has(). La vue est recompilée par le moteur Blade avant d'être
+      # validée ; au moindre échec, la sauvegarde est restaurée.
+      # ------------------------------------------------------------------
+      - name: User UI (refonte du tableau de bord)
+        if: ${{ inputs.mode == 'user-ui' || inputs.mode == 'user-ui-undo' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          SSH="ssh -i $HOME/.ssh/id_deploy -p $PORT -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          if [ "${{ inputs.mode }}" = "user-ui" ]; then
+            $SSH "cat > /tmp/.gvp-services.blade" < govibepay/ui/dashboard-services.blade.php
+            $SSH "cat > /tmp/.gvp-services.css"   < govibepay/ui/dashboard-services.css
+            echo "Fichiers d'interface transférés."
+          fi
+          $SSH "MODE='${{ inputs.mode }}' bash -s" <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          DASH="$LROOT/resources/views/user/dashboard.blade.php"
+          [ -f "$DASH" ] || { echo "ERREUR: $DASH introuvable."; exit 1; }
+          echo "Vue : ${DASH#$LROOT/}"
+
+          # --- ANNULATION ----------------------------------------------------
+          if [ "${MODE:-}" = "user-ui-undo" ]; then
+            if [ -f "$DASH.bak-ui" ]; then
+              cp -f "$DASH.bak-ui" "$DASH"
+              ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+              echo "↩️  Vue d'origine restaurée, cache de vues vidé."
+            else
+              echo "Aucune sauvegarde — rien à annuler."
+            fi
+            exit 0
+          fi
+
+          [ -s /tmp/.gvp-services.blade ] || { echo "ERREUR: bloc d'interface non reçu."; exit 1; }
+          [ -s /tmp/.gvp-services.css ]   || { echo "ERREUR: feuille de style non reçue."; exit 1; }
+
+          # Repartir de l'original : le mode reste ré-appliquable sans cumuler.
+          if [ -f "$DASH.bak-ui" ]; then
+            cp -f "$DASH.bak-ui" "$DASH"
+            echo "↺ reparti de la sauvegarde d'origine"
+          else
+            cp -f "$DASH" "$DASH.bak-ui"
+            echo "✅ sauvegarde créée : $(basename "$DASH").bak-ui"
+          fi
+
+          # --- Injection ------------------------------------------------------
+          cat > "$LROOT/.gvp-ui.php" <<'EOPHP'
+          <?php
+          $dash  = $argv[1];
+          $src   = file_get_contents($dash);
+          $block = file_get_contents('/tmp/.gvp-services.blade');
+          $css   = file_get_contents('/tmp/.gvp-services.css');
+
+          if (! preg_match('/@section\(\s*[\'"]content[\'"]\s*\)/', $src, $m, PREG_OFFSET_CAPTURE)) {
+              fwrite(STDERR, "ERREUR: @section('content') introuvable — aucune modification.\n");
+              exit(2);
+          }
+          $at  = $m[0][1] + strlen($m[0][0]);
+          $out = substr($src, 0, $at)
+               . "\n\n{{-- GVPA-SERVICES:début --}}\n" . $block . "\n{{-- GVPA-SERVICES:fin --}}\n"
+               . substr($src, $at);
+
+          $out .= "\n\n@push('css')\n{{-- GVPA-SERVICES-CSS --}}\n<style>\n" . $css . "\n</style>\n@endpush\n";
+
+          file_put_contents($dash, $out);
+          echo "  bloc inséré après @section('content') (+" . (strlen($out) - strlen($src)) . " octets)\n";
+          EOPHP
+          php "$LROOT/.gvp-ui.php" "$DASH" || {
+            echo "Injection échouée — restauration."
+            cp -f "$DASH.bak-ui" "$DASH"
+            rm -f "$LROOT/.gvp-ui.php"
+            exit 1
+          }
+          rm -f "$LROOT/.gvp-ui.php"
+
+          # --- Vérification : la vue compile-t-elle vraiment ? -----------------
+          echo ""
+          echo "=== VÉRIFICATION PAR LE MOTEUR BLADE ==="
+          cat > "$LROOT/.gvp-check.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          $file = $argv[1];
+          $php  = Illuminate\Support\Facades\Blade::compileString(file_get_contents($file));
+          $tmp  = sys_get_temp_dir().'/.gvp-compiled.php';
+          file_put_contents($tmp, $php);
+          echo $tmp, "\n";
+          EOPHP
+          COMPILED=$( cd "$LROOT" && php .gvp-check.php "$DASH" 2>&1 | tail -1 )
+          rm -f "$LROOT/.gvp-check.php"
+          if [ -f "$COMPILED" ] && php -l "$COMPILED" >/dev/null 2>&1; then
+            echo "  ✅ la vue compile et le PHP produit est valide"
+            rm -f "$COMPILED"
+          else
+            echo "  ❌ compilation invalide :"
+            [ -f "$COMPILED" ] && php -l "$COMPILED" 2>&1 | head -5 | sed 's/^/     /'
+            echo "$COMPILED" | head -3 | sed 's/^/     /'
+            echo "  → restauration de la vue d'origine."
+            cp -f "$DASH.bak-ui" "$DASH"
+            rm -f "$COMPILED"
+            ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+            exit 1
+          fi
+
+          ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+          rm -f /tmp/.gvp-services.blade /tmp/.gvp-services.css
+          echo ""
+          echo "  routes utilisées (existantes, jamais redéfinies) :"
+          echo "    user.virtual.card.index · user.virtual.card.create.page"
+          echo "    user.virtual.card.fund.page · user.mobile.topup.index"
+          echo "    user.payment-link.index"
+          echo ""
+          echo "Pour annuler : relancer ce workflow en mode « user-ui-undo »."
           EOSSH
 
       # ------------------------------------------------------------------

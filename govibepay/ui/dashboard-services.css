@@ -1,0 +1,277 @@
+/* ── GVPA-SERVICES ────────────────────────────────────────────────────────
+   Styles du bloc « Mes services » du tableau de bord utilisateur.
+   Ajouté en @push('css') à la fin de user/dashboard.blade.php.
+
+   Portée : tout est préfixé .gvps — aucune règle ne peut atteindre le reste
+   du tableau de bord ni le thème. Conçu mobile d'abord, la grille et les
+   tailles s'élargissant ensuite pour l'ordinateur.
+   -------------------------------------------------------------------- */
+
+.gvps {
+  --gvps-green: #2cb809;
+  --gvps-green-d: #1f8a06;
+  --gvps-ink: #1a2018;
+  --gvps-mut: #7a907a;
+  --gvps-line: #e4ede2;
+  --gvps-surf: #ffffff;
+  margin: 0 0 26px;
+  font-family: inherit;
+}
+
+.gvps-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.gvps-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--gvps-ink);
+  letter-spacing: -0.01em;
+}
+
+.gvps-all {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gvps-green);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.gvps-all:hover { text-decoration: underline; }
+
+/* ── Rail de cartes : défilement horizontal avec accroche ───────────── */
+
+.gvps-rail {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 2px 10px;
+  margin: 0 -2px;
+  scrollbar-width: none;
+}
+
+.gvps-rail::-webkit-scrollbar { display: none; }
+
+.gvps-card {
+  scroll-snap-align: start;
+  flex: 0 0 auto;
+  width: 300px;
+  max-width: 86vw;
+  min-height: 186px;
+  padding: 20px;
+  border-radius: 18px;
+  color: #fff;
+  background:
+    radial-gradient(ellipse 70% 60% at 85% 10%, rgba(44, 184, 9, 0.30) 0%, transparent 60%),
+    linear-gradient(150deg, #16220f 0%, #0a0f0a 100%);
+  box-shadow: 0 14px 34px rgba(10, 20, 8, 0.26);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.gvps-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gvps-green), transparent);
+}
+
+.gvps-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gvps-chip {
+  width: 38px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #e8c96a 0%, #b8912f 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.gvps-brand {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  opacity: 0.9;
+}
+
+.gvps-pan {
+  margin: 16px 0 0;
+  font-size: 1.16rem;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  font-variant-numeric: tabular-nums;
+}
+
+.gvps-card-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.gvps-lab {
+  display: block;
+  font-size: 0.60rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 3px;
+}
+
+.gvps-val {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.gvps-bal { text-align: right; }
+.gvps-bal .gvps-val { color: var(--gvps-green); }
+
+/* ── Carte vide ─────────────────────────────────────────────────────── */
+
+.gvps-card--empty {
+  background: transparent;
+  border: 2px dashed var(--gvps-line);
+  box-shadow: none;
+  color: var(--gvps-mut);
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.gvps-card--empty::before { display: none; }
+
+.gvps-empty-plus {
+  font-size: 1.9rem;
+  line-height: 1;
+  color: var(--gvps-green);
+  font-weight: 300;
+}
+
+.gvps-empty-txt {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.gvps-empty-cta {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 9px 20px;
+  border-radius: 999px;
+  background: var(--gvps-green);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.gvps-sum {
+  margin: 4px 0 16px;
+  font-size: 0.8rem;
+  color: var(--gvps-mut);
+}
+
+.gvps-sum strong { color: var(--gvps-ink); }
+
+/* ── Actions : deux colonnes sur mobile, quatre sur grand écran ─────── */
+
+.gvps-acts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.gvps-act {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 96px;
+  padding: 16px 10px;
+  border: 1px solid var(--gvps-line);
+  border-radius: 16px;
+  background: var(--gvps-surf);
+  color: var(--gvps-ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.gvps-act svg {
+  width: 25px;
+  height: 25px;
+  stroke: var(--gvps-green);
+  stroke-width: 1.9;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.gvps-act:hover,
+.gvps-act:focus-visible {
+  border-color: var(--gvps-green);
+  box-shadow: 0 8px 20px rgba(44, 184, 9, 0.14);
+  transform: translateY(-2px);
+  color: var(--gvps-ink);
+}
+
+.gvps-act:active { transform: translateY(0); }
+
+.gvps-act--primary {
+  background: var(--gvps-green);
+  border-color: var(--gvps-green);
+  color: #fff;
+}
+
+.gvps-act--primary svg { stroke: #fff; }
+
+.gvps-act--primary:hover,
+.gvps-act--primary:focus-visible {
+  background: var(--gvps-green-d);
+  border-color: var(--gvps-green-d);
+  color: #fff;
+}
+
+/* ── Ordinateur ─────────────────────────────────────────────────────── */
+
+@media (min-width: 768px) {
+  .gvps-title { font-size: 1.2rem; }
+  .gvps-acts { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .gvps-act { min-height: 112px; font-size: 0.88rem; }
+  .gvps-act svg { width: 28px; height: 28px; }
+  .gvps-card { width: 330px; min-height: 200px; }
+  .gvps-pan { font-size: 1.28rem; }
+}
+
+/* ── Thème sombre du tableau de bord, si activé ─────────────────────── */
+
+@media (prefers-color-scheme: dark) {
+  .gvps {
+    --gvps-ink: #eaf2e8;
+    --gvps-mut: #93a893;
+    --gvps-line: rgba(255, 255, 255, 0.12);
+    --gvps-surf: rgba(255, 255, 255, 0.04);
+  }
+}
