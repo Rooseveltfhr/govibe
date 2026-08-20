@@ -25,6 +25,7 @@
         ['route' => 'tagtoa.pos.index', 'icon' => 'fa-solid fa-cash-register', 'color' => 'icon-color-bs-pink', 'label' => __('Caisse (POS)')],
         ['route' => 'tagtoa.cards.index', 'icon' => 'fa-solid fa-credit-card', 'color' => 'icon-color-bs-lightred', 'label' => __('Carte TAGTOA')],
         ['route' => 'tagtoa.billing.index', 'icon' => 'fa-solid fa-chart-line', 'color' => 'icon-color-bs-peach', 'label' => __('Revenus')],
+        ['route' => 'tagtoa.developer.index', 'icon' => 'fa-solid fa-code', 'color' => 'icon-color-bs-blue', 'label' => __('Développeur (API)')],
     ];
 @endphp
 

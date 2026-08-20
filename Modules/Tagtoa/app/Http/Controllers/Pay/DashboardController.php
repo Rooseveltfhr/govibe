@@ -10,8 +10,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Models\Api\ApiPayment;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Models\Pay\PaymentProof;
+use Modules\Tagtoa\App\Services\Api\ApiPaymentService;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Modules\Tagtoa\App\Support\Pay\GatewayCatalog;
 use Modules\Tagtoa\App\Support\Tenant;
@@ -124,6 +126,15 @@ $data = $this->validatePage($request);
     {
         $proof = PaymentProof::whereHas('page', fn ($q) => $q->where('tenant_id', Tenant::id()))->findOrFail($id);
         $proof->update(['status' => $status, 'note' => $note ?? $proof->note, 'reviewed_at' => now()]);
+
+        // Preuve issue d'un paiement API : approuver la preuve fait passer le
+        // paiement du site tiers en « payé » et déclenche sa notification.
+        if ($status === PaymentProof::STATUS_APPROVED && $proof->api_payment_id) {
+            $payment = ApiPayment::find($proof->api_payment_id);
+            if ($payment) {
+                app(ApiPaymentService::class)->markPaid($payment);
+            }
+        }
 
         return back()->with('success', $msg);
     }

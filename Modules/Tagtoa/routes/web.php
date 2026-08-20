@@ -50,6 +50,8 @@ Route::get('/loyalty/card/{token}', [LoyaltyPublic::class, 'show'])->name('tagto
 Route::get('/links/{alias}', [LinksPublic::class, 'show'])->name('tagtoa.links.show');
 Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->name('tagtoa.links.go');
 Route::get('/site/{alias}', [SitePublic::class, 'show'])->name('tagtoa.site.show');
+// Page de paiement hébergée pour un paiement créé via l'API développeur.
+Route::get('/pay/i/{reference}', [PayPublic::class, 'apiCheckout'])->name('tagtoa.pay.api.checkout');
 Route::get('/menu/{alias}', [MenuPublic::class, 'show'])->name('tagtoa.menu.show');
 Route::get('/menu/order/{reference}', [MenuPublic::class, 'track'])->name('tagtoa.menu.track');
 Route::get('/menu/order/{reference}/status', [MenuPublic::class, 'status'])->name('tagtoa.menu.track.status');
@@ -295,6 +297,14 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     Route::put('/billing', [BillingController::class, 'update'])->name('tagtoa.billing.update');
     Route::post('/billing/settle', [BillingController::class, 'settle'])->name('tagtoa.billing.settle');
     Route::get('/billing/export', [BillingController::class, 'export'])->name('tagtoa.billing.export');
+
+    // ESPACE DÉVELOPPEUR — clés API + documentation d'intégration.
+    Route::prefix('developer')->group(function () {
+        $dev = \Modules\Tagtoa\App\Http\Controllers\Developer\DashboardController::class;
+        Route::get('/', [$dev, 'index'])->name('tagtoa.developer.index');
+        Route::post('/keys', [$dev, 'store'])->name('tagtoa.developer.store');
+        Route::post('/keys/{id}/revoke', [$dev, 'revoke'])->name('tagtoa.developer.revoke');
+    });
 });
 
 // ---------- SUPER-ADMIN TAGTOA (fondateur, cross-tenant, role:super_admin) ----------
