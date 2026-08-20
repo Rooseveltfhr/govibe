@@ -8,6 +8,7 @@
 <div class="h-row" style="gap:8px;margin-bottom:16px">
     <a href="{{ route('tagtoa.superadmin.plans') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-tags"></i> {{ __('Forfaits') }}</a>
     <a href="{{ route('tagtoa.superadmin.credits') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-credit-card"></i> {{ __('Crédits cartes') }}</a>
+    <a href="{{ route('tagtoa.superadmin.gateways') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-money-check-dollar"></i> {{ __('Passerelles') }}</a>
     <a href="{{ route('tagtoa.superadmin.status') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-server"></i> {{ __('État système') }}</a>
 </div>
 

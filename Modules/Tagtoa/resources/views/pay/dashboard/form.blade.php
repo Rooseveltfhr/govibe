@@ -19,49 +19,60 @@
         <label class="switch"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" @checked(old('is_active',$page->is_active ?? true))> {{ __('Page active (visible publiquement)') }}</label>
     </div>
 
+    @php
+        // Méthodes déjà enregistrées, indexées par passerelle (clé du catalogue).
+        $saved = $page->relationLoaded('methods') ? $page->methods->keyBy('type') : collect();
+    @endphp
+
+    {{-- ---------- Passerelles AUTOMATIQUES (API) ---------- --}}
     <div class="card">
-        <div class="h-row"><h2>{{ __('Méthodes de paiement') }}</h2><button type="button" class="btn btn-d btn-sm" onclick="addM()"><i class="fa-solid fa-plus"></i> {{ __('Ajouter') }}</button></div>
-        <div id="mlist"></div>
+        <div class="h-row"><h2>{{ __('Paiement automatique (API)') }}</h2></div>
+        <p style="color:var(--muted);font-size:13px;margin-top:-8px">
+            {{ __('Le client paie en ligne et la commande est validée toute seule. Activez seulement les passerelles dont les identifiants sont configurés.') }}
+        </p>
+        @foreach($catalog['auto'] as $type => $meta)
+            @include('tagtoa::pay.dashboard.partials.gateway-row', ['type' => $type, 'meta' => $meta, 'm' => $saved->get($type)])
+        @endforeach
     </div>
+
+    {{-- ---------- Passerelles MANUELLES (preuve) ---------- --}}
+    <div class="card">
+        <div class="h-row"><h2>{{ __('Paiement manuel (vos comptes)') }}</h2></div>
+        <p style="color:var(--muted);font-size:13px;margin-top:-8px">
+            {{ __('Le client paie directement sur votre compte, puis envoie une preuve que vous approuvez. L\'argent ne passe jamais par TAGTOA.') }}
+        </p>
+        @foreach($catalog['manual'] as $type => $meta)
+            @include('tagtoa::pay.dashboard.partials.gateway-row', ['type' => $type, 'meta' => $meta, 'm' => $saved->get($type)])
+        @endforeach
+    </div>
+
     <button class="btn btn-p" style="margin-top:4px"><i class="fa-solid fa-floppy-disk"></i> {{ __('Enregistrer') }}</button>
 </form>
 
-<template id="mtpl">
-    <div class="card mrow" style="background:var(--bg);margin-top:10px">
-        <div class="row">
-            <select name="methods[IDX][type]" class="sel" style="max-width:200px">
-                @foreach($methods as $k=>$meta)<option value="{{ $k }}">{{ $meta['label'] }}</option>@endforeach
-            </select>
-            <input name="methods[IDX][label]" class="inp" placeholder="{{ __('Libellé (ex: Mon MonCash)') }}">
-            <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.mrow').remove()"><i class="fa-solid fa-trash"></i></button>
-        </div>
-        <div class="row" style="margin-top:8px">
-            <input name="methods[IDX][account_holder]" class="inp" placeholder="{{ __('Nom du compte') }}">
-            <input name="methods[IDX][institution]" class="inp" placeholder="{{ __('Institution (banque / wallet)') }}">
-            <input name="methods[IDX][account_number]" class="inp" placeholder="{{ __('Compte / N° / wallet') }}">
-        </div>
-        <input name="methods[IDX][instructions]" class="inp" placeholder="{{ __('Instructions (optionnel)') }}" style="margin-top:8px">
-        <div class="row" style="margin-top:8px;align-items:center">
-            <div><label class="lbl" style="margin:0 0 4px">{{ __('QR (image)') }}</label><input type="file" name="methods[IDX][qr]" accept="image/*" class="inp"></div>
-            <div><label class="lbl" style="margin:0 0 4px">{{ __('Logo (image)') }}</label><input type="file" name="methods[IDX][logo]" accept="image/*" class="inp"></div>
-            <label class="switch" style="flex:0"><input type="checkbox" name="methods[IDX][requires_proof]" value="1" checked> {{ __('Preuve requise') }}</label>
-            <label class="switch" style="flex:0"><input type="checkbox" name="methods[IDX][is_active]" value="1" checked> {{ __('Active') }}</label>
-        </div>
-    </div>
-</template>
+<style>
+    .gwrow{border:1px solid var(--bd);border-radius:12px;margin-top:10px;overflow:hidden}
+    .gwhead{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;margin:0}
+    .gwicon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;flex:0 0 34px}
+    .gwname{font-weight:700;font-size:14.5px;flex:1}
+    .gwtag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.03em}
+    .gwtag.ok{background:#eafaf3;color:#0e5f44}
+    .gwtag.off{background:#fff5e6;color:#7a5200}
+    .gwbody{padding:0 14px 14px;border-top:1px solid var(--bd)}
+    /* Interrupteur ouvrir/fermer */
+    .sw{position:relative;width:46px;height:26px;flex:0 0 46px}
+    .sw input{opacity:0;width:0;height:0;position:absolute}
+    .sw span{position:absolute;inset:0;background:#c9d2c6;border-radius:999px;transition:.18s}
+    .sw span::before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.18s}
+    .sw input:checked + span{background:#2cb809}
+    .sw input:checked + span::before{transform:translateX(20px)}
+</style>
 @push('scripts')
 <script>
-var mIdx=0;
-function addM(d){var h=document.getElementById('mtpl').innerHTML.replace(/IDX/g,mIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('mlist').appendChild(r);
-    if(d){r.querySelector('[name$="[type]"]').value=d.type;r.querySelector('[name$="[label]"]').value=d.label||'';r.querySelector('[name$="[account_holder]"]').value=d.account_holder||'';r.querySelector('[name$="[institution]"]').value=d.institution||'';r.querySelector('[name$="[account_number]"]').value=d.account_number||'';r.querySelector('[name$="[instructions]"]').value=d.instructions||'';r.querySelector('[name$="[requires_proof]"]').checked=!!d.requires_proof;r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;var i=document.createElement('input');i.type='hidden';i.name='methods['+mIdx+'][id]';i.value=d.id;r.appendChild(i);}
-    mIdx++;}
-@php
-    $methodData = $page->relationLoaded('methods')
-        ? $page->methods->map(fn ($m) => ['id' => $m->id, 'type' => $m->type, 'label' => $m->label, 'account_holder' => $m->account_holder, 'institution' => $m->institution, 'account_number' => $m->account_number, 'instructions' => $m->instructions, 'requires_proof' => $m->requires_proof, 'is_active' => $m->is_active])->values()
-        : [];
-@endphp
-var ex=@json($methodData);
-if(ex.length){ex.forEach(addM);}else{addM();}
+    function gwToggle(cb){
+        var body = cb.closest('.gwrow').querySelector('.gwbody');
+        if (body) { body.style.display = cb.checked ? '' : 'none'; }
+    }
 </script>
 @endpush
+
 @endsection

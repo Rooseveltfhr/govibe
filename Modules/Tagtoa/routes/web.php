@@ -309,4 +309,7 @@ Route::middleware(['auth', 'valid.user', 'role:super_admin'])->prefix('tagtoa/ad
     Route::post('/card-credits', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\CardCreditController::class, 'grant'])->name('tagtoa.superadmin.credits.grant');
     // État système en lecture seule (environnement, DB, cache, sécurité NFC, limites connues).
     Route::get('/status', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\StatusController::class, 'index'])->name('tagtoa.superadmin.status');
+    // Passerelles de paiement : activation, frais, et qui encaisse (plateforme vs marchand).
+    Route::get('/gateways', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\GatewayController::class, 'index'])->name('tagtoa.superadmin.gateways');
+    Route::put('/gateways', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\GatewayController::class, 'update'])->name('tagtoa.superadmin.gateways.update');
 });
