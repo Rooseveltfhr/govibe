@@ -1516,7 +1516,7 @@ jobs:
                   if (! preg_match($re, $u) && ! preg_match($re, $name)) { continue; }
                   $m = implode('|', array_diff($r->methods(), ['HEAD']));
                   printf("    %-9s /%-42s %s\n", $m, $u, $name);
-                  if (++$n >= 14) { break; }
+                  if (++$n >= 26) { break; }
               }
               if ($n === 0) { echo "    (aucune)\n"; }
           }
@@ -1536,27 +1536,40 @@ jobs:
             done
           fi
           echo ""
-          echo "  --- gabarit(s) utilisé(s) et variables référencées ---"
+          echo "  --- squelette Blade (extends / sections / stacks) ---"
           for D in $DASH; do
-            grep -oE "@extends\('[^']+'\)" "$D" | sed 's/^/    /' | head -3
-            echo "    variables Blade citées :"
-            grep -oE '\$[a-zA-Z_][a-zA-Z0-9_]*' "$D" | sort -u | tr '\n' ' ' | fold -w 120 -s | sed 's/^/      /'
+            grep -nE '@(extends|section|endsection|push|endpush|stack|include|yield)' "$D" \
+              | cut -c1-130 | sed 's/^/    /' | head -40
             echo ""
-            echo "    routes citées :"
-            grep -oE "route\('[^']+'" "$D" | sed "s/route('//" | sort -u | sed 's/^/      /' | head -30
+            echo "    --- variables citées ---"
+            grep -ohE '\$[a-zA-Z_][a-zA-Z0-9_]*' "$D" | sort -u | tr '\n' ' ' | fold -w 110 -s | sed 's/^/      /'
+            echo ""
+            echo "    --- routes citées (guillemets simples ET doubles) ---"
+            grep -ohE "route\(['\"][^'\"]+['\"]" "$D" | sed -E "s/route\(['\"]//" | sort -u | sed 's/^/      /' | head -40
+            echo ""
+            echo "    --- 90 premières lignes ---"
+            head -90 "$D" | cat -n | cut -c1-150 | sed 's/^/    /'
           done
           echo ""
 
-          echo "=== CONTRÔLEUR : QUE PASSE-T-IL À LA VUE ? ==="
-          CTRL=$(grep -rln "view('user\.\(dashboard\|home\)\|view(\"user\.\(dashboard\|home\)" "$LROOT/app" 2>/dev/null | head -3)
-          if [ -z "$CTRL" ]; then
-            CTRL=$(find "$LROOT/app/Http/Controllers/User" -maxdepth 1 -name '*.php' 2>/dev/null | head -6)
+          echo "=== CONTRÔLEUR DU TABLEAU DE BORD (intégral) ==="
+          CTRL="$LROOT/app/Http/Controllers/User/DashboardController.php"
+          if [ -f "$CTRL" ]; then
+            echo "  ${CTRL#$LROOT/} ($(wc -l < "$CTRL") lignes)"
+            cat -n "$CTRL" | cut -c1-160 | sed 's/^/  /' | head -200
+          else
+            echo "  introuvable"
           fi
-          for C in $CTRL; do
-            echo "  ${C#$LROOT/}"
-            awk '/function (home|dashboard)\(/{f=1} f{print "    "$0} f&&/^    \}/{exit}' "$C" | cut -c1-150 | head -45
-            echo ""
-          done
+          echo ""
+
+          echo "=== GABARIT MAÎTRE : POINTS D'INSERTION ==="
+          MST="$LROOT/resources/views/user/layouts/master.blade.php"
+          if [ -f "$MST" ]; then
+            echo "  ${MST#$LROOT/} ($(wc -l < "$MST") lignes)"
+            grep -nE '@(yield|stack|include|section)' "$MST" | cut -c1-130 | sed 's/^/    /' | head -30
+          else
+            echo "  introuvable"
+          fi
 
           echo "=== FICHIERS DE VUE LIÉS AUX SERVICES À CONSERVER ==="
           for K in card topup paylink; do
