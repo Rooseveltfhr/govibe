@@ -36,6 +36,7 @@ on:
           - user-ui-undo
           - support-scan
           - logs
+          - prep-scan
           - merge
           - landing
           - brand
@@ -1601,6 +1602,102 @@ jobs:
           echo ""
           echo "NOTE : rien n'a été modifié. Ce relevé sert à refaire l'interface"
           echo "       sans toucher aux routes ni aux URL."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # PREP-SCAN — préparation, lecture seule. Trois questions ouvertes :
+      #   1. quelles classes et quel CSS l'espace utilisateur emploie-t-il
+      #      réellement (pour écrire un thème qui atteint sa cible) ;
+      #   2. 3CX autorise-t-il l'affichage en iframe (option « appel ») ;
+      #   3. MonCash est-il déjà intégré, et existe-t-il une route de rappel
+      #      générique réutilisable pour l'IPN CoinPayments.
+      # ------------------------------------------------------------------
+      - name: Prep scan (thème, 3CX, passerelles — lecture seule)
+        if: ${{ inputs.mode == 'prep-scan' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          V="$LROOT/resources/views/user"
+          echo "Script : $LROOT"
+          echo ""
+
+          echo "=== 1a. FEUILLES DE STYLE CHARGÉES CÔTÉ UTILISATEUR ==="
+          HA="$V/partials/header-assets.blade.php"
+          [ -f "$HA" ] && grep -ohE "[A-Za-z0-9_/.-]+\.css" "$HA" | sort -u | sed 's/^/  /' | head -18
+          echo ""
+
+          echo "=== 1b. CLASSES LES PLUS UTILISÉES DANS LES VUES UTILISATEUR ==="
+          grep -rhoE 'class="[^"]+"' "$V" 2>/dev/null \
+            | sed 's/class="//; s/"$//' | tr ' ' '\n' \
+            | grep -E '^[a-z][a-z0-9_-]*$' \
+            | grep -vE '^(col|row|d|mt|mb|mx|my|pt|pb|px|py|text|w|h|fa|las|la|far|fas)$' \
+            | sort | uniq -c | sort -rn | head -40 | sed 's/^/  /'
+          echo ""
+
+          echo "=== 1c. COULEUR PRIMAIRE ACTUELLE DU THÈME ==="
+          CSSF="$DOM/public_html/public/backend/css/style.css"
+          if [ -f "$CSSF" ]; then
+            echo "  --- variables CSS déclarées ---"
+            grep -ohE '\-\-[a-z-]+:[^;]+;' "$CSSF" 2>/dev/null | sort -u | head -18 | sed 's/^/    /'
+            echo "  --- couleurs les plus fréquentes ---"
+            grep -ohE '#[0-9a-fA-F]{6}' "$CSSF" | tr 'A-F' 'a-f' | sort | uniq -c | sort -rn | head -10 | sed 's/^/    /'
+            echo "  --- règle .btn--base ---"
+            awk '/^\.btn--base[ ,{]/,/^\}/' "$CSSF" | head -16 | sed 's/^/    /'
+          else
+            echo "  (style.css introuvable)"
+          fi
+          echo ""
+
+          echo "=== 2. 3CX AUTORISE-T-IL L'IFRAME ? ==="
+          H=$(curl -sS -I --max-time 15 "https://1207.3cx.cloud/supporttechnical" 2>&1 || echo "ECHEC")
+          echo "$H" | grep -iE '^(HTTP/|x-frame-options|content-security-policy)' | cut -c1-190 | sed 's/^/  /'
+          if echo "$H" | grep -qiE 'x-frame-options|frame-ancestors'; then
+            echo "  ⚠️  une politique d'affichage est déclarée — voir ci-dessus"
+          else
+            echo "  ✅ aucun X-Frame-Options ni frame-ancestors : l'iframe devrait passer"
+          fi
+          echo ""
+
+          echo "=== 3a. MONCASH EST-IL DÉJÀ INTÉGRÉ ? ==="
+          find "$LROOT/app" -iname '*moncash*' 2>/dev/null | sed "s#$LROOT/#  #" | head -8
+          echo "=== 3b. COINPAYMENTS EST-IL PRÉSENT ? ==="
+          find "$LROOT/app" -iname '*coinpayment*' 2>/dev/null | sed "s#$LROOT/#  #" | head -6
+          echo "  (aucune ligne ci-dessus = absent, à écrire)"
+          echo ""
+
+          echo "=== 3c. ROUTE DE RAPPEL GÉNÉRIQUE RÉUTILISABLE POUR L'IPN ? ==="
+          cat > "$LROOT/.gvp-cb.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          $n = 0;
+          foreach (app('router')->getRoutes() as $r) {
+              $u = $r->uri();
+              $name = $r->getName() ?: '-';
+              if (! preg_match('#(callback|ipn|webhook|notify|success|response)#i', $u . ' ' . $name)) { continue; }
+              $m = implode('|', array_diff($r->methods(), ['HEAD']));
+              printf("  %-9s /%-50s %s\n", $m, $u, $name);
+              if (++$n >= 18) { break; }
+          }
+          if ($n === 0) { echo "  (aucune — une route IPN dédiée sera nécessaire)\n"; }
+          EOPHP
+          ( cd "$LROOT" && php .gvp-cb.php 2>&1 | head -22 ) || echo "  (lecture impossible)"
+          rm -f "$LROOT/.gvp-cb.php"
+          echo ""
+          echo "NOTE : rien n'a été modifié."
           EOSSH
 
       # ------------------------------------------------------------------
