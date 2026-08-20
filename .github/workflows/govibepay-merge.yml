@@ -1548,7 +1548,7 @@ jobs:
             grep -ohE "route\(['\"][^'\"]+['\"]" "$D" | sed -E "s/route\(['\"]//" | sort -u | sed 's/^/      /' | head -40
             echo ""
             echo "    --- 90 premières lignes ---"
-            head -90 "$D" | cat -n | cut -c1-150 | sed 's/^/    /'
+            head -40 "$D" | cat -n | cut -c1-140 | sed 's/^/    /'
           done
           echo ""
 
@@ -1556,10 +1556,27 @@ jobs:
           CTRL="$LROOT/app/Http/Controllers/User/DashboardController.php"
           if [ -f "$CTRL" ]; then
             echo "  ${CTRL#$LROOT/} ($(wc -l < "$CTRL") lignes)"
-            cat -n "$CTRL" | cut -c1-160 | sed 's/^/  /' | head -200
+            awk '/function index\(/{f=1} f{print}  f&&/return view\(/{print; exit}' "$CTRL" | tail -4 | cut -c1-170 | sed 's/^/  /'
           else
             echo "  introuvable"
           fi
+          echo ""
+
+          echo "=== HELPER userActiveCardData() : QUE RETOURNE-T-IL ? ==="
+          HF=$(grep -rl 'function userActiveCardData' "$LROOT/app" 2>/dev/null | head -1)
+          if [ -n "$HF" ]; then
+            echo "  ${HF#$LROOT/}"
+            awk '/function userActiveCardData/{f=1} f{print "    "$0; if(/^}/) exit}' "$HF" | cut -c1-150 | head -40
+          else
+            echo "  introuvable"
+          fi
+          echo ""
+
+          echo "=== QUEL FOURNISSEUR DE CARTE EST ACTIF ? ==="
+          grep -rhoE "'(stripe|sudo|strowallet|cardyfie|flutterwave)'" "$LROOT/app/Constants" 2>/dev/null | sort | uniq -c | sed 's/^/  /' | head -10
+          echo "  --- routes d'index par fournisseur réellement définies ---"
+          grep -rhoE "name\(['\"]user\.[a-z]*\.?virtual\.card\.(index|create\.page|fund\.page)['\"]" "$LROOT/routes" 2>/dev/null \
+            | sed -E "s/name\(['\"]//; s/['\"]$//" | sort -u | sed 's/^/    /' | head -20
           echo ""
 
           echo "=== GABARIT MAÎTRE : POINTS D'INSERTION ==="
