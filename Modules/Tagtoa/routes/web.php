@@ -322,4 +322,7 @@ Route::middleware(['auth', 'valid.user', 'role:super_admin'])->prefix('tagtoa/ad
     // Passerelles de paiement : activation, frais, et qui encaisse (plateforme vs marchand).
     Route::get('/gateways', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\GatewayController::class, 'index'])->name('tagtoa.superadmin.gateways');
     Route::put('/gateways', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\GatewayController::class, 'update'])->name('tagtoa.superadmin.gateways.update');
+    // Saisie des identifiants API d'un driver (chiffrés en base).
+    Route::post('/gateways/{driver}/credentials', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\GatewayController::class, 'saveCredentials'])
+        ->where('driver', '[a-z0-9_]+')->name('tagtoa.superadmin.gateways.credentials');
 });

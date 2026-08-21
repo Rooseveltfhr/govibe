@@ -7,10 +7,13 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Models\Pay\GatewayCredential;
 use Modules\Tagtoa\App\Models\Pay\GatewaySetting;
 use Modules\Tagtoa\App\Services\Audit\AuditService;
 use Modules\Tagtoa\App\Support\GatewayManager;
 use Modules\Tagtoa\App\Support\Pay\GatewayCatalog;
+use Modules\Tagtoa\App\Support\Pay\GatewayCredentialFields;
+use Modules\Tagtoa\App\Support\PaymentGateway;
 
 /**
  * TAGTOA SUPER-ADMIN — passerelles de paiement (fondateur uniquement).
@@ -46,7 +49,77 @@ class GatewayController extends Controller
             'catalog'     => GatewayCatalog::split($catalog),
             'credentials' => $credentials,
             'modes'       => GatewayCatalog::CREDENTIAL_MODES,
+            'drivers'     => $this->drivers(),
         ]);
+    }
+
+    /**
+     * Un bloc par driver API : champs à saisir + état de chaque valeur.
+     * On ne renvoie JAMAIS la valeur d'un identifiant à la vue — uniquement sa
+     * provenance ('db' = saisi ici, 'env' = défini sur le serveur, 'empty').
+     */
+    protected function drivers(): array
+    {
+        $stored = GatewayManager::stored();
+        $out = [];
+
+        foreach ((array) config('tagtoa.gateways', []) as $driver => $cfg) {
+            $cfg = (array) $cfg;
+            $out[$driver] = [
+                'label'   => $cfg['label'] ?? ucfirst($driver),
+                'fields'  => GatewayCredentialFields::describe($cfg),
+                'sources' => GatewayCredentialFields::sources($cfg, $stored[$driver] ?? null),
+                'mode'    => GatewayCredentialFields::merge($cfg, $stored[$driver] ?? null)['mode'] ?? null,
+                'ready'   => GatewayManager::enabled($driver),
+                // Types de méthode couverts par ce driver (usdt/btc… → coinpayments).
+                'types'   => array_keys(array_filter(
+                    PaymentGateway::GATEWAYS,
+                    fn ($g) => ($g['driver'] ?? null) === $driver
+                )),
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Enregistre les identifiants d'UN driver (chiffrés en base). */
+    public function saveCredentials(Request $request, string $driver): RedirectResponse
+    {
+        $config = (array) config('tagtoa.gateways.'.$driver);
+        abort_if($config === [], 404);
+
+        $spec = GatewayCredentialFields::describe($config);
+
+        $rules = ['clear' => ['nullable', 'boolean'], 'mode' => ['nullable', Rule::in(GatewayCredentialFields::MODES)]];
+        foreach ($spec['credentials'] as $key) {
+            $rules['credentials.'.$key] = ['nullable', 'string', 'max:400'];
+        }
+        foreach ($spec['extras'] as $key) {
+            $rules[$key] = ['nullable', 'string', 'max:400'];
+        }
+        $data = $request->validate($rules);
+
+        $clear = ! empty($data['clear']);
+        $record = GatewayCredential::firstOrNew(['driver' => $driver]);
+        $record->values = GatewayCredentialFields::applySubmission(
+            (array) ($record->values ?? []),
+            $data,
+            $clear
+        );
+        $record->save();
+
+        GatewayManager::flush();
+
+        // On journalise l'ACTION, jamais les valeurs.
+        app(AuditService::class)->log(
+            $clear ? 'gateway.credentials_cleared' : 'gateway.credentials_updated',
+            $record,
+            $driver
+        );
+
+        return back()->with('success', $clear
+            ? __('Identifiants effacés pour :d.', ['d' => $driver])
+            : __('Identifiants enregistrés pour :d.', ['d' => $driver]));
     }
 
     public function update(Request $request): RedirectResponse
