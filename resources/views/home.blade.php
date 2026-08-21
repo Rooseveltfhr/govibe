@@ -121,9 +121,9 @@
   .logo3d-scene { position:relative; z-index:10; display:flex; flex-direction:column; align-items:center; gap:20px; padding-bottom:50px; width:100%; }
   .logo3d { display:flex; align-items:center; gap:2px; perspective:900px; transform-style:preserve-3d; flex-wrap:nowrap; }
   .l3 { font-family:'Orbitron',sans-serif; font-size:clamp(42px,11vw,140px); line-height:1; display:inline-flex; align-items:center; justify-content:center; position:relative; cursor:default; transform-style:preserve-3d; transition:transform .15s ease; animation:letterIn .9s cubic-bezier(.34,1.56,.64,1) both; }
-  .l3-blue  { color:#2563EB; -webkit-text-stroke:2px #1e40af; text-shadow:1px 1px 0 #1e3a8a,2px 2px 0 #1e3a8a,3px 3px 0 #1e3a8a,4px 4px 0 #1e3a8a,12px 14px 28px rgba(0,0,0,.85),0 0 55px rgba(37,99,235,.45); }
-  .l3-yellow{ color:#ffe800; -webkit-text-stroke:2px #8a7d00; text-shadow:1px 1px 0 #eed500,2px 2px 0 #ddc200,3px 3px 0 #ccaf00,4px 4px 0 #bb9c00,12px 14px 28px rgba(0,0,0,.85),0 0 55px rgba(255,232,0,.5); }
-  .l3-green { color:#10B981; -webkit-text-stroke:2px #005c22; text-shadow:1px 1px 0 #00cc47,2px 2px 0 #00b83e,3px 3px 0 #00a435,4px 4px 0 #00902c,12px 14px 28px rgba(0,0,0,.85),0 0 55px rgba(16,185,129,.5); }
+  .l3-blue  { color:#DC2626; -webkit-text-stroke:2px #7f1d1d; text-shadow:1px 1px 0 #991b1b,2px 2px 0 #991b1b,3px 3px 0 #7f1d1d,4px 4px 0 #7f1d1d,12px 14px 28px rgba(0,0,0,.85),0 0 55px rgba(220,38,38,.55); }
+  .l3-yellow{ color:#DC2626; -webkit-text-stroke:2px #7f1d1d; text-shadow:1px 1px 0 #991b1b,2px 2px 0 #991b1b,3px 3px 0 #7f1d1d,4px 4px 0 #7f1d1d,12px 14px 28px rgba(0,0,0,.85),0 0 55px rgba(220,38,38,.5); }
+  .l3-green { color:#DC2626; -webkit-text-stroke:2px #7f1d1d; text-shadow:1px 1px 0 #991b1b,2px 2px 0 #991b1b,3px 3px 0 #7f1d1d,4px 4px 0 #7f1d1d,12px 14px 28px rgba(0,0,0,.85),0 0 55px rgba(220,38,38,.5); }
   @keyframes letterIn { 0%{opacity:0;transform:translateY(-40px) rotateX(60deg) scale(.7)} 100%{opacity:1;transform:translateY(0) rotateX(0deg) scale(1)} }
   .l3-icon { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
   .power-ring {
@@ -434,7 +434,7 @@
 {{-- ===== CE QUE NOUS FAISONS ===== --}}
 <section id="ce-que-nous-faisons" style="background:#fff; padding:90px 2rem; border-top:4px solid #DC2626; position:relative; overflow:hidden;">
   <div style="position:absolute;top:0;right:0;width:420px;height:420px;background:radial-gradient(circle,rgba(220,38,38,.05) 0%,transparent 70%);pointer-events:none;"></div>
-  <div style="position:absolute;bottom:0;left:0;width:320px;height:320px;background:radial-gradient(circle,rgba(37,99,235,.04) 0%,transparent 70%);pointer-events:none;"></div>
+  <div style="position:absolute;bottom:0;left:0;width:320px;height:320px;background:radial-gradient(circle,rgba(220,38,38,.04) 0%,transparent 70%);pointer-events:none;"></div>
   <div class="gv-wrap" style="position:relative;z-index:1;">
 
     {{-- Mission statement --}}
@@ -442,8 +442,8 @@
       <span class="gv-stag"><i class="fas fa-bolt"></i> CE QUE NOUS FAISONS</span>
       <p style="font-family:'Anton',sans-serif; font-size:clamp(1.5rem,4vw,2.5rem); line-height:1.25; color:#0f172a; margin:.6rem 0 1.5rem; text-wrap:balance;">
         Nous construisons les <span style="color:#DC2626;">infrastructures</span>,
-        <span style="color:#2563EB;">technologies</span> et
-        <span style="color:#10B981;">programmes</span>
+        <span style="color:#DC2626;">technologies</span> et
+        <span style="color:#DC2626;">programmes</span>
         qui permettent aux entrepreneurs, organisations et professionnels de
         <strong>créer, travailler et grandir.</strong>
       </p>
@@ -978,10 +978,10 @@
 /* ── TYPING ANIMATION ─────────────────────────────── */
 (function(){
   const WORDS = {
-    fr:[{text:'Entrepreneurs Visionnaires.',color:'#DC2626'},{text:'Startups Innovantes',color:'#10B981'},{text:'Plateformes Digitales.',color:'#a855f7'},{text:'Solutions avec IA.',color:'#f59e0b'},{text:'Centres d\'Appels.',color:'#0891B2'},{text:'Coworking Space',color:'#2563EB'},{text:'L\'Avenir Numérique.',color:'#10B981'}],
-    en:[{text:'Visionary Entrepreneurs.',color:'#DC2626'},{text:'Innovative Startups',color:'#10B981'},{text:'Digital Platforms.',color:'#a855f7'},{text:'AI Solutions.',color:'#f59e0b'},{text:'Call Centers.',color:'#0891B2'},{text:'Coworking Space',color:'#2563EB'},{text:'The Digital Future.',color:'#10B981'}],
-    cr:[{text:'Antreprenè Vyzyone.',color:'#DC2626'},{text:'Startup Inovatè',color:'#10B981'},{text:'Platfòm Dijital.',color:'#a855f7'},{text:'Solisyon IA.',color:'#f59e0b'},{text:'Sant Apèl.',color:'#0891B2'},{text:'Kowoking Espas',color:'#2563EB'},{text:'Avni Nimerik.',color:'#10B981'}],
-    es:[{text:'Emprendedores Visionarios.',color:'#DC2626'},{text:'Startups Innovadoras',color:'#10B981'},{text:'Plataformas Digitales.',color:'#a855f7'},{text:'Soluciones con IA.',color:'#f59e0b'},{text:'Call Centers.',color:'#0891B2'},{text:'Coworking Space',color:'#2563EB'},{text:'El Futuro Digital.',color:'#10B981'}]
+    fr:[{text:'Entrepreneurs Visionnaires.',color:'#DC2626'},{text:'Startups Innovantes',color:'#DC2626'},{text:'Plateformes Digitales.',color:'#DC2626'},{text:'Solutions avec IA.',color:'#DC2626'},{text:'Centres d\'Appels.',color:'#DC2626'},{text:'Coworking Space',color:'#DC2626'},{text:'L\'Avenir Numérique.',color:'#DC2626'}],
+    en:[{text:'Visionary Entrepreneurs.',color:'#DC2626'},{text:'Innovative Startups',color:'#DC2626'},{text:'Digital Platforms.',color:'#DC2626'},{text:'AI Solutions.',color:'#DC2626'},{text:'Call Centers.',color:'#DC2626'},{text:'Coworking Space',color:'#DC2626'},{text:'The Digital Future.',color:'#DC2626'}],
+    cr:[{text:'Antreprenè Vyzyone.',color:'#DC2626'},{text:'Startup Inovatè',color:'#DC2626'},{text:'Platfòm Dijital.',color:'#DC2626'},{text:'Solisyon IA.',color:'#DC2626'},{text:'Sant Apèl.',color:'#DC2626'},{text:'Kowoking Espas',color:'#DC2626'},{text:'Avni Nimerik.',color:'#DC2626'}],
+    es:[{text:'Emprendedores Visionarios.',color:'#DC2626'},{text:'Startups Innovadoras',color:'#DC2626'},{text:'Plataformas Digitales.',color:'#DC2626'},{text:'Soluciones con IA.',color:'#DC2626'},{text:'Call Centers.',color:'#DC2626'},{text:'Coworking Space',color:'#DC2626'},{text:'El Futuro Digital.',color:'#DC2626'}]
   };
   let wi=0,ci=0,del=false,lang=localStorage.getItem('gv_lang')||'fr';
   const tw=document.getElementById('gvTypingWord');
