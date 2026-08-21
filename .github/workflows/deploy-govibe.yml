@@ -67,41 +67,81 @@ jobs:
           echo "user=$USER" >> "$GITHUB_OUTPUT"
           echo "port=$PORT" >> "$GITHUB_OUTPUT"
 
-      - name: Vérifier que l'hôte héberge bien GOVIBE
-        # Étape séparée et non destructive : si les secrets pointent vers une
-        # autre machine (le VPS TAGTOA par exemple), on s'arrête ici sans avoir
+      - name: Localiser l'application sur l'hôte
+        # Étape séparée et non destructive : elle ne fait que lire. Si les
+        # secrets pointent vers une autre machine, on s'arrête ici sans avoir
         # touché à quoi que ce soit.
+        #
+        # Le chemin n'est pas codé en dur : selon l'hébergement, l'app vit dans
+        # /var/www/govibe ou dans une arborescence ~/domains/<domaine>/…
+        # On sonde les emplacements probables et on retient le dépôt dont
+        # remote.origin.url contient « govibe ».
+        id: locate
         env:
           APP_DIR: ${{ secrets.GOVIBE_APP_DIR }}
         run: |
           set -euo pipefail
-          DIR="${APP_DIR:-/var/www/govibe}"
-          ssh -i ~/.ssh/id_deploy -p "${{ steps.target.outputs.port }}" \
+          OUT=$(ssh -i ~/.ssh/id_deploy -p "${{ steps.target.outputs.port }}" \
               -o StrictHostKeyChecking=accept-new \
               "${{ steps.target.outputs.user }}@${{ steps.target.outputs.host }}" \
               "bash -s" <<EOSSH
-          set -euo pipefail
-          DIR="$DIR"
-          if [ ! -d "\$DIR/.git" ]; then
-            echo "::error::\$DIR n'est pas un dépôt git sur cet hôte. Vérifier GOVIBE_APP_DIR, ou que les secrets VPS_* pointent bien vers le serveur de govibeht.com."
+          set -uo pipefail
+          HINT="$APP_DIR"
+
+          is_govibe() {
+            [ -d "\$1/.git" ] || return 1
+            git -C "\$1" config --get remote.origin.url 2>/dev/null | grep -qi govibe
+          }
+
+          # 1. Chemin fourni explicitement via le secret GOVIBE_APP_DIR.
+          if [ -n "\$HINT" ]; then
+            if is_govibe "\$HINT"; then echo "FOUND:\$HINT"; exit 0; fi
+            echo "INFO:GOVIBE_APP_DIR=\$HINT ne contient pas le dépôt govibe."
+          fi
+
+          # 2. Emplacements probables. Les hébergements de type panel placent
+          #    Laravel sous domains/<domaine>/ (parfois dans un sous-dossier).
+          for base in /var/www/govibe /var/www/govibeht.com \
+                      "\$HOME"/domains/govibeht.com /home/*/domains/govibeht.com \
+                      "\$HOME"/domains/www.govibeht.com; do
+            for sub in "" /laravel /public_html/laravel /app /public_html; do
+              d="\${base}\${sub}"
+              if is_govibe "\$d"; then echo "FOUND:\$d"; exit 0; fi
+            done
+          done
+
+          # 3. Rien trouvé : on dresse l'inventaire des dépôts présents pour
+          #    que l'erreur soit exploitable plutôt qu'aveugle.
+          echo "INFO:Aucun dépôt govibe aux emplacements sondés."
+          echo "INFO:Dépôts git trouvés sur cet hôte :"
+          for d in /var/www/*/ "\$HOME"/domains/*/ "\$HOME"/domains/*/*/ /home/*/domains/*/; do
+            [ -d "\${d}.git" ] || continue
+            echo "INFO:  \${d} → \$(git -C "\$d" config --get remote.origin.url 2>/dev/null || echo '?')"
+          done
+          echo "INFO:Contenu de \$HOME/domains :"
+          ls -1 "\$HOME"/domains 2>/dev/null | sed 's/^/INFO:  /' || echo "INFO:  (absent)"
+          exit 0
+          EOSSH
+          ) || true
+
+          printf '%s\n' "$OUT" | grep -v '^FOUND:' | sed 's/^INFO://' || true
+
+          DIR=$(printf '%s\n' "$OUT" | grep '^FOUND:' | head -1 | cut -d: -f2-)
+          if [ -z "$DIR" ]; then
+            echo "::error::Dépôt GOVIBE introuvable sur cet hôte. L'inventaire ci-dessus indique ce qui s'y trouve — définir le secret GOVIBE_APP_DIR avec le bon chemin, ou GOVIBE_VPS_HOST si govibeht.com est sur une autre machine."
             exit 1
           fi
-          cd "\$DIR"
-          # Confirme que c'est bien le dépôt govibe et pas un autre projet.
-          ORIGIN=\$(git config --get remote.origin.url || echo "")
-          case "\$ORIGIN" in
-            *govibe*) echo "✓ Dépôt GOVIBE confirmé dans \$DIR (\$ORIGIN)" ;;
-            *) echo "::error::\$DIR pointe vers \$ORIGIN — ce n'est pas le dépôt govibe. Abandon."; exit 1 ;;
-          esac
-          EOSSH
+          echo "✓ Dépôt GOVIBE trouvé : $DIR"
+          echo "app_dir=$DIR" >> "$GITHUB_OUTPUT"
 
       - name: Déployer
         env:
-          APP_DIR: ${{ secrets.GOVIBE_APP_DIR }}
+          # Chemin résolu par l'étape de localisation, jamais deviné ici.
+          APP_DIR: ${{ steps.locate.outputs.app_dir }}
           BRANCH: ${{ inputs.branch || 'main' }}
         run: |
           set -euo pipefail
-          DIR="${APP_DIR:-/var/www/govibe}"
+          DIR="$APP_DIR"
           ssh -i ~/.ssh/id_deploy -p "${{ steps.target.outputs.port }}" \
               -o StrictHostKeyChecking=accept-new \
               "${{ steps.target.outputs.user }}@${{ steps.target.outputs.host }}" \
