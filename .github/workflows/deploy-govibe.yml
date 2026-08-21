@@ -157,15 +157,15 @@ jobs:
           BRANCH="$BRANCH"
           cd "\$DIR"
 
-          # update.sh a besoin de root (chown, systemctl).
-          SUDO=""
-          [ "\$(id -u)" -eq 0 ] || SUDO="sudo -n"
+          # Pas de sudo : sur cet hôte le compte SSH est propriétaire du site et
+          # n'a pas de sudo sans mot de passe. update.sh s'adapte de lui-même
+          # (chown et systemctl ne sont tentés qu'en root).
 
           # On récupère d'abord le code : update.sh lui-même vit dans le dépôt,
           # donc on veut sa version la plus récente avant de l'exécuter.
-          \$SUDO git fetch origin "\$BRANCH"
-          \$SUDO git checkout "\$BRANCH"
-          \$SUDO git pull --ff-only origin "\$BRANCH"
+          git fetch origin "\$BRANCH"
+          git checkout "\$BRANCH"
+          git pull --ff-only origin "\$BRANCH"
 
           if [ ! -f update.sh ]; then
             echo "::error::update.sh absent de \$DIR après le pull (branche \$BRANCH)."
@@ -173,8 +173,8 @@ jobs:
           fi
 
           # update.sh : composer, migrate --force, caches, permissions,
-          # restart nginx/php-fpm/worker, le tout derrière artisan down.
-          \$SUDO env BRANCH="\$BRANCH" APP_DIR="\$DIR" bash update.sh
+          # le tout derrière artisan down.
+          env BRANCH="\$BRANCH" APP_DIR="\$DIR" bash update.sh
           EOSSH
 
       - name: Vérifier que le site répond
