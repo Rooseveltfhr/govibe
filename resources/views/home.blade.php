@@ -374,7 +374,7 @@
       <div class="service-tags">
         <a href="{{ route('coworking') }}" class="stag"><span class="sdot"></span><i class="fas fa-building"></i> Coworking Space</a>
         <a href="{{ route('startup-lab') }}" class="stag"><span class="sdot"></span><i class="fas fa-chart-line"></i> Startup Lab</a>
-        <a href="https://1207.3cx.cloud/supporttechnical" class="stag" target="_blank" rel="noopener"><span class="sdot"></span><i class="fas fa-headset"></i> Call Center</a>
+        <a href="{{ route('call-center') }}" class="stag"><span class="sdot"></span><i class="fas fa-headset"></i> Call Center</a>
         <a href="{{ route('startup-lab') }}#erp" class="stag"><span class="sdot"></span><i class="fas fa-code"></i> ERP / CRM</a>
         <a href="{{ route('startup-lab') }}#ai" class="stag"><span class="sdot"></span><i class="fas fa-brain"></i> Intelligence Artificielle</a>
         <a href="{{ route('about') }}" class="stag"><span class="sdot"></span><i class="fas fa-globe"></i> Ecosystème</a>
@@ -558,7 +558,7 @@
         <i class="fas fa-headset" style="font-size:2.2rem; color:#DC2626;"></i>
         <h3>GOVIBE Call Center</h3>
         <p>Réception d'appels, service client externalisé, support technique et secrétariat à distance 24/7.</p>
-        <a href="https://1207.3cx.cloud/supporttechnical" class="svc-link" target="_blank" rel="noopener">Appeler <i class="fas fa-phone fa-xs"></i></a>
+        <a href="{{ route('call-center') }}" class="svc-link">Découvrir <i class="fas fa-arrow-right fa-xs"></i></a>
       </div>
       <div class="service-card slide-up delay-2">
         <i class="fas fa-code" style="font-size:2.2rem; color:#DC2626;"></i>
@@ -668,8 +668,11 @@
           <p>Les entrepreneurs trouvent le financement pour réaliser leurs projets</p>
         </div>
       </div>
-      <div style="text-align:center;margin-top:2.5rem;">
+      <div style="text-align:center;margin-top:2.5rem;display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
         <a href="#reservation" class="gv-btn-prim">Rejoindre l'écosystème →</a>
+        <a href="{{ route('programmes') }}" style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:.75rem 1.5rem;border-radius:50px;font-weight:600;font-size:.9rem;transition:background .2s;">
+          <i class="fas fa-graduation-cap"></i> Voir tous les programmes
+        </a>
       </div>
     </div>
   </div>

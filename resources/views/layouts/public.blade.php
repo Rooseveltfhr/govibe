@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'GOVIBE Innovation Hub — Haïti')</title>
+  <link rel="icon" type="image/svg+xml" href="{{ asset('images/govibe-icon.svg') }}">
   <meta name="description" content="@yield('description', 'GOVIBE – Écosystème d\'innovation en Haïti. Coworking, Startup Lab, Call Center, IA, Formation, Crédit Digital.')">
 
   <!-- Google Fonts -->
@@ -278,9 +279,7 @@
 <nav class="gv-navbar" id="gv-navbar">
   <div class="gv-nav-container">
     <a href="{{ route('home') }}" class="gv-logo">
-      <img src="{{ asset('images/logo.govibe.png') }}" alt="GOVIBE Innovation Hub"
-           onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
-      <span class="gv-logo-fallback" style="display:none;">GOVIBE</span>
+      <img src="{{ asset('images/govibe-logo.svg') }}" alt="GOVIBE Innovation Hub" style="height:38px;width:auto;">
     </a>
 
     <div class="gv-nav-toggle" id="nav-toggle" aria-label="Menu">
@@ -359,7 +358,7 @@
 <footer class="gv-footer">
   <div class="gv-footer-grid">
     <div class="gv-footer-col">
-      <h4><i class="fas fa-rocket"></i> GOVIBE</h4>
+      <h4><img src="{{ asset('images/govibe-icon.svg') }}" alt="" style="height:22px;vertical-align:middle;margin-right:6px;"> GOVIBE</h4>
       <p>GOVIBE Innovation Hub — Écosystème d'innovation haïtien combinant coworking, technologie, IA et formation depuis 2020.</p>
       <div style="margin-top:1rem; display:flex; gap:.6rem; flex-wrap:wrap;">
         <span class="gv-footer-badge">GOVIBE STARTUP LLC</span>

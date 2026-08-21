@@ -26,6 +26,8 @@ use App\Http\Controllers\ERP\CRM\NotificationController;
 use App\Http\Controllers\ERP\CRM\ContractController;
 use App\Http\Controllers\ERP\Admin\SubscriptionController;
 use App\Http\Controllers\BootcampController;
+use App\Http\Controllers\PartenaireController;
+use App\Http\Controllers\ERP\PartenaireAdminController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -42,6 +44,14 @@ Route::post('/inscription/scan', [InscriptionController::class, 'scan'])->name('
 
 // Public: Tarifs / Packages
 Route::get('/tarifs', [PageController::class, 'tarifs'])->name('tarifs');
+
+// Public: Service pages
+Route::get('/call-center', [PageController::class, 'callCenter'])->name('call-center');
+Route::get('/programmes', [PageController::class, 'programmes'])->name('programmes');
+
+// Public: Partenaires
+Route::get('/partenaires', [PartenaireController::class, 'index'])->name('partenaires');
+Route::post('/partenaires', [PartenaireController::class, 'store'])->name('partenaires.store');
 
 // GOVIBE AI Bootcamp 2026
 Route::get('/bootcamp-ai-2026', [BootcampController::class, 'landing'])->name('bootcamp.landing');
@@ -214,6 +224,13 @@ Route::prefix('erp')->name('erp.')->group(function () {
         // ── Services (catalogue) ──────────────────────────
         Route::prefix('services')->name('services.')->group(function () {
             Route::get('/', [ServiceController::class, 'index'])->name('index');
+        });
+
+        // ── Partenaires ───────────────────────────────────
+        Route::prefix('partenaires')->name('partenaires.')->group(function () {
+            Route::get('/', [PartenaireAdminController::class, 'index'])->name('index');
+            Route::patch('/{partenaire}/statut', [PartenaireAdminController::class, 'updateStatut'])->name('statut');
+            Route::delete('/{partenaire}', [PartenaireAdminController::class, 'destroy'])->name('destroy');
         });
 
         // ── Super Admin ───────────────────────────────────
