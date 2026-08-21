@@ -959,5 +959,17 @@
     "Déjà un compte ?": "¿Ya tienes cuenta?",
     "Partager l'événement": "Compartir el evento",
     "Partager": "Compartir",
-    "Publiez l'événement (case « Publié » ci-dessous) pour obtenir le lien de partage.": "Publica el evento (casilla « Publié » abajo) para obtener el enlace para compartir."
+    "Publiez l'événement (case « Publié » ci-dessous) pour obtenir le lien de partage.": "Publica el evento (casilla « Publié » abajo) para obtener el enlace para compartir.",
+    "Obligatoire — sécurise la carte": "Obligatorio — protege la tarjeta",
+    "Crédits cartes": "Créditos de tarjetas",
+    "Imprimer la carte": "Imprimir la tarjeta",
+    "Carte officielle activée : :code": "Tarjeta oficial activada: :code",
+    "Quota de cartes atteint. Passez à un forfait Revendeur/Franchise ou obtenez des crédits d'activation.": "Cuota de tarjetas alcanzada. Pasa a un plan Revendedor/Franquicia u obtén créditos de activación.",
+    "Crédits d'activation": "Créditos de activación",
+    "Crédits d'activation de cartes": "Créditos de activación de tarjetas",
+    "Accorder des crédits": "Otorgar créditos",
+    "Prix fixe": "Precio fijo",
+    "vide = le client choisit le montant": "vacío = el cliente elige el monto",
+    "Montant libre": "Monto libre",
+    "Montant invalide.": "Monto inválido."
 }

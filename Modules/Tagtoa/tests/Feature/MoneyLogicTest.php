@@ -6,14 +6,9 @@ namespace Modules\Tagtoa\Tests\Feature;
 |--------------------------------------------------------------------------
 | TAGTOA — Tests Feature (money-critical)
 |--------------------------------------------------------------------------
-| ⚠️ Ces tests nécessitent l'application Biztap (Laravel + DB). Ils sont
-| fournis comme modèle à exécuter DANS Biztap :
-|
-|   cp -r Modules/Tagtoa /var/www/biztap/Modules/
-|   cd /var/www/biztap && php artisan test --filter=MoneyLogicTest
-|
-| Ils ne tournent pas dans la CI de ce dépôt (pas d'app hôte) ; la CI exécute
-| la logique pure (tests/Unit) + le lint.
+| Intégration DB réelle (SQLite mémoire via Orchestra Testbench — voir
+| tests/TestCase.php). Tourne dans la CI de ce dépôt (job dédié, indépendant
+| du host Biztap).
 */
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,7 +16,7 @@ use Modules\Tagtoa\App\Models\Loyalty\Program;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Services\Loyalty\LoyaltyCardService;
 use Modules\Tagtoa\App\Services\Pos\PosService;
-use Tests\TestCase;
+use Modules\Tagtoa\Tests\TestCase;
 
 class MoneyLogicTest extends TestCase
 {

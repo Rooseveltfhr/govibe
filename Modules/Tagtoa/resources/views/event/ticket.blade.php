@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <title>{{ __('Billet') }} — {{ $event->title }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
     <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     <style>
         :root{--blk:#0A0A0A;--blue:#2cb809;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
@@ -21,7 +21,10 @@
 </head>
 <body>
 <div class="tk">
-    <div class="top"><div class="b"><i class="fa-solid fa-wifi"></i> TAGTOA EVENT · NFC / QR</div><h1>{{ $event->title }}</h1></div>
+    <div class="top">
+        @if($event->logo_url)<img src="{{ $event->logo_url }}" alt="" style="height:36px;max-width:60%;object-fit:contain;margin-bottom:8px">@endif
+        <div class="b"><i class="fa-solid fa-wifi"></i> TAGTOA EVENT · NFC / QR</div><h1>{{ $event->title }}</h1>
+    </div>
     <div class="qr">
         @php try { $qr = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')->size(220)->margin(0)->generate($ticket->code); } catch (\Throwable $e) { $qr = null; } @endphp
         @if($qr){!! $qr !!}@else<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{ urlencode($ticket->code) }}" alt="QR">@endif

@@ -19,7 +19,7 @@ class Event extends Model
 
     protected $fillable = [
         'vcard_id', 'tenant_id', 'title', 'alias', 'type', 'description', 'venue', 'address',
-        'notify_email', 'checkin_mode', 'starts_at', 'ends_at', 'currency', 'is_free', 'is_published', 'pay_page_id', 'cover_path', 'views',
+        'notify_email', 'checkin_mode', 'starts_at', 'ends_at', 'currency', 'is_free', 'is_published', 'pay_page_id', 'cover_path', 'logo_path', 'views',
     ];
 
     protected $casts = [
@@ -65,6 +65,11 @@ class Event extends Model
     public function getCoverUrlAttribute(): ?string
     {
         return $this->cover_path ? Storage::url($this->cover_path) : null;
+    }
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        return $this->logo_path ? Storage::url($this->logo_path) : null;
     }
 
     public function getPublicUrlAttribute(): string

@@ -10,9 +10,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Models\Api\ApiPayment;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Models\Pay\PaymentProof;
+use Modules\Tagtoa\App\Services\Api\ApiPaymentService;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Modules\Tagtoa\App\Support\Pay\GatewayCatalog;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -36,7 +39,7 @@ class DashboardController extends Controller
         return view('tagtoa::pay.dashboard.form', [
             'page'    => new PaymentPage(),
             'vcards'  => $this->vcards(),
-            'methods' => PaymentPage::METHODS,
+            'catalog' => GatewayCatalog::split(GatewayCatalog::forMerchant()),
         ]);
     }
 
@@ -63,7 +66,7 @@ $data = $this->validatePage($request);
         return view('tagtoa::pay.dashboard.form', [
             'page'    => $page,
             'vcards'  => $this->vcards(),
-            'methods' => PaymentPage::METHODS,
+            'catalog' => GatewayCatalog::split(GatewayCatalog::forMerchant()),
         ]);
     }
 
@@ -124,6 +127,15 @@ $data = $this->validatePage($request);
         $proof = PaymentProof::whereHas('page', fn ($q) => $q->where('tenant_id', Tenant::id()))->findOrFail($id);
         $proof->update(['status' => $status, 'note' => $note ?? $proof->note, 'reviewed_at' => now()]);
 
+        // Preuve issue d'un paiement API : approuver la preuve fait passer le
+        // paiement du site tiers en « payé » et déclenche sa notification.
+        if ($status === PaymentProof::STATUS_APPROVED && $proof->api_payment_id) {
+            $payment = ApiPayment::find($proof->api_payment_id);
+            if ($payment) {
+                app(ApiPaymentService::class)->markPaid($payment);
+            }
+        }
+
         return back()->with('success', $msg);
     }
 
@@ -143,43 +155,94 @@ $data = $this->validatePage($request);
                                    'unique:tagtoa_payment_pages,alias'.($ignoreId ? ','.$ignoreId : '')],
             'description'      => ['nullable', 'string', 'max:1000'],
             'default_currency' => ['nullable', 'string', 'max:10'],
+            'amount'           => ['nullable', 'numeric', 'min:0', 'max:99999999'], // prix fixe (vide = libre)
             'is_active'        => ['nullable', 'boolean'],
         ]);
     }
 
+    /**
+     * Synchronise les méthodes depuis le CATALOGUE (formulaire indexé par clé de
+     * passerelle : methods[moncash][…], pas par index numérique).
+     *
+     * Sécurité : toute entrée est validée. Les clés inconnues du catalogue sont
+     * écartées AVANT toute écriture (le `type` n'est donc jamais une chaîne
+     * libre), et les images sont contraintes en type + taille.
+     *
+     * Désactiver une passerelle ne supprime PAS la ligne : on passe `is_active`
+     * à faux et le marchand retrouve ses coordonnées s'il la réactive.
+     */
     protected function syncMethods(PaymentPage $page, Request $request): void
     {
-        $rows = $request->input('methods', []);
-        $keep = [];
+        $catalog = GatewayCatalog::forMerchant();
+        $order   = array_flip(array_keys($catalog));
 
-        DB::transaction(function () use ($page, $rows, $request, &$keep) {
-            foreach ($rows as $i => $row) {
-                if (empty($row['type'])) {
+        $rows = $request->input('methods', []);
+        if (! is_array($rows)) {
+            return;
+        }
+        // Anti-injection : on ne garde que des passerelles réellement au catalogue.
+        $rows = array_intersect_key($rows, $catalog);
+
+        $rules = [];
+        foreach (array_keys($rows) as $type) {
+            $rules["methods.$type.label"]          = ['nullable', 'string', 'max:120'];
+            $rules["methods.$type.account_holder"] = ['nullable', 'string', 'max:160'];
+            $rules["methods.$type.institution"]    = ['nullable', 'string', 'max:160'];
+            $rules["methods.$type.account_number"] = ['nullable', 'string', 'max:190'];
+            $rules["methods.$type.instructions"]   = ['nullable', 'string', 'max:1000'];
+            $rules["methods.$type.qr"]             = ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'];
+            $rules["methods.$type.logo"]           = ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1024'];
+        }
+        if ($rules) {
+            $request->validate($rules);
+        }
+
+        DB::transaction(function () use ($page, $rows, $request, $catalog, $order) {
+            $existing = $page->methods()->get()->keyBy('type');
+
+            foreach ($rows as $type => $row) {
+                $row     = is_array($row) ? $row : [];
+                $meta    = $catalog[$type];
+                $enabled = ! empty($row['enabled']);
+                $current = $existing->get($type);
+
+                $hasDetails = filled($row['account_number'] ?? null)
+                    || filled($row['account_holder'] ?? null)
+                    || filled($row['instructions'] ?? null)
+                    || $request->hasFile("methods.$type.qr");
+
+                // Jamais activée, aucune coordonnée saisie, aucune ligne existante :
+                // inutile de créer une ligne vide.
+                if (! $enabled && ! $current && ! $hasDetails) {
                     continue;
                 }
+
                 $attrs = [
-                    'type'           => $row['type'],
+                    'type'           => $type,
                     'label'          => $row['label'] ?? null,
                     'account_holder' => $row['account_holder'] ?? null,
                     'institution'    => $row['institution'] ?? null,
                     'account_number' => $row['account_number'] ?? null,
                     'instructions'   => $row['instructions'] ?? null,
-                    'requires_proof' => ! empty($row['requires_proof']),
-                    'is_active'      => ! empty($row['is_active']),
-                    'sort'           => (int) ($row['sort'] ?? $i),
+                    // Une passerelle réellement branchée en API encaisse toute seule :
+                    // pas de preuve à réclamer au client. Sinon, preuve obligatoire.
+                    'requires_proof' => ! $meta['online_ready'],
+                    'is_active'      => $enabled,
+                    'sort'           => (int) ($order[$type] ?? 0),
                 ];
-                $m = ! empty($row['id']) ? $page->methods()->whereKey($row['id'])->first() : null;
-                $m ? $m->update($attrs) : $m = $page->methods()->create($attrs);
 
-                if ($request->hasFile("methods.$i.qr")) {
-                    $m->update(['qr_path' => $request->file("methods.$i.qr")->store('tagtoa/pay-qr', 'public')]);
+                $current ? $current->update($attrs) : $current = $page->methods()->create($attrs);
+
+                if ($request->hasFile("methods.$type.qr")) {
+                    $current->update(['qr_path' => $request->file("methods.$type.qr")->store('tagtoa/pay-qr', 'public')]);
                 }
-                if ($request->hasFile("methods.$i.logo")) {
-                    $m->update(['logo_path' => $request->file("methods.$i.logo")->store('tagtoa/pay-logos', 'public')]);
+                if ($request->hasFile("methods.$type.logo")) {
+                    $current->update(['logo_path' => $request->file("methods.$type.logo")->store('tagtoa/pay-logos', 'public')]);
                 }
-                $keep[] = $m->id;
             }
-            $page->methods()->whereNotIn('id', $keep ?: [0])->delete();
+
+            // Purge les lignes dont la passerelle a disparu du registre.
+            $page->methods()->whereNotIn('type', array_keys($catalog))->delete();
         });
     }
 

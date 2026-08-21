@@ -196,6 +196,7 @@ class StaffTerminalController extends Controller
             'phone'          => ['required', 'string', 'max:40'], // WhatsApp obligatoire (spec)
             'email'          => ['nullable', 'email', 'max:160'],
             'uid'            => ['nullable', 'string', 'max:120'],
+            'printed_code'   => ['nullable', 'string', 'max:64'], // billet PRÉ-IMPRIMÉ (hors système), scanné/saisi
             'ticket_type_id' => ['nullable', 'integer'],
             'credit'         => ['nullable', 'numeric', 'min:0', 'max:1000000'], // crédit initial du wallet
             'payment_method' => ['nullable', 'string', 'max:60'],               // moyen de paiement (TAGTOA Pay)
@@ -257,40 +258,69 @@ class StaffTerminalController extends Controller
             $cardTxnRef = $res['txn']?->reference;
         }
 
-        try {
-            if (! empty($data['uid'])) {
-                // Carte NFC physique : billet + tag liés (entrée par tap).
-                $res = app(EncodeParticipantCard::class)->handle($event, $data);
-                $ticket = $res['ticket'];
+        // Billet PRÉ-IMPRIMÉ (hors système, ex. stock physique d'un festival) : on
+        // ACTIVE le billet déjà enregistré, jamais on n'en crée un nouveau — le
+        // code scanné doit exister et ne pas avoir déjà été vendu (anti-fraude).
+        $printedCode = trim((string) ($data['printed_code'] ?? ''));
+        if ($printedCode !== '') {
+            $ticket = Ticket::where('event_id', $event->id)
+                ->where(function ($q) use ($printedCode) {
+                    $q->where('code', $printedCode)->orWhere('serial', $printedCode);
+                })->first();
 
-                // Crédit initial optionnel : recharge le wallet de la carte (comme
-                // l'encodage du tableau de bord). Prix côté serveur, idempotent.
-                $credit = (float) ($data['credit'] ?? 0);
-                if ($credit > 0 && $res['tag']->walletAccount) {
-                    $acct = $res['tag']->walletAccount;
-                    app(\Modules\Tagtoa\App\Actions\Event\Wallet\TopUpWallet::class)->handle(
-                        $acct,
-                        \Modules\Tagtoa\App\Support\Money::toMinor($credit, $acct->currency),
-                        ['idempotency_key' => 'staff-encode-'.$ticket->id, 'payment_ref' => 'ENCODAGE-STAFF']
-                    );
-                }
-            } else {
-                // Mode QR : e-billet simple, imprimable/partageable (badges).
-                $ticket = Ticket::create([
-                    'event_id'       => $event->id,
-                    'ticket_type_id' => $data['ticket_type_id'] ?? null,
-                    'code'           => Ticket::generateCode(),
-                    'holder_name'    => $data['name'],
-                    'holder_phone'   => $data['phone'],
-                    'status'         => Ticket::STATUS_VALID,
-                ]);
+            if (! $ticket) {
+                return response()->json(['ok' => false, 'message' => __('Billet introuvable — non enregistré dans le système.')], 422);
             }
-        } catch (\Throwable $e) {
-            return response()->json(['ok' => false, 'message' => __('Réessayez.')], 422);
+            if (! $ticket->isUnsold()) {
+                return response()->json(['ok' => false, 'message' => __('Ce billet a déjà été vendu ou n\'est plus disponible.')], 422);
+            }
+
+            $ticket->update([
+                'ticket_type_id' => $data['ticket_type_id'] ?? $ticket->ticket_type_id,
+                'holder_name'    => $data['name'],
+                'holder_phone'   => $data['phone'],
+                'status'         => Ticket::STATUS_VALID,
+            ]);
+        } else {
+            try {
+                if (! empty($data['uid'])) {
+                    // Carte NFC physique : billet + tag liés (entrée par tap).
+                    $res = app(EncodeParticipantCard::class)->handle($event, $data);
+                    $ticket = $res['ticket'];
+
+                    // Crédit initial optionnel : recharge le wallet de la carte (comme
+                    // l'encodage du tableau de bord). Prix côté serveur, idempotent.
+                    $credit = (float) ($data['credit'] ?? 0);
+                    if ($credit > 0 && $res['tag']->walletAccount) {
+                        $acct = $res['tag']->walletAccount;
+                        app(\Modules\Tagtoa\App\Actions\Event\Wallet\TopUpWallet::class)->handle(
+                            $acct,
+                            \Modules\Tagtoa\App\Support\Money::toMinor($credit, $acct->currency),
+                            ['idempotency_key' => 'staff-encode-'.$ticket->id, 'payment_ref' => 'ENCODAGE-STAFF']
+                        );
+                    }
+                } else {
+                    // Mode QR : e-billet simple, imprimable/partageable (badges).
+                    $ticket = Ticket::create([
+                        'event_id'       => $event->id,
+                        'ticket_type_id' => $data['ticket_type_id'] ?? null,
+                        'code'           => Ticket::generateCode(),
+                        'holder_name'    => $data['name'],
+                        'holder_phone'   => $data['phone'],
+                        'status'         => Ticket::STATUS_VALID,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                return response()->json(['ok' => false, 'message' => __('Réessayez.')], 422);
+            }
         }
 
-        // Enregistre le moyen de paiement + le revenu (billetterie) dans TAGTOA.
-        $ticket->update(['payment_method' => $method !== '' ? $method : null]);
+        // Enregistre le moyen de paiement + le vendeur/date (historique de vente) dans TAGTOA.
+        $ticket->update([
+            'payment_method'   => $method !== '' ? $method : null,
+            'sold_by_staff_id' => $staff->id,
+            'sold_at'          => now(),
+        ]);
         if (! empty($data['ticket_type_id'])) {
             $tt = $event->ticketTypes()->whereKey($data['ticket_type_id'])->first();
             if ($tt && (float) $tt->price > 0) {

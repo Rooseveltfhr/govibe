@@ -12,10 +12,51 @@ namespace Modules\Tagtoa\App\Support;
  */
 class GatewayManager
 {
-    /** Config d'un driver : config('tagtoa.gateways.{driver}'). */
+    /** Identifiants saisis en base, chargés une seule fois par requête. */
+    private static ?array $storedCache = null;
+
+    /**
+     * Config effective d'un driver : config('tagtoa.gateways.{driver}')
+     * SURCHARGÉE par les identifiants saisis dans le super-admin.
+     *
+     * C'est le seul point d'entrée des drivers vers leurs identifiants, donc
+     * les brancher ici suffit : MonCashDriver, PayPalDriver, StripeDriver et
+     * CoinPaymentsDriver reçoivent automatiquement les valeurs de la base sans
+     * être modifiés.
+     */
     public static function config(string $driver): array
     {
-        return (array) config('tagtoa.gateways.'.$driver, []);
+        $base = (array) config('tagtoa.gateways.'.$driver, []);
+
+        return Pay\GatewayCredentialFields::merge($base, self::stored()[$driver] ?? null);
+    }
+
+    /**
+     * Identifiants stockés, tous drivers confondus. Tolérant : si la table
+     * n'existe pas encore (migration non passée) ou si le déchiffrement échoue
+     * (APP_KEY changée), on retombe silencieusement sur le .env plutôt que de
+     * casser les pages de paiement.
+     */
+    public static function stored(): array
+    {
+        if (self::$storedCache !== null) {
+            return self::$storedCache;
+        }
+
+        try {
+            self::$storedCache = \Modules\Tagtoa\App\Models\Pay\GatewayCredential::query()
+                ->get()->mapWithKeys(fn ($r) => [$r->driver => (array) $r->values])->all();
+        } catch (\Throwable $e) {
+            self::$storedCache = [];
+        }
+
+        return self::$storedCache;
+    }
+
+    /** À appeler après enregistrement dans le super-admin. */
+    public static function flush(): void
+    {
+        self::$storedCache = null;
     }
 
     /** Un driver est « activé » si TOUTES ses clés d'identifiants sont remplies. */

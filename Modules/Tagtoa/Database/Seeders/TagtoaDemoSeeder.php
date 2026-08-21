@@ -23,17 +23,25 @@ use Modules\Tagtoa\App\Services\Loyalty\LoyaltyCardService;
  *
  *   php artisan db:seed --class="Modules\Tagtoa\Database\Seeders\TagtoaDemoSeeder"
  *
- * Idempotent (utilise firstOrCreate sur les alias). tenant_id volontairement null
- * pour une démo simple — adapter si nécessaire.
+ * Idempotent (utilise firstOrCreate/updateOrCreate sur les alias — jamais sur un
+ * champ affiché comme le nom, pour ne pas dupliquer les lignes déjà en prod).
+ * tenant_id volontairement null pour une démo simple — adapter si nécessaire.
+ *
+ * Un seul « client démo » cohérent (Wideline Charles) traverse les modules —
+ * plus réaliste qu'un « Client Demo » générique répété partout — et chaque
+ * établissement démo a sa propre identité (pas juste « TAGTOA X Demo »).
  */
 class TagtoaDemoSeeder extends Seeder
 {
+    private const DEMO_CUSTOMER_NAME = 'Wideline Charles';
+    private const DEMO_CUSTOMER_PHONE = '+509 3000 0000';
+
     public function run(): void
     {
         // 1) PAY — page MonCash + NatCash
-        $pay = PaymentPage::firstOrCreate(
+        $pay = PaymentPage::updateOrCreate(
             ['alias' => 'demo'],
-            ['title' => 'Payez TAGTOA Demo', 'default_currency' => 'HTG', 'is_active' => true]
+            ['title' => 'Payez Lakou Lounge', 'default_currency' => 'HTG', 'is_active' => true]
         );
         $demoMethods = [
             ['moncash',     '+509 3000 0000'],
@@ -53,9 +61,9 @@ class TagtoaDemoSeeder extends Seeder
         ];
         $needsProof = ['moncash', 'natcash', 'unibank', 'sogebank', 'bnc', 'zelle', 'cashapp', 'paypal', 'usdt', 'btc', 'eth'];
         foreach ($demoMethods as $i => [$type, $acct]) {
-            PaymentMethod::firstOrCreate(
+            PaymentMethod::updateOrCreate(
                 ['payment_page_id' => $pay->id, 'type' => $type],
-                ['account_holder' => 'TAGTOA Demo', 'account_number' => $acct, 'requires_proof' => in_array($type, $needsProof, true), 'is_active' => true, 'sort' => $i]
+                ['account_holder' => 'Lakou Lounge', 'account_number' => $acct, 'requires_proof' => in_array($type, $needsProof, true), 'is_active' => true, 'sort' => $i]
             );
         }
 
@@ -63,30 +71,30 @@ class TagtoaDemoSeeder extends Seeder
         // Teste sur /pay/demo → « Carte TAGTOA » (tape ou saisis le code + PIN).
         $cardSvc = app(\Modules\Tagtoa\App\Services\Card\CardWalletService::class);
         $demoCard = $cardSvc->issue('TAGTOA-CARD-DEMO', [
-            'tenant_id' => $pay->tenant_id, 'holder_name' => 'Client Démo',
-            'holder_phone' => '+509 0000 0000', 'currency' => 'HTG', 'pin' => '1234', 'code' => 'TAGDEMO',
+            'tenant_id' => $pay->tenant_id, 'holder_name' => self::DEMO_CUSTOMER_NAME,
+            'holder_phone' => self::DEMO_CUSTOMER_PHONE, 'currency' => 'HTG', 'pin' => '1234', 'code' => 'TAGDEMO',
         ]);
         if ((int) $demoCard->balance_minor === 0) {
             $cardSvc->topUp($demoCard, 1000, ['reference' => 'demo-card-topup', 'context_type' => 'issue']);
         }
 
         // 2) LOYALTY — programme + 1 carte
-        $program = Program::firstOrCreate(
+        $program = Program::updateOrCreate(
             ['alias' => 'demo-fidelite'],
-            ['name' => 'TAGTOA Fidélité', 'points_per_dollar' => 1, 'dollar_per_point' => 0.01, 'currency' => 'HTG', 'is_active' => true]
+            ['name' => 'Fidélité Lakou Lounge', 'points_per_dollar' => 1, 'dollar_per_point' => 0.01, 'currency' => 'HTG', 'is_active' => true]
         );
         $program->rewards()->firstOrCreate(
             ['name' => 'Café offert'],
             ['points_required' => 100, 'discount_value' => 100, 'discount_type' => 'fixed', 'is_active' => true]
         );
         if ($program->cards()->count() === 0) {
-            app(LoyaltyCardService::class)->issueCard($program, ['cardholder_name' => 'Client Demo', 'balance' => 250]);
+            app(LoyaltyCardService::class)->issueCard($program, ['cardholder_name' => self::DEMO_CUSTOMER_NAME, 'cardholder_phone' => self::DEMO_CUSTOMER_PHONE, 'balance' => 250]);
         }
 
         // 3) LINKS — page Linktree
-        $links = LinkPage::firstOrCreate(
+        $links = LinkPage::updateOrCreate(
             ['alias' => 'demo-links'],
-            ['title' => 'TAGTOA Demo', 'bio' => 'Tout sur un seul lien.', 'theme' => 'blue', 'pay_page_id' => $pay->id, 'donation_label' => 'Soutiens-nous', 'is_active' => true]
+            ['title' => 'Lakou Lounge', 'bio' => 'Tout sur un seul lien.', 'theme' => 'blue', 'pay_page_id' => $pay->id, 'donation_label' => 'Soutiens-nous', 'is_active' => true]
         );
         foreach ([
             ['Instagram', 'https://instagram.com/tagtoa'],
@@ -100,9 +108,9 @@ class TagtoaDemoSeeder extends Seeder
 
         // 4) EVENT — festival démo MULTI-JOUR (gratuit) + types de billets.
         //    2 jours pour démontrer le check-in « une entrée par jour » (Jour 1/Jour 2).
-        $event = Event::firstOrCreate(
+        $event = Event::updateOrCreate(
             ['alias' => 'demo-concert'],
-            ['title' => 'TAGTOA Live Demo', 'type' => 'concert', 'venue' => 'BANJ, Gonaïves',
+            ['title' => 'Nwit Kreyòl', 'type' => 'concert', 'venue' => 'BANJ, Gonaïves',
              'currency' => 'HTG', 'is_free' => true, 'is_published' => true]
         );
         // Dates roulantes (toujours à venir) + fin = lendemain → événement 2 jours.
@@ -115,7 +123,7 @@ class TagtoaDemoSeeder extends Seeder
         app(\Modules\Tagtoa\App\Actions\Event\Wallet\OpenEventWalletAccounts::class)->handle($event);
         \Modules\Tagtoa\App\Actions\Event\Wallet\OpenEventWalletAccounts::vendor($event, 'Bar Demo');
         $demoTag = app(\Modules\Tagtoa\App\Actions\Event\Wallet\IssueNfcTag::class)->handle(
-            $event, 'TAGTOA-DEMO-TAG', ['label' => 'Client Demo', 'phone' => '+509 3000 0000', 'kind' => 'wristband']
+            $event, 'TAGTOA-DEMO-TAG', ['label' => self::DEMO_CUSTOMER_NAME, 'phone' => self::DEMO_CUSTOMER_PHONE, 'kind' => 'wristband']
         );
         if ($demoTag->walletAccount && (int) $demoTag->walletAccount->balance_minor === 0) {
             app(\Modules\Tagtoa\App\Actions\Event\Wallet\TopUpWallet::class)->handle(
@@ -127,8 +135,8 @@ class TagtoaDemoSeeder extends Seeder
             $stdType = $event->ticketTypes()->where('name', 'Standard')->first();
             $demoTicket = \Modules\Tagtoa\App\Models\Event\Ticket::firstOrCreate(
                 ['event_id' => $event->id, 'code' => 'TDEMO0000001'],
-                ['ticket_type_id' => $stdType?->id, 'holder_name' => 'Client Demo',
-                 'holder_phone' => '+509 3000 0000', 'status' => \Modules\Tagtoa\App\Models\Event\Ticket::STATUS_VALID]
+                ['ticket_type_id' => $stdType?->id, 'holder_name' => self::DEMO_CUSTOMER_NAME,
+                 'holder_phone' => self::DEMO_CUSTOMER_PHONE, 'status' => \Modules\Tagtoa\App\Models\Event\Ticket::STATUS_VALID]
             );
             $demoTag->update(['ticket_id' => $demoTicket->id]);
             if ($demoTag->walletAccount && ! $demoTag->walletAccount->ticket_id) {
@@ -137,23 +145,25 @@ class TagtoaDemoSeeder extends Seeder
         }
 
         // 4c) EVENT STAFF — comptes terrain démo (PIN : admin 1234, vente 2222, checkin 3333)
+        // Clé de correspondance = event_id + role (unique dans cette démo), pas le nom,
+        // pour pouvoir renommer sans dupliquer les comptes déjà seedés en prod.
         foreach ([
-            ['name' => 'Admin Demo',   'role' => 'admin',   'pin' => '1234'],
-            ['name' => 'Vente Demo',   'role' => 'vente',   'pin' => '2222'],
-            ['name' => 'Checkin Demo', 'role' => 'checkin', 'pin' => '3333'],
+            ['name' => 'Peterson Michel', 'role' => 'admin',   'pin' => '1234'],
+            ['name' => 'Nadège Joseph',   'role' => 'vente',   'pin' => '2222'],
+            ['name' => 'Rodson Baptiste', 'role' => 'checkin', 'pin' => '3333'],
         ] as $s) {
-            \Modules\Tagtoa\App\Models\Event\Staff::firstOrCreate(
-                ['event_id' => $event->id, 'name' => $s['name']],
-                ['role' => $s['role'], 'active' => true,
+            \Modules\Tagtoa\App\Models\Event\Staff::updateOrCreate(
+                ['event_id' => $event->id, 'role' => $s['role']],
+                ['name' => $s['name'], 'active' => true,
                  'pin_hash' => \Modules\Tagtoa\App\Services\Event\StaffPinService::hashPin($s['pin'])]
             );
         }
 
         // 5) MENU — menu digital démo (lounge/restaurant) + catégories + produits
-        $menu = Menu::firstOrCreate(
+        $menu = Menu::updateOrCreate(
             ['alias' => 'demo-menu'],
             [
-                'name' => 'TAGTOA Lounge Demo', 'type' => 'lounge',
+                'name' => 'Lakou Lounge', 'type' => 'lounge',
                 'tagline' => 'Cuisine créole • Cocktails • Ambiance lounge',
                 'description' => 'Scannez, commandez, payez. Le menu digital TAGTOA.',
                 'currency' => 'HTG', 'whatsapp' => '+509 3000 0000',
@@ -204,7 +214,7 @@ class TagtoaDemoSeeder extends Seeder
                     'tenant_id' => $menu->tenant_id, 'reference' => \Modules\Tagtoa\App\Models\Menu\Order::generateReference(),
                     'subtotal' => $total, 'total' => $total, 'currency' => $menu->currency,
                     'status' => 'pending', 'payment_status' => 'unpaid', 'channel' => 'menu',
-                    'customer_name' => 'Client Demo', 'customer_phone' => '+509 3000 0000',
+                    'customer_name' => self::DEMO_CUSTOMER_NAME, 'customer_phone' => self::DEMO_CUSTOMER_PHONE,
                     'table_label' => '4', 'placed_at' => now(),
                 ]);
                 $order->items()->create(['item_id' => $griot->id, 'name' => $griot->name, 'price' => $griot->price, 'qty' => 1, 'line_total' => $griot->price]);
@@ -213,11 +223,11 @@ class TagtoaDemoSeeder extends Seeder
         }
 
         // 5c) SITE — site web vitrine démo
-        Site::firstOrCreate(
+        Site::updateOrCreate(
             ['alias' => 'demo-site'],
             [
-                'name' => 'TAGTOA Lounge', 'tagline' => 'Restaurant • Lounge • Événements à Gonaïves',
-                'about' => "Bienvenue chez TAGTOA Lounge. Cuisine créole raffinée, cocktails signature et ambiance lounge. "
+                'name' => 'Lakou Lounge', 'tagline' => 'Restaurant • Lounge • Événements à Gonaïves',
+                'about' => "Bienvenue chez Lakou Lounge. Cuisine créole raffinée, cocktails signature et ambiance lounge. "
                     ."Réservez, commandez et payez en ligne — simplement.",
                 'theme' => 'dark', 'accent_color' => '#2cb809',
                 'phone' => '+509 3000 0000', 'whatsapp' => '+509 3000 0000',
@@ -244,10 +254,10 @@ class TagtoaDemoSeeder extends Seeder
         );
 
         // 5d) BOOKING — page de réservation démo (salon) + prestations + 1 RDV
-        $booking = BookingPage::firstOrCreate(
+        $booking = BookingPage::updateOrCreate(
             ['alias' => 'demo-booking'],
             [
-                'name' => 'TAGTOA Studio Demo', 'tagline' => 'Coiffure • Soins • Sur rendez-vous',
+                'name' => 'Salon Distinction', 'tagline' => 'Coiffure • Soins • Sur rendez-vous',
                 'about' => 'Réservez votre rendez-vous en ligne en quelques secondes.',
                 'theme' => 'light', 'accent_color' => '#2cb809',
                 'phone' => '+509 3000 0000', 'whatsapp' => '+509 3000 0000',
@@ -271,7 +281,7 @@ class TagtoaDemoSeeder extends Seeder
             $booking->bookings()->create([
                 'tenant_id' => $booking->tenant_id, 'service_id' => $svc?->id,
                 'reference' => Booking::generateReference(),
-                'customer_name' => 'Client Demo', 'customer_phone' => '+509 3000 0000',
+                'customer_name' => self::DEMO_CUSTOMER_NAME, 'customer_phone' => self::DEMO_CUSTOMER_PHONE,
                 'starts_at' => now()->addDays(2)->setTime(14, 0),
                 'status' => 'pending', 'price' => $svc?->price ?? 0, 'currency' => $booking->currency,
             ]);
@@ -295,9 +305,9 @@ class TagtoaDemoSeeder extends Seeder
         }
 
         // 5c) STORE — boutique en ligne démo + produits
-        $store = \Modules\Tagtoa\App\Models\Store\Store::firstOrCreate(
+        $store = \Modules\Tagtoa\App\Models\Store\Store::updateOrCreate(
             ['alias' => 'demo-boutik'],
-            ['name' => 'TAGTOA Boutik Demo', 'tagline' => 'Mode • Accessoires • Livraison Ayiti',
+            ['name' => 'Boutik Kreyòl', 'tagline' => 'Mode • Accessoires • Livraison Ayiti',
              'description' => 'Achte an liy, resevwa sou WhatsApp, peye ak MonCash. Boutik demo TAGTOA.',
              'currency' => 'HTG', 'whatsapp' => '+509 3000 0000', 'delivery_note' => 'Livraison Port-au-Prince 250 G',
              'is_published' => true]

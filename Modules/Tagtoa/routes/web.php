@@ -50,7 +50,11 @@ Route::get('/loyalty/card/{token}', [LoyaltyPublic::class, 'show'])->name('tagto
 Route::get('/links/{alias}', [LinksPublic::class, 'show'])->name('tagtoa.links.show');
 Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->name('tagtoa.links.go');
 Route::get('/site/{alias}', [SitePublic::class, 'show'])->name('tagtoa.site.show');
+// Page de paiement hébergée pour un paiement créé via l'API développeur.
+Route::get('/pay/i/{reference}', [PayPublic::class, 'apiCheckout'])->name('tagtoa.pay.api.checkout');
 Route::get('/menu/{alias}', [MenuPublic::class, 'show'])->name('tagtoa.menu.show');
+Route::get('/menu/order/{reference}', [MenuPublic::class, 'track'])->name('tagtoa.menu.track');
+Route::get('/menu/order/{reference}/status', [MenuPublic::class, 'status'])->name('tagtoa.menu.track.status');
 Route::get('/store/{alias}', [\Modules\Tagtoa\App\Http\Controllers\Store\PublicController::class, 'show'])->name('tagtoa.store.show');
 Route::get('/events', [EventPublic::class, 'index'])->name('tagtoa.events.index');
 Route::get('/event/{alias}', [EventPublic::class, 'show'])->name('tagtoa.event.show');
@@ -196,6 +200,11 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/checkin-report', [EventCheckin::class, 'report'])->name('checkin.report');
         Route::get('/{id}/checkin-stats', [EventCheckin::class, 'stats'])->name('checkin.stats');
         Route::get('/{id}/badges', [EventCheckin::class, 'badges'])->name('badges');
+        // Import de billets DÉJÀ IMPRIMÉS (hors système) — festival avec stock physique.
+        Route::get('/{id}/tickets/import', [EventDashboard::class, 'ticketsImport'])->name('tickets.import');
+        Route::post('/{id}/tickets/import', [EventDashboard::class, 'ticketsImportStore'])->name('tickets.import.store');
+        Route::post('/{id}/tickets/scan-import', [EventDashboard::class, 'ticketsScanImport'])->name('tickets.scan-import');
+        Route::delete('/{id}/tickets/{ticketId}', [EventDashboard::class, 'ticketsDestroy'])->name('tickets.destroy');
         // WALLET closed-loop (double-entry)
         Route::get('/{id}/wallet', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'index'])->name('wallet');
         Route::get('/{id}/wallet/terminal', [\Modules\Tagtoa\App\Http\Controllers\Event\WalletController::class, 'terminal'])->name('wallet.terminal');
@@ -215,8 +224,10 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/{id}/staff', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'store'])->name('staff.store');
         Route::post('/{id}/staff/{staffId}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'toggle'])->name('staff.toggle');
         Route::post('/{id}/staff/{staffId}/pin', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'resetPin'])->name('staff.pin');
+        Route::delete('/{id}/staff/{staffId}', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'destroy'])->name('staff.destroy');
         Route::post('/{id}/staff/conflicts/{conflictId}/resolve', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'resolveConflict'])->name('staff.conflict.resolve');
         Route::get('/{id}/staff/export', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'export'])->name('staff.export');
+        Route::get('/{id}/staff/sales/export', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'exportSales'])->name('staff.sales.export');
     });
 
     // POS
@@ -260,6 +271,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     Route::get('/cards', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'index'])->name('tagtoa.cards.index');
     Route::post('/cards', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'store'])->name('tagtoa.cards.store');
     Route::get('/cards/{card}', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'show'])->name('tagtoa.cards.show');
+    Route::get('/cards/{card}/print', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'printCard'])->name('tagtoa.cards.print');
     Route::post('/cards/{card}/topup', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'topUp'])->name('tagtoa.cards.topup');
     Route::post('/cards/{card}/status', [\Modules\Tagtoa\App\Http\Controllers\Card\DashboardController::class, 'setStatus'])->name('tagtoa.cards.status');
 
@@ -285,6 +297,14 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     Route::put('/billing', [BillingController::class, 'update'])->name('tagtoa.billing.update');
     Route::post('/billing/settle', [BillingController::class, 'settle'])->name('tagtoa.billing.settle');
     Route::get('/billing/export', [BillingController::class, 'export'])->name('tagtoa.billing.export');
+
+    // ESPACE DÉVELOPPEUR — clés API + documentation d'intégration.
+    Route::prefix('developer')->group(function () {
+        $dev = \Modules\Tagtoa\App\Http\Controllers\Developer\DashboardController::class;
+        Route::get('/', [$dev, 'index'])->name('tagtoa.developer.index');
+        Route::post('/keys', [$dev, 'store'])->name('tagtoa.developer.store');
+        Route::post('/keys/{id}/revoke', [$dev, 'revoke'])->name('tagtoa.developer.revoke');
+    });
 });
 
 // ---------- SUPER-ADMIN TAGTOA (fondateur, cross-tenant, role:super_admin) ----------
@@ -294,4 +314,15 @@ Route::middleware(['auth', 'valid.user', 'role:super_admin'])->prefix('tagtoa/ad
     // Édition des forfaits TAGTOA (prix + limites) — fondateur.
     Route::get('/plans', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\PlanController::class, 'index'])->name('tagtoa.superadmin.plans');
     Route::put('/plans', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\PlanController::class, 'update'])->name('tagtoa.superadmin.plans.update');
+    // Crédits d'activation de cartes officielles (accorder/vendre aux revendeurs).
+    Route::get('/card-credits', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\CardCreditController::class, 'index'])->name('tagtoa.superadmin.credits');
+    Route::post('/card-credits', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\CardCreditController::class, 'grant'])->name('tagtoa.superadmin.credits.grant');
+    // État système en lecture seule (environnement, DB, cache, sécurité NFC, limites connues).
+    Route::get('/status', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\StatusController::class, 'index'])->name('tagtoa.superadmin.status');
+    // Passerelles de paiement : activation, frais, et qui encaisse (plateforme vs marchand).
+    Route::get('/gateways', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\GatewayController::class, 'index'])->name('tagtoa.superadmin.gateways');
+    Route::put('/gateways', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\GatewayController::class, 'update'])->name('tagtoa.superadmin.gateways.update');
+    // Saisie des identifiants API d'un driver (chiffrés en base).
+    Route::post('/gateways/{driver}/credentials', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\GatewayController::class, 'saveCredentials'])
+        ->where('driver', '[a-z0-9_]+')->name('tagtoa.superadmin.gateways.credentials');
 });

@@ -80,6 +80,38 @@ if [ -d "$PH" ] && [ -d "$APP/public" ]; then
   done
 fi
 
+# 4.8) Perf HTTP pour connexions faibles (Haïti) : compression gzip + cache
+#      navigateur. Ajout IDEMPOTENT (marqueur TAGTOA-PERF-BLOCK) en fin du
+#      .htaccess existant du docroot — jamais d'écrasement, jamais de doublon.
+if [ -n "${PH:-}" ] && [ -f "$PH/.htaccess" ] && ! grep -q "TAGTOA-PERF-BLOCK" "$PH/.htaccess"; then
+  cat >> "$PH/.htaccess" <<'HTACCESS_EOF'
+
+# TAGTOA-PERF-BLOCK — compression + cache navigateur (connexions lentes Haïti)
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml text/javascript
+    AddOutputFilterByType DEFLATE application/javascript application/x-javascript
+    AddOutputFilterByType DEFLATE application/json application/xml application/rss+xml
+    AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType application/pdf "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+</IfModule>
+HTACCESS_EOF
+  echo "perf .htaccess : bloc compression/cache ajouté"
+else
+  echo "perf .htaccess : déjà présent, ou .htaccess/public_html introuvable"
+fi
+
 # 5) Caches + réouverture. On vide puis on RECACHE (prod plus rapide : évite de
 #    relire ~30 fichiers config + .env à chaque requête). Pas de route:cache
 #    (Biztap peut avoir des routes en closure).

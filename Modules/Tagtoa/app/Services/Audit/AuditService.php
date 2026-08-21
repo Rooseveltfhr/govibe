@@ -35,6 +35,9 @@ class AuditService
         'card.top_up'       => 'Recharge carte TAGTOA',
         'card.charged'      => 'Paiement par carte TAGTOA',
         'card.status'       => 'Statut carte TAGTOA modifié',
+        'card.credits_granted' => 'Crédits carte accordés',
+        'event_staff_deleted' => 'Staff terrain supprimé',
+        'event_tickets_imported' => 'Billets pré-imprimés importés',
     ];
 
     /** Libellé lisible d'une action (repli = action brute). LOGIQUE PURE. */

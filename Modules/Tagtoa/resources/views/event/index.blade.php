@@ -22,6 +22,7 @@
                     <a href="{{ route('tagtoa.event.dashboard.wallet',$e->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-wallet"></i> {{ __('Wallet') }}</a>
                     <a href="{{ route('tagtoa.event.dashboard.checkin.report',$e->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-chart-simple"></i> {{ __('Rapport') }}</a>
                     <a href="{{ route('tagtoa.event.dashboard.badges',$e->id) }}" target="_blank" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-id-badge"></i> {{ __('Badges') }}</a>
+                    <a href="{{ route('tagtoa.event.dashboard.tickets.import',$e->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-file-import"></i> {{ __('Import billets') }}</a>
                     <a href="{{ route('tagtoa.event.dashboard.staff',$e->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-users"></i> {{ __('Staff') }}</a>
                     @if($e->is_published)
                         <button type="button" class="btn btn-o btn-sm" style="flex:0" onclick="var s=document.getElementById('sh-{{ $e->id }}');s.style.display=s.style.display==='none'?'block':'none'"><i class="fa-solid fa-share-nodes"></i> {{ __('Partager') }}</button>

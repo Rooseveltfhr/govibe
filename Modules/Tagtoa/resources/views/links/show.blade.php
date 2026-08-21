@@ -15,7 +15,7 @@
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <title>{{ $page->title ?: $page->alias }} — TAGTOA</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
     <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     <style>
         :root{--blue:#2cb809;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif;--bg:{{ $t['bg'] }};--fg:{{ $t['fg'] }};--card:{{ $t['card'] }};--cfg:{{ $t['cfg'] }};--mut:{{ $t['mut'] }}}

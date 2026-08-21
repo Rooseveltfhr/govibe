@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ __('Événements') }} — TAGTOA</title>
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
     <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     <style>
         :root{--blk:#0A0A0A;--green:#2cb809;--ink:#0d140c;--bg:#f5f9f2;--card:#fff;--bd:rgba(13,20,12,.10);--mut:#5d6b5a;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
@@ -49,7 +49,7 @@
         @if($loop->first)<div class="grid">@endif
             <a class="card" href="{{ route('tagtoa.event.show', $e->alias) }}">
                 <div class="cover">
-                    @if($e->cover_url)<img src="{{ $e->cover_url }}" alt="{{ $e->title }}">@else<i class="fa-solid fa-ticket"></i>@endif
+                    @if($e->cover_url)<img src="{{ $e->cover_url }}" alt="{{ $e->title }}" loading="lazy">@else<i class="fa-solid fa-ticket"></i>@endif
                     @if($e->type)<span class="badge">{{ ucfirst($e->type) }}</span>@endif
                 </div>
                 <div class="body">

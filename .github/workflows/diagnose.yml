@@ -12,6 +12,26 @@ on:
         description: "Vider les caches (config/routes/vues) + corriger les permissions storage"
         type: boolean
         default: true
+      pause_sites:
+        description: "Mettre en pause (public_html → public_html.paused + page d'attente) les sites non essentiels pour libérer le CPU (festival)"
+        type: boolean
+        default: false
+      unpause_sites:
+        description: "Réactiver les sites mis en pause (restaure public_html.paused → public_html)"
+        type: boolean
+        default: false
+      fetch_file:
+        description: "Chemin ABSOLU d'un fichier à récupérer tel quel (artefact, sans passage par le log — évite le masquage de secrets)"
+        type: string
+        default: ""
+      find_pattern:
+        description: "grep -rl SÛR dans resources/views : affiche seulement les CHEMINS des fichiers qui matchent (jamais le contenu, zéro risque de masquage)"
+        type: string
+        default: ""
+      inspect_skeleton:
+        description: "Chemin RELATIF (depuis resources/views) d'une vue à inspecter : affiche seulement les lignes structurelles (@yield/@include/<title>/<link>/<script>/<style>/<body>), jamais le fichier complet — sûr contre le masquage"
+        type: string
+        default: ""
 
 concurrency:
   group: diagnose-tagtoa
@@ -33,41 +53,21 @@ jobs:
       - name: Diagnose + clear cache
         env:
           CLEAR: ${{ inputs.clear_cache }}
+          PAUSE: ${{ inputs.pause_sites }}
+          UNPAUSE: ${{ inputs.unpause_sites }}
+          FIND_PATTERN: ${{ inputs.find_pattern }}
+          INSPECT_SKELETON: ${{ inputs.inspect_skeleton }}
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
           ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' bash -s" <<'EOSSH'
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "CLEAR='$CLEAR' PAUSE='$PAUSE' UNPAUSE='$UNPAUSE' FIND_PATTERN='$FIND_PATTERN' INSPECT_SKELETON='$INSPECT_SKELETON' bash -s" <<'EOSSH'
           set -uo pipefail
 
-          # 0) QUI/OÙ suis-je ? (le chemin domaine attendu était introuvable)
           echo "::group::Contexte SSH"
-          echo "whoami : $(whoami)"; echo "HOME : $HOME"; echo "pwd : $(pwd)"
-          echo "--- \$HOME ---"; ls -la "$HOME" 2>&1 | head -40
-          echo "--- /home ---"; ls -la /home 2>&1 | head -40
-          echo "::endgroup::"
-
-          # 1) EXPLORER sous $HOME (/home global n'est pas lisible : le glob
-          #    /home/*/domains échoue → c'est LA cause de « INTROUVABLE »).
-          echo "::group::Domaines du compte ($HOME/domains)"
-          ls -la "$HOME/domains" 2>&1 | head -40
-          echo "::endgroup::"
-
-          echo "::group::Structure de tagtoa.com"
+          echo "whoami : $(whoami)"; echo "HOME : $HOME"
           T="$HOME/domains/tagtoa.com"
-          echo "== $T =="; ls -la "$T" 2>&1 | head -50
-          echo "== $T/public_html =="; ls -la "$T/public_html" 2>&1 | head -60
-          echo "== $T/laravel (si existe) =="; ls -la "$T/laravel" 2>&1 | head -50
-          echo "== $T/public_html/laravel (si existe) =="; ls -la "$T/public_html/laravel" 2>&1 | head -50
-          echo "::endgroup::"
-
-          echo "::group::Recherche des fichiers ESSENTIELS sous tagtoa.com"
-          echo "== artisan =="; ART=$(find "$T" -maxdepth 4 -type f -name artisan 2>/dev/null | head -10); echo "${ART:-aucun}"
-          echo "== .env =="; find "$T" -maxdepth 4 -type f -name '.env' 2>/dev/null | head
-          echo "== dossiers storage / bootstrap / vendor / Modules / public =="
-          for dir in storage bootstrap vendor Modules public; do
-            r=$(find "$T" -maxdepth 4 -type d -name "$dir" 2>/dev/null | head); echo "$dir: ${r:-ABSENT}"
-          done
-          echo "== index.php (docroot) =="; find "$T" -maxdepth 3 -name index.php 2>/dev/null | head
+          ART=$(find "$T" -maxdepth 4 -type f -name artisan 2>/dev/null | head -1)
+          echo "artisan: ${ART:-INTROUVABLE}"
           echo "::endgroup::"
 
           # 2) Choisir l'app : artisan sous tagtoa.com en priorité.
@@ -118,49 +118,93 @@ jobs:
           ls -la "$L/bootstrap/cache/" 2>&1 || true
           echo "::endgroup::"
 
-          echo "::group::Menu sadmin (pour insérer un lien TAGTOA)"
-          MENUF=$(grep -rilE 'Sell NFC Cards|WhatsApp Stores' "$L/resources/views" 2>/dev/null | head -1)
-          echo "fichier menu: ${MENUF:-introuvable}"
-          if [ -n "$MENUF" ]; then
-            echo "-- extrait (lignes autour de 'Dashboard' / 'vCards') --"
-            grep -nE "Dashboard|vCards|Sell NFC|route\(|href=|menu-item|<li|nav-link" "$MENUF" | head -40
+          echo "::group::HomeController.php — état du patch null-guard (lecture seule)"
+          if [ -f "$L/app/Http/Controllers/HomeController.php" ]; then
+            grep -n 'if (!\$blog' "$L/app/Http/Controllers/HomeController.php" || echo "ligne cible absente (déjà patché ou code différent)"
+          else
+            echo "absent"
           fi
           echo "::endgroup::"
 
-          echo "::group::Vues login / marque (rebranding TAGTOA)"
-          echo "== fichiers de vues login/auth =="
-          find "$L/resources/views" -maxdepth 3 -iregex '.*\(login\|auth\).*\.blade\.php' 2>/dev/null | head -20
-          echo "== vues contenant l'ancienne marque (biztap) =="
-          grep -rilo 'biztap' "$L/resources/views" 2>/dev/null | head -30
-          echo "== route(s) login (web.php) =="
-          grep -nE "login|Login" "$L/routes/web.php" 2>/dev/null | head -10
-          echo "== auth/login.blade.php (COMPLET) =="
-          cat "$L/resources/views/auth/login.blade.php" 2>/dev/null || echo "absent"
+          echo "::group::CPU — nproc (VPS redimensionné, vérif rapide seulement)"
+          nproc 2>&1 || true
           echo "::endgroup::"
 
-          echo "::group::INSCRIPTION (register) — champs attendus"
-          echo "== fichiers register (vues) =="
-          find "$L/resources/views" -maxdepth 4 -iname 'register*.blade.php' 2>/dev/null | head
-          echo "== champs name= dans register.blade.php =="
-          RV=$(find "$L/resources/views" -maxdepth 4 -iname 'register.blade.php' 2>/dev/null | head -1)
-          echo "fichier: ${RV:-introuvable}"
-          [ -n "$RV" ] && grep -oE 'name="[^"]+"' "$RV" | sort -u
-          echo "== register.blade.php (COMPLET, pour override fidèle) =="
-          [ -n "$RV" ] && cat "$RV" 2>/dev/null || echo "absent"
-          echo "== route(s) register (web.php) =="
-          grep -nE "register|Register" "$L/routes/web.php" 2>/dev/null | head -10
-          echo "== RegisterController (règles de validation) =="
-          RC=$(find "$L/app" -iname 'RegisterController.php' 2>/dev/null | head -1)
-          echo "fichier: ${RC:-introuvable}"
-          [ -n "$RC" ] && sed -n '1,140p' "$RC" | grep -nE "required|rules|validator|redirectTo|create\(|'name'|'email'|'first_name'|'last_name'|'username'|'phone'|'mobile'|'password'" | head -40
+          echo "::group::PERFORMANCE — charge serveur, timing HTTP, drivers, taille des logs"
+          echo "== uptime / charge / mémoire =="
+          uptime 2>&1 || true
+          free -h 2>&1 || true
+          echo "== espace disque =="
+          df -h "$L" 2>&1 || true
+          echo "== TOP processus par %CPU (visibles par cet utilisateur) =="
+          ps -u "$(whoami)" -o pid,pcpu,pmem,etime,cmd --sort=-pcpu 2>&1 | head -20 || ps aux --sort=-%cpu 2>&1 | head -20
+          echo "== TOP processus par %CPU (tout le système, si visible) =="
+          ps aux --sort=-%cpu 2>&1 | head -15 || echo "non lisible (permissions)"
+          echo "== crontab utilisateur (tâches planifiées) =="
+          crontab -l 2>&1 || echo "aucun crontab / non lisible"
+          echo "== requêtes MySQL actives (si permission) =="
+          ( cd "$L" && timeout 10 php artisan tinker --execute="print_r(DB::select('SHOW PROCESSLIST'));" 2>&1 | head -40 ) || echo "processlist non accessible"
+          echo "== timing HTTP réel (depuis le VPS, boucle locale) =="
+          for u in "https://tagtoa.com/login" "https://tagtoa.com/"; do
+            echo "-- $u --"
+            curl -s -o /dev/null -w "  http_code=%{http_code}  time_connect=%{time_connect}s  time_starttransfer=%{time_starttransfer}s  time_total=%{time_total}s\n" \
+              --max-time 30 "$u" 2>&1 || echo "  curl a échoué"
+          done
+          echo "== drivers session/cache/queue (config app) =="
+          grep -nE "SESSION_DRIVER|CACHE_STORE|CACHE_DRIVER|QUEUE_CONNECTION|DB_CONNECTION" "$L/.env" 2>/dev/null \
+            | sed -E 's/(PASSWORD|SECRET)([=][^ ]*)?//gi'
+          echo "== taille laravel.log =="
+          du -sh "$L/storage/logs/laravel.log" 2>&1 || echo "absent"
+          echo "== fichier de maintenance actif ? (artisan down) =="
+          [ -f "$L/storage/framework/down" ] && echo "⚠ SITE EN MAINTENANCE (storage/framework/down présent)" || echo "pas en maintenance"
+          echo "== processus PHP-FPM (nombre) =="
+          pgrep -c php-fpm 2>/dev/null || pgrep -c php 2>/dev/null || echo "n/a (non lisible depuis cet utilisateur)"
+          echo "== test connexion DB (sans exposer credentials) =="
+          ( cd "$L" && timeout 15 php artisan db:show 2>&1 | head -20 ) || echo "échec/timeout db:show"
           echo "::endgroup::"
 
-          echo "::group::vCARD — tableau de bord & routes (pour lien sidebar)"
-          echo "== routes contenant vcard/dashboard/create (web.php) =="
-          grep -nE "vcard|Vcard|VCard|dashboard|create-vcard|user/dashboard" "$L/routes/web.php" 2>/dev/null | head -30
-          echo "== RouteServiceProvider HOME =="
-          grep -rnE "const HOME|public const HOME|protected \\\$redirectTo|redirectTo =" "$L/app/Providers" 2>/dev/null | head
+          echo "::group::AUTRES SITES — domaines + confirmation pool PHP-FPM partagé"
+          ls "$HOME/domains" 2>&1
+          ps -u "$(whoami)" -o cmd= 2>/dev/null | grep php-fpm | sort | uniq -c
           echo "::endgroup::"
+
+          echo "::group::CHARGE — opcache, connexions, pool PHP-FPM, caches Laravel"
+          echo "== opcache activé ? (recompiler PHP à chaque requête = très coûteux si non) =="
+          php -i 2>/dev/null | grep -iE "^opcache.enable|^opcache.enable_cli" || echo "opcache: info non disponible via php -i"
+          echo "== connexions actives sur le port 443 (nombre) =="
+          ( command -v ss >/dev/null && ss -tn state established '( dport = :443 or sport = :443 )' 2>&1 | wc -l ) \
+            || ( command -v netstat >/dev/null && netstat -tn 2>&1 | grep -c ':443' ) \
+            || echo "ss/netstat non disponibles"
+          echo "== caches Laravel (config/route/view) — évite de recompiler à chaque requête =="
+          for c in bootstrap/cache/config.php bootstrap/cache/routes-v7.php bootstrap/cache/packages.php bootstrap/cache/services.php; do
+            if [ -f "$L/$c" ]; then
+              echo "  $c : présent ($(stat -c '%y' "$L/$c" 2>/dev/null || echo '?'))"
+            else
+              echo "  $c : ABSENT (pas caché — recompile à chaque requête)"
+            fi
+          done
+          ( cd "$L" && ls storage/framework/views/*.php 2>/dev/null | wc -l | xargs -I{} echo "  vues Blade compilées en cache: {}" ) || true
+          echo "::endgroup::"
+
+          if [ -n "${FIND_PATTERN:-}" ]; then
+            echo "::group::Recherche de fichiers (CHEMINS seulement — jamais le contenu)"
+            grep -rl -- "$FIND_PATTERN" "$L/resources/views" 2>/dev/null | sed "s|^$L/||" || echo "aucun résultat"
+            echo "::endgroup::"
+          fi
+
+          if [ -n "${INSPECT_SKELETON:-}" ]; then
+            echo "::group::Squelette de vue (lignes structurelles seulement — jamais le fichier complet)"
+            F="$L/resources/views/$INSPECT_SKELETON"
+            if [ -f "$F" ]; then
+              echo "wc -l : $(wc -l < "$F")"
+              grep -n -E "@yield|@include|@extends|@stack|@push|<title|<link |<script |<style|</?body|</?head|</?html" "$F" \
+                | cut -c1-200 \
+                | sed -E 's/(password|pwd|secret|token)([=" :]+)[^ "]+/\1\2[REDACTED]/gi'
+            else
+              echo "introuvable: $INSPECT_SKELETON"
+            fi
+            echo "::endgroup::"
+          fi
 
           echo "::group::laravel.log — messages d'ERREUR (secrets redactés)"
           LOG="$L/storage/logs/laravel.log"
@@ -178,6 +222,45 @@ jobs:
 
           if [ "${CLEAR:-false}" = "true" ]; then
             echo "::group::Réparations (sûr, sans DB)"
+
+            # URGENCE : libère les workers PHP-FPM bloqués depuis > 180s (une requête
+            # web normale finit en quelques secondes ; un worker qui tourne des minutes
+            # est bloqué — probablement un appel HTTP sortant sans timeout, ex. Twilio).
+            # Ne tue QUE les processus php-fpm APPARTENANT à cet utilisateur, avec
+            # SIGTERM (arrêt propre) ; PHP-FPM respawn automatiquement un worker neuf.
+            echo "-- nettoyage workers PHP-FPM bloqués (running > 180s) --"
+            ps -u "$(whoami)" -o pid=,etimes=,cmd= 2>/dev/null | while read -r pid etimes cmd; do
+              case "$cmd" in
+                *php-fpm*)
+                  if [ "${etimes:-0}" -gt 180 ] 2>/dev/null; then
+                    echo "  kill -TERM $pid (bloqué depuis ${etimes}s)"
+                    kill -TERM "$pid" 2>/dev/null || true
+                  fi
+                  ;;
+              esac
+            done
+            sleep 2
+            echo "-- workers PHP-FPM restants (après nettoyage) --"
+            ps -u "$(whoami)" -o pid,etimes,stat,cmd 2>/dev/null | grep php-fpm | head -20 || true
+
+            # FIX « Attempt to read property "status" on null » (HomeController.php:298,
+            # ForntBlogShow) : Blog::where('slug',...)->first() retourne null pour un
+            # slug inconnu, puis $blog->status plante avant le abort(404). Patch d'UNE
+            # LIGNE, versionné par backup .bak, validé par `php -l` AVANT application
+            # (jamais de fichier cassé) — pas de composer/artisan, redéployable à volonté.
+            HC="$L/app/Http/Controllers/HomeController.php"
+            if [ -f "$HC" ] && grep -qF 'if (!$blog->status) {' "$HC"; then
+              cp "$HC" "$HC.bak.$(date +%Y%m%d%H%M%S)"
+              sed -i 's/if (!\$blog->status) {/if (!\$blog || !\$blog->status) {/' "$HC"
+              if php -l "$HC" >/dev/null 2>&1; then
+                echo "FIX_OK: HomeController.php:ForntBlogShow — garde null ajoutée"
+              else
+                echo "FIX_FAIL: syntaxe invalide après patch — restauration du .bak"
+                cp "$HC.bak."* "$HC" 2>/dev/null || true
+              fi
+            else
+              echo "HomeController.php : ligne cible absente (déjà patché ou code différent) — rien à faire"
+            fi
 
             # FIX 500 « Mix manifest not found » : mix() cherche le manifeste dans
             # laravel/public/ mais les assets buildés sont dans public_html/ (docroot).
@@ -209,11 +292,86 @@ jobs:
             chmod -R ug+rwX "$L/storage" "$L/bootstrap/cache" 2>/dev/null && echo "permissions storage/bootstrap corrigées" || true
             # Accélération prod : met le config + vues en cache (évite de relire
             # ~30 fichiers config + .env à CHAQUE requête → dashboard plus rapide).
-            # (pas de route:cache : Biztap peut avoir des routes en closure.)
             echo "-- optimisation (config + vues en cache) --"
             ( cd "$L" && php artisan config:cache 2>&1 ) || true
             ( cd "$L" && php artisan view:cache 2>&1 ) || true
+
+            # ESSAI route:cache : évite de ré-enregistrer TOUTES les routes (Biztap +
+            # 10 modules TAGTOA + GOVIBE Academy) à CHAQUE requête — coût CPU réel sur
+            # un VPS à 1 seul cœur sous charge. Historiquement évité car Biztap peut
+            # avoir des routes en Closure (route:cache échoue dans ce cas). On essaie
+            # ; si ça échoue, on revient IMMÉDIATEMENT à route:clear (comportement
+            # actuel, sûr) — donc jamais pire qu'avant ce test.
+            echo "-- essai route:cache (repli automatique sur échec) --"
+            ( cd "$L" && php artisan route:cache 2>&1 )
+            if [ $? -eq 0 ] && [ -f "$L/bootstrap/cache/routes-v7.php" ]; then
+              echo "ROUTE_CACHE_OK : routes mises en cache avec succès"
+            else
+              echo "ROUTE_CACHE_FAIL : échec (probablement une route en Closure) — repli sur route:clear"
+              ( cd "$L" && php artisan route:clear 2>&1 ) || true
+            fi
             echo "::endgroup::"
             echo "→ Rechargez https://tagtoa.com/login"
           fi
+
+          # PAUSE / REPRISE de sites non essentiels — libère le seul cœur CPU du
+          # compte pour tagtoa.com pendant le festival (13-16 août). Réversible à
+          # 100% : on renomme SEULEMENT public_html <-> public_html.paused, on ne
+          # supprime jamais rien. Idempotent (ignore si déjà dans l'état voulu).
+          SITES_TO_PAUSE="webetud.com djounes.com festival.tagtoa.com esim.govibeht.com store.tagtoa.com"
+          if [ "${PAUSE:-false}" = "true" ]; then
+            echo "::group::PAUSE sites non essentiels (festival)"
+            for dom in $SITES_TO_PAUSE; do
+              D="$HOME/domains/$dom"
+              if [ -d "$D/public_html" ] && [ ! -d "$D/public_html.paused" ]; then
+                mv "$D/public_html" "$D/public_html.paused"
+                mkdir -p "$D/public_html"
+                printf '%s' '<!doctype html><html><head><meta charset="utf-8"><title>Maintenance</title></head><body style="font-family:sans-serif;text-align:center;margin-top:15vh"><h1>Maintenance temporaire</h1><p>De retour tres bientot.</p></body></html>' > "$D/public_html/index.html"
+                echo "PAUSED: $dom"
+              elif [ -d "$D/public_html.paused" ]; then
+                echo "déjà en pause: $dom"
+              else
+                echo "introuvable (ignoré): $dom"
+              fi
+            done
+            echo "::endgroup::"
+          fi
+          if [ "${UNPAUSE:-false}" = "true" ]; then
+            echo "::group::REPRISE sites (fin de pause)"
+            for dom in $SITES_TO_PAUSE; do
+              D="$HOME/domains/$dom"
+              if [ -d "$D/public_html.paused" ]; then
+                rm -rf "$D/public_html"
+                mv "$D/public_html.paused" "$D/public_html"
+                echo "REPRIS: $dom"
+              else
+                echo "pas en pause (ignoré): $dom"
+              fi
+            done
+            echo "::endgroup::"
+          fi
           EOSSH
+
+      - name: Fetch file (redirected to local file — never printed to the log, avoids secret-masking corruption)
+        if: ${{ inputs.fetch_file != '' }}
+        env:
+          FETCH_FILE: ${{ inputs.fetch_file }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "FF='$FETCH_FILE' bash -s" <<'EOSSH' > fetched-file
+          T="$HOME/domains/tagtoa.com"
+          L=""
+          for c in "$T/laravel" "$T/public_html/laravel" "$T/public_html"; do
+            [ -f "$c/artisan" ] && { L="$c"; break; }
+          done
+          cat "$L/$FF"
+          EOSSH
+
+      - name: Upload fetched file as artifact
+        if: ${{ inputs.fetch_file != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fetched-file
+          path: fetched-file
+          retention-days: 1

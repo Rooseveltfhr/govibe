@@ -11,7 +11,10 @@ use Illuminate\Support\Facades\Response;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Event\Event;
+use Modules\Tagtoa\App\Models\Event\Ticket;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
+use Modules\Tagtoa\App\Services\Audit\AuditService;
+use Modules\Tagtoa\App\Services\Event\TicketImportService;
 use Modules\Tagtoa\App\Support\Tenant;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -47,6 +50,9 @@ $data = $this->validateEvent($request);
         if ($request->hasFile('cover')) {
             $event->cover_path = $request->file('cover')->store('tagtoa/event-covers', 'public');
         }
+        if ($request->hasFile('logo')) {
+            $event->logo_path = $request->file('logo')->store('tagtoa/event-logos', 'public');
+        }
         $event->save();
         $this->syncTypes($event, $request); // capture les types de billets + prix dès la création
 
@@ -67,6 +73,9 @@ $data = $this->validateEvent($request);
         $data['alias'] = ($data['alias'] ?? null) ?: $event->alias;
         if ($request->hasFile('cover')) {
             $data['cover_path'] = $request->file('cover')->store('tagtoa/event-covers', 'public');
+        }
+        if ($request->hasFile('logo')) {
+            $data['logo_path'] = $request->file('logo')->store('tagtoa/event-logos', 'public');
         }
         $event->update($data);
         $this->syncTypes($event, $request);
@@ -119,6 +128,73 @@ $data = $this->validateEvent($request);
             });
             fclose($out);
         }, "event-{$event->alias}-orders.csv", ['Content-Type' => 'text/csv']);
+    }
+
+    /* ---------------- Import de billets pré-imprimés (hors système) ---------------- */
+
+    public function ticketsImport(int $id): View
+    {
+        $event = $this->own($id);
+        $stats = [
+            'imported' => $event->tickets()->where('imported', true)->count(),
+            'unsold'   => $event->tickets()->where('imported', true)->where('status', Ticket::STATUS_UNSOLD)->count(),
+            'sold'     => $event->tickets()->where('imported', true)->where('status', Ticket::STATUS_VALID)->count(),
+        ];
+        $pending = $event->tickets()->where('imported', true)->where('status', Ticket::STATUS_UNSOLD)
+            ->orderByDesc('id')->paginate(50);
+
+        return view('tagtoa::event.tickets-import', compact('event', 'stats', 'pending'));
+    }
+
+    public function ticketsImportStore(Request $request, int $id): RedirectResponse
+    {
+        $event = $this->own($id);
+        $data = $request->validate(['file' => ['required', 'file', 'max:2048']]);
+
+        $parsed = TicketImportService::parseCsv(file_get_contents($data['file']->getRealPath()));
+        $res = app(TicketImportService::class)->importForEvent($event, $parsed['rows']);
+
+        app(AuditService::class)->log('event_tickets_imported', $event, $res['created'].' billets importés — '.$event->title);
+
+        return back()->with('success', __(':n billets importés (:d doublons ignorés, :s lignes invalides).', [
+            'n' => $res['created'], 'd' => $res['duplicates'], 's' => $parsed['skipped'],
+        ]));
+    }
+
+    /**
+     * Enregistre UN billet pré-imprimé par scan caméra (pas de liste numérique
+     * disponible — l'organisateur scanne chaque carte physique une à une).
+     * Idempotent : rescanner un code déjà enregistré ne crée pas de doublon.
+     */
+    public function ticketsScanImport(Request $request, int $id): \Illuminate\Http\JsonResponse
+    {
+        $event = $this->own($id);
+        $data = $request->validate([
+            'code'   => ['required', 'string', 'max:64'],
+            'serial' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        $code = trim($data['code']);
+        $existing = $event->tickets()->where('code', $code)->first();
+        if ($existing) {
+            return response()->json(['ok' => true, 'status' => 'duplicate', 'code' => $code]);
+        }
+
+        app(TicketImportService::class)->importForEvent($event, [
+            ['code' => $code, 'serial' => ! empty($data['serial']) ? trim($data['serial']) : null],
+        ]);
+
+        return response()->json(['ok' => true, 'status' => 'created', 'code' => $code]);
+    }
+
+    /** Retire un billet pré-imprimé importé PAR ERREUR (jamais s'il a déjà été vendu). */
+    public function ticketsDestroy(int $id, int $ticketId): RedirectResponse
+    {
+        $event = $this->own($id);
+        $ticket = $event->tickets()->where('imported', true)->where('status', Ticket::STATUS_UNSOLD)->findOrFail($ticketId);
+        $ticket->delete();
+
+        return back()->with('success', __('Billet retiré de la liste d\'import.'));
     }
 
     /* helpers */
@@ -174,6 +250,7 @@ $data = $this->validateEvent($request);
             'is_published' => ['nullable', 'boolean'],
             'pay_page_id'  => ['nullable', 'integer', Rule::in($ownPayIds)],
             'cover'        => ['nullable', 'image', 'max:4096'],
+            'logo'         => ['nullable', 'image', 'max:4096'],
         ]);
     }
 

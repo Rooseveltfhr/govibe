@@ -47,12 +47,13 @@
         <div class="empty"><i class="fa-solid fa-users"></i>{{ __('Aucun membre pour l\'instant. Créez le premier compte ci-dessus.') }}</div>
     @else
     <div style="overflow-x:auto"><table>
-        <tr><th>{{ __('Nom') }}</th><th>{{ __('Rôle') }}</th><th>{{ __('Check-ins') }}</th><th>{{ __('Dernière connexion') }}</th><th>{{ __('Statut') }}</th><th></th></tr>
+        <tr><th>{{ __('Nom') }}</th><th>{{ __('Rôle') }}</th><th>{{ __('Check-ins') }}</th><th>{{ __('Ventes') }}</th><th>{{ __('Dernière connexion') }}</th><th>{{ __('Statut') }}</th><th></th></tr>
         @foreach($staff as $s)
         <tr>
             <td><b>{{ $s->name }}</b></td>
             <td><span class="pill {{ $s->role === 'admin' ? 'a' : 'n' }}">{{ $s->role }}</span></td>
             <td>{{ $activity[$s->id] ?? 0 }}</td>
+            <td>{{ $salesByStaff[$s->id] ?? 0 }}</td>
             <td>{{ optional($s->last_login_at)->format('d/m H:i') ?: '—' }}</td>
             <td>{!! $s->active ? '<span class="pill g">'.__('Actif').'</span>' : '<span class="pill r">'.__('Inactif').'</span>' !!}</td>
             <td style="white-space:nowrap">
@@ -62,6 +63,9 @@
                 <form method="POST" action="{{ route('tagtoa.event.dashboard.staff.pin', [$event->id, $s->id]) }}" style="display:inline-flex;gap:6px;align-items:center">@csrf
                     <input class="inp" name="pin" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" placeholder="{{ __('Nouveau PIN') }}" style="width:110px;padding:7px 10px">
                     <button class="btn btn-d btn-sm">{{ __('Réinitialiser') }}</button>
+                </form>
+                <form method="POST" action="{{ route('tagtoa.event.dashboard.staff.destroy', [$event->id, $s->id]) }}" onsubmit="return confirm('{{ __('Supprimer ce staff ?') }}')" style="display:inline">@csrf @method('DELETE')
+                    <button class="btn btn-o btn-sm" style="color:var(--red)"><i class="fa-solid fa-trash"></i></button>
                 </form>
             </td>
         </tr>
@@ -97,6 +101,31 @@
         </tr>
         @endforeach
     </table></div>
+    @endif
+</div>
+
+{{-- Historique de vente : tous les billets émis au terminal, vendeur + date --}}
+<div class="card" style="margin-top:16px">
+    <div class="h-row"><h2>{{ __('Historique de vente') }} ({{ $sales->total() }})</h2>
+        <a href="{{ route('tagtoa.event.dashboard.staff.sales.export', $event->id) }}" class="btn btn-o btn-sm"><i class="fa-solid fa-file-csv"></i> {{ __('Export CSV') }}</a>
+    </div>
+    @if($sales->isEmpty())
+        <div class="empty"><i class="fa-solid fa-ticket"></i>{{ __('Aucune vente enregistrée au terminal pour l\'instant.') }}</div>
+    @else
+    <div style="overflow-x:auto"><table>
+        <tr><th>{{ __('Date') }}</th><th>{{ __('Billet') }}</th><th>{{ __('Participant') }}</th><th>{{ __('Type') }}</th><th>{{ __('Paiement') }}</th><th>{{ __('Vendeur') }}</th></tr>
+        @foreach($sales as $t)
+        <tr>
+            <td style="color:var(--muted)">{{ optional($t->sold_at)->format('d/m/y H:i') }}</td>
+            <td><code>{{ $t->code }}</code></td>
+            <td>{{ $t->holder_name }}<div style="color:var(--muted);font-size:12px">{{ $t->holder_phone }}</div></td>
+            <td>{{ optional($t->ticketType)->name ?: '—' }}</td>
+            <td>{{ $t->payment_method ?: '—' }}</td>
+            <td>{{ optional($t->soldByStaff)->name ?: '—' }}</td>
+        </tr>
+        @endforeach
+    </table></div>
+    <div style="margin-top:14px">{{ $sales->links() }}</div>
     @endif
 </div>
 @endsection

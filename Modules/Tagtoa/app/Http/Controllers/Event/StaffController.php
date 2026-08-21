@@ -11,6 +11,7 @@ use Modules\Tagtoa\App\Models\Event\Checkin;
 use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Event\Staff;
 use Modules\Tagtoa\App\Models\Event\SyncConflict;
+use Modules\Tagtoa\App\Models\Event\Ticket;
 use Modules\Tagtoa\App\Services\Audit\AuditService;
 use Modules\Tagtoa\App\Services\Billing\PlanService;
 use Modules\Tagtoa\App\Services\Event\StaffPinService;
@@ -20,7 +21,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * TAGTOA EVENT — gestion du staff terrain (côté organisateur, vrai login).
  *
- * Seul le propriétaire (login tenant) crée/désactive les comptes staff.
+ * Seul le propriétaire (login tenant — admin ou super_admin selon le middleware
+ * de la route) crée/désactive/supprime les comptes staff.
  * Le PIN ne donne accès qu'au terminal terrain (vente/check-in), jamais ici.
  */
 class StaffController extends Controller
@@ -39,10 +41,17 @@ class StaffController extends Controller
         $conflicts = SyncConflict::where('event_id', $event->id)
             ->with(['ticket', 'staff'])->orderByDesc('id')->limit(50)->get();
 
+        // Historique de vente (billets émis au terminal staff) : vendeur + date.
+        $sales = Ticket::where('event_id', $event->id)->whereNotNull('sold_by_staff_id')
+            ->with(['soldByStaff', 'ticketType'])->orderByDesc('sold_at')
+            ->paginate(50, ['*'], 'sales_page');
+        $salesByStaff = Ticket::where('event_id', $event->id)->whereNotNull('sold_by_staff_id')
+            ->selectRaw('sold_by_staff_id, count(*) as n')->groupBy('sold_by_staff_id')->pluck('n', 'sold_by_staff_id');
+
         $limit = app(PlanService::class)->limit(Tenant::id(), 'staff');
         $canAdd = $limit === null || $staff->count() < (int) $limit;
 
-        return view('tagtoa::event.staff', compact('event', 'staff', 'activity', 'conflicts', 'limit', 'canAdd'));
+        return view('tagtoa::event.staff', compact('event', 'staff', 'activity', 'conflicts', 'limit', 'canAdd', 'sales', 'salesByStaff'));
     }
 
     /** Crée un compte staff (PIN haché, jamais stocké en clair). */
@@ -78,6 +87,22 @@ class StaffController extends Controller
         app(AuditService::class)->log('event_staff_created', $staff, $staff->name.' ('.$staff->role.')');
 
         return back()->with('success', __('Compte staff créé.'));
+    }
+
+    /**
+     * Supprime un compte staff. Sûr pour l'historique : check-ins et conflits
+     * de sync référencent staff_id en nullOnDelete (jamais d'orphelin/erreur SQL,
+     * l'activité passée reste visible avec « staff » vide).
+     */
+    public function destroy(int $id, int $staffId): RedirectResponse
+    {
+        $event = $this->own($id);
+        $staff = Staff::where('event_id', $event->id)->findOrFail($staffId);
+        $staff->delete();
+
+        app(AuditService::class)->log('event_staff_deleted', $staff, $staff->name.' ('.$staff->role.')');
+
+        return back()->with('success', __('Staff supprimé.'));
     }
 
     /** Active/désactive un staff (jamais de suppression : traçabilité). */
@@ -142,6 +167,31 @@ class StaffController extends Controller
             }
             fclose($out);
         }, 'checkins-'.$event->alias.'.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    /** Export CSV de l'historique de vente (billets émis au terminal, par vendeur/date). */
+    public function exportSales(int $id): StreamedResponse
+    {
+        $event = $this->own($id);
+        $rows = Ticket::where('event_id', $event->id)->whereNotNull('sold_by_staff_id')
+            ->with(['soldByStaff', 'ticketType'])->orderBy('sold_at')->get();
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['date', 'heure', 'billet', 'participant', 'type', 'moyen_paiement', 'vendeur']);
+            foreach ($rows as $t) {
+                fputcsv($out, [
+                    optional($t->sold_at)->format('Y-m-d'),
+                    optional($t->sold_at)->format('H:i:s'),
+                    $t->code,
+                    $t->holder_name,
+                    optional($t->ticketType)->name,
+                    $t->payment_method,
+                    optional($t->soldByStaff)->name,
+                ]);
+            }
+            fclose($out);
+        }, 'ventes-'.$event->alias.'.csv', ['Content-Type' => 'text/csv']);
     }
 
     protected function own(int $id): Event

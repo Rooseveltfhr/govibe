@@ -24,6 +24,22 @@ return [
     */
     'default_plan' => env('TAGTOA_DEFAULT_PLAN', 'free'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Sécurité NFC — NTAG424 DNA (SUN/SDM, anti-clone/anti-rejeu)
+    |--------------------------------------------------------------------------
+    | DORMANT tant que la clé n'est pas fournie. Pour les cartes PREMIUM
+    | (paiement/event) : chaque tap produit un CMAC signé + un compteur → clone
+    | impossible. Activer : fournir TAGTOA_NTAG424_KEY (clé maître AES-128 hex)
+    | et valider contre un vrai tag AVANT de câbler dans l'encaissement.
+    */
+    'nfc' => [
+        'ntag424' => [
+            'enabled' => env('TAGTOA_NTAG424_ENABLE', false),
+            'key'     => env('TAGTOA_NTAG424_KEY'), // clé maître AES-128 (32 hex), jamais en clair ici
+        ],
+    ],
+
     'plans' => [
         // `cards` = émission/activation de cartes NFC TAGTOA (closed-loop). Réservé
         // aux forfaits payants supérieurs (Enterprise/Revendeur/Franchise).

@@ -959,5 +959,17 @@
     "Déjà un compte ?": "Ou deja gen yon kont?",
     "Partager l'événement": "Pataje evènman an",
     "Partager": "Pataje",
-    "Publiez l'événement (case « Publié » ci-dessous) pour obtenir le lien de partage.": "Pibliye evènman an (kaz « Publié » anba a) pou jwenn lyen pataj la."
+    "Publiez l'événement (case « Publié » ci-dessous) pour obtenir le lien de partage.": "Pibliye evènman an (kaz « Publié » anba a) pou jwenn lyen pataj la.",
+    "Obligatoire — sécurise la carte": "Obligatwa — sekirize kat la",
+    "Crédits cartes": "Kredi kat",
+    "Imprimer la carte": "Enprime kat la",
+    "Carte officielle activée : :code": "Kat ofisyèl aktive : :code",
+    "Quota de cartes atteint. Passez à un forfait Revendeur/Franchise ou obtenez des crédits d'activation.": "Kota kat rive. Monte sou yon fòfè Revandè/Franchise oswa jwenn kredi aktivasyon.",
+    "Crédits d'activation": "Kredi aktivasyon",
+    "Crédits d'activation de cartes": "Kredi aktivasyon kat",
+    "Accorder des crédits": "Bay kredi",
+    "Prix fixe": "Pri fiks",
+    "vide = le client choisit le montant": "vid = kliyan an chwazi montan an",
+    "Montant libre": "Montan lib",
+    "Montant invalide.": "Montan pa valab."
 }

@@ -7,10 +7,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $event->title }} — {{ __('Encodage en masse') }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
     <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     <style>
-        :root{--green:#2cb809;--ink:#0d140c;--bg:#f5f9f2;--surf:#fff;--bd:rgba(13,20,12,.10);--mut:#5d6b5a;--red:#E0473E;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
+        :root{--green:#2cb809;--ink:#0d140c;--bg:#f5f9f2;--surf:#fff;--bd:rgba(13,20,12,.10);--mut:#5d6b5a;--red:#E0473E;--nfc:#2563EB;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         .top h1,.count b,.list .nm{font-family:'Anton',sans-serif!important;font-weight:400!important;letter-spacing:.01em}
         *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
         body{font-family:var(--fb);background:var(--bg);color:var(--ink);min-height:100vh}
@@ -26,6 +26,7 @@
         .mb{margin-bottom:12px}
         .btn{width:100%;border:0;border-radius:14px;padding:15px;font:700 16px var(--fh);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:12px}
         .btn-p{background:var(--green);color:#fff}.btn-o{background:#fff;border:1.5px solid var(--bd);color:var(--ink)}
+        .btn-nfc{background:#eef4ff;border:1.5px solid var(--nfc);color:var(--nfc)}
         .btn:disabled{opacity:.55}
         .nfc{font-size:12.5px;color:var(--mut);margin-top:8px;text-align:center;min-height:16px}
         .err{background:#fdecea;color:#9a2820;border:1px solid var(--red);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:10px;display:none}
@@ -92,7 +93,7 @@
                 <label>{{ __('Tag NFC / UID') }}</label>
                 <input class="inp" id="uid" autocomplete="off" placeholder="04:A2:…">
             </div>
-            <button class="btn btn-o" id="nfcBtn" type="button"><i class="fa-solid fa-wifi"></i> {{ __('Lire le tag NFC') }}</button>
+            <button class="btn btn-nfc" id="nfcBtn" type="button"><i class="fa-solid fa-wifi"></i> {{ __('Lire le tag NFC') }}</button>
             <div class="nfc" id="nfcHint"></div>
             <button class="btn btn-p" id="saveBtn" type="button"><i class="fa-solid fa-floppy-disk"></i> {{ __('Encoder la carte') }}</button>
             <div class="err" id="err"></div>
@@ -115,6 +116,13 @@
     function el(id){return document.getElementById(id);}
     function showErr(m){var e=el('err');e.textContent=m;e.classList.add('show');}
     function clearErr(){el('err').classList.remove('show');}
+
+    /* ---------- Retour sonore (succès/erreur) ---------- */
+    var _actx;
+    function beep(t){
+        try{_actx=_actx||new (window.AudioContext||window.webkitAudioContext)();var o=_actx.createOscillator(),g=_actx.createGain();o.connect(g);g.connect(_actx.destination);var f={success:[880,1320],error:[200,160]}[t]||[600];o.frequency.value=f[0];o.type='sine';g.gain.value=.12;o.start();if(f[1])setTimeout(function(){o.frequency.value=f[1];},90);setTimeout(function(){o.stop();},t==='error'?260:170);}catch(e){}
+        if(navigator.vibrate){try{navigator.vibrate(t==='success'?80:[60,40,60]);}catch(e){}}
+    }
 
     function addRow(name,code){
         el('empty').style.display='none';
@@ -142,12 +150,13 @@
         .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});})
         .then(function(res){
             btn.disabled=false;
-            if(!res.ok||!res.j.ok){showErr((res.j&&res.j.message)||T.err);return;}
+            if(!res.ok||!res.j.ok){beep('error');showErr((res.j&&res.j.message)||T.err);return;}
+            beep('success');
             addRow(res.j.name,res.j.code);
             // Reset carte pour le tap suivant (on garde les réglages par défaut).
             el('name').value='';el('phone').value='';el('email').value='';el('uid').value='';
             el('nfcHint').textContent='';el('name').focus();
-        }).catch(function(){btn.disabled=false;showErr(T.err);});
+        }).catch(function(){btn.disabled=false;beep('error');showErr(T.err);});
     }
 
     el('saveBtn').addEventListener('click',save);

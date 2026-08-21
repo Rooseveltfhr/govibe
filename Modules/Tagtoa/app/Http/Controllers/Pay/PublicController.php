@@ -5,8 +5,10 @@ namespace Modules\Tagtoa\App\Http\Controllers\Pay;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Models\Api\ApiPayment;
 use Modules\Tagtoa\App\Models\Pay\PaymentMethod;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Models\Pay\PaymentProof;
@@ -17,14 +19,39 @@ use Modules\Tagtoa\App\Notifications\PayProofReceived;
  */
 class PublicController extends Controller
 {
+    /** Cache des DONNÉES seulement (jamais le HTML rendu — voir Menu\PublicController). */
+    private const PUBLIC_CACHE_TTL = 20;
+
     public function show(string $alias): View
     {
-        $page = PaymentPage::where('alias', $alias)->where('is_active', true)
-            ->with(['activeMethods', 'vcard'])->firstOrFail();
+        $page = Cache::remember("tagtoa:pay:show:$alias", self::PUBLIC_CACHE_TTL, function () use ($alias) {
+            $page = PaymentPage::where('alias', $alias)->where('is_active', true)
+                ->with(['activeMethods', 'vcard'])->firstOrFail();
 
-        $page->incrementQuietly('views');
+            $page->incrementQuietly('views');
+
+            return $page;
+        });
 
         return view('tagtoa::pay.show', ['page' => $page, 'methods' => $page->activeMethods]);
+    }
+
+    /**
+     * Page de paiement HÉBERGÉE pour un paiement créé via l'API développeur.
+     * Réutilise la même vue publique : le montant vient du paiement API (imposé
+     * côté serveur), jamais de l'URL. Un paiement déjà réglé n'est plus payable.
+     */
+    public function apiCheckout(string $reference): View
+    {
+        $payment = ApiPayment::where('reference', $reference)->with('page.activeMethods')->firstOrFail();
+        $page = $payment->page;
+        abort_unless($page && $page->is_active, 404);
+
+        return view('tagtoa::pay.show', [
+            'page'       => $page,
+            'methods'    => $page->activeMethods,
+            'apiPayment' => $payment,
+        ]);
     }
 
     /**
@@ -37,7 +64,8 @@ class PublicController extends Controller
         $m = $page->activeMethods()->whereKey($method)->firstOrFail();
 
         $gateway = \Modules\Tagtoa\App\Support\PaymentGateway::driver($m->type);
-        $amount = round((float) $request->input('amount', 0), 2);
+        // Prix fixe → imposé côté serveur (anti-fraude) ; sinon le payeur choisit.
+        $amount = $page->hasFixedAmount() ? (float) $page->amount : round((float) $request->input('amount', 0), 2);
 
         // Passerelle non branchée/non configurée ou montant absent → repli manuel propre.
         if (! $gateway || ! \Modules\Tagtoa\App\Support\GatewayManager::enabled($gateway) || $amount <= 0) {
@@ -71,8 +99,14 @@ class PublicController extends Controller
             'card_uid'  => ['nullable', 'string', 'max:120'],
             'card_code' => ['nullable', 'string', 'max:40'],
             'pin'       => ['nullable', 'string', 'max:6'],
-            'amount'    => ['required', 'numeric', 'min:0.01', 'max:99999999'],
+            'amount'    => ['nullable', 'numeric', 'min:0.01', 'max:99999999'],
         ]);
+
+        // Prix fixe → imposé côté serveur (anti-fraude).
+        $amount = $page->hasFixedAmount() ? (float) $page->amount : (float) ($data['amount'] ?? 0);
+        if ($amount <= 0) {
+            return back()->withInput()->with('error', __('Montant invalide.'));
+        }
 
         if (empty($data['card_uid']) && empty($data['card_code'])) {
             return back()->withInput()->with('error', __('Tapez la carte ou saisissez son code.'));
@@ -87,7 +121,7 @@ class PublicController extends Controller
             return back()->withInput()->with('error', __('Carte TAGTOA introuvable.'));
         }
 
-        $res = $svc->charge($card, (float) $data['amount'], $data['pin'] ?? null, [
+        $res = $svc->charge($card, $amount, $data['pin'] ?? null, [
             'tenant_id'    => $page->tenant_id,
             'context_type' => 'pay_page',
             'context_id'   => $page->id,
@@ -105,7 +139,7 @@ class PublicController extends Controller
                 'payment_method_id' => $page->activeMethods()->where('type', 'tagtoa_card')->value('id'),
                 'payer_name'        => $card->holder_name ?: __('Carte TAGTOA'),
                 'payer_phone'       => $card->holder_phone,
-                'amount'            => (float) $data['amount'],
+                'amount'            => $amount,
                 'currency'          => $card->currency,
                 'status'            => \Modules\Tagtoa\App\Models\Pay\PaymentProof::STATUS_APPROVED,
                 'note'              => __('Payé par Carte TAGTOA').' ('.$card->masked_code.')',
@@ -131,8 +165,20 @@ class PublicController extends Controller
             'payer_phone' => ['nullable', 'string', 'max:40'],
             'amount'      => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'reference'   => ['nullable', 'string', 'max:120'],
+            'api_payment' => ['nullable', 'string', 'max:64'],
             'proof'       => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
+
+        // Preuve rattachée à un paiement demandé via l'API : on n'accepte que
+        // des paiements EN ATTENTE de CETTE page (anti-rattachement croisé), et
+        // le montant est celui du paiement API, jamais celui posté par le client.
+        $apiPayment = null;
+        if (! empty($data['api_payment'])) {
+            $apiPayment = ApiPayment::where('reference', $data['api_payment'])
+                ->where('payment_page_id', $page->id)
+                ->where('status', ApiPayment::STATUS_PENDING)
+                ->first();
+        }
 
         $method = PaymentMethod::findOrFail($data['payment_method_id']);
         if ($method->requires_proof && ! $request->hasFile('proof')) {
@@ -145,19 +191,32 @@ class PublicController extends Controller
             ? $request->file('proof')->store('tagtoa/pay-proofs')
             : null;
 
+        $amount = $apiPayment
+            ? (float) $apiPayment->amount
+            : ($page->hasFixedAmount() ? (float) $page->amount : ($data['amount'] ?? null));
+
         $proof = PaymentProof::create([
             'payment_page_id'   => $page->id,
             'payment_method_id' => $method->id,
+            'api_payment_id'    => $apiPayment?->id,
             'payer_name'        => $data['payer_name'],
             'payer_phone'       => $data['payer_phone'] ?? null,
-            'amount'            => $data['amount'] ?? null,
-            'currency'          => $page->default_currency,
+            'amount'            => $amount,
+            'currency'          => $apiPayment?->currency ?: $page->default_currency,
             'reference'         => $data['reference'] ?? null,
             'proof_path'        => $path,
             'status'            => PaymentProof::STATUS_PENDING,
         ]);
 
         $this->notifyOwner($page, $proof);
+
+        // Paiement via l'API : on renvoie le client sur la page hébergée (ou sur
+        // le site marchand s'il a fourni une return_url), pas sur la page brute.
+        if ($apiPayment) {
+            return $apiPayment->return_url
+                ? redirect()->away($apiPayment->return_url)
+                : redirect()->route('tagtoa.pay.api.checkout', $apiPayment->reference)->with('proof_submitted', true);
+        }
 
         return redirect()->route('tagtoa.pay.show', $page->alias)->with('proof_submitted', true);
     }
