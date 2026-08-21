@@ -1,0 +1,144 @@
+name: Deploy GOVIBE to VPS
+
+# Déploie l'application GOVIBE (govibeht.com, /var/www/govibe).
+#
+# À ne pas confondre avec deploy.yml, qui déploie le module TAGTOA sur
+# tagtoa.com et ne se déclenche que sur Modules/Tagtoa/**.
+#
+# Secrets : réutilise VPS_HOST / VPS_USER / VPS_SSH_KEY / VPS_PORT. Si
+# govibeht.com vit sur une autre machine, définir GOVIBE_VPS_HOST /
+# GOVIBE_VPS_USER / GOVIBE_VPS_SSH_KEY / GOVIBE_VPS_PORT : ils ont priorité.
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branche à déployer"
+        type: string
+        default: "main"
+  push:
+    branches: ["main"]
+    # Une modification purement TAGTOA n'a pas à redéployer GOVIBE.
+    paths-ignore:
+      - "Modules/Tagtoa/**"
+      - "**.md"
+
+# Jamais deux déploiements GOVIBE en parallèle : ils se marcheraient dessus
+# (migrations, caches, artisan down/up). On ne coupe pas un déploiement en
+# cours — l'interrompre laisserait le site en mode maintenance.
+concurrency:
+  group: deploy-govibe
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Update + migrate + cache rebuild
+    runs-on: ubuntu-latest
+    steps:
+      - name: Résoudre la cible et la clé SSH
+        id: target
+        env:
+          GOVIBE_HOST: ${{ secrets.GOVIBE_VPS_HOST }}
+          GOVIBE_USER: ${{ secrets.GOVIBE_VPS_USER }}
+          GOVIBE_PORT: ${{ secrets.GOVIBE_VPS_PORT }}
+          GOVIBE_KEY: ${{ secrets.GOVIBE_VPS_SSH_KEY }}
+          FALLBACK_HOST: ${{ secrets.VPS_HOST }}
+          FALLBACK_USER: ${{ secrets.VPS_USER }}
+          FALLBACK_PORT: ${{ secrets.VPS_PORT }}
+          FALLBACK_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+
+          HOST="${GOVIBE_HOST:-$FALLBACK_HOST}"
+          USER="${GOVIBE_USER:-$FALLBACK_USER}"
+          PORT="${GOVIBE_PORT:-$FALLBACK_PORT}"; PORT="${PORT:-22}"
+          KEY="${GOVIBE_KEY:-$FALLBACK_KEY}"
+
+          [ -n "$HOST" ] || { echo "::error::Aucun hôte : définir VPS_HOST ou GOVIBE_VPS_HOST."; exit 1; }
+          [ -n "$USER" ] || { echo "::error::Aucun utilisateur : définir VPS_USER ou GOVIBE_VPS_USER."; exit 1; }
+          [ -n "$KEY" ]  || { echo "::error::Aucune clé SSH : définir VPS_SSH_KEY ou GOVIBE_VPS_SSH_KEY."; exit 1; }
+
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "$PORT" "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Les valeurs vont dans l'output, jamais la clé.
+          echo "host=$HOST" >> "$GITHUB_OUTPUT"
+          echo "user=$USER" >> "$GITHUB_OUTPUT"
+          echo "port=$PORT" >> "$GITHUB_OUTPUT"
+
+      - name: Vérifier que l'hôte héberge bien GOVIBE
+        # Étape séparée et non destructive : si les secrets pointent vers une
+        # autre machine (le VPS TAGTOA par exemple), on s'arrête ici sans avoir
+        # touché à quoi que ce soit.
+        env:
+          APP_DIR: ${{ secrets.GOVIBE_APP_DIR }}
+        run: |
+          set -euo pipefail
+          DIR="${APP_DIR:-/var/www/govibe}"
+          ssh -i ~/.ssh/id_deploy -p "${{ steps.target.outputs.port }}" \
+              -o StrictHostKeyChecking=accept-new \
+              "${{ steps.target.outputs.user }}@${{ steps.target.outputs.host }}" \
+              "bash -s" <<EOSSH
+          set -euo pipefail
+          DIR="$DIR"
+          if [ ! -d "\$DIR/.git" ]; then
+            echo "::error::\$DIR n'est pas un dépôt git sur cet hôte. Vérifier GOVIBE_APP_DIR, ou que les secrets VPS_* pointent bien vers le serveur de govibeht.com."
+            exit 1
+          fi
+          cd "\$DIR"
+          # Confirme que c'est bien le dépôt govibe et pas un autre projet.
+          ORIGIN=\$(git config --get remote.origin.url || echo "")
+          case "\$ORIGIN" in
+            *govibe*) echo "✓ Dépôt GOVIBE confirmé dans \$DIR (\$ORIGIN)" ;;
+            *) echo "::error::\$DIR pointe vers \$ORIGIN — ce n'est pas le dépôt govibe. Abandon."; exit 1 ;;
+          esac
+          EOSSH
+
+      - name: Déployer
+        env:
+          APP_DIR: ${{ secrets.GOVIBE_APP_DIR }}
+          BRANCH: ${{ inputs.branch || 'main' }}
+        run: |
+          set -euo pipefail
+          DIR="${APP_DIR:-/var/www/govibe}"
+          ssh -i ~/.ssh/id_deploy -p "${{ steps.target.outputs.port }}" \
+              -o StrictHostKeyChecking=accept-new \
+              "${{ steps.target.outputs.user }}@${{ steps.target.outputs.host }}" \
+              "bash -s" <<EOSSH
+          set -euo pipefail
+          DIR="$DIR"
+          BRANCH="$BRANCH"
+          cd "\$DIR"
+
+          # update.sh a besoin de root (chown, systemctl).
+          SUDO=""
+          [ "\$(id -u)" -eq 0 ] || SUDO="sudo -n"
+
+          # On récupère d'abord le code : update.sh lui-même vit dans le dépôt,
+          # donc on veut sa version la plus récente avant de l'exécuter.
+          \$SUDO git fetch origin "\$BRANCH"
+          \$SUDO git checkout "\$BRANCH"
+          \$SUDO git pull --ff-only origin "\$BRANCH"
+
+          if [ ! -f update.sh ]; then
+            echo "::error::update.sh absent de \$DIR après le pull (branche \$BRANCH)."
+            exit 1
+          fi
+
+          # update.sh : composer, migrate --force, caches, permissions,
+          # restart nginx/php-fpm/worker, le tout derrière artisan down.
+          \$SUDO env BRANCH="\$BRANCH" APP_DIR="\$DIR" bash update.sh
+          EOSSH
+
+      - name: Vérifier que le site répond
+        run: |
+          set -euo pipefail
+          CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 https://govibeht.com/ || echo "000")
+          echo "https://govibeht.com/ → HTTP $CODE"
+          case "$CODE" in
+            200|301|302) echo "✓ Le site répond." ;;
+            # 503 = artisan down toujours actif : le déploiement s'est mal terminé.
+            503) echo "::error::Site en mode maintenance (503) — le déploiement ne s'est pas terminé proprement. Lancer 'php artisan up' sur le serveur."; exit 1 ;;
+            *) echo "::error::Réponse inattendue ($CODE) après déploiement."; exit 1 ;;
+          esac
