@@ -100,17 +100,23 @@ jobs:
           fi
 
           # 2. Emplacements probables. Les hébergements de type panel placent
-          #    Laravel sous domains/<domaine>/ (parfois dans un sous-dossier).
+          #    Laravel sous domains/<domaine>/, souvent dans un sous-dossier.
           for base in /var/www/govibe /var/www/govibeht.com \
                       "\$HOME"/domains/govibeht.com /home/*/domains/govibeht.com \
                       "\$HOME"/domains/www.govibeht.com; do
-            for sub in "" /laravel /public_html/laravel /app /public_html; do
+            for sub in "" /govibe /laravel /public_html/laravel /app /public_html; do
               d="\${base}\${sub}"
               if is_govibe "\$d"; then echo "FOUND:\$d"; exit 0; fi
             done
           done
 
-          # 3. Rien trouvé : on dresse l'inventaire des dépôts présents pour
+          # 3. Filet de sécurité : balayage à un niveau sous les dossiers de
+          #    domaine, pour ne pas dépendre du nom exact du sous-dossier.
+          for d in "\$HOME"/domains/*govibeht.com/*/ /home/*/domains/*govibeht.com/*/; do
+            if is_govibe "\${d%/}"; then echo "FOUND:\${d%/}"; exit 0; fi
+          done
+
+          # 4. Rien trouvé : on dresse l'inventaire des dépôts présents pour
           #    que l'erreur soit exploitable plutôt qu'aveugle.
           echo "INFO:Aucun dépôt govibe aux emplacements sondés."
           echo "INFO:Dépôts git trouvés sur cet hôte :"
