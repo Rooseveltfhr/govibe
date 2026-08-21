@@ -1,0 +1,21 @@
+<svg viewBox="0 0 520 110" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <!-- G - blue -->
+  <text x="2" y="92" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="100" fill="#1D4ED8">G</text>
+  <!-- O - replaced by icon at position ~90,0 w:100 h:100 -->
+  <g transform="translate(92,5)">
+    <circle cx="48" cy="48" r="47" fill="#DC2626"/>
+    <circle cx="48" cy="48" r="35" fill="white"/>
+    <circle cx="48" cy="48" r="25" fill="#DC2626"/>
+    <rect x="44" y="2" width="8" height="18" rx="4" fill="#DC2626"/>
+    <rect x="45.5" y="3" width="5" height="16" rx="2.5" fill="white"/>
+    <path d="M56 20 L36 54 H50 L40 77 L65 44 H51 Z" fill="white"/>
+  </g>
+  <!-- V - yellow/gold -->
+  <text x="190" y="92" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="100" fill="#F59E0B">V</text>
+  <!-- I - green -->
+  <text x="280" y="92" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="100" fill="#16A34A">I</text>
+  <!-- B - blue -->
+  <text x="310" y="92" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="100" fill="#1D4ED8">B</text>
+  <!-- E - blue -->
+  <text x="388" y="92" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="100" fill="#1D4ED8">E</text>
+</svg>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\ERP\Booking;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Client;
+use App\Models\Space;
 use Illuminate\Http\Request;
 
 class BookingController extends Controller
@@ -29,7 +30,8 @@ class BookingController extends Controller
     public function create()
     {
         $clients = $this->safeQuery(fn() => Client::orderBy('name')->get(), collect());
-        return view('erp.booking.create', compact('clients'));
+        $spaces  = $this->safeQuery(fn() => Space::where('is_active', true)->orderBy('name')->get(), collect());
+        return view('erp.booking.create', compact('clients', 'spaces'));
     }
 
     public function store(Request $request)
@@ -39,7 +41,7 @@ class BookingController extends Controller
             'title'       => 'required|string|max:255',
             'start_at'    => 'required|date',
             'end_at'      => 'required|date|after:start_at',
-            'space'       => 'nullable|string|max:100',
+            'space_id'    => 'nullable|exists:spaces,id',
             'notes'       => 'nullable|string',
         ]);
 

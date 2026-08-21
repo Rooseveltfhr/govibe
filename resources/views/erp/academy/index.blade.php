@@ -5,7 +5,12 @@
 
 @section('content')
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    @foreach([['Formations',$stats['formations'],'bi-mortarboard-fill','#1e3a5f','#dbeafe'],['Inscriptions',$stats['inscriptions'],'bi-person-check-fill','#059669','#d1fae5'],['Présents',$stats['presents'],'bi-person-bounding-box','#0891b2','#e0f2fe'],['Actives',$stats['active'],'bi-play-circle-fill','#7c3aed','#ede9fe']] as [$l,$v,$i,$c,$bg])
+    @foreach([
+        ['Formations',   $stats['formations'],   'bi-mortarboard-fill',      '#1e3a5f','#dbeafe'],
+        ['Inscriptions', $stats['inscriptions'], 'bi-person-check-fill',     '#059669','#d1fae5'],
+        ['Présents',     $stats['presents'],     'bi-person-bounding-box',   '#0891b2','#e0f2fe'],
+        ['Actives',      $stats['active'],       'bi-play-circle-fill',      '#7c3aed','#ede9fe'],
+    ] as [$l,$v,$i,$c,$bg])
     <div class="stat-card">
         <div class="flex items-center justify-between">
             <div><p class="text-gray-400 text-xs mb-1">{{ $l }}</p><p class="text-2xl font-extrabold text-gray-800 dark:text-white">{{ $v }}</p></div>
@@ -13,6 +18,21 @@
         </div>
     </div>
     @endforeach
+</div>
+
+{{-- Quick-access buttons --}}
+<div class="flex flex-wrap gap-3 mb-6">
+    <a href="{{ route('erp.academy.inscriptions.index') }}" class="btn-primary text-sm">
+        <i class="bi bi-people-fill mr-2"></i> Gérer les inscriptions
+    </a>
+    <a href="{{ route('erp.academy.bootcamp.index') }}" class="btn-gold text-sm">
+        <i class="bi bi-robot mr-2"></i> Bootcamp IA 2026
+    </a>
+    <a href="{{ route('admin.formations.index') }}" target="_blank"
+       class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 dark:border-slate-600 dark:text-gray-300 dark:hover:bg-slate-700 flex items-center gap-2">
+        <i class="bi bi-mortarboard"></i> Gérer les formations
+        <i class="bi bi-box-arrow-up-right text-xs opacity-50"></i>
+    </a>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -34,9 +54,10 @@
                 <p class="text-sm font-bold text-gray-800 dark:text-white">{{ $f->inscriptions_count }}</p>
                 <p class="text-xs text-gray-400">inscrits</p>
             </div>
-            <span class="badge text-xs {{ $f->active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }}">
+            <a href="{{ route('erp.academy.inscriptions.index', ['formation_id' => $f->id]) }}"
+               class="badge text-xs {{ $f->active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }} hover:opacity-80 transition-opacity cursor-pointer">
                 {{ $f->active ? 'Active' : 'Inactive' }}
-            </span>
+            </a>
         </div>
         @empty
         <div class="px-5 py-10 text-center text-gray-400">
@@ -50,10 +71,11 @@
     <div class="content-card">
         <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-slate-700">
             <h3 class="font-semibold text-gray-800 dark:text-white">Inscriptions récentes</h3>
-            <a href="{{ route('admin.inscriptions.index') }}" class="text-xs text-blue-600 hover:underline">Voir tout</a>
+            <a href="{{ route('erp.academy.inscriptions.index') }}" class="text-xs text-blue-600 hover:underline">Voir tout</a>
         </div>
         @forelse($recentInscriptions as $ins)
-        <div class="flex items-center gap-3 px-5 py-3 border-b border-gray-50 dark:border-slate-700/50 last:border-0">
+        <a href="{{ route('erp.academy.inscriptions.show', $ins) }}"
+           class="flex items-center gap-3 px-5 py-3 border-b border-gray-50 dark:border-slate-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
             <div class="avatar avatar-navy w-8 h-8 text-xs flex-shrink-0">
                 {{ strtoupper(substr($ins->nom_complet,0,1)) }}
             </div>
@@ -61,8 +83,13 @@
                 <p class="text-sm font-medium text-gray-800 dark:text-white truncate">{{ $ins->nom_complet }}</p>
                 <p class="text-xs text-gray-400">{{ $ins->formation->nom ?? '—' }}</p>
             </div>
-            <span class="text-xs text-gray-400">{{ $ins->created_at->diffForHumans() }}</span>
-        </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="badge text-xs {{ $ins->present ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }}">
+                    {{ $ins->present ? 'Présent' : 'Absent' }}
+                </span>
+                <span class="text-xs text-gray-400">{{ $ins->created_at->diffForHumans() }}</span>
+            </div>
+        </a>
         @empty
         <div class="px-5 py-10 text-center text-gray-400">
             <i class="bi bi-person-plus text-3xl block mb-2 opacity-30"></i>

@@ -5,7 +5,7 @@
 
 @section('head')
 <style>
-  /* ===== HERO — ANTIGRAVITY ===== */
+  /* ===== HERO ===== */
   #govibe-hero {
     position:relative; width:100vw; min-height:100vh;
     margin-left:calc(-50vw + 50%); margin-right:calc(-50vw + 50%);
@@ -33,7 +33,7 @@
   .gv-blob { position:absolute; border-radius:50%; filter:blur(80px); opacity:.2;
     animation:gvBlobFloat 20s ease-in-out infinite; pointer-events:none; z-index:2; }
   .gv-blob-1 { width:500px;height:500px;background:#DC2626;top:-100px;right:-100px;animation-delay:0s; }
-  .gv-blob-2 { width:400px;height:400px;background:#10B981;bottom:-80px;left:-80px;animation-delay:-7s; }
+  .gv-blob-2 { width:400px;height:400px;background:#7f1d1d;bottom:-80px;left:-80px;animation-delay:-7s; }
   .gv-blob-3 { width:300px;height:300px;background:#991b1b;top:40%;right:15%;animation-delay:-14s; }
   @keyframes gvBlobFloat {
     0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(30px,-30px) scale(1.05)} 66%{transform:translate(-20px,20px) scale(.95)}
@@ -46,7 +46,7 @@
     border-radius:50px; color:#fff; font-size:.88rem; font-weight:500;
     margin-bottom:1.8rem; animation:gvFadeUp .8s ease both;
   }
-  .gv-badge-dot { width:7px;height:7px;background:#10B981;border-radius:50%;
+  .gv-badge-dot { width:7px;height:7px;background:#DC2626;border-radius:50%;
     animation:gvDotBlink 2s ease-in-out infinite;flex-shrink:0; }
   .gv-hero-title {
     font-family:'Anton',sans-serif; font-size:clamp(2.4rem,7vw,5rem);
@@ -54,11 +54,9 @@
     animation:gvFadeUp .8s .15s ease both;
   }
   .gv-title-grad {
-    background:linear-gradient(135deg,#DC2626,#ff6b6b,#10B981);
+    background:linear-gradient(135deg,#DC2626,#ff6b6b);
     -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
-    animation:gvHueShift 6s ease infinite;
   }
-  @keyframes gvHueShift { 0%,100%{filter:hue-rotate(0deg)} 50%{filter:hue-rotate(20deg)} }
   .gv-typing-row {
     display:flex; align-items:center; gap:.5rem; margin:.5rem 0 1.5rem;
     font-size:clamp(1.1rem,3.5vw,1.9rem); animation:gvFadeUp .8s .25s ease both; flex-wrap:wrap;
@@ -72,29 +70,30 @@
     max-width:560px; margin:0 0 2rem; line-height:1.75;
     animation:gvFadeUp .8s .35s ease both;
   }
-  .gv-hero-desc strong { color:#10B981; }
-  .gv-btns { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:3rem; animation:gvFadeUp .8s .45s ease both; }
+  .gv-hero-desc strong { color:#fff; }
+  /* ── BOUTONS HERO (tous rouge) ── */
+  .gv-btns { display:flex; gap:.8rem; flex-wrap:wrap; margin-bottom:3rem; animation:gvFadeUp .8s .45s ease both; }
   .gv-btn-primary {
     background:linear-gradient(135deg,#DC2626,#991b1b); color:#fff;
     padding:.85rem 1.8rem; border-radius:50px; font-weight:700; font-size:.95rem;
     display:inline-flex; align-items:center; gap:.4rem;
     transition:transform .3s,box-shadow .3s; white-space:nowrap;
   }
-  .gv-btn-primary:hover { transform:translateY(-3px); box-shadow:0 14px 30px rgba(220,38,38,.45); color:#fff; }
+  .gv-btn-primary:hover { transform:translateY(-3px); box-shadow:0 14px 30px rgba(220,38,38,.5); color:#fff; }
   .gv-btn-secondary {
-    background:rgba(255,255,255,.08); color:#fff; padding:.85rem 1.8rem;
-    border-radius:50px; font-weight:600; font-size:.95rem;
-    border:1px solid rgba(255,255,255,.2); backdrop-filter:blur(8px);
+    background:rgba(220,38,38,.18); color:#fff; padding:.85rem 1.8rem;
+    border-radius:50px; font-weight:700; font-size:.95rem;
+    border:1.5px solid rgba(220,38,38,.55);
     display:inline-flex; align-items:center; gap:.4rem;
-    transition:background .3s,transform .3s; white-space:nowrap;
+    transition:all .3s; white-space:nowrap;
   }
-  .gv-btn-secondary:hover { background:rgba(255,255,255,.15); transform:translateY(-3px); color:#fff; }
+  .gv-btn-secondary:hover { background:rgba(220,38,38,.35); transform:translateY(-3px); color:#fff; box-shadow:0 10px 25px rgba(220,38,38,.35); }
+  /* ── STATS ── */
   .gv-stats { display:flex; align-items:center; gap:2rem; flex-wrap:wrap; animation:gvFadeUp .8s .55s ease both; }
   .gv-stat { display:flex; flex-direction:column; }
   .gv-stat-n {
     font-family:'Barlow Condensed',sans-serif; font-size:2rem; font-weight:900;
-    background:linear-gradient(135deg,#DC2626,#ff6b6b);
-    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1;
+    color:#DC2626; line-height:1;
   }
   .gv-stat-l { font-size:.72rem; color:rgba(255,255,255,.5); text-transform:uppercase; letter-spacing:1.5px; margin-top:3px; }
   .gv-stat-div { width:1px; height:32px; background:rgba(255,255,255,.15); }
@@ -113,7 +112,7 @@
   .about-blobs { position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:0; }
   .ab1,.ab2 { position:absolute; border-radius:50%; filter:blur(80px); opacity:.1; animation:blobFloat 20s ease-in-out infinite; }
   .ab1 { width:400px;height:400px;background:#DC2626;top:-100px;left:-100px; }
-  .ab2 { width:300px;height:300px;background:#10B981;bottom:-80px;right:-80px;animation-delay:-10s; }
+  .ab2 { width:300px;height:300px;background:#7f1d1d;bottom:-80px;right:-80px;animation-delay:-10s; }
   @keyframes blobFloat { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(30px,-40px) scale(1.08)} 66%{transform:translate(-20px,20px) scale(.95)} }
   .about-intro { position:relative; z-index:10; display:flex; flex-direction:column; align-items:center; width:100%; }
   .about-eyebrow { font-family:'Exo 2',sans-serif; font-size:.8rem; font-weight:700; letter-spacing:.3em; text-transform:uppercase; color:rgba(255,255,255,.35); margin-bottom:.5rem; text-align:center; }
@@ -122,9 +121,9 @@
   .logo3d-scene { position:relative; z-index:10; display:flex; flex-direction:column; align-items:center; gap:20px; padding-bottom:50px; width:100%; }
   .logo3d { display:flex; align-items:center; gap:2px; perspective:900px; transform-style:preserve-3d; flex-wrap:nowrap; }
   .l3 { font-family:'Orbitron',sans-serif; font-size:clamp(42px,11vw,140px); line-height:1; display:inline-flex; align-items:center; justify-content:center; position:relative; cursor:default; transform-style:preserve-3d; transition:transform .15s ease; animation:letterIn .9s cubic-bezier(.34,1.56,.64,1) both; }
-  .l3-blue  { color:#2563EB; -webkit-text-stroke:2px #1e40af; text-shadow:1px 1px 0 #1e3a8a,2px 2px 0 #1e3a8a,3px 3px 0 #1e3a8a,4px 4px 0 #1e3a8a,12px 14px 28px rgba(0,0,0,.85),0 0 55px rgba(37,99,235,.45); }
-  .l3-yellow{ color:#ffe800; -webkit-text-stroke:2px #8a7d00; text-shadow:1px 1px 0 #eed500,2px 2px 0 #ddc200,3px 3px 0 #ccaf00,4px 4px 0 #bb9c00,12px 14px 28px rgba(0,0,0,.85),0 0 55px rgba(255,232,0,.5); }
-  .l3-green { color:#10B981; -webkit-text-stroke:2px #005c22; text-shadow:1px 1px 0 #00cc47,2px 2px 0 #00b83e,3px 3px 0 #00a435,4px 4px 0 #00902c,12px 14px 28px rgba(0,0,0,.85),0 0 55px rgba(16,185,129,.5); }
+  .l3-blue  { color:#DC2626; -webkit-text-stroke:2px #7f1d1d; text-shadow:1px 1px 0 #991b1b,2px 2px 0 #991b1b,3px 3px 0 #7f1d1d,4px 4px 0 #7f1d1d,12px 14px 28px rgba(0,0,0,.85),0 0 55px rgba(220,38,38,.55); }
+  .l3-yellow{ color:#DC2626; -webkit-text-stroke:2px #7f1d1d; text-shadow:1px 1px 0 #991b1b,2px 2px 0 #991b1b,3px 3px 0 #7f1d1d,4px 4px 0 #7f1d1d,12px 14px 28px rgba(0,0,0,.85),0 0 55px rgba(220,38,38,.5); }
+  .l3-green { color:#DC2626; -webkit-text-stroke:2px #7f1d1d; text-shadow:1px 1px 0 #991b1b,2px 2px 0 #991b1b,3px 3px 0 #7f1d1d,4px 4px 0 #7f1d1d,12px 14px 28px rgba(0,0,0,.85),0 0 55px rgba(220,38,38,.5); }
   @keyframes letterIn { 0%{opacity:0;transform:translateY(-40px) rotateX(60deg) scale(.7)} 100%{opacity:1;transform:translateY(0) rotateX(0deg) scale(1)} }
   .l3-icon { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
   .power-ring {
@@ -141,22 +140,23 @@
   .bolt-svg { width:68%;height:68%;filter:drop-shadow(0 0 6px rgba(255,255,200,1));animation:boltFlash 3.5s ease-in-out infinite; }
   @keyframes boltFlash { 0%,90%,100%{opacity:1} 93%,97%{opacity:.3} }
   .energy-bar-wrap { width:clamp(280px,80vw,800px);height:5px;background:rgba(255,255,255,.05);border-radius:10px;overflow:hidden;opacity:0;animation:fadeInEl .5s 1.1s ease forwards; }
-  .energy-bar { height:100%;width:0;background:linear-gradient(90deg,#DC2626,#ffe800,#10B981,#ff6b6b,#a855f7,#DC2626);background-size:300% 100%;border-radius:10px;animation:barExpand 1s 1.1s ease forwards,colorFlow 2.5s 2.1s linear infinite;box-shadow:0 0 12px rgba(220,38,38,.7); }
+  .energy-bar { height:100%;width:0;background:linear-gradient(90deg,#DC2626,#991b1b,#DC2626);background-size:200% 100%;border-radius:10px;animation:barExpand 1s 1.1s ease forwards,colorFlow 3s 2.1s linear infinite;box-shadow:0 0 12px rgba(220,38,38,.7); }
   @keyframes barExpand{from{width:0}to{width:100%}}
-  @keyframes colorFlow{from{background-position:0% 0}to{background-position:300% 0}}
+  @keyframes colorFlow{from{background-position:0% 0}to{background-position:200% 0}}
   @keyframes fadeInEl{to{opacity:1}}
+  /* Tags GOVIBE logo — couleur unique rouge */
   .service-tags { display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:840px;width:100%;padding:0 1rem;opacity:0;animation:riseUp .7s 1.4s cubic-bezier(.34,1.3,.64,1) forwards; }
-  .stag { display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:6px;font-family:'Exo 2',sans-serif;font-size:clamp(11px,1.6vw,14px);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fff;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);backdrop-filter:blur(6px);cursor:default;transition:transform .2s,box-shadow .2s,border-color .2s;text-decoration:none; }
-  .stag:hover{transform:translateY(-2px);border-color:var(--c);box-shadow:0 0 18px color-mix(in srgb,var(--c) 30%,transparent);}
-  .sdot{width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c);animation:dotBlink 2.2s ease-in-out infinite;flex-shrink:0;}
+  .stag { display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:6px;font-family:'Exo 2',sans-serif;font-size:clamp(11px,1.6vw,14px);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fff;border:1px solid rgba(220,38,38,.25);background:rgba(220,38,38,.08);backdrop-filter:blur(6px);cursor:default;transition:transform .2s,box-shadow .2s,border-color .2s;text-decoration:none; }
+  .stag:hover{transform:translateY(-2px);border-color:rgba(220,38,38,.6);box-shadow:0 0 18px rgba(220,38,38,.25);}
+  .sdot{width:8px;height:8px;border-radius:50%;background:#DC2626;box-shadow:0 0 8px rgba(220,38,38,.6);animation:dotBlink 2.2s ease-in-out infinite;flex-shrink:0;}
   @keyframes dotBlink{0%,100%{opacity:1}50%{opacity:.3}}
   @keyframes riseUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
   .slogan-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;opacity:0;animation:riseUp .8s 2.1s ease forwards;width:100%;padding:0 1rem;}
   .slogan-line{width:clamp(240px,60vw,650px);height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);}
   .slogan-txt{font-family:'Exo 2',sans-serif;font-size:clamp(11px,2.2vw,20px);font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.45);text-align:center;}
-  .slogan-txt em{color:#ffe800;font-style:normal;text-shadow:0 0 18px rgba(255,232,0,.6);}
-  .join-cta{display:flex;align-items:center;gap:12px;padding:12px 24px;border-radius:50px;border:1px solid rgba(220,38,38,.4);background:rgba(220,38,38,.07);cursor:pointer;opacity:0;animation:riseUp .6s 2.6s ease forwards;transition:transform .2s,box-shadow .2s,background .2s;text-decoration:none;white-space:nowrap;}
-  .join-cta:hover{background:rgba(220,38,38,.15);box-shadow:0 0 30px rgba(220,38,38,.3);transform:translateY(-2px);}
+  .slogan-txt em{color:#DC2626;font-style:normal;text-shadow:0 0 18px rgba(220,38,38,.6);}
+  .join-cta{display:flex;align-items:center;gap:12px;padding:12px 24px;border-radius:50px;border:1.5px solid rgba(220,38,38,.5);background:rgba(220,38,38,.1);cursor:pointer;opacity:0;animation:riseUp .6s 2.6s ease forwards;transition:transform .2s,box-shadow .2s,background .2s;text-decoration:none;white-space:nowrap;}
+  .join-cta:hover{background:rgba(220,38,38,.2);box-shadow:0 0 30px rgba(220,38,38,.3);transform:translateY(-2px);}
   .jdot{width:10px;height:10px;border-radius:50%;background:#DC2626;box-shadow:0 0 10px #DC2626;animation:dotBlink 1.5s ease-in-out infinite;flex-shrink:0;}
   .jtxt{font-family:'Exo 2',sans-serif;font-size:clamp(12px,1.8vw,16px);font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.75);}
   .jtxt em{color:#DC2626;font-style:normal;text-shadow:0 0 14px rgba(220,38,38,.7);}
@@ -164,11 +164,11 @@
   @keyframes arrowBounce{0%,100%{transform:translateX(0)}50%{transform:translateX(5px)}}
   .about-content-grid{position:relative;z-index:10;max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start;padding:60px 2rem 80px;width:100%;}
   .about-text-col h2{font-family:'Anton',sans-serif;font-size:clamp(1.6rem,4vw,2.8rem);color:#fff;line-height:1.15;margin-bottom:1.2rem;}
-  .about-text-col h2 span{color:#ffe800;}
+  .about-text-col h2 span{color:#DC2626;}
   .about-text-col p{color:rgba(255,255,255,.65);line-height:1.8;font-size:1rem;margin-bottom:1.2rem;font-family:'Exo 2',sans-serif;}
   .about-bullets{list-style:none;display:flex;flex-direction:column;gap:.7rem;margin-top:1.5rem;}
   .about-bullets li{display:flex;align-items:flex-start;gap:.8rem;color:rgba(255,255,255,.75);font-size:.95rem;font-family:'Exo 2',sans-serif;}
-  .about-bullets li i{color:#ffe800;flex-shrink:0;margin-top:2px;font-size:.8rem;}
+  .about-bullets li i{color:#DC2626;flex-shrink:0;margin-top:2px;font-size:.8rem;}
   .about-cards-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
   .about-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:1.3rem;transition:all .3s;text-decoration:none;display:block;}
   .about-card:hover{background:rgba(255,255,255,.08);border-color:rgba(220,38,38,.3);transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.3);}
@@ -178,7 +178,7 @@
 
   /* ===== LIGHT SECTIONS ===== */
   .gv-section-light { padding:80px 2rem; background:#fff; }
-  .gv-section-gray  { padding:80px 2rem; background:linear-gradient(135deg,#f8fafc 0%,#fff 100%); }
+  .gv-section-gray  { padding:80px 2rem; background:#f8fafc; }
   .gv-section-dark  { padding:80px 2rem; background:#0F172A; }
 
   /* Service cards */
@@ -186,8 +186,12 @@
   .service-card:hover{box-shadow:0 20px 30px rgba(220,38,38,.08);border-color:rgba(220,38,38,.2);transform:translateY(-4px);}
   .service-card h3{font-family:'Anton',sans-serif;font-size:1.4rem;margin:.75rem 0 .5rem;color:#0f172a;}
   .service-card p{color:#64748b;font-size:.9rem;line-height:1.65;margin-bottom:1rem;}
+  /* Lien unique rouge sur toutes les cartes */
   .svc-link{display:inline-flex;align-items:center;gap:.3rem;color:#DC2626;font-weight:700;font-size:.85rem;border:1px solid #DC2626;padding:.35rem 1rem;border-radius:50px;transition:all .25s;}
   .svc-link:hover{background:#DC2626;color:#fff;}
+  /* Pillar links */
+  .pillar-link{display:inline-flex;align-items:center;gap:.3rem;color:#DC2626;font-weight:700;font-size:.85rem;margin-top:1rem;transition:gap .2s;}
+  .pillar-link:hover{gap:.6rem;}
 
   /* Programme cards */
   .programme-card{background:#fff;border-radius:24px;padding:2.2rem;box-shadow:0 15px 35px rgba(0,0,0,.05);border:1px solid #f1f5f9;transition:all .3s;position:relative;overflow:hidden;}
@@ -229,9 +233,21 @@
   #reservation select option{background:#1a0004;color:#fff;}
   #reservation label{display:block;font-size:.78rem;font-weight:600;color:rgba(255,255,255,.6);margin-bottom:.38rem;}
 
-  /* ===== RESPONSIVE ===== */
+  /* ===== RESPONSIVE COMPLET ===== */
+  /* Tablet */
+  @media(max-width:900px){
+    .about-content-grid{grid-template-columns:1fr;gap:2rem;padding:40px 1.5rem 60px;}
+    .about-cards-col{grid-template-columns:1fr 1fr;}
+    .conf-stat-grid{grid-template-columns:repeat(2,1fr)!important;}
+    .dig-grid{grid-template-columns:repeat(2,1fr)!important;}
+    .prog-grid{grid-template-columns:1fr!important;}
+    .conf-testi-grid{grid-template-columns:1fr!important;}
+    .reservation-grid{grid-template-columns:1fr!important;}
+    .vision-grid{grid-template-columns:1fr!important;}
+  }
+  /* Mobile */
   @media(max-width:768px){
-    #govibe-hero{padding:70px 1.2rem 50px;min-height:100svh;padding-top:90px;}
+    #govibe-hero{padding:90px 1.2rem 50px;min-height:100svh;}
     .gv-btns{flex-direction:column;width:100%;}
     .gv-btn-primary,.gv-btn-secondary{width:100%;text-align:center;justify-content:center;}
     .gv-stats{gap:1rem;}
@@ -239,19 +255,38 @@
     .gv-blob-1{width:250px;height:250px;}
     .gv-blob-2{width:200px;height:200px;}
     .gv-blob-3{display:none;}
-    .about-content-grid{grid-template-columns:1fr;gap:2rem;padding:40px 1.5rem 60px;}
-    .about-cards-col{grid-template-columns:1fr;}
     .logo3d{gap:0;}
     .logo3d-scene{gap:14px;padding-bottom:36px;}
-    .svc-grid,.dig-grid{grid-template-columns:1fr!important;}
-    .prog-grid,.conf-testi-grid,.reservation-grid{grid-template-columns:1fr!important;}
+    .svc-grid{grid-template-columns:1fr!important;}
+    .dig-grid{grid-template-columns:1fr!important;}
+    /* Nouvelle section pilliers */
+    #ce-que-nous-faisons{padding:60px 1.2rem!important;}
+    #ce-que-nous-faisons .piliers-grid{grid-template-columns:1fr!important;}
+    #ce-que-nous-faisons .pour-qui-row{flex-direction:column!important;align-items:flex-start!important;padding:1.5rem!important;}
+    /* Réservation */
+    .reservation-grid{grid-template-columns:1fr!important;gap:2rem!important;}
+    .res-form-grid{grid-template-columns:1fr!important;}
+    /* Programmes */
+    .prog-grid{grid-template-columns:1fr!important;}
+    .prog-check-grid{grid-template-columns:1fr!important;}
     .conf-stat-grid{grid-template-columns:repeat(2,1fr)!important;}
+    .conf-testi-grid{grid-template-columns:1fr!important;}
     .vision-grid{grid-template-columns:1fr!important;}
+    /* Academy CTA */
+    .academy-cta-btns{flex-direction:column!important;align-items:stretch!important;}
+    .academy-cta-btns a{width:100%;justify-content:center!important;}
+    /* Services banner */
+    .svc-banner{flex-direction:column!important;}
   }
   @media(max-width:576px){
     .about-intro{padding:50px 1rem 0;}
     .stag{padding:6px 9px;font-size:10px;}
     .conf-stat-grid{grid-template-columns:1fr!important;}
+    .about-cards-col{grid-template-columns:1fr!important;}
+    #ce-que-nous-faisons .pour-qui-chips{gap:.4rem!important;}
+    .clients-grid{gap:1rem;}
+    .client-logo{min-width:110px;padding:.8rem 1.2rem;}
+    .temoignage-card{padding:1.4rem;}
   }
   @media(max-width:380px){ .l3{font-size:36px;} }
 </style>
@@ -299,7 +334,7 @@
       </a>
     </div>
     <div class="gv-stats">
-      <div class="gv-stat"><span class="gv-stat-n">50+</span><span class="gv-stat-l" data-i18n="stat_experts">Experts</span></div>
+      <div class="gv-stat"><span class="gv-stat-n">36</span><span class="gv-stat-l" data-i18n="stat_experts">Experts</span></div>
       <div class="gv-stat-div"></div>
       <div class="gv-stat"><span class="gv-stat-n">+1000</span><span class="gv-stat-l" data-i18n="stat_clients">Clients</span></div>
       <div class="gv-stat-div"></div>
@@ -337,14 +372,14 @@
       </div>
       <div class="energy-bar-wrap"><div class="energy-bar"></div></div>
       <div class="service-tags">
-        <a href="{{ route('coworking') }}" class="stag" style="--c:#2563EB"><span class="sdot"></span><i class="fas fa-building"></i> Coworking Space</a>
-        <a href="{{ route('startup-lab') }}" class="stag" style="--c:#ffe800"><span class="sdot"></span><i class="fas fa-chart-line"></i> Startup Lab</a>
-        <a href="https://1207.3cx.cloud/supporttechnical" class="stag" style="--c:#10B981" target="_blank" rel="noopener"><span class="sdot"></span><i class="fas fa-headset"></i> Call Center</a>
-        <a href="{{ route('startup-lab') }}#erp" class="stag" style="--c:#DC2626"><span class="sdot"></span><i class="fas fa-code"></i> ERP / CRM</a>
-        <a href="{{ route('startup-lab') }}#ai" class="stag" style="--c:#a855f7"><span class="sdot"></span><i class="fas fa-brain"></i> Intelligence Artificielle</a>
-        <a href="{{ route('about') }}" class="stag" style="--c:#00cfff"><span class="sdot"></span><i class="fas fa-globe"></i> Ecosystème</a>
-        <a href="{{ route('academy') }}" class="stag" style="--c:#10B981"><span class="sdot"></span><i class="fas fa-graduation-cap"></i> GOVIBE Academy</a>
-        <a href="{{ route('startup-lab') }}#saas" class="stag" style="--c:#ff8c00"><span class="sdot"></span><i class="fas fa-cloud"></i> SaaS Plateformes</a>
+        <a href="{{ route('coworking') }}" class="stag"><span class="sdot"></span><i class="fas fa-building"></i> Coworking Space</a>
+        <a href="{{ route('startup-lab') }}" class="stag"><span class="sdot"></span><i class="fas fa-chart-line"></i> Startup Lab</a>
+        <a href="{{ route('call-center') }}" class="stag"><span class="sdot"></span><i class="fas fa-headset"></i> Call Center</a>
+        <a href="{{ route('startup-lab') }}#erp" class="stag"><span class="sdot"></span><i class="fas fa-code"></i> ERP / CRM</a>
+        <a href="{{ route('startup-lab') }}#ai" class="stag"><span class="sdot"></span><i class="fas fa-brain"></i> Intelligence Artificielle</a>
+        <a href="{{ route('about') }}" class="stag"><span class="sdot"></span><i class="fas fa-globe"></i> Ecosystème</a>
+        <a href="{{ route('academy') }}" class="stag"><span class="sdot"></span><i class="fas fa-graduation-cap"></i> GOVIBE Academy</a>
+        <a href="{{ route('startup-lab') }}#saas" class="stag"><span class="sdot"></span><i class="fas fa-cloud"></i> SaaS Plateformes</a>
       </div>
       <div class="slogan-wrap">
         <div class="slogan-line"></div>
@@ -396,6 +431,92 @@
   </div>
 </section>
 
+{{-- ===== CE QUE NOUS FAISONS ===== --}}
+<section id="ce-que-nous-faisons" style="background:#fff; padding:90px 2rem; border-top:4px solid #DC2626; position:relative; overflow:hidden;">
+  <div style="position:absolute;top:0;right:0;width:420px;height:420px;background:radial-gradient(circle,rgba(220,38,38,.05) 0%,transparent 70%);pointer-events:none;"></div>
+  <div style="position:absolute;bottom:0;left:0;width:320px;height:320px;background:radial-gradient(circle,rgba(220,38,38,.04) 0%,transparent 70%);pointer-events:none;"></div>
+  <div class="gv-wrap" style="position:relative;z-index:1;">
+
+    {{-- Mission statement --}}
+    <div class="slide-up" style="text-align:center; max-width:820px; margin:0 auto 4rem;">
+      <span class="gv-stag"><i class="fas fa-bolt"></i> CE QUE NOUS FAISONS</span>
+      <p style="font-family:'Anton',sans-serif; font-size:clamp(1.5rem,4vw,2.5rem); line-height:1.25; color:#0f172a; margin:.6rem 0 1.5rem; text-wrap:balance;">
+        Nous construisons les <span style="color:#DC2626;">infrastructures</span>,
+        <span style="color:#DC2626;">technologies</span> et
+        <span style="color:#DC2626;">programmes</span>
+        qui permettent aux entrepreneurs, organisations et professionnels de
+        <strong>créer, travailler et grandir.</strong>
+      </p>
+      <div style="width:60px;height:3px;background:linear-gradient(90deg,#DC2626,#ff6b6b,#DC2626);border-radius:2px;margin:0 auto;"></div>
+    </div>
+
+    {{-- 3 pillars --}}
+    <div class="slide-up delay-1" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1.8rem; margin-bottom:3.5rem;">
+
+      <div style="background:#fef2f2; border-radius:20px; padding:2rem; border-left:4px solid #DC2626; position:relative; overflow:hidden;">
+        <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(220,38,38,.06);border-radius:50%;"></div>
+        <div style="width:52px;height:52px;background:#DC2626;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:1.2rem;">
+          <i class="fas fa-building" style="color:#fff;font-size:1.3rem;"></i>
+        </div>
+        <h3 style="font-family:'Anton',sans-serif;font-size:1.4rem;color:#0f172a;margin-bottom:.6rem;letter-spacing:.03em;">Infrastructures</h3>
+        <p style="color:#64748b;line-height:1.7;font-size:.93rem;">Espaces de coworking, domiciliation, salles de réunion, call center et ressources physiques à Port-au-Prince — pour que votre business ait une base solide.</p>
+        <a href="{{ route('coworking') }}" style="display:inline-flex;align-items:center;gap:.3rem;color:#DC2626;font-weight:700;font-size:.85rem;margin-top:1rem;">Découvrir <i class="fas fa-arrow-right fa-xs"></i></a>
+      </div>
+
+      <div style="background:#fef2f2; border-radius:20px; padding:2rem; border-left:4px solid #DC2626; position:relative; overflow:hidden;">
+        <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(220,38,38,.06);border-radius:50%;"></div>
+        <div style="width:52px;height:52px;background:#DC2626;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:1.2rem;">
+          <i class="fas fa-microchip" style="color:#fff;font-size:1.3rem;"></i>
+        </div>
+        <h3 style="font-family:'Anton',sans-serif;font-size:1.4rem;color:#0f172a;margin-bottom:.6rem;letter-spacing:.03em;">Technologies</h3>
+        <p style="color:#64748b;line-height:1.7;font-size:.93rem;">Développement web &amp; mobile, ERP/CRM sur mesure, agents IA, plateformes SaaS, NFC et solutions digitales conçues pour les réalités haïtiennes.</p>
+        <a href="{{ route('startup-lab') }}" style="display:inline-flex;align-items:center;gap:.3rem;color:#DC2626;font-weight:700;font-size:.85rem;margin-top:1rem;">Explorer <i class="fas fa-arrow-right fa-xs"></i></a>
+      </div>
+
+      <div style="background:#fef2f2; border-radius:20px; padding:2rem; border-left:4px solid #DC2626; position:relative; overflow:hidden;">
+        <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(220,38,38,.06);border-radius:50%;"></div>
+        <div style="width:52px;height:52px;background:#DC2626;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:1.2rem;">
+          <i class="fas fa-graduation-cap" style="color:#fff;font-size:1.3rem;"></i>
+        </div>
+        <h3 style="font-family:'Anton',sans-serif;font-size:1.4rem;color:#0f172a;margin-bottom:.6rem;letter-spacing:.03em;">Programmes</h3>
+        <p style="color:#64748b;line-height:1.7;font-size:.93rem;">Formations professionnelles, incubation de startups, crédit digital et mentorat — pour transformer les idées en projets concrets et les projets en succès.</p>
+        <a href="{{ route('academy') }}" style="display:inline-flex;align-items:center;gap:.3rem;color:#DC2626;font-weight:700;font-size:.85rem;margin-top:1rem;">S'inscrire <i class="fas fa-arrow-right fa-xs"></i></a>
+      </div>
+    </div>
+
+    {{-- Pour qui ? --}}
+    <div class="slide-up delay-2" style="background:#0f172a; border-radius:20px; padding:2.2rem 2.5rem; display:flex; flex-wrap:wrap; align-items:center; gap:2rem; justify-content:space-between;">
+      <div>
+        <p style="color:rgba(255,255,255,.45);font-size:.78rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:.7rem;">Pour qui ?</p>
+        <div style="display:flex;flex-wrap:wrap;gap:.6rem;">
+          <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);border-radius:50px;padding:.38rem 1rem;color:#fff;font-size:.88rem;font-weight:600;">
+            <i class="fas fa-rocket" style="color:#DC2626;font-size:.75rem;"></i> Entrepreneurs
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);border-radius:50px;padding:.38rem 1rem;color:#fff;font-size:.88rem;font-weight:600;">
+            <i class="fas fa-landmark" style="color:#DC2626;font-size:.75rem;"></i> Organisations
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);border-radius:50px;padding:.38rem 1rem;color:#fff;font-size:.88rem;font-weight:600;">
+            <i class="fas fa-user-tie" style="color:#DC2626;font-size:.75rem;"></i> Professionnels
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);border-radius:50px;padding:.38rem 1rem;color:#fff;font-size:.88rem;font-weight:600;">
+            <i class="fas fa-seedling" style="color:#DC2626;font-size:.75rem;"></i> Startups
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);border-radius:50px;padding:.38rem 1rem;color:#fff;font-size:.88rem;font-weight:600;">
+            <i class="fas fa-school" style="color:#DC2626;font-size:.75rem;"></i> Étudiants
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);border-radius:50px;padding:.38rem 1rem;color:#fff;font-size:.88rem;font-weight:600;">
+            <i class="fas fa-store" style="color:#DC2626;font-size:.75rem;"></i> PME Haïtiennes
+          </span>
+        </div>
+      </div>
+      <a href="#reservation" class="gv-btn-prim" style="white-space:nowrap; flex-shrink:0;">
+        <i class="fas fa-calendar-alt"></i> Commencer avec GOVIBE →
+      </a>
+    </div>
+
+  </div>
+</section>
+
 {{-- ===== CLIENTS ===== --}}
 <section id="clients-section" style="padding:60px 2rem; background:#fff; border-top:1px solid #f1f5f9;">
   <div class="gv-wrap">
@@ -420,7 +541,7 @@
     <div class="slide-up" style="text-align:center; margin-bottom:3.5rem;">
       <span class="gv-stag"><i class="fas fa-bolt"></i> NOTRE ÉCOSYSTÈME</span>
       <h2 class="gv-h2">GOVIBE –
-        <span style="background:linear-gradient(135deg,#DC2626,#10B981,#ff6b6b); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">Infrastructure d'Innovation</span><br>
+        <span style="background:linear-gradient(135deg,#DC2626,#ff6b6b); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">Infrastructure d'Innovation</span><br>
         &amp; Solutions Digitales
       </h2>
       <p class="gv-sub" style="max-width:700px; margin:0 auto; text-align:center;">GOVIBE combine <strong>infrastructures physiques, solutions digitales, IA et SaaS</strong> pour accompagner entreprises et entrepreneurs.</p>
@@ -428,16 +549,16 @@
 
     <div class="svc-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:1.8rem; margin-bottom:3rem;">
       <div class="service-card slide-up">
-        <i class="fas fa-building" style="font-size:2.2rem; color:#2563EB;"></i>
+        <i class="fas fa-building" style="font-size:2.2rem; color:#DC2626;"></i>
         <h3>GOVIBE Coworking Space</h3>
         <p>Espaces flexibles, bureaux privés, salles de conférence, domiciliation et internet haut débit à Port-au-Prince.</p>
         <a href="{{ route('coworking') }}" class="svc-link">Découvrir <i class="fas fa-arrow-right fa-xs"></i></a>
       </div>
       <div class="service-card slide-up delay-1">
-        <i class="fas fa-headset" style="font-size:2.2rem; color:#10B981;"></i>
+        <i class="fas fa-headset" style="font-size:2.2rem; color:#DC2626;"></i>
         <h3>GOVIBE Call Center</h3>
         <p>Réception d'appels, service client externalisé, support technique et secrétariat à distance 24/7.</p>
-        <a href="https://1207.3cx.cloud/supporttechnical" class="svc-link" target="_blank" rel="noopener">Appeler <i class="fas fa-phone fa-xs"></i></a>
+        <a href="{{ route('call-center') }}" class="svc-link">Découvrir <i class="fas fa-arrow-right fa-xs"></i></a>
       </div>
       <div class="service-card slide-up delay-2">
         <i class="fas fa-code" style="font-size:2.2rem; color:#DC2626;"></i>
@@ -446,19 +567,19 @@
         <a href="{{ route('startup-lab') }}" class="svc-link">Explorer <i class="fas fa-arrow-right fa-xs"></i></a>
       </div>
       <div class="service-card slide-up">
-        <i class="fas fa-robot" style="font-size:2.2rem; color:#a855f7;"></i>
+        <i class="fas fa-robot" style="font-size:2.2rem; color:#DC2626;"></i>
         <h3>GOVIBE AI</h3>
         <p>Agents IA, chatbots intelligents, analyse prédictive, automatisation de processus métier.</p>
         <a href="{{ route('startup-lab') }}#ai" class="svc-link">En savoir plus <i class="fas fa-arrow-right fa-xs"></i></a>
       </div>
       <div class="service-card slide-up delay-1">
-        <i class="fas fa-graduation-cap" style="font-size:2.2rem; color:#10B981;"></i>
+        <i class="fas fa-graduation-cap" style="font-size:2.2rem; color:#DC2626;"></i>
         <h3>GOVIBE Academy</h3>
         <p>Formation professionnelle, cours en ligne et présentiel, certifications et incubation de startups.</p>
         <a href="{{ route('academy') }}" class="svc-link">S'inscrire <i class="fas fa-graduation-cap fa-xs"></i></a>
       </div>
       <div class="service-card slide-up delay-2">
-        <i class="fas fa-wifi" style="font-size:2.2rem; color:#0891B2;"></i>
+        <i class="fas fa-wifi" style="font-size:2.2rem; color:#DC2626;"></i>
         <h3>GOVIBE Connect</h3>
         <p>Cartes NFC, smart menus numériques, étiquettes préventives et solutions IoT pour votre business.</p>
         <a href="#reservation" class="svc-link">Demander <i class="fas fa-arrow-right fa-xs"></i></a>
@@ -508,21 +629,21 @@
       </div>
 
       <div class="programme-card slide-up delay-2">
-        <div style="position:absolute;top:0;left:0;width:100%;height:4px;background:linear-gradient(90deg,#10B981,#DC2626);"></div>
+        <div style="position:absolute;top:0;left:0;width:100%;height:4px;background:linear-gradient(90deg,#DC2626,#ff6b6b);"></div>
         <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem;">
-          <div style="width:50px;height:50px;background:rgba(16,185,129,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:#10B981;">
+          <div style="width:50px;height:50px;background:rgba(220,38,38,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:#DC2626;">
             <i class="fas fa-credit-card"></i>
           </div>
           <h3>Crédit Digital</h3>
         </div>
         <p style="color:#64748b; line-height:1.7; margin-bottom:1.2rem;">Faciliter l'accès au financement pour entrepreneurs et PME haïtiennes via l'IA.</p>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:.7rem; margin-bottom:1.5rem;">
-          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-bolt" style="color:#10B981;"></i> Microcrédit</span>
-          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-chart-line" style="color:#10B981;"></i> Scoring IA</span>
-          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-clock" style="color:#10B981;"></i> Paiement flexible</span>
-          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-chart-bar" style="color:#10B981;"></i> Suivi digital</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-bolt" style="color:#DC2626;"></i> Microcrédit</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-chart-line" style="color:#DC2626;"></i> Scoring IA</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-clock" style="color:#DC2626;"></i> Paiement flexible</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-chart-bar" style="color:#DC2626;"></i> Suivi digital</span>
         </div>
-        <a href="#reservation" class="gv-btn-prim green">Faire une demande →</a>
+        <a href="#reservation" class="gv-btn-prim">Faire une demande →</a>
       </div>
     </div>
 
@@ -535,20 +656,23 @@
           <p>Les entreprises trouvent l'infrastructure dont elles ont besoin</p>
         </div>
         <div style="display:flex;align-items:center;gap:1rem;background:rgba(255,255,255,.04);border-radius:16px;padding:1.2rem;">
-          <i class="fas fa-rocket" style="font-size:2rem;color:#10B981;flex-shrink:0;"></i>
+          <i class="fas fa-rocket" style="font-size:2rem;color:#DC2626;flex-shrink:0;"></i>
           <p>Les startups trouvent l'accompagnement pour croître</p>
         </div>
         <div style="display:flex;align-items:center;gap:1rem;background:rgba(255,255,255,.04);border-radius:16px;padding:1.2rem;">
-          <i class="fas fa-lightbulb" style="font-size:2rem;color:#ffe800;flex-shrink:0;"></i>
+          <i class="fas fa-lightbulb" style="font-size:2rem;color:#DC2626;flex-shrink:0;"></i>
           <p>Les institutions trouvent des solutions digitales sur mesure</p>
         </div>
         <div style="display:flex;align-items:center;gap:1rem;background:rgba(255,255,255,.04);border-radius:16px;padding:1.2rem;">
-          <i class="fas fa-coins" style="font-size:2rem;color:#a855f7;flex-shrink:0;"></i>
+          <i class="fas fa-coins" style="font-size:2rem;color:#DC2626;flex-shrink:0;"></i>
           <p>Les entrepreneurs trouvent le financement pour réaliser leurs projets</p>
         </div>
       </div>
-      <div style="text-align:center;margin-top:2.5rem;">
+      <div style="text-align:center;margin-top:2.5rem;display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
         <a href="#reservation" class="gv-btn-prim">Rejoindre l'écosystème →</a>
+        <a href="{{ route('programmes') }}" style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:.75rem 1.5rem;border-radius:50px;font-weight:600;font-size:.9rem;transition:background .2s;">
+          <i class="fas fa-graduation-cap"></i> Voir tous les programmes
+        </a>
       </div>
     </div>
   </div>
@@ -560,20 +684,20 @@
     <div class="slide-up" style="text-align:center; margin-bottom:3.5rem;">
       <span class="gv-stag"><i class="fas fa-code"></i> STARTUPS &amp; DIGITAL</span>
       <h2 class="gv-h2">Construisez. Lancez.<br>
-        <span style="background:linear-gradient(135deg,#DC2626,#10B981,#ff6b6b); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">Scalez.</span>
+        <span style="background:linear-gradient(135deg,#DC2626,#ff6b6b); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">Scalez.</span>
       </h2>
       <p class="gv-sub" style="margin:0 auto; text-align:center;">Développement d'applications, IA, ERP/CRM, plateformes SaaS et cybersécurité.</p>
     </div>
 
     <div class="dig-grid" style="display:grid; grid-template-columns:repeat(3,1fr); gap:1.8rem;">
       <div class="service-digital slide-up">
-        <i class="fas fa-globe" style="font-size:2rem; color:#2563EB;"></i>
+        <i class="fas fa-globe" style="font-size:2rem; color:#DC2626;"></i>
         <h3>Web Development</h3>
         <p style="color:#64748b; font-size:.88rem;">Sites, apps web, e-commerce modernes et responsives.</p>
         <a href="{{ route('startup-lab') }}#web" class="svc-link" style="margin-top:.8rem;">Voir détails →</a>
       </div>
       <div class="service-digital slide-up delay-1">
-        <i class="fas fa-mobile-alt" style="font-size:2rem; color:#10B981;"></i>
+        <i class="fas fa-mobile-alt" style="font-size:2rem; color:#DC2626;"></i>
         <h3>Applications Mobiles</h3>
         <p style="color:#64748b; font-size:.88rem;">iOS &amp; Android, MVP rapide, déploiement App Store.</p>
         <a href="{{ route('startup-lab') }}#mobile" class="svc-link" style="margin-top:.8rem;">Voir détails →</a>
@@ -585,13 +709,13 @@
         <a href="{{ route('startup-lab') }}#ai" class="svc-link" style="margin-top:.8rem;">Voir détails →</a>
       </div>
       <div class="service-digital slide-up">
-        <i class="fas fa-laptop-code" style="font-size:2rem; color:#2563EB;"></i>
+        <i class="fas fa-laptop-code" style="font-size:2rem; color:#DC2626;"></i>
         <h3>ERP &amp; CRM</h3>
         <p style="color:#64748b; font-size:.88rem;">Logiciels sur mesure, gestion d'entreprise intégrée.</p>
         <a href="{{ route('startup-lab') }}#erp" class="svc-link" style="margin-top:.8rem;">Voir détails →</a>
       </div>
       <div class="service-digital slide-up delay-1">
-        <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:#10B981;"></i>
+        <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:#DC2626;"></i>
         <h3>Plateformes SaaS</h3>
         <p style="color:#64748b; font-size:.88rem;">Logiciels en ligne, multi-tenant, déploiement cloud.</p>
         <a href="{{ route('startup-lab') }}#saas" class="svc-link" style="margin-top:.8rem;">Voir détails →</a>
@@ -607,7 +731,7 @@
     <div class="slide-up" style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:24px;padding:2.5rem;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-top:3rem;color:#fff;gap:1.5rem;">
       <div>
         <h3 style="font-family:'Anton',sans-serif;font-size:1.8rem;margin-bottom:.5rem;">Prêt à lancer votre projet digital ?</h3>
-        <p style="color:rgba(255,255,255,.6);font-size:.92rem;">De l'idée au déploiement, notre équipe de 50+ experts vous accompagne.</p>
+        <p style="color:rgba(255,255,255,.6);font-size:.92rem;">De l'idée au déploiement, notre équipe de 36 experts vous accompagne.</p>
       </div>
       <a href="{{ route('startup-lab') }}" class="gv-btn-prim"><i class="fas fa-rocket"></i> Démarrer un projet →</a>
     </div>
@@ -629,17 +753,17 @@
         <p style="color:#64748b;font-size:.88rem;">Fondé en 2020 avec une vision internationale dès le départ.</p>
       </div>
       <div class="confiance-card slide-up delay-1">
-        <i class="fas fa-lock" style="font-size:2rem;color:#10B981;"></i>
+        <i class="fas fa-lock" style="font-size:2rem;color:#DC2626;"></i>
         <h3>Sécurité des données</h3>
         <p style="color:#64748b;font-size:.88rem;">Infrastructure sécurisée, protection et conformité RGPD.</p>
       </div>
       <div class="confiance-card slide-up delay-2">
-        <i class="fas fa-handshake" style="font-size:2rem;color:#2563EB;"></i>
+        <i class="fas fa-handshake" style="font-size:2rem;color:#DC2626;"></i>
         <h3>Accompagnement sur mesure</h3>
         <p style="color:#64748b;font-size:.88rem;">Équipe dédiée de 36 experts passionnés pour vous servir.</p>
       </div>
       <div class="confiance-card slide-up delay-3">
-        <i class="fas fa-chart-line" style="font-size:2rem;color:#ffe800;"></i>
+        <i class="fas fa-chart-line" style="font-size:2rem;color:#DC2626;"></i>
         <h3>Résultats prouvés</h3>
         <p style="color:#64748b;font-size:.88rem;">+1000 clients satisfaits en Haïti, USA, Canada et Afrique.</p>
       </div>
@@ -670,7 +794,7 @@
                style="width:56px;height:56px;border-radius:50%;object-fit:cover;" alt="Témoignage">
           <div>
             <h4 style="font-family:'Anton',sans-serif;font-size:1rem;color:#0f172a;">Sophie D.</h4>
-            <p style="color:#10B981;font-size:.82rem;font-weight:600;">Fondatrice Startup Tech</p>
+            <p style="color:#DC2626;font-size:.82rem;font-weight:600;">Fondatrice Startup Tech</p>
           </div>
         </div>
         <p style="color:#475569;line-height:1.7;font-size:.92rem;">"Grâce au programme d'incubation de GOVIBE, nous avons lancé notre MVP en seulement 3 mois. L'accompagnement est exceptionnel."</p>
@@ -704,17 +828,17 @@
         <p style="color:#94a3b8;">Nous construisons des fondations solides pour une scalabilité à long terme.</p>
       </a>
       <a href="{{ route('about') }}" class="pourquoi-card slide-up delay-1">
-        <div style="font-size:1.9rem;margin-bottom:.55rem;color:#10B981;"><i class="fas fa-sync-alt"></i></div>
+        <div style="font-size:1.9rem;margin-bottom:.55rem;color:#DC2626;"><i class="fas fa-sync-alt"></i></div>
         <h3>Modèle Hybride</h3>
         <p style="color:#94a3b8;">Physique + Numérique + Financier en un seul écosystème intégré.</p>
       </a>
       <a href="{{ route('about') }}" class="pourquoi-card slide-up delay-2">
-        <div style="font-size:1.9rem;margin-bottom:.55rem;color:#ffe800;"><i class="fas fa-globe-americas"></i></div>
+        <div style="font-size:1.9rem;margin-bottom:.55rem;color:#DC2626;"><i class="fas fa-globe-americas"></i></div>
         <h3>Base Haïtienne, Vision Mondiale</h3>
         <p style="color:#94a3b8;">Enregistré aux USA et en Haïti. Standards internationaux.</p>
       </a>
       <a href="{{ route('about') }}#team" class="pourquoi-card slide-up delay-3">
-        <div style="font-size:1.9rem;margin-bottom:.55rem;color:#2563EB;"><i class="fas fa-users"></i></div>
+        <div style="font-size:1.9rem;margin-bottom:.55rem;color:#DC2626;"><i class="fas fa-users"></i></div>
         <h3>Communauté Active</h3>
         <p style="color:#94a3b8;">36 experts dévoués + réseau d'entrepreneurs et innovateurs.</p>
       </a>
@@ -753,7 +877,7 @@
   <div class="gv-wrap">
     <div class="reservation-grid" style="display:grid;grid-template-columns:1fr 1.35fr;gap:3.5rem;align-items:start;">
       <div class="slide-up">
-        <span class="gv-stag" style="color:#10b981;background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.28);">
+        <span class="gv-stag">
           <i class="fas fa-calendar-check"></i> Réservations
         </span>
         <h2 style="font-family:'Anton',sans-serif;font-size:clamp(1.85rem,4vw,2.75rem);color:#fff;line-height:1.14;margin:.75rem 0 .9rem;">
@@ -775,7 +899,7 @@
             </div>Annulation gratuite jusqu'à 48h avant
           </div>
           <div style="display:flex;align-items:center;gap:.75rem;color:rgba(255,255,255,.72);font-size:.9rem;">
-            <div style="width:34px;height:34px;border-radius:8px;background:rgba(16,185,129,.2);border:1px solid rgba(16,185,129,.3);display:flex;align-items:center;justify-content:center;color:#10b981;">
+            <div style="width:34px;height:34px;border-radius:8px;background:rgba(220,38,38,.2);border:1px solid rgba(220,38,38,.3);display:flex;align-items:center;justify-content:center;color:#DC2626;">
               <i class="fab fa-whatsapp"></i>
             </div>
             <a href="https://wa.me/50933988754" style="color:rgba(255,255,255,.72);">Support WhatsApp +509 3398-8754</a>
@@ -839,8 +963,8 @@
         <p style="text-align:center;font-size:.75rem;color:rgba(255,255,255,.35);margin-top:.75rem;">
           <i class="fas fa-lock"></i> Vos informations sont sécurisées et confidentielles.
         </p>
-        <div id="gvResSuccess" style="display:none;text-align:center;padding:1.2rem;background:rgba(16,185,129,.14);border:1px solid rgba(16,185,129,.28);border-radius:12px;color:#10b981;font-weight:600;margin-top:.9rem;">
-          <i class="fas fa-check-circle"></i> Merci ! Votre demande a été reçue. Nous vous contacterons sous 24h.
+        <div id="gvResSuccess" style="display:none;text-align:center;padding:1.2rem;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);border-radius:12px;color:#DC2626;font-weight:600;margin-top:.9rem;">
+          <i class="fab fa-whatsapp"></i> WhatsApp ouvert ! Envoyez le message pour confirmer votre demande.
         </div>
       </div>
     </div>
@@ -854,10 +978,10 @@
 /* ── TYPING ANIMATION ─────────────────────────────── */
 (function(){
   const WORDS = {
-    fr:[{text:'Entrepreneurs Visionnaires.',color:'#DC2626'},{text:'Startups Innovantes',color:'#10B981'},{text:'Plateformes Digitales.',color:'#a855f7'},{text:'Solutions avec IA.',color:'#f59e0b'},{text:'Centres d\'Appels.',color:'#0891B2'},{text:'Coworking Space',color:'#2563EB'},{text:'L\'Avenir Numérique.',color:'#10B981'}],
-    en:[{text:'Visionary Entrepreneurs.',color:'#DC2626'},{text:'Innovative Startups',color:'#10B981'},{text:'Digital Platforms.',color:'#a855f7'},{text:'AI Solutions.',color:'#f59e0b'},{text:'Call Centers.',color:'#0891B2'},{text:'Coworking Space',color:'#2563EB'},{text:'The Digital Future.',color:'#10B981'}],
-    cr:[{text:'Antreprenè Vyzyone.',color:'#DC2626'},{text:'Startup Inovatè',color:'#10B981'},{text:'Platfòm Dijital.',color:'#a855f7'},{text:'Solisyon IA.',color:'#f59e0b'},{text:'Sant Apèl.',color:'#0891B2'},{text:'Kowoking Espas',color:'#2563EB'},{text:'Avni Nimerik.',color:'#10B981'}],
-    es:[{text:'Emprendedores Visionarios.',color:'#DC2626'},{text:'Startups Innovadoras',color:'#10B981'},{text:'Plataformas Digitales.',color:'#a855f7'},{text:'Soluciones con IA.',color:'#f59e0b'},{text:'Call Centers.',color:'#0891B2'},{text:'Coworking Space',color:'#2563EB'},{text:'El Futuro Digital.',color:'#10B981'}]
+    fr:[{text:'Entrepreneurs Visionnaires.',color:'#DC2626'},{text:'Startups Innovantes',color:'#DC2626'},{text:'Plateformes Digitales.',color:'#DC2626'},{text:'Solutions avec IA.',color:'#DC2626'},{text:'Centres d\'Appels.',color:'#DC2626'},{text:'Coworking Space',color:'#DC2626'},{text:'L\'Avenir Numérique.',color:'#DC2626'}],
+    en:[{text:'Visionary Entrepreneurs.',color:'#DC2626'},{text:'Innovative Startups',color:'#DC2626'},{text:'Digital Platforms.',color:'#DC2626'},{text:'AI Solutions.',color:'#DC2626'},{text:'Call Centers.',color:'#DC2626'},{text:'Coworking Space',color:'#DC2626'},{text:'The Digital Future.',color:'#DC2626'}],
+    cr:[{text:'Antreprenè Vyzyone.',color:'#DC2626'},{text:'Startup Inovatè',color:'#DC2626'},{text:'Platfòm Dijital.',color:'#DC2626'},{text:'Solisyon IA.',color:'#DC2626'},{text:'Sant Apèl.',color:'#DC2626'},{text:'Kowoking Espas',color:'#DC2626'},{text:'Avni Nimerik.',color:'#DC2626'}],
+    es:[{text:'Emprendedores Visionarios.',color:'#DC2626'},{text:'Startups Innovadoras',color:'#DC2626'},{text:'Plataformas Digitales.',color:'#DC2626'},{text:'Soluciones con IA.',color:'#DC2626'},{text:'Call Centers.',color:'#DC2626'},{text:'Coworking Space',color:'#DC2626'},{text:'El Futuro Digital.',color:'#DC2626'}]
   };
   let wi=0,ci=0,del=false,lang=localStorage.getItem('gv_lang')||'fr';
   const tw=document.getElementById('gvTypingWord');
@@ -922,19 +1046,31 @@ if(logo3d&&window.innerWidth>600){
 /* ── RESERVATION FORM ────────────────────────────── */
 function gvSubmitRes(){
   const fn=document.getElementById('gv_fname').value.trim();
+  const ln=document.getElementById('gv_lname').value.trim();
   const em=document.getElementById('gv_email').value.trim();
-  const sv=document.getElementById('gv_service').value;
+  const ph=document.getElementById('gv_phone').value.trim();
+  const sv=document.getElementById('gv_service');
+  const svText=sv.options[sv.selectedIndex]?sv.options[sv.selectedIndex].text:'';
   const dt=document.getElementById('gv_date').value;
-  if(!fn||!em||!sv||!dt){alert('Veuillez remplir tous les champs obligatoires (*).'); return;}
-  const btn=document.getElementById('gvResBtn');
-  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Envoi en cours...';btn.disabled=true;
-  setTimeout(function(){
-    btn.innerHTML='<i class="fas fa-paper-plane"></i> Envoyer la Demande de Réservation';btn.disabled=false;
-    document.getElementById('gvResSuccess').style.display='block';
-    ['gv_fname','gv_lname','gv_email','gv_phone','gv_msg'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    document.getElementById('gv_service').selectedIndex=0;document.getElementById('gv_date').value='';
-    setTimeout(()=>{document.getElementById('gvResSuccess').style.display='none';},6000);
-  },1200);
+  const pp=document.getElementById('gv_people');
+  const ppText=pp.options[pp.selectedIndex]?pp.options[pp.selectedIndex].text:'';
+  const msg=document.getElementById('gv_msg').value.trim();
+  if(!fn||!em||!sv.value||!dt){alert('Veuillez remplir tous les champs obligatoires (*).'); return;}
+  const waMsg=`*Demande de Réservation GOVIBE*\n\n`
+    +`*Nom:* ${fn} ${ln}\n`
+    +`*Email:* ${em}\n`
+    +`*Téléphone:* ${ph||'Non renseigné'}\n`
+    +`*Service:* ${svText}\n`
+    +`*Date:* ${dt}\n`
+    +`*Personnes:* ${ppText}\n`
+    +`*Message:* ${msg||'Aucun message'}\n\n`
+    +`_Envoyé depuis govibeht.com_`;
+  const waUrl='https://wa.me/50933988754?text='+encodeURIComponent(waMsg);
+  window.open(waUrl,'_blank');
+  document.getElementById('gvResSuccess').style.display='block';
+  ['gv_fname','gv_lname','gv_email','gv_phone','gv_msg'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  sv.selectedIndex=0;document.getElementById('gv_date').value='';
+  setTimeout(()=>{document.getElementById('gvResSuccess').style.display='none';},8000);
 }
 (function(){const d=document.getElementById('gv_date');if(d)d.setAttribute('min',new Date().toISOString().split('T')[0]);})();
 </script>
