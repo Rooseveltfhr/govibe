@@ -162,10 +162,27 @@ jobs:
           # (chown et systemctl ne sont tentés qu'en root).
 
           # On récupère d'abord le code : update.sh lui-même vit dans le dépôt,
-          # donc on veut sa version la plus récente avant de l'exécuter.
+          # donc on veut sa version la plus récente avant de l'exécuter. Cette
+          # amorce doit donc reproduire les mêmes précautions que update.sh.
+
+          # Le serveur peut porter des retouches faites à la main : un checkout
+          # les écraserait et git refuserait. On les met de côté — un stash est
+          # récupérable (git stash list), une écrasement ne l'est pas.
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "Modifications locales sur le serveur — mises de côté dans un stash :"
+            git status --porcelain | sed 's/^/  /'
+            git stash push -u -m "deploy-govibe \$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          fi
+
           git fetch origin "\$BRANCH"
-          git checkout "\$BRANCH"
-          git pull --ff-only origin "\$BRANCH"
+          # La branche cible peut ne pas exister localement (le serveur était
+          # resté sur celle que deploy.sh codait en dur).
+          if git show-ref --verify --quiet "refs/heads/\$BRANCH"; then
+            git checkout "\$BRANCH"
+            git pull --ff-only origin "\$BRANCH"
+          else
+            git checkout -b "\$BRANCH" "origin/\$BRANCH"
+          fi
 
           if [ ! -f update.sh ]; then
             echo "::error::update.sh absent de \$DIR après le pull (branche \$BRANCH)."
