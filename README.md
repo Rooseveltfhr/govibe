@@ -73,6 +73,27 @@ Le script `deploy.sh` installe automatiquement:
 - Certificat SSL Let's Encrypt
 - Systemd worker pour les queues
 
+### Publier une mise à jour
+
+`deploy.sh` sert **uniquement à la première installation** (il provisionne le
+serveur, demande un mot de passe MySQL et relance les seeders). Pour publier de
+nouveaux commits sur un serveur déjà en place:
+
+```bash
+# Sur le VPS, en root:
+cd /var/www/govibe
+git fetch origin main && git checkout main && git pull origin main
+bash update.sh
+```
+
+`update.sh` récupère la branche, installe les dépendances, applique les
+migrations, reconstruit les caches Laravel, restaure les permissions et
+redémarre Nginx / PHP-FPM / le worker — le tout derrière `php artisan down`.
+
+> Sans cette étape, un merge sur `main` **n'apparaît pas** sur govibeht.com:
+> aucun workflow GitHub Actions ne déploie ce site (`deploy.yml` ne concerne
+> que le module TAGTOA sur tagtoa.com).
+
 ### Configuration email (Gmail)
 
 Dans `/var/www/govibe/.env`:
