@@ -106,6 +106,36 @@ class LoyaltyCardService
         });
     }
 
+    /**
+     * Crédite des points sans toucher le solde (récompense d'achat, ex. commande
+     * MENU payée) — distinct de topUp() qui recharge le solde ET les points.
+     */
+    public function earnPoints(Card $card, int $points, array $opts = []): ?Transaction
+    {
+        if ($points <= 0) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($card, $points, $opts) {
+            $card = Card::lockForUpdate()->findOrFail($card->id);
+            if (! $card->isActive()) {
+                return null;
+            }
+            $card->points += $points;
+            $card->save();
+
+            return $card->transactions()->create([
+                'type'          => Transaction::TYPE_EARN,
+                'points_delta'  => $points,
+                'balance_after' => $card->balance,
+                'points_after'  => $card->points,
+                'reference'     => $opts['reference'] ?? null,
+                'note'          => $opts['note'] ?? null,
+                'status'        => 1,
+            ]);
+        });
+    }
+
     public function redeem(Card $card, float $amount, array $opts = []): Transaction
     {
         return DB::transaction(function () use ($card, $amount, $opts) {

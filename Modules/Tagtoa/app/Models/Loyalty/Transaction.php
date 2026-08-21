@@ -12,6 +12,7 @@ class Transaction extends Model
 {
     public const TYPE_TOP_UP = 'top_up';
     public const TYPE_REDEEM = 'redeem';
+    public const TYPE_EARN = 'earn';
 
     protected $table = 'tagtoa_loyalty_transactions';
 
@@ -35,11 +36,15 @@ class Transaction extends Model
 
     public function getTypeLabelAttribute(): string
     {
-        return $this->type === self::TYPE_TOP_UP ? __('Recharge') : __('Utilisation');
+        return match ($this->type) {
+            self::TYPE_TOP_UP => __('Recharge'),
+            self::TYPE_EARN   => __('Points gagnés'),
+            default           => __('Utilisation'),
+        };
     }
 
     public function isCredit(): bool
     {
-        return $this->type === self::TYPE_TOP_UP;
+        return in_array($this->type, [self::TYPE_TOP_UP, self::TYPE_EARN], true);
     }
 }

@@ -57,7 +57,26 @@
 <body>
 <div style="position:fixed;top:12px;right:12px;z-index:50">@include('tagtoa::partials.lang')</div>
 <div class="wrap">
-    @php $fixed = $page->hasFixedAmount(); $fixedVal = $fixed ? number_format((float) $page->amount, 2, '.', '') : ''; @endphp
+    @php
+        // Paiement demandé par un site tiers via l'API : le montant est imposé
+        // par le serveur (jamais relu depuis l'URL) et prime sur le prix fixe
+        // éventuel de la page. Variable absente = page de paiement normale.
+        $apiPayment = $apiPayment ?? null;
+        $fixed = $apiPayment ? true : $page->hasFixedAmount();
+        $fixedVal = $apiPayment
+            ? number_format((float) $apiPayment->amount, 2, '.', '')
+            : ($fixed ? number_format((float) $page->amount, 2, '.', '') : '');
+    @endphp
+
+    @if($apiPayment)
+        <div class="info" style="margin:16px 16px 0">
+            <i class="fa-solid fa-file-invoice-dollar"></i>
+            <div>
+                <b>{{ $apiPayment->description ?: __('Paiement à régler') }}</b><br>
+                <span style="font-size:12.5px">{{ __('Référence') }} : {{ $apiPayment->reference }}</span>
+            </div>
+        </div>
+    @endif
     <header class="hd">
         <span class="badge"><i class="fa-solid fa-wifi"></i> TAGTOA PAY</span>
         <h1>{{ $page->title ?: __('Effectuer un paiement') }}</h1>
@@ -141,8 +160,9 @@
                         <form method="POST" action="{{ route('tagtoa.pay.submit-proof', $page->alias) }}" enctype="multipart/form-data" style="margin-top:14px">
                             @csrf
                             <input type="hidden" name="payment_method_id" value="{{ $m->id }}">
+                            @if($apiPayment)<input type="hidden" name="api_payment" value="{{ $apiPayment->reference }}">@endif
                             <label class="lbl">{{ __('Votre nom') }} *</label>
-                            <input class="inp" name="payer_name" required maxlength="120" value="{{ old('payer_name') }}">
+                            <input class="inp" name="payer_name" required maxlength="120" value="{{ old('payer_name', $apiPayment->customer_name ?? '') }}">
                             <label class="lbl">{{ __('Téléphone (WhatsApp)') }}</label>
                             <input class="inp" name="payer_phone" maxlength="40" value="{{ old('payer_phone') }}" placeholder="+509 ...">
                             <label class="lbl">{{ __('Montant') }} ({{ $page->default_currency }})</label>

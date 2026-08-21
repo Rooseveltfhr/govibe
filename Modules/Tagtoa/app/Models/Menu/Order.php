@@ -26,15 +26,25 @@ class Order extends Model
         'cancelled' => ['label' => 'Annulée',     'pill' => 'r'],
     ];
 
+    /** Mode de service. */
+    public const ORDER_TYPES = ['dine_in', 'pickup', 'delivery'];
+
+    public const ORDER_TYPE_LABELS = [
+        'dine_in'  => 'Sur place',
+        'pickup'   => 'À emporter',
+        'delivery' => 'Livraison',
+    ];
+
     protected $fillable = [
-        'menu_id', 'tenant_id', 'reference', 'subtotal', 'total', 'currency',
-        'status', 'payment_status', 'channel', 'customer_name', 'customer_phone',
-        'table_label', 'note', 'client_uuid', 'placed_at',
+        'menu_id', 'tenant_id', 'reference', 'subtotal', 'total', 'tip', 'currency',
+        'status', 'payment_status', 'channel', 'order_type', 'customer_name', 'customer_phone',
+        'table_label', 'delivery_address', 'note', 'client_uuid', 'placed_at',
     ];
 
     protected $casts = [
         'subtotal'  => 'decimal:2',
         'total'     => 'decimal:2',
+        'tip'       => 'decimal:2',
         'placed_at' => 'datetime',
     ];
 
@@ -61,5 +71,10 @@ class Order extends Model
     public function getStatusMetaAttribute(): array
     {
         return self::STATUS_META[$this->status] ?? ['label' => ucfirst($this->status), 'pill' => 'n'];
+    }
+
+    public function getOrderTypeLabelAttribute(): string
+    {
+        return self::ORDER_TYPE_LABELS[$this->order_type] ?? ucfirst((string) $this->order_type);
     }
 }

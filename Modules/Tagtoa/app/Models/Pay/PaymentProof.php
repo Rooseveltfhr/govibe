@@ -24,7 +24,7 @@ class PaymentProof extends Model
     protected $table = 'tagtoa_payment_proofs';
 
     protected $fillable = [
-        'payment_page_id', 'payment_method_id', 'payer_name', 'payer_phone',
+        'payment_page_id', 'payment_method_id', 'api_payment_id', 'payer_name', 'payer_phone',
         'amount', 'currency', 'reference', 'proof_path', 'status', 'note', 'reviewed_at',
     ];
 

@@ -50,10 +50,20 @@
                     <i class="fa-solid fa-arrow-left"></i> {{ __('Retour à TAGTOA') }}
                 </a>
             </li>
-            @include('layouts.menu')
+
+            {{-- TAGTOA D'ABORD : la navigation produit doit être ce que l'utilisateur
+                 voit en premier en ouvrant le menu — pas noyée après le long menu
+                 Biztap natif. Cause connue de confusion signalée par des marchands :
+                 « je ne trouve pas le dashboard TAGTOA ». Le menu Biztap natif reste
+                 intact plus bas, juste démoté sous un intitulé « Compte ». --}}
             @role(App\Models\Role::ROLE_ADMIN)
                 @include('tagtoa::layouts.tagtoa-menu-items')
             @endrole
+
+            <li class="nav-item tagtoa-menu-divider">
+                <span class="aside-menu-title text-uppercase text-muted" style="font-size:11px;padding-left:1rem;letter-spacing:.05em">{{ __('Compte') }}</span>
+            </li>
+            @include('layouts.menu')
             <div class="no-record text-center d-none">{{ __('messages.no_matching_records_found') }}</div>
         </ul>
     </div>

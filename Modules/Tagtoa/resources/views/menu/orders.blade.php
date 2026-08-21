@@ -21,20 +21,33 @@
                     <b style="font-family:var(--fh);font-size:15px">{{ $o->reference }}</b>
                     <span class="pill {{ $sm['pill'] }}">{{ __($sm['label']) }}</span>
                     <span class="pill {{ $o->isPaid() ? 'g' : 'n' }}">{{ $o->isPaid() ? __('Payé') : __('En attente') }}</span>
+                    <span class="pill n">{{ $o->order_type_label }}</span>
                     <div style="color:var(--muted);font-size:13px;margin-top:4px">
                         {{ optional($o->placed_at)->format('d/m/Y H:i') }}
                         @if($o->customer_name) · {{ $o->customer_name }}@endif
                         @if($o->customer_phone) · {{ $o->customer_phone }}@endif
                         @if($o->table_label) · {{ __('N° table (optionnel)') }} {{ $o->table_label }}@endif
+                        @if($o->delivery_address) · {{ __('Adresse') }} : {{ $o->delivery_address }}@endif
                     </div>
                 </div>
-                <b style="font-family:var(--fh);font-size:17px;color:var(--blue)">{{ Money::format($o->total, $o->currency) }}</b>
+                <div style="text-align:right">
+                    <b style="font-family:var(--fh);font-size:17px;color:var(--blue)">{{ Money::format($o->total, $o->currency) }}</b>
+                    @if($o->tip > 0)<div style="color:var(--muted);font-size:12px">{{ __('dont pourboire') }} {{ Money::format($o->tip, $o->currency) }}</div>@endif
+                </div>
             </div>
 
             <table style="margin-top:12px">
                 <tbody>
                 @foreach($o->items as $it)
-                    <tr><td style="border:0;padding:4px 0">{{ $it->qty }}× {{ $it->name }}</td><td style="border:0;padding:4px 0;text-align:right;color:var(--muted)">{{ Money::format($it->line_total, $o->currency) }}</td></tr>
+                    <tr>
+                        <td style="border:0;padding:4px 0">
+                            {{ $it->qty }}× {{ $it->name }}
+                            @if(!empty($it->selected_options))
+                                <div style="color:var(--muted);font-size:12px">{{ collect($it->selected_options)->pluck('label')->implode(', ') }}</div>
+                            @endif
+                        </td>
+                        <td style="border:0;padding:4px 0;text-align:right;color:var(--muted)">{{ Money::format($it->line_total, $o->currency) }}</td>
+                    </tr>
                 @endforeach
                 </tbody>
             </table>
