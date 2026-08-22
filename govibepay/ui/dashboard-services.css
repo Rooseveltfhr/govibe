@@ -1,6 +1,12 @@
 /* ── GVPA-SERVICES ────────────────────────────────────────────────────────
    Styles du bloc « Mes services » du tableau de bord utilisateur.
-   Ajouté en @push('css') à la fin de user/dashboard.blade.php.
+
+   Ce fichier est déployé comme fichier statique servi par Apache, et
+   seulement référencé par une balise link depuis la vue. Il n'est donc
+   jamais compilé par Blade. C'est délibéré : quand ce CSS était intégré
+   dans le fichier Blade, un nom de directive cité dans ce commentaire a
+   été compilé pour de vrai, ce qui a corrompu la pile de styles et fait
+   apparaître tout le CSS en texte brut dans la page.
 
    Portée : tout est préfixé .gvps — aucune règle ne peut atteindre le reste
    du tableau de bord ni le thème. Conçu mobile d'abord, la grille et les

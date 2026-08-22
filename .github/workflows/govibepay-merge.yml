@@ -1912,6 +1912,13 @@ jobs:
           [ -s /tmp/.gvp-services.blade ] || { echo "ERREUR: bloc d'interface non reçu."; exit 1; }
           [ -s /tmp/.gvp-services.css ]   || { echo "ERREUR: feuille de style non reçue."; exit 1; }
 
+          # Déployer le CSS en fichier statique, hors de portée de Blade.
+          CSSDIR="$DOM/public_html/public/backend/css"
+          mkdir -p "$CSSDIR"
+          cp -f /tmp/.gvp-services.css "$CSSDIR/gvps.css"
+          chmod 644 "$CSSDIR/gvps.css"
+          echo "✅ CSS statique déployé : public/backend/css/gvps.css ($(stat -c%s "$CSSDIR/gvps.css") octets)"
+
           # Repartir de l'original : le mode reste ré-appliquable sans cumuler.
           if [ -f "$DASH.bak-ui" ]; then
             cp -f "$DASH.bak-ui" "$DASH"
@@ -1938,10 +1945,18 @@ jobs:
                . "\n\n{{-- GVPA-SERVICES:début --}}\n" . $block . "\n{{-- GVPA-SERVICES:fin --}}\n"
                . substr($src, $at);
 
-          $out .= "\n\n@push('css')\n{{-- GVPA-SERVICES-CSS --}}\n<style>\n" . $css . "\n</style>\n@endpush\n";
+          // Le CSS n'est PAS intégré dans la vue : il est servi comme fichier
+          // statique et seulement référencé ici. Un CSS intégré est compilé par
+          // Blade, et un nom de directive qui s'y trouve — même en commentaire —
+          // est exécuté pour de vrai. C'est ce qui a corrompu la pile de styles
+          // et déversé le CSS en texte dans la page.
+          $out .= "\n\n@push('css')\n"
+                . "<link rel=\"stylesheet\" href=\"{{ asset('public/backend/css/gvps.css') }}?v=" . substr(md5($css), 0, 8) . "\">\n"
+                . "@endpush\n";
 
           file_put_contents($dash, $out);
-          echo "  bloc inséré après @section('content') (+" . (strlen($out) - strlen($src)) . " octets)\n";
+          echo "  bloc inséré après la section content (+" . (strlen($out) - strlen($src)) . " octets)\n";
+          echo "  CSS référencé en fichier statique, non intégré à la vue\n";
           EOPHP
           php "$LROOT/.gvp-ui.php" "$DASH" || {
             echo "Injection échouée — restauration."
@@ -1995,6 +2010,29 @@ jobs:
 
           ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
           rm -f /tmp/.gvp-services.blade /tmp/.gvp-services.css
+
+          # Le CSS statique est-il réellement servi par Apache ?
+          echo ""
+          echo "=== LE CSS STATIQUE EST-IL SERVI ? ==="
+          IP=$(curl -s --max-time 8 https://api.ipify.org 2>/dev/null | tr -d '[:space:]')
+          case "$IP" in *[!0-9.]*|"") IP="";; esac
+          if [ -n "$IP" ]; then
+            R=$(curl -sS -k --max-time 20 --resolve govibepay.com:443:"$IP" \
+                  -o /dev/null -w '%{http_code} %{content_type}' \
+                  "https://govibepay.com/public/backend/css/gvps.css" 2>/dev/null)
+            echo "  gvps.css → $R"
+            case "$R" in
+              2*css*) echo "  ✅ servi avec le bon type MIME" ;;
+              2*)     echo "  ⚠️  servi, mais le type MIME n'est pas CSS" ;;
+              *)      echo "  ❌ non servi — le bloc s'affichera sans style"
+                      echo "     restauration de la vue d'origine."
+                      cp -f "$DASH.bak-ui" "$DASH"
+                      ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+                      exit 1 ;;
+            esac
+          else
+            echo "  (IP publique indisponible — vérification sautée)"
+          fi
           echo ""
           echo "  routes utilisées (existantes, jamais redéfinies) :"
           echo "    user.virtual.card.index · user.virtual.card.create.page"

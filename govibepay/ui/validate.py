@@ -91,11 +91,22 @@ if unguarded:
 if re.search(r"@(?:json|if|foreach|forelse)\([^)]*(?:fn\s*\(|=>\s*\[)", src):
     fail("fonction fléchée ou tableau littéral dans une directive Blade")
 
-# ── 6. Le CSS ne doit pas contenir de séquence d'échappement Blade ─────────
+# ── 6. Le CSS ─────────────────────────────────────────────────────────────
+# Il est désormais déployé en fichier statique, donc hors de portée de Blade.
+# On garde malgré tout le contrôle : si quelqu'un le réintègre un jour dans la
+# vue, un nom de directive qui traîne dedans casserait de nouveau la page.
+# On réutilise LA MÊME liste que pour le Blade — c'est d'avoir maintenu deux
+# listes divergentes qui a laissé passer « @push » et cassé la production.
 css = open(CSS, encoding="utf-8").read()
-for token in ("{{", "@php", "@section", "@endphp"):
-    if token in css:
-        fail(f"le CSS contient « {token} », que Blade interpréterait")
+for d in re.finditer(r"@(\w+)", css):
+    if d.group(1) in BLADE_DIRECTIVES:
+        fail(
+            f"le CSS contient @{d.group(1)}, un nom de directive Blade — "
+            "inoffensif tant que le fichier reste statique, fatal s'il est "
+            "réintégré dans la vue"
+        )
+if "{{" in css:
+    fail("le CSS contient « {{ », que Blade interpréterait comme un écho")
 if css.count("{") != css.count("}"):
     fail(f"accolades CSS déséquilibrées : {css.count('{')}/{css.count('}')}")
 
