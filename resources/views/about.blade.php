@@ -25,6 +25,65 @@
   .value-card { background:#fff; border-radius:16px; padding:1.8rem; box-shadow:0 4px 20px rgba(0,0,0,.04); border:1px solid #f1f5f9; transition:all .3s; }
   .value-card:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(220,38,38,.08); border-color:rgba(220,38,38,.2); }
   .value-card h3 { font-family:'Anton',sans-serif; font-size:1.15rem; color:#0f172a; margin:.75rem 0 .5rem; }
+
+  /* ===== GRILLES ===== */
+  /* Définies ici plutôt qu'en style inline : une règle inline ne peut pas
+     être surchargée par une media query sans !important. */
+  .about-sect      { padding:80px 2rem; }
+  .about-hero-stats{ display:flex; justify-content:center; gap:3rem; flex-wrap:wrap; margin-top:2rem; }
+  .about-grid-3    { display:grid; grid-template-columns:repeat(3,1fr); gap:2rem; }
+  .about-grid-2    { display:grid; grid-template-columns:1fr 1fr; gap:2rem; }
+  .about-histoire  { display:grid; grid-template-columns:1fr 1fr; gap:4rem; align-items:start; }
+  .about-founder   { display:flex; flex-wrap:wrap; gap:2.5rem; align-items:center;
+                     background:linear-gradient(135deg,#0a0000,#1a0004);
+                     border-radius:24px; padding:3rem; margin-bottom:3rem; color:#fff; }
+  .about-founder-avatar { width:120px; height:120px; border-radius:50%; flex-shrink:0;
+                     background:linear-gradient(135deg,#DC2626,#991b1b);
+                     display:flex; align-items:center; justify-content:center;
+                     font-family:'Anton',sans-serif; font-size:3rem; color:#fff;
+                     box-shadow:0 0 40px rgba(220,38,38,.4); }
+  .about-regions   { display:grid; grid-template-columns:repeat(3,1fr); gap:2rem; }
+  .about-region-card { text-align:center; padding:2rem; background:#f8fafc;
+                     border-radius:16px; border:1px solid #e2e8f0; }
+  .about-region-card .n { font-family:'Anton',sans-serif; font-size:2.5rem; color:#DC2626; }
+
+  /* ===== RESPONSIVE ===== */
+  /* Tablette : les grilles à 3 colonnes passent à 2, la timeline se met en pile. */
+  @media (max-width:900px) {
+    .about-sect     { padding:60px 1.5rem; }
+    .about-grid-3   { grid-template-columns:repeat(2,1fr); }
+    .about-regions  { grid-template-columns:repeat(2,1fr); }
+    .about-histoire { grid-template-columns:1fr; gap:2.5rem; }
+    .about-hero-stats { gap:2rem; }
+    .about-founder  { padding:2.5rem; gap:2rem; }
+  }
+  /* Mobile : une seule colonne partout. */
+  @media (max-width:768px) {
+    .about-sect     { padding:50px 1.2rem; }
+    .about-grid-3,
+    .about-grid-2,
+    .about-regions  { grid-template-columns:1fr; gap:1.5rem; }
+    .about-hero-stats { gap:1.5rem 2.5rem; }
+    .about-hero-stat .num { font-size:2rem; }
+    .about-founder  { padding:2rem 1.5rem; gap:1.5rem; text-align:center; }
+    .about-founder-avatar { margin:0 auto; width:96px; height:96px; font-size:2.4rem; }
+    .about-founder p { margin-left:auto; margin-right:auto; }
+    .about-founder .founder-tags { justify-content:center; }
+    .legal-card,
+    .value-card     { padding:1.5rem; }
+    /* La timeline garde son filet vertical, mais resserré. */
+    .timeline-item  { gap:1rem; padding-bottom:2rem; }
+  }
+  @media (max-width:576px) {
+    .about-sect     { padding:44px 1rem; }
+    .about-hero-stats { gap:1.2rem 2rem; }
+    .about-hero-stat .num { font-size:1.75rem; }
+    .about-hero-stat .lbl { font-size:.7rem; letter-spacing:.1em; }
+    .about-region-card { padding:1.5rem; }
+    .about-region-card .n { font-size:2rem; }
+    .client-badge   { padding:.5rem 1rem; font-size:.82rem; }
+    .team-card      { padding:1.2rem; }
+  }
 </style>
 @endsection
 
@@ -43,7 +102,7 @@
     </span>
     <h1>L'Écosystème qui<br><span style="color:#DC2626;">Transforme Haïti</span></h1>
     <p>Fondé en 2020 par Roosevelt Forestal — Enregistré aux USA (IRS) et en Haïti (MCI). Une vision internationale, un ancrage haïtien.</p>
-    <div style="display:flex;justify-content:center;gap:3rem;flex-wrap:wrap;margin-top:2rem;">
+    <div class="about-hero-stats">
       <div class="about-hero-stat"><div class="num">2020</div><div class="lbl">Année de Fondation</div></div>
       <div class="about-hero-stat"><div class="num">36</div><div class="lbl">Experts Dévoués</div></div>
       <div class="about-hero-stat"><div class="num">+1000</div><div class="lbl">Clients Servis</div></div>
@@ -53,7 +112,7 @@
 </div>
 
 {{-- MISSION / VISION / HISTOIRE --}}
-<section id="mission" style="padding:80px 2rem;background:#fff;">
+<section id="mission" class="about-sect" style="background:#fff;">
   <div class="gv-wrap">
     <div class="slide-up" style="text-align:center;margin-bottom:3.5rem;">
       <span class="gv-stag"><i class="fas fa-bullseye"></i> QUI SOMMES-NOUS</span>
@@ -63,7 +122,7 @@
       </p>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2rem;">
+    <div class="about-grid-3">
       <div class="value-card slide-up">
         <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#DC2626,#991b1b);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff;">
           <i class="fas fa-eye"></i>
@@ -74,7 +133,7 @@
         </p>
       </div>
       <div class="value-card slide-up delay-1">
-        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#10B981,#059669);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff;">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#DC2626,#991b1b);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff;">
           <i class="fas fa-rocket"></i>
         </div>
         <h3>Notre Mission</h3>
@@ -83,7 +142,7 @@
         </p>
       </div>
       <div class="value-card slide-up delay-2">
-        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#2563EB,#1e40af);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff;">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#DC2626,#991b1b);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff;">
           <i class="fas fa-star"></i>
         </div>
         <h3>Nos Valeurs</h3>
@@ -96,9 +155,9 @@
 </section>
 
 {{-- HISTOIRE & TIMELINE --}}
-<section id="histoire" style="padding:80px 2rem;background:linear-gradient(135deg,#f8fafc,#fff);">
+<section id="histoire" class="about-sect" style="background:linear-gradient(135deg,#f8fafc,#fff);">
   <div class="gv-wrap">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:start;">
+    <div class="about-histoire">
       <div class="slide-up">
         <span class="gv-stag"><i class="fas fa-history"></i> NOTRE HISTOIRE</span>
         <h2 class="gv-h2">Une décennie de<br><span style="color:#DC2626;">transformation digitale</span></h2>
@@ -161,7 +220,7 @@
 </section>
 
 {{-- LEGAL REGISTRATION --}}
-<section style="padding:80px 2rem;background:#fff;">
+<section class="about-sect" style="background:#fff;">
   <div class="gv-wrap">
     <div class="slide-up" style="text-align:center;margin-bottom:3rem;">
       <span class="gv-stag"><i class="fas fa-certificate"></i> ENREGISTREMENT LÉGAL</span>
@@ -169,7 +228,7 @@
       <p class="gv-sub" style="margin:0 auto;text-align:center;">Enregistré et opérant légalement aux États-Unis et en Haïti.</p>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;">
+    <div class="about-grid-2">
       <div class="legal-card slide-up">
         <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.2rem;">
           <div style="width:56px;height:56px;border-radius:12px;background:rgba(220,38,38,.08);display:flex;align-items:center;justify-content:center;font-size:1.8rem;">
@@ -210,7 +269,7 @@
 </section>
 
 {{-- FOUNDER & TEAM --}}
-<section id="team" style="padding:80px 2rem;background:linear-gradient(135deg,#f8fafc,#fff);">
+<section id="team" class="about-sect" style="background:linear-gradient(135deg,#f8fafc,#fff);">
   <div class="gv-wrap">
     <div class="slide-up" style="text-align:center;margin-bottom:3.5rem;">
       <span class="gv-stag"><i class="fas fa-users"></i> NOTRE ÉQUIPE</span>
@@ -219,8 +278,8 @@
     </div>
 
     {{-- Founder --}}
-    <div class="slide-up" style="background:linear-gradient(135deg,#0a0000,#1a0004);border-radius:24px;padding:3rem;margin-bottom:3rem;color:#fff;display:flex;flex-wrap:wrap;gap:2.5rem;align-items:center;">
-      <div style="width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,#DC2626,#991b1b);display:flex;align-items:center;justify-content:center;font-family:'Anton',sans-serif;font-size:3rem;color:#fff;flex-shrink:0;box-shadow:0 0 40px rgba(220,38,38,.4);">RF</div>
+    <div class="about-founder slide-up">
+      <div class="about-founder-avatar">RF</div>
       <div style="flex:1;min-width:260px;">
         <div style="font-size:.75rem;font-weight:700;letter-spacing:.2em;color:rgba(255,255,255,.4);text-transform:uppercase;margin-bottom:.3rem;">Founder &amp; CEO</div>
         <h2 style="font-family:'Anton',sans-serif;font-size:2rem;color:#fff;margin-bottom:.5rem;">Roosevelt Forestal</h2>
@@ -228,10 +287,10 @@
           Entrepreneur haïtien visionnaire, Roosevelt Forestal a fondé GOVIBE en 2020 avec la mission de créer un écosystème d'innovation complet pour les entrepreneurs haïtiens.
           Sa vision : positionner Haïti comme un hub technologique de la Caraïbe, en connectant les talents locaux aux opportunités mondiales.
         </p>
-        <div style="display:flex;gap:1rem;margin-top:1.2rem;flex-wrap:wrap;">
+        <div class="founder-tags" style="display:flex;gap:1rem;margin-top:1.2rem;flex-wrap:wrap;">
           <span style="background:rgba(220,38,38,.2);border:1px solid rgba(220,38,38,.3);border-radius:50px;padding:.3rem .9rem;font-size:.78rem;color:#DC2626;font-weight:700;">GOVIBE STARTUP LLC</span>
           <span style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:50px;padding:.3rem .9rem;font-size:.78rem;color:rgba(255,255,255,.7);font-weight:700;">Port-au-Prince, Haïti</span>
-          <span style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);border-radius:50px;padding:.3rem .9rem;font-size:.78rem;color:#10B981;font-weight:700;">Fondateur 2020</span>
+          <span style="background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);border-radius:50px;padding:.3rem .9rem;font-size:.78rem;color:#DC2626;font-weight:700;">Fondateur 2020</span>
         </div>
       </div>
     </div>
@@ -244,17 +303,17 @@
         <p style="color:#64748b;font-size:.85rem;">Employés permanents</p>
       </div>
       <div class="team-card slide-up delay-1">
-        <div class="team-avatar" style="background:linear-gradient(135deg,#10B981,#059669);">23</div>
+        <div class="team-avatar" style="background:linear-gradient(135deg,#DC2626,#991b1b);">23</div>
         <h4 style="font-family:'Anton',sans-serif;font-size:1.1rem;color:#0f172a;margin-bottom:.3rem;">Temps Partiel</h4>
         <p style="color:#64748b;font-size:.85rem;">Collaborateurs experts</p>
       </div>
       <div class="team-card slide-up delay-2">
-        <div class="team-avatar" style="background:linear-gradient(135deg,#2563EB,#1e40af);">50+</div>
+        <div class="team-avatar" style="background:linear-gradient(135deg,#DC2626,#991b1b);">50+</div>
         <h4 style="font-family:'Anton',sans-serif;font-size:1.1rem;color:#0f172a;margin-bottom:.3rem;">Experts</h4>
         <p style="color:#64748b;font-size:.85rem;">Réseau de spécialistes</p>
       </div>
       <div class="team-card slide-up delay-3">
-        <div class="team-avatar" style="background:linear-gradient(135deg,#a855f7,#7c3aed);">+9</div>
+        <div class="team-avatar" style="background:linear-gradient(135deg,#DC2626,#991b1b);">+9</div>
         <h4 style="font-family:'Anton',sans-serif;font-size:1.1rem;color:#0f172a;margin-bottom:.3rem;">Pays</h4>
         <p style="color:#64748b;font-size:.85rem;">Présence internationale</p>
       </div>
@@ -263,7 +322,7 @@
 </section>
 
 {{-- CLIENTS & PARTNERS --}}
-<section id="clients" style="padding:80px 2rem;background:#fff;">
+<section id="clients" class="about-sect" style="background:#fff;">
   <div class="gv-wrap">
     <div class="slide-up" style="text-align:center;margin-bottom:3rem;">
       <span class="gv-stag"><i class="fas fa-handshake"></i> NOS CLIENTS &amp; PARTENAIRES</span>
@@ -282,17 +341,17 @@
       <span class="client-badge"><i class="fas fa-globe-africa"></i> Clients Afrique</span>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;" class="slide-up">
-      <div style="text-align:center;padding:2rem;background:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;">
-        <div style="font-family:'Anton',sans-serif;font-size:2.5rem;color:#DC2626;">Haïti</div>
+    <div class="about-regions slide-up">
+      <div class="about-region-card">
+        <div class="n">Haïti</div>
         <p style="color:#64748b;font-size:.88rem;margin-top:.5rem;">Delimart, Prestige Bière, Sunrise Airways, Access Haiti et des centaines d'entreprises locales</p>
       </div>
-      <div style="text-align:center;padding:2rem;background:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;">
-        <div style="font-family:'Anton',sans-serif;font-size:2.5rem;color:#10B981;">USA &amp; Canada</div>
+      <div class="about-region-card">
+        <div class="n">USA &amp; Canada</div>
         <p style="color:#64748b;font-size:.88rem;margin-top:.5rem;">Diaspora haïtienne, PME et entreprises technologiques en Amérique du Nord</p>
       </div>
-      <div style="text-align:center;padding:2rem;background:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;">
-        <div style="font-family:'Anton',sans-serif;font-size:2.5rem;color:#2563EB;">Afrique</div>
+      <div class="about-region-card">
+        <div class="n">Afrique</div>
         <p style="color:#64748b;font-size:.88rem;margin-top:.5rem;">Partenariats avec organisations et entrepreneurs africains partageant notre vision</p>
       </div>
     </div>
@@ -300,7 +359,7 @@
 </section>
 
 {{-- CTA --}}
-<section style="padding:70px 2rem;background:linear-gradient(135deg,#0a0000,#1a0004);">
+<section class="about-sect" style="background:linear-gradient(135deg,#0a0000,#1a0004);">
   <div class="gv-wrap">
     <div class="slide-up" style="text-align:center;">
       <h2 style="font-family:'Anton',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);color:#fff;margin-bottom:1rem;">
