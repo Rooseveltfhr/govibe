@@ -39,6 +39,7 @@ on:
           - support-scan
           - logs
           - prep-scan
+          - coinpay-scan
           - merge
           - landing
           - brand
@@ -1604,6 +1605,100 @@ jobs:
           echo ""
           echo "NOTE : rien n'a été modifié. Ce relevé sert à refaire l'interface"
           echo "       sans toucher aux routes ni aux URL."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # COINPAY-SCAN — lire l'implémentation CoinGate comme modèle avant
+      # d'écrire le pilote CoinPayments. Lecture seule.
+      #
+      # CoinGate est la passerelle crypto déjà intégrée : même schéma de
+      # rappel succès/annulation, même place dans l'architecture. On relève
+      # sa structure exacte plutôt que de deviner celle du script.
+      # ------------------------------------------------------------------
+      - name: Coinpay scan (modèle CoinGate, lecture seule)
+        if: ${{ inputs.mode == 'coinpay-scan' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          echo "Script : $LROOT"
+          echo ""
+
+          echo "=== 1. FICHIERS DE LA PASSERELLE COINGATE ==="
+          find "$LROOT/app" -iname '*coingate*' 2>/dev/null | while read -r f; do
+            echo "  $(wc -l < "$f") lignes  ${f#$LROOT/}"
+          done
+          echo ""
+
+          echo "=== 2. SQUELETTE DU PILOTE COINGATE (signatures) ==="
+          CG=$(find "$LROOT/app" -iname '*coingate*' -name '*.php' 2>/dev/null | head -1)
+          if [ -n "$CG" ]; then
+            echo "  ${CG#$LROOT/}"
+            grep -nE '^\s*(public|private|protected|use|namespace|class|trait)\s' "$CG" \
+              | cut -c1-150 | sed 's/^/    /' | head -40
+          else
+            echo "  (aucun fichier CoinGate)"
+          fi
+          echo ""
+
+          echo "=== 3. CRÉATION DE TRANSACTION ET VÉRIFICATION DU RAPPEL ==="
+          if [ -n "$CG" ]; then
+            echo "  --- méthode de création (init/charge) ---"
+            awk '/function .*(Init|init|create|Charge|charge)/{f=1;n=0} f{print "    "$0; n++; if(n>45) exit}' "$CG" \
+              | cut -c1-165 | head -46
+            echo ""
+            echo "  --- vérification / rappel (success|callback|verify|ipn) ---"
+            awk '/function .*(uccess|allback|erify|pn|Response)/{f=1;n=0} f{print "    "$0; n++; if(n>40) exit}' "$CG" \
+              | cut -c1-165 | head -41
+          fi
+          echo ""
+
+          echo "=== 4. COMMENT LE PARAMÈTRE {gateway} EST RÉSOLU ==="
+          grep -rn 'global.success\|globalSuccess\|payment.global' "$LROOT/app/Http/Controllers" 2>/dev/null \
+            | cut -c1-160 | sed "s#$LROOT/#  #" | head -8
+          echo ""
+          echo "  --- constantes de passerelle ---"
+          CONST=$(find "$LROOT/app/Constants" -iname '*PaymentGateway*' 2>/dev/null | head -1)
+          if [ -n "$CONST" ]; then
+            echo "  ${CONST#$LROOT/}"
+            grep -nE 'const [A-Z_]+' "$CONST" | grep -iE 'coingate|crypto|alias|manual|automatic|type' \
+              | cut -c1-140 | sed 's/^/    /' | head -22
+          fi
+          echo ""
+
+          echo "=== 5. CE QUE LA BASE DÉCLARE POUR LES PASSERELLES CRYPTO ==="
+          cat > "$LROOT/.gvp-pg.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          try {
+              $rows = \Illuminate\Support\Facades\DB::table('payment_gateways')->get();
+              echo "  ", $rows->count(), " passerelle(s) en base\n";
+              foreach ($rows as $r) {
+                  printf("    #%-3s %-18s alias=%-14s type=%-10s statut=%s\n",
+                      $r->id ?? '?', substr($r->name ?? '?', 0, 18),
+                      $r->alias ?? '-', $r->type ?? '-', $r->status ?? '-');
+              }
+          } catch (\Throwable $e) {
+              echo "  (table payment_gateways illisible : ", substr($e->getMessage(), 0, 100), ")\n";
+          }
+          EOPHP
+          ( cd "$LROOT" && php .gvp-pg.php 2>&1 | head -30 ) || echo "  (lecture impossible)"
+          rm -f "$LROOT/.gvp-pg.php"
+          echo ""
+          echo "NOTE : rien n'a été modifié."
           EOSSH
 
       # ------------------------------------------------------------------
