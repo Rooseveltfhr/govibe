@@ -340,3 +340,313 @@ a.active .menu-title {
     padding: 12px;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PASSE 2 — couverture complète de toutes les pages utilisateur
+   ══════════════════════════════════════════════════════════════════════════
+
+   La première passe ne visait que les 40 classes les plus fréquentes. Un
+   relevé complet a montré ce qui restait du gabarit sur les écrans internes,
+   et surtout que les teintes les plus voyantes — le rose des frais, la boîte
+   de taux en lavande — sont écrites EN LIGNE dans les vues. Un style en
+   ligne l'emporte sur une feuille externe : il faut les viser nommément.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Typographie : quitter Karla, la police du gabarit ─────────────────── */
+
+body,
+.body-wrapper,
+.form--control,
+.btn--base,
+.title,
+.sub-title {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ── Neutraliser les couleurs écrites en dur dans les vues ─────────────
+   Sélecteurs d'attribut : ne touchent QUE les éléments portant exactement
+   cette teinte en ligne. Aucun balisage n'est modifié. ─────────────────── */
+
+[style*="#fce4ec"] {            /* fond rose des frais */
+  background: var(--gvp-tint) !important;
+}
+
+[style*="#c2185b"] {            /* texte rose des frais */
+  color: var(--gvp-d) !important;
+}
+
+[style*="#e3f2fd"],
+[style*="#e8f2ff"] {            /* boîte de taux, lavande */
+  background: var(--gvp-tint) !important;
+}
+
+[style*="#1976d2"],
+[style*="#1971c2"] {            /* texte de la boîte de taux */
+  color: var(--gvp-d) !important;
+}
+
+[style*="#e8f5e9"] {            /* vert pâle générique */
+  background: var(--gvp-tint) !important;
+}
+
+[style*="#388e3c"] {
+  color: var(--gvp-d) !important;
+}
+
+[style*="#f0f0f0"] {            /* gris terne */
+  background: var(--gvp-bg) !important;
+  color: var(--gvp-body) !important;
+}
+
+[style*="#17a2b8"] {            /* turquoise Bootstrap du bouton support */
+  background-color: var(--gvp-ink) !important;
+}
+
+[style*="#28a745"] {            /* vert Bootstrap générique */
+  background-color: var(--gvp) !important;
+}
+
+/* ── Zone de contenu ──────────────────────────────────────────────────── */
+
+.dashboard-area,
+.dashboard-content,
+.dashboard-list-area,
+.dashboard-list-wrapper,
+.preview-list-wrapper {
+  background: transparent;
+}
+
+.card-form,
+.dashbord-item,
+.note-area {
+  background: var(--gvp-surf);
+  border: 1px solid var(--gvp-line);
+  border-radius: var(--gvp-r-lg);
+  box-shadow: var(--gvp-sh);
+}
+
+.section .title,
+.sub-title {
+  color: var(--gvp-ink);
+}
+
+.card-header-btn-wrapper .btn,
+.dashboard-btn {
+  border-radius: var(--gvp-r);
+}
+
+/* ── Montants, taux, frais, limites ───────────────────────────────────── */
+
+.exchange-area,
+.exchange-area-wrapper {
+  background: var(--gvp-tint);
+  border: 1px solid rgba(44, 184, 9, .16);
+  border-radius: var(--gvp-r);
+  padding: 14px 16px;
+}
+
+.exchange-money,
+.exchange-rate,
+.f-exchange-rate,
+.rate-show,
+.rate_text,
+.rate_curency {
+  color: var(--gvp-d);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.fees,
+.fees-show,
+.f-fees-show,
+.payable-total,
+.conversion-amount {
+  color: var(--gvp-body);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.balance-show,
+.main-money,
+.request-amount,
+.amount-title {
+  color: var(--gvp-ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.limit,
+.limit-show,
+.limit-daily,
+.limit-monthly,
+.daily-remaining,
+.monthly-remaining {
+  color: var(--gvp-mut);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lab {
+  color: var(--gvp-body);
+  font-weight: 600;
+}
+
+/* ── Sélecteurs personnalisés (nice-select, select2) ──────────────────── */
+
+.nice-select {
+  border: 1px solid var(--gvp-line);
+  border-radius: var(--gvp-r);
+  background: var(--gvp-surf);
+  color: var(--gvp-ink);
+  min-height: 48px;
+  line-height: 46px;
+  font-weight: 600;
+}
+
+.nice-select:focus,
+.nice-select.open {
+  border-color: var(--gvp);
+  box-shadow: 0 0 0 3px var(--gvp-tint);
+}
+
+.nice-select .list {
+  border-radius: var(--gvp-r);
+  border: 1px solid var(--gvp-line);
+  box-shadow: var(--gvp-sh);
+  overflow: hidden;
+}
+
+.nice-select .option:hover,
+.nice-select .option.focus,
+.nice-select .option.selected.focus {
+  background: var(--gvp-tint);
+  color: var(--gvp-d);
+}
+
+.select2-container--default .select2-selection--single,
+.select2-container--default .select2-selection--multiple {
+  border: 1px solid var(--gvp-line);
+  border-radius: var(--gvp-r);
+  min-height: 48px;
+}
+
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+  background: var(--gvp);
+}
+
+/* ── Groupes de champs, préfixes, OTP ─────────────────────────────────── */
+
+.input-group .prepend,
+.phone-code {
+  background: var(--gvp-tint);
+  border: 1px solid var(--gvp-line);
+  border-radius: var(--gvp-r) 0 0 var(--gvp-r);
+  color: var(--gvp-d);
+  font-weight: 600;
+}
+
+.number-input,
+.otp input {
+  border: 1px solid var(--gvp-line);
+  border-radius: var(--gvp-r);
+  min-height: 48px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.otp input:focus {
+  border-color: var(--gvp);
+  box-shadow: 0 0 0 3px var(--gvp-tint);
+  outline: none;
+}
+
+.copytext {
+  background: var(--gvp-tint);
+  border-radius: var(--gvp-r);
+  color: var(--gvp-d);
+}
+
+.or-line {
+  color: var(--gvp-mut);
+}
+
+/* ── Carte virtuelle ──────────────────────────────────────────────────── */
+
+.virtual-card-wrapper {
+  border-radius: var(--gvp-r-lg);
+  background:
+    radial-gradient(ellipse 70% 60% at 85% 10%, rgba(44, 184, 9, .28) 0%, transparent 60%),
+    linear-gradient(150deg, #16220f 0%, #0a0f0a 100%);
+  box-shadow: 0 14px 34px rgba(10, 20, 8, .26);
+  color: #fff;
+  overflow: hidden;
+}
+
+.chip-line {
+  background: linear-gradient(135deg, #e8c96a 0%, #b8912f 100%);
+  border-radius: 4px;
+}
+
+.card-number {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .10em;
+  font-weight: 600;
+}
+
+.strip-black {
+  background: #0a0f0a;
+}
+
+/* ── Fenêtres modales ─────────────────────────────────────────────────── */
+
+.modal-content {
+  border: 1px solid var(--gvp-line);
+  border-radius: var(--gvp-r-lg);
+  box-shadow: 0 24px 60px rgba(18, 26, 16, .18);
+}
+
+.modal-body,
+.modal-header,
+.modal-footer {
+  border-color: var(--gvp-line);
+}
+
+/* ── Menu latéral, éléments restants ──────────────────────────────────── */
+
+.sidebar-menu-item.active > a,
+.sidebar-dropdown.active > a {
+  color: var(--gvp);
+}
+
+.sidebar-submenu {
+  border-left: 2px solid var(--gvp-tint);
+}
+
+/* ── Retours de validation ────────────────────────────────────────────── */
+
+.invalid-feedback {
+  color: var(--gvp-danger);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* ── Confort tactile, écrans internes ─────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .nice-select,
+  .number-input,
+  .otp input {
+    font-size: 16px; /* en dessous de 16px, iOS zoome à la mise au point */
+  }
+
+  .exchange-area,
+  .exchange-area-wrapper {
+    padding: 12px;
+  }
+
+  .card-form,
+  .dashbord-item {
+    border-radius: var(--gvp-r);
+  }
+}
