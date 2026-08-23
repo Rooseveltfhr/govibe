@@ -1,0 +1,342 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   GOVIBEPAY — thème de l'espace utilisateur
+   ══════════════════════════════════════════════════════════════════════════
+
+   Objectif : effacer la signature visuelle du gabarit acheté. Le thème
+   d'origine est bâti autour d'un violet #5a5278 écrit en dur (78 fois dans
+   style.css) et de coins à 5px — deux marqueurs reconnaissables au premier
+   coup d'oeil. On les remplace par le vert de marque #2cb809, des rayons
+   plus généreux et des ombres douces.
+
+   Ce fichier est servi comme fichier statique par Apache et seulement
+   référencé par une balise link. Il n'est jamais compilé par Blade : c'est
+   délibéré, un CSS intégré dans une vue voit ses noms de directive exécutés,
+   ce qui a déjà corrompu la pile de styles une fois.
+
+   Il est chargé APRÈS la pile de styles de la page, donc il gagne la
+   cascade. Les sélecteurs sont ciblés — jamais de remise à zéro globale —
+   pour ne toucher que ce qui est explicitement visé et laisser intact tout
+   ce qui ne l'est pas.
+
+   Classes visées : relevées sur l'installation réelle, par fréquence.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --gvp: #2cb809;
+  --gvp-d: #1f8a06;
+  --gvp-l: #43d41c;
+  --gvp-tint: rgba(44, 184, 9, 0.10);
+  --gvp-tint-2: rgba(44, 184, 9, 0.18);
+
+  --gvp-ink: #121a10;
+  --gvp-body: #46524a;
+  --gvp-mut: #7d8a80;
+  --gvp-line: #e6ece4;
+  --gvp-surf: #ffffff;
+  --gvp-bg: #f6faf4;
+
+  --gvp-warn: #e8a200;
+  --gvp-danger: #e03131;
+  --gvp-info: #1971c2;
+
+  --gvp-r: 12px;
+  --gvp-r-lg: 18px;
+  --gvp-r-pill: 999px;
+  --gvp-sh: 0 1px 2px rgba(18, 26, 16, .04), 0 8px 24px rgba(18, 26, 16, .06);
+  --gvp-sh-lift: 0 8px 28px rgba(44, 184, 9, .16);
+}
+
+/* ── Fond et typographie ──────────────────────────────────────────────── */
+
+body {
+  background: var(--gvp-bg);
+  color: var(--gvp-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.body-wrapper {
+  background: transparent;
+}
+
+h1, h2, h3, h4, h5, h6,
+.title {
+  color: var(--gvp-ink);
+  letter-spacing: -0.015em;
+  font-weight: 700;
+}
+
+/* ── Boutons — le marqueur le plus visible du gabarit ─────────────────── */
+
+.btn--base {
+  background: var(--gvp);
+  border: 1px solid var(--gvp);
+  border-radius: var(--gvp-r);
+  padding: 11px 22px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 2px 8px rgba(44, 184, 9, .18);
+  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.btn--base:hover,
+.btn--base:focus-visible {
+  background: var(--gvp-d);
+  border-color: var(--gvp-d);
+  box-shadow: var(--gvp-sh-lift);
+  transform: translateY(-1px);
+}
+
+.btn--base:active {
+  transform: translateY(0);
+}
+
+.btn--base.btn-loading {
+  min-height: 46px;
+}
+
+.text--base {
+  color: var(--gvp) !important;
+}
+
+a:hover .text--base,
+.text--base:hover {
+  color: var(--gvp-d) !important;
+}
+
+.text--warning { color: var(--gvp-warn) !important; }
+.text--danger  { color: var(--gvp-danger) !important; }
+.text--info    { color: var(--gvp-info) !important; }
+
+/* ── Champs de formulaire ─────────────────────────────────────────────── */
+
+.form--control,
+.form-control,
+.input-group .form--control {
+  border: 1px solid var(--gvp-line);
+  border-radius: var(--gvp-r);
+  background: var(--gvp-surf);
+  color: var(--gvp-ink);
+  min-height: 48px;
+  font-size: 15px;
+  padding: 10px 15px;
+  box-shadow: none;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+.form--control:focus,
+.form-control:focus {
+  border-color: var(--gvp);
+  box-shadow: 0 0 0 3px var(--gvp-tint);
+  outline: none;
+}
+
+.form--control::placeholder,
+.form-control::placeholder {
+  color: var(--gvp-mut);
+}
+
+.form-group > label,
+.form-group label {
+  color: var(--gvp-body);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.input-group-text {
+  background: var(--gvp-tint);
+  border: 1px solid var(--gvp-line);
+  border-radius: var(--gvp-r);
+  color: var(--gvp-d);
+  font-weight: 600;
+}
+
+/* ── Navigation latérale ──────────────────────────────────────────────── */
+
+.menu-title {
+  color: var(--gvp-body);
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+.sidebar-menu-list .active > a,
+.submenu-style.active,
+a.active .menu-title {
+  color: var(--gvp) !important;
+}
+
+.submenu-style {
+  border-radius: 10px;
+  transition: background .16s ease, color .16s ease;
+}
+
+.submenu-style:hover,
+.submenu-style.active {
+  background: var(--gvp-tint);
+  color: var(--gvp-d);
+}
+
+.submenu-icon,
+.menu-icon {
+  color: var(--gvp);
+}
+
+.sidebar-doc-box {
+  border-radius: var(--gvp-r-lg);
+  overflow: hidden;
+}
+
+/* ── En-tête du tableau de bord ───────────────────────────────────────── */
+
+.dashboard-header-wrapper {
+  background: var(--gvp-surf);
+  border: 1px solid var(--gvp-line);
+  border-radius: var(--gvp-r-lg);
+  box-shadow: var(--gvp-sh);
+  padding: 20px 22px;
+}
+
+/* ── Cartes de paiement / services ────────────────────────────────────── */
+
+.dash-payment-item {
+  background: var(--gvp-surf);
+  border: 1px solid var(--gvp-line);
+  border-radius: var(--gvp-r-lg);
+  box-shadow: var(--gvp-sh);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.dash-payment-item:hover {
+  border-color: var(--gvp);
+  box-shadow: var(--gvp-sh-lift);
+  transform: translateY(-2px);
+}
+
+.dash-payment-title-area .title,
+.dash-payment-body .title {
+  color: var(--gvp-ink);
+}
+
+.dash-payment-badge {
+  background: var(--gvp-tint);
+  color: var(--gvp-d);
+  border-radius: var(--gvp-r-pill);
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* ── Lignes de transactions ───────────────────────────────────────────── */
+
+.preview-list-item {
+  background: var(--gvp-surf);
+  border: 1px solid var(--gvp-line);
+  border-radius: var(--gvp-r);
+  margin-bottom: 10px;
+  padding: 14px 16px;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.preview-list-item:hover {
+  border-color: var(--gvp-tint-2);
+  box-shadow: var(--gvp-sh);
+}
+
+.preview-list-user-icon {
+  background: var(--gvp-tint);
+  color: var(--gvp-d);
+  border-radius: var(--gvp-r);
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-list-user-content .title {
+  color: var(--gvp-ink);
+  font-weight: 650;
+}
+
+.preview-list-right .title {
+  color: var(--gvp-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Cartes génériques, tableaux, badges ──────────────────────────────── */
+
+.card {
+  border: 1px solid var(--gvp-line);
+  border-radius: var(--gvp-r-lg);
+  box-shadow: var(--gvp-sh);
+}
+
+.card-header {
+  background: transparent;
+  border-bottom: 1px solid var(--gvp-line);
+}
+
+.table thead th {
+  color: var(--gvp-mut);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--gvp-line);
+}
+
+.table td {
+  border-color: var(--gvp-line);
+  color: var(--gvp-body);
+}
+
+.badge {
+  border-radius: var(--gvp-r-pill);
+  font-weight: 700;
+  padding: 5px 11px;
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--gvp);
+  border-color: transparent transparent var(--gvp);
+}
+
+.pagination .page-item.active .page-link {
+  background: var(--gvp);
+  border-color: var(--gvp);
+}
+
+.page-link {
+  color: var(--gvp-d);
+  border-radius: 8px;
+}
+
+/* ── Icônes Line Awesome de la marque ─────────────────────────────────── */
+
+.la-wallet,
+[class^="la-"].text--base,
+[class*=" la-"].text--base {
+  color: var(--gvp);
+}
+
+/* ── Confort tactile sur mobile ───────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .btn--base {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .form--control,
+  .form-control {
+    font-size: 16px; /* en dessous de 16px, iOS zoome à la mise au point */
+  }
+
+  .dashboard-header-wrapper {
+    padding: 16px;
+    border-radius: var(--gvp-r);
+  }
+
+  .preview-list-item {
+    padding: 12px;
+  }
+}

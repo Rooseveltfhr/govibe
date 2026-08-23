@@ -22,6 +22,10 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 BLADE = os.path.join(HERE, "dashboard-services.blade.php")
 CSS = os.path.join(HERE, "dashboard-services.css")
+THEME = os.path.join(HERE, "theme.css")
+
+# --theme-only : ne valider que la feuille de thème (mode user-theme).
+THEME_ONLY = "--theme-only" in sys.argv
 
 # Directives que Blade compile réellement. « media » et « import » n'en font
 # pas partie : Blade laisse passer un @directive inconnu tel quel, ce qui rend
@@ -43,6 +47,35 @@ problems = []
 
 def fail(msg):
     problems.append(msg)
+
+
+def check_stylesheet(path, label):
+    """Un CSS destiné à cet espace ne doit jamais porter de nom de directive
+    Blade. Tant qu'il reste statique c'est inoffensif ; réintégré dans une
+    vue, c'est fatal. On applique LA MÊME liste que pour le Blade — c'est
+    d'avoir maintenu deux listes divergentes qui a cassé la production."""
+    css = open(path, encoding="utf-8").read()
+    for d in re.finditer(r"@(\w+)", css):
+        if d.group(1) in BLADE_DIRECTIVES:
+            fail(f"{label} contient @{d.group(1)}, un nom de directive Blade")
+    if "{{" in css:
+        fail(f"{label} contient « {{{{ », que Blade interpréterait")
+    if css.count("{") != css.count("}"):
+        fail(f"{label} : accolades déséquilibrées "
+             f"({css.count('{')}/{css.count('}')})")
+    return css
+
+
+if THEME_ONLY:
+    theme = check_stylesheet(THEME, "le thème")
+    if problems:
+        print("VALIDATION ÉCHOUÉE :")
+        for p in problems:
+            print("  ✗", p)
+        sys.exit(1)
+    print("Validation OK (thème)")
+    print(f"  règles CSS : {theme.count('{')}")
+    sys.exit(0)
 
 
 src = open(BLADE, encoding="utf-8").read()
@@ -97,18 +130,9 @@ if re.search(r"@(?:json|if|foreach|forelse)\([^)]*(?:fn\s*\(|=>\s*\[)", src):
 # vue, un nom de directive qui traîne dedans casserait de nouveau la page.
 # On réutilise LA MÊME liste que pour le Blade — c'est d'avoir maintenu deux
 # listes divergentes qui a laissé passer « @push » et cassé la production.
-css = open(CSS, encoding="utf-8").read()
-for d in re.finditer(r"@(\w+)", css):
-    if d.group(1) in BLADE_DIRECTIVES:
-        fail(
-            f"le CSS contient @{d.group(1)}, un nom de directive Blade — "
-            "inoffensif tant que le fichier reste statique, fatal s'il est "
-            "réintégré dans la vue"
-        )
-if "{{" in css:
-    fail("le CSS contient « {{ », que Blade interpréterait comme un écho")
-if css.count("{") != css.count("}"):
-    fail(f"accolades CSS déséquilibrées : {css.count('{')}/{css.count('}')}")
+css = check_stylesheet(CSS, "le CSS du bloc services")
+if os.path.exists(THEME):
+    check_stylesheet(THEME, "le thème")
 
 # ── Verdict ────────────────────────────────────────────────────────────────
 if problems:

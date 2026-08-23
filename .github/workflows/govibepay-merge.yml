@@ -34,6 +34,8 @@ on:
           - user-dash
           - user-ui
           - user-ui-undo
+          - user-theme
+          - user-theme-undo
           - support-scan
           - logs
           - prep-scan
@@ -1602,6 +1604,134 @@ jobs:
           echo ""
           echo "NOTE : rien n'a été modifié. Ce relevé sert à refaire l'interface"
           echo "       sans toucher aux routes ni aux URL."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # USER-THEME — thème de l'espace utilisateur, sur TOUTES les pages.
+      #
+      # Une seule balise link est ajoutée au gabarit maître, après la pile de
+      # styles, pour que le thème gagne la cascade. Le CSS lui-même est un
+      # fichier statique servi par Apache : il n'est jamais compilé par Blade.
+      # Aucune route, aucune URL, aucun balisage modifié.
+      # ------------------------------------------------------------------
+      - name: User theme (thème de l'espace utilisateur)
+        if: ${{ inputs.mode == 'user-theme' || inputs.mode == 'user-theme-undo' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          SSH="ssh -i $HOME/.ssh/id_deploy -p $PORT -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          if [ "${{ inputs.mode }}" = "user-theme" ]; then
+            python3 govibepay/ui/validate.py --theme-only || {
+              echo "Validation échouée — rien n'a été transféré."; exit 1; }
+            $SSH "cat > /tmp/.gvp-theme.css" < govibepay/ui/theme.css
+            echo "Thème transféré."
+          fi
+          $SSH "MODE='${{ inputs.mode }}' bash -s" <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          MST="$LROOT/resources/views/user/layouts/master.blade.php"
+          [ -f "$MST" ] || { echo "ERREUR: gabarit maître introuvable."; exit 1; }
+          echo "Gabarit : ${MST#$LROOT/}"
+
+          if [ "${MODE:-}" = "user-theme-undo" ]; then
+            if [ -f "$MST.bak-theme" ]; then
+              cp -f "$MST.bak-theme" "$MST"
+              ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+              echo "↩️  Gabarit d'origine restauré, cache vidé."
+            else
+              echo "Aucune sauvegarde — rien à annuler."
+            fi
+            exit 0
+          fi
+
+          [ -s /tmp/.gvp-theme.css ] || { echo "ERREUR: thème non reçu."; exit 1; }
+
+          CSSDIR="$DOM/public_html/public/backend/css"
+          mkdir -p "$CSSDIR"
+          cp -f /tmp/.gvp-theme.css "$CSSDIR/gvp-theme.css"
+          chmod 644 "$CSSDIR/gvp-theme.css"
+          echo "✅ thème statique déployé ($(stat -c%s "$CSSDIR/gvp-theme.css") octets)"
+
+          if [ -f "$MST.bak-theme" ]; then
+            cp -f "$MST.bak-theme" "$MST"; echo "↺ reparti de la sauvegarde"
+          else
+            cp -f "$MST" "$MST.bak-theme"; echo "✅ sauvegarde créée"
+          fi
+
+          cat > "$LROOT/.gvp-th.php" <<'EOPHP'
+          <?php
+          $mst = $argv[1];
+          $src = file_get_contents($mst);
+          $css = file_get_contents('/tmp/.gvp-theme.css');
+          $tag = "\n    <link rel=\"stylesheet\" href=\"{{ asset('public/backend/css/gvp-theme.css') }}?v="
+               . substr(md5($css), 0, 8) . "\">\n";
+
+          // Après la pile de styles : le thème doit gagner la cascade.
+          if (! preg_match('/@stack\(\s*[\'"]css[\'"]\s*\)/', $src, $m, PREG_OFFSET_CAPTURE)) {
+              fwrite(STDERR, "ERREUR: pile de styles introuvable dans le gabarit.\n");
+              exit(2);
+          }
+          $at  = $m[0][1] + strlen($m[0][0]);
+          $out = substr($src, 0, $at) . $tag . substr($src, $at);
+          file_put_contents($mst, $out);
+          echo "  balise link insérée après la pile de styles\n";
+          EOPHP
+          php "$LROOT/.gvp-th.php" "$MST" || {
+            echo "Injection échouée — restauration."; cp -f "$MST.bak-theme" "$MST"
+            rm -f "$LROOT/.gvp-th.php"; exit 1; }
+          rm -f "$LROOT/.gvp-th.php"
+
+          echo ""
+          echo "=== VÉRIFICATION ==="
+          cat > "$LROOT/.gvp-thc.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          $php = Illuminate\Support\Facades\Blade::compileString(file_get_contents($argv[1]));
+          $tmp = sys_get_temp_dir().'/.gvp-th-compiled.php';
+          file_put_contents($tmp, $php);
+          echo $tmp, "\n";
+          EOPHP
+          C=$( cd "$LROOT" && php .gvp-thc.php "$MST" 2>&1 | tail -1 )
+          rm -f "$LROOT/.gvp-thc.php"
+          if [ -f "$C" ] && php -l "$C" >/dev/null 2>&1; then
+            echo "  ✅ le gabarit compile et le PHP produit est valide"; rm -f "$C"
+          else
+            echo "  ❌ compilation invalide — restauration."
+            cp -f "$MST.bak-theme" "$MST"; rm -f "$C"
+            ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+            exit 1
+          fi
+
+          ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+          rm -f /tmp/.gvp-theme.css
+
+          IP=$(curl -s --max-time 8 https://api.ipify.org 2>/dev/null | tr -d '[:space:]')
+          case "$IP" in *[!0-9.]*|"") IP="";; esac
+          if [ -n "$IP" ]; then
+            R=$(curl -sS -k --max-time 20 --resolve govibepay.com:443:"$IP" \
+                  -o /dev/null -w '%{http_code} %{content_type}' \
+                  "https://govibepay.com/public/backend/css/gvp-theme.css" 2>/dev/null)
+            echo "  gvp-theme.css → $R"
+            case "$R" in
+              2*css*) echo "  ✅ servi avec le bon type MIME" ;;
+              *) echo "  ❌ non servi — restauration."
+                 cp -f "$MST.bak-theme" "$MST"
+                 ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+                 exit 1 ;;
+            esac
+          fi
+          echo ""
+          echo "Pour annuler : relancer en mode « user-theme-undo »."
           EOSSH
 
       # ------------------------------------------------------------------
