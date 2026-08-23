@@ -40,6 +40,7 @@ on:
           - logs
           - prep-scan
           - coinpay-scan
+          - theme-scan
           - merge
           - landing
           - brand
@@ -1605,6 +1606,86 @@ jobs:
           echo ""
           echo "NOTE : rien n'a été modifié. Ce relevé sert à refaire l'interface"
           echo "       sans toucher aux routes ni aux URL."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # THEME-SCAN — inventaire complet pour un thème qui couvre TOUTES les
+      # pages. Le premier relevé ne donnait que les 40 classes les plus
+      # fréquentes ; il manquait donc les classes propres à chaque écran
+      # (taux de change, frais, soldes), d'où un thème incomplet.
+      # Lecture seule.
+      # ------------------------------------------------------------------
+      - name: Theme scan (inventaire complet, lecture seule)
+        if: ${{ inputs.mode == 'theme-scan' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -f "$LROOT/artisan" ]; then
+            for c in "$DOM/govibepay-app" "$HOME/domains/app.govibepay.com/public_html"; do
+              [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+            done
+          fi
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          V="$LROOT/resources/views/user"
+          CSSF="$DOM/public_html/public/backend/css/style.css"
+          echo "Script : $LROOT"
+          echo ""
+
+          echo "=== 1. CLASSES DE LA PAGE « ADD MONEY » ==="
+          find "$V" -path '*add-money*' -name '*.blade.php' 2>/dev/null | head -4 | while read -r f; do
+            echo "  ▸ ${f#$LROOT/}"
+            grep -ohE 'class="[^"]+"' "$f" | sed 's/class="//; s/"$//' | tr ' ' '\n' \
+              | grep -E '^[a-z][a-z0-9_-]{3,}$' | sort -u | tr '\n' ' ' \
+              | fold -w 108 -s | sed 's/^/      /'
+            echo ""
+          done
+          echo ""
+
+          echo "=== 2. INVENTAIRE COMPLET DES CLASSES (100 premières) ==="
+          grep -rhoE 'class="[^"]+"' "$V" 2>/dev/null \
+            | sed 's/class="//; s/"$//' | tr ' ' '\n' \
+            | grep -E '^[a-z][a-z0-9_-]{2,}$' \
+            | grep -vE '^(col|row|mt|mb|ms|me|mx|my|pt|pb|ps|pe|px|py|text|w|h|fa|las|la|far|fas|d)-' \
+            | sort | uniq -c | sort -rn | head -100 \
+            | awk '{printf "  %-4s %s\n", $1, $2}'
+          echo ""
+
+          echo "=== 3. D'OÙ VIENNENT LE ROSE ET LA LAVANDE ==="
+          if [ -f "$CSSF" ]; then
+            echo "  --- règles contenant une teinte rose/magenta ---"
+            grep -nB6 -iE '#(e83e8c|ff69b4|d63384|e91e63|f06|ec4899)' "$CSSF" 2>/dev/null \
+              | grep -E '^\s*[0-9]+[-:][.#a-zA-Z]' | cut -c1-120 | sed 's/^/    /' | head -12
+            echo "  --- règles contenant une teinte lavande/bleu clair ---"
+            grep -nB6 -iE '#(dbe4f0|e7ecf5|dee2e6|e9ecef|eef2f7|dae1ec)' "$CSSF" 2>/dev/null \
+              | grep -E '^\s*[0-9]+[-:][.#a-zA-Z]' | cut -c1-120 | sed 's/^/    /' | head -12
+          fi
+          echo ""
+          echo "  --- ces teintes dans les vues (styles en ligne) ---"
+          grep -rhoE 'style="[^"]*(color|background)[^"]*"' "$V" 2>/dev/null \
+            | grep -iE '#[0-9a-f]{6}' | sort -u | cut -c1-120 | sed 's/^/    /' | head -14
+          echo ""
+
+          echo "=== 4. POLICES DÉCLARÉES ==="
+          if [ -f "$CSSF" ]; then
+            grep -nE 'font-family' "$CSSF" | cut -c1-135 | sed 's/^/    /' | head -16
+          fi
+          echo "  --- monospace dans les vues ---"
+          grep -rlniE 'monospace|courier|font-mono' "$V" 2>/dev/null | sed "s#$LROOT/#    #" | head -8
+          echo ""
+
+          echo "=== 5. CLASSES DE MONTANT / TAUX / FRAIS ==="
+          grep -rhoE 'class="[^"]*(exchange|rate|charge|fee|amount|balance|limit)[^"]*"' "$V" 2>/dev/null \
+            | sed 's/class="//; s/"$//' | tr ' ' '\n' \
+            | grep -iE 'exchange|rate|charge|fee|amount|balance|limit' \
+            | sort | uniq -c | sort -rn | head -26 | awk '{printf "  %-4s %s\n", $1, $2}'
+          echo ""
+          echo "NOTE : rien n'a été modifié."
           EOSSH
 
       # ------------------------------------------------------------------
