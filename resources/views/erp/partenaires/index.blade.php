@@ -70,11 +70,28 @@
                 @forelse($partenaires as $p)
                 <tr class="hover:bg-gray-50/60 dark:hover:bg-slate-700/30 transition-colors">
                     <td class="px-5 py-3">
-                        <div class="font-semibold text-gray-800 dark:text-gray-100">{{ $p->nom_complet }}</div>
-                        <div class="text-xs text-gray-400 flex gap-2 mt-0.5">
-                            <a href="mailto:{{ $p->email }}" class="hover:text-red-500">{{ $p->email }}</a>
-                            <span>·</span>
-                            <span>{{ $p->telephone }}</span>
+                        <div class="flex items-center gap-3">
+                            {{-- Vignette : montre d'un coup d'œil qui a un logo. --}}
+                            <div class="w-10 h-10 rounded-lg bg-gray-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden shrink-0">
+                                @if($p->logo_url)
+                                    <img src="{{ $p->logo_url }}" alt="" class="max-w-full max-h-full object-contain">
+                                @else
+                                    <i class="bi bi-image text-gray-300 text-sm"></i>
+                                @endif
+                            </div>
+                            <div>
+                                <div class="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                                    {{ $p->nom_complet }}
+                                    @if($p->affiche_public)
+                                        <span class="text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded px-1.5 py-0.5">EN LIGNE</span>
+                                    @endif
+                                </div>
+                                <div class="text-xs text-gray-400 flex gap-2 mt-0.5">
+                                    <a href="mailto:{{ $p->email }}" class="hover:text-red-500">{{ $p->email }}</a>
+                                    <span>·</span>
+                                    <span>{{ $p->telephone }}</span>
+                                </div>
+                            </div>
                         </div>
                     </td>
                     <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
@@ -135,6 +152,68 @@
                                             <i class="bi bi-check-lg"></i> Enregistrer
                                         </button>
                                     </form>
+                                </div>
+                            </div>
+
+                            {{-- Vitrine publique : logo, site, visibilité --}}
+                            <div x-data="{ open: false }" class="relative">
+                                <button @click="open = !open" class="btn-secondary text-xs py-1 px-2">
+                                    <i class="bi bi-image"></i> Vitrine
+                                </button>
+                                <div x-show="open" @click.away="open = false"
+                                     class="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl shadow-lg z-50 w-80 p-4"
+                                     style="display:none;">
+                                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wide">Affichage sur /partenaires</p>
+
+                                    {{-- enctype obligatoire : sans lui le fichier n'est pas transmis --}}
+                                    <form method="POST" action="{{ route('erp.partenaires.vitrine', $p) }}" enctype="multipart/form-data">
+                                        @csrf
+                                        <div class="mb-3">
+                                            <label class="block text-xs text-gray-500 mb-1">Logo (JPG, PNG, WEBP — max 2 Mo)</label>
+                                            @if($p->logo_url)
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    <img src="{{ $p->logo_url }}" alt="" class="w-12 h-12 object-contain rounded border border-gray-200 dark:border-slate-600 bg-white">
+                                                    <span class="text-xs text-gray-400">Logo actuel</span>
+                                                </div>
+                                            @endif
+                                            <input type="file" name="logo" accept="image/jpeg,image/png,image/webp"
+                                                   class="w-full text-xs text-gray-600 dark:text-gray-300 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-red-50 file:text-red-600 hover:file:bg-red-100">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="block text-xs text-gray-500 mb-1">Site web</label>
+                                            <input type="url" name="site_web" value="{{ $p->site_web }}" placeholder="https://exemple.com"
+                                                   class="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-2 py-1.5 text-sm dark:bg-slate-700 dark:text-gray-200 focus:outline-none focus:border-red-400">
+                                        </div>
+                                        <div class="flex gap-2 mb-3">
+                                            <div class="flex-1">
+                                                <label class="block text-xs text-gray-500 mb-1">Ordre</label>
+                                                <input type="number" name="ordre" value="{{ $p->ordre }}" min="0" max="9999"
+                                                       class="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-2 py-1.5 text-sm dark:bg-slate-700 dark:text-gray-200 focus:outline-none focus:border-red-400">
+                                            </div>
+                                            <div class="flex-1 flex items-end pb-1.5">
+                                                <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer">
+                                                    {{-- hidden avant la case : garantit l'envoi de 0 quand décochée --}}
+                                                    <input type="hidden" name="affiche_public" value="0">
+                                                    <input type="checkbox" name="affiche_public" value="1" {{ $p->affiche_public ? 'checked' : '' }}
+                                                           class="rounded border-gray-300 text-red-600 focus:ring-red-400">
+                                                    Afficher en ligne
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn-primary text-xs w-full py-1.5">
+                                            <i class="bi bi-check-lg"></i> Enregistrer la vitrine
+                                        </button>
+                                    </form>
+
+                                    @if($p->logo)
+                                        <form method="POST" action="{{ route('erp.partenaires.logo.destroy', $p) }}"
+                                              onsubmit="return confirm('Supprimer le logo ?')" class="mt-2">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="text-xs text-red-500 hover:underline w-full text-center">
+                                                <i class="bi bi-trash3"></i> Supprimer le logo
+                                            </button>
+                                        </form>
+                                    @endif
                                 </div>
                             </div>
 

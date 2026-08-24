@@ -5,6 +5,7 @@ namespace App\Http\Controllers\ERP;
 use App\Http\Controllers\Controller;
 use App\Models\Partenaire;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class PartenaireAdminController extends Controller
 {
@@ -51,8 +52,64 @@ class PartenaireAdminController extends Controller
         return back()->with('success', 'Statut mis à jour.');
     }
 
+    /**
+     * Vitrine publique : logo, site web, visibilité et ordre d'affichage.
+     */
+    public function updateVitrine(Request $request, Partenaire $partenaire)
+    {
+        $request->validate([
+            // mimes en plus de « image » : bloque les SVG, qui peuvent porter
+            // du script exécuté par le navigateur des visiteurs.
+            'logo'           => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
+            'site_web'       => 'nullable|url|max:255',
+            'affiche_public' => 'nullable|boolean',
+            'ordre'          => 'nullable|integer|min:0|max:9999',
+        ], [
+            'logo.image' => 'Le logo doit être une image (JPG, PNG ou WEBP).',
+            'logo.mimes' => 'Formats acceptés : JPG, PNG, WEBP.',
+            'logo.max'   => 'Le logo ne doit pas dépasser 2 Mo.',
+            'site_web.url' => 'Le site web doit être une URL complète (https://…).',
+        ]);
+
+        $data = [
+            'site_web'       => $request->site_web,
+            'affiche_public' => $request->boolean('affiche_public'),
+            'ordre'          => $request->integer('ordre'),
+        ];
+
+        if ($request->hasFile('logo')) {
+            // L'ancien fichier est supprimé pour ne pas accumuler d'orphelins.
+            if ($partenaire->logo) {
+                Storage::disk('public')->delete($partenaire->logo);
+            }
+            $data['logo'] = $request->file('logo')->store('partenaires', 'public');
+        }
+
+        $partenaire->update($data);
+
+        return back()->with('success', 'Vitrine mise à jour.');
+    }
+
+    /**
+     * Retire le logo sans supprimer la demande de partenariat.
+     */
+    public function destroyLogo(Partenaire $partenaire)
+    {
+        if ($partenaire->logo) {
+            Storage::disk('public')->delete($partenaire->logo);
+            $partenaire->update(['logo' => null]);
+        }
+
+        return back()->with('success', 'Logo supprimé.');
+    }
+
     public function destroy(Partenaire $partenaire)
     {
+        // Le fichier suit la demande, sinon il resterait sur le disque.
+        if ($partenaire->logo) {
+            Storage::disk('public')->delete($partenaire->logo);
+        }
+
         $partenaire->delete();
         return back()->with('success', 'Demande supprimée.');
     }

@@ -230,6 +230,9 @@ Route::prefix('erp')->name('erp.')->group(function () {
         Route::prefix('partenaires')->name('partenaires.')->group(function () {
             Route::get('/', [PartenaireAdminController::class, 'index'])->name('index');
             Route::patch('/{partenaire}/statut', [PartenaireAdminController::class, 'updateStatut'])->name('statut');
+            // POST et non PATCH : un envoi de fichier passe en multipart.
+            Route::post('/{partenaire}/vitrine', [PartenaireAdminController::class, 'updateVitrine'])->name('vitrine');
+            Route::delete('/{partenaire}/logo', [PartenaireAdminController::class, 'destroyLogo'])->name('logo.destroy');
             Route::delete('/{partenaire}', [PartenaireAdminController::class, 'destroy'])->name('destroy');
         });
 
