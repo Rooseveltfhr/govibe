@@ -11,7 +11,10 @@ class PartenaireController extends Controller
 {
     public function index()
     {
-        return view('partenaires');
+        // Seuls les partenaires explicitement publiés depuis l'ERP.
+        $partenaires = Partenaire::vitrine()->get();
+
+        return view('partenaires', compact('partenaires'));
     }
 
     public function store(Request $request)

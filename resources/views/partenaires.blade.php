@@ -91,12 +91,35 @@
 .part-logo-box img {
     max-width: 70px;
     max-height: 70px;
+    /* contain : un logo large ou haut garde ses proportions sans être rogné. */
     object-fit: contain;
 }
 .part-logo-box .part-logo-placeholder {
     font-size: 2rem;
     color: #DC2626;
 }
+/* Repli quand un partenaire publié n'a pas encore de logo. */
+.part-logo-box .part-logo-initiale {
+    font-family: 'Anton', sans-serif;
+    font-size: 2.2rem;
+    color: #DC2626;
+    line-height: 1;
+}
+/* La carte devient un lien quand un site web est renseigné. */
+a.part-card { text-decoration: none; color: inherit; }
+.part-card-link {
+    font-size: .75rem;
+    color: #DC2626;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity .2s;
+}
+a.part-card:hover .part-card-link { opacity: 1; }
+.part-card-cta {
+    border: 2px dashed #DC2626;
+    background: rgba(220,38,38,.02);
+}
+.dark .part-card-cta { background: rgba(220,38,38,.06); }
 .part-card-name {
     font-weight: 700;
     font-size: .95rem;
@@ -321,56 +344,81 @@
         <p class="section-subtitle">Des organisations qui partagent notre vision pour l'innovation et le développement en Haïti.</p>
 
         <div class="part-grid">
-            {{-- Future: dynamically loaded partners from DB with logos --}}
-
-            <!-- Static placeholder partners -->
-            <div class="part-card slide-up">
-                <div class="part-logo-box">
-                    <span class="part-logo-placeholder"><i class="fas fa-university"></i></span>
+            @forelse ($partenaires as $partenaire)
+                @php
+                    // Un logo peut manquer même sur un partenaire publié :
+                    // on retombe alors sur l'initiale de son nom.
+                    $lien = $partenaire->site_web;
+                    $tag  = $lien ? 'a' : 'div';
+                @endphp
+                <{{ $tag }} class="part-card slide-up"
+                    @if ($lien) href="{{ $lien }}" target="_blank" rel="noopener" @endif>
+                    <div class="part-logo-box">
+                        @if ($partenaire->logo_url)
+                            <img src="{{ $partenaire->logo_url }}"
+                                 alt="{{ $partenaire->nom_vitrine }}"
+                                 loading="lazy">
+                        @else
+                            <span class="part-logo-initiale">{{ mb_strtoupper(mb_substr($partenaire->nom_vitrine, 0, 1)) }}</span>
+                        @endif
+                    </div>
+                    <div class="part-card-name">{{ $partenaire->nom_vitrine }}</div>
+                    <div class="part-card-type">{{ $partenaire->type_libelle }}</div>
+                    @if ($lien)
+                        <span class="part-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Visiter</span>
+                    @endif
+                </{{ $tag }}>
+            @empty
+                {{-- Aucun partenaire publié : on présente les catégories
+                     recherchées plutôt qu'une grille vide. --}}
+                <div class="part-card slide-up">
+                    <div class="part-logo-box">
+                        <span class="part-logo-placeholder"><i class="fas fa-university"></i></span>
+                    </div>
+                    <div class="part-card-name">Institutions Académiques</div>
+                    <div class="part-card-type">Partenaire institutionnel</div>
                 </div>
-                <div class="part-card-name">Institutions Académiques</div>
-                <div class="part-card-type">Partenaire institutionnel</div>
-            </div>
 
-            <div class="part-card slide-up">
-                <div class="part-logo-box">
-                    <span class="part-logo-placeholder"><i class="fas fa-building"></i></span>
+                <div class="part-card slide-up">
+                    <div class="part-logo-box">
+                        <span class="part-logo-placeholder"><i class="fas fa-building"></i></span>
+                    </div>
+                    <div class="part-card-name">Secteur Privé</div>
+                    <div class="part-card-type">Sponsor</div>
                 </div>
-                <div class="part-card-name">Secteur Privé</div>
-                <div class="part-card-type">Sponsor</div>
-            </div>
 
-            <div class="part-card slide-up">
-                <div class="part-logo-box">
-                    <span class="part-logo-placeholder"><i class="fas fa-globe"></i></span>
+                <div class="part-card slide-up">
+                    <div class="part-logo-box">
+                        <span class="part-logo-placeholder"><i class="fas fa-globe"></i></span>
+                    </div>
+                    <div class="part-card-name">ONG Internationales</div>
+                    <div class="part-card-type">Partenaire stratégique</div>
                 </div>
-                <div class="part-card-name">ONG Internationales</div>
-                <div class="part-card-type">Partenaire stratégique</div>
-            </div>
 
-            <div class="part-card slide-up">
-                <div class="part-logo-box">
-                    <span class="part-logo-placeholder"><i class="fas fa-laptop-code"></i></span>
+                <div class="part-card slide-up">
+                    <div class="part-logo-box">
+                        <span class="part-logo-placeholder"><i class="fas fa-laptop-code"></i></span>
+                    </div>
+                    <div class="part-card-name">Tech Companies</div>
+                    <div class="part-card-type">Collaborateur technique</div>
                 </div>
-                <div class="part-card-name">Tech Companies</div>
-                <div class="part-card-type">Collaborateur technique</div>
-            </div>
 
-            <div class="part-card slide-up">
-                <div class="part-logo-box">
-                    <span class="part-logo-placeholder"><i class="fas fa-chalkboard-teacher"></i></span>
+                <div class="part-card slide-up">
+                    <div class="part-logo-box">
+                        <span class="part-logo-placeholder"><i class="fas fa-chalkboard-teacher"></i></span>
+                    </div>
+                    <div class="part-card-name">Experts &amp; Mentors</div>
+                    <div class="part-card-type">Mentor / Formateur</div>
                 </div>
-                <div class="part-card-name">Experts & Mentors</div>
-                <div class="part-card-type">Mentor / Formateur</div>
-            </div>
+            @endforelse
 
-            <div class="part-card slide-up" style="border: 2px dashed #DC2626; background: rgba(220,38,38,.02); cursor: default;">
+            <a href="#devenir-partenaire" class="part-card part-card-cta slide-up">
                 <div class="part-logo-box" style="background: rgba(220,38,38,.08);">
                     <span class="part-logo-placeholder" style="opacity:.5;"><i class="fas fa-plus"></i></span>
                 </div>
                 <div class="part-card-name" style="color:#DC2626;">Votre organisation</div>
                 <div class="part-card-type">Rejoignez-nous</div>
-            </div>
+            </a>
         </div>
     </div>
 </section>
