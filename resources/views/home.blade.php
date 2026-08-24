@@ -198,6 +198,15 @@
   .programme-card:hover{transform:translateY(-6px);box-shadow:0 25px 40px rgba(220,38,38,.1);border-color:rgba(220,38,38,.2);}
   .programme-card h3{font-family:'Anton',sans-serif;font-size:1.8rem;color:#0f172a;margin:.5rem 0 1rem;}
 
+  /* Cartes événements annuels */
+  .event-card{position:relative;overflow:hidden;background:linear-gradient(135deg,#0a0000,#1a0004);border-radius:24px;padding:2.2rem;color:#fff;border:1px solid rgba(220,38,38,.25);transition:all .3s;}
+  .event-card:hover{transform:translateY(-6px);box-shadow:0 25px 45px rgba(220,38,38,.18);border-color:rgba(220,38,38,.5);}
+  .event-card::before{content:'';position:absolute;top:-70px;right:-70px;width:200px;height:200px;border-radius:50%;background:rgba(220,38,38,.1);pointer-events:none;}
+  .event-badge{position:relative;display:inline-flex;align-items:center;gap:.4rem;background:rgba(220,38,38,.18);border:1px solid rgba(220,38,38,.35);color:#f87171;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:.3rem .85rem;border-radius:50px;margin-bottom:1rem;}
+  .event-card h3{position:relative;font-family:'Anton',sans-serif;font-size:2rem;color:#fff;letter-spacing:.04em;margin-bottom:.35rem;}
+  .event-sub{position:relative;color:#DC2626;font-weight:700;font-size:.9rem;margin-bottom:.9rem;}
+  .event-desc{position:relative;color:rgba(255,255,255,.7);line-height:1.75;font-size:.92rem;margin-bottom:1.6rem;}
+
   /* Digital cards */
   .service-digital{background:#fff;border-radius:20px;padding:1.8rem;box-shadow:0 10px 25px rgba(0,0,0,.04);border:1px solid #f1f5f9;transition:all .3s;text-align:center;}
   .service-digital:hover{transform:translateY(-6px);box-shadow:0 20px 35px rgba(220,38,38,.1);border-color:rgba(220,38,38,.2);}
@@ -234,6 +243,12 @@
   #reservation label{display:block;font-size:.78rem;font-weight:600;color:rgba(255,255,255,.6);margin-bottom:.38rem;}
 
   /* ===== RESPONSIVE COMPLET ===== */
+  /* Grand écran intermédiaire : les 3 programmes passent à 2 colonnes avant
+     de s'empiler complètement plus bas. La règle 900px qui suit reprend
+     ensuite la main (même spécificité, déclarée après). */
+  @media(max-width:1024px){
+    .prog-grid{grid-template-columns:repeat(2,1fr)!important;}
+  }
   /* Tablet */
   @media(max-width:900px){
     .about-content-grid{grid-template-columns:1fr;gap:2rem;padding:40px 1.5rem 60px;}
@@ -241,6 +256,7 @@
     .conf-stat-grid{grid-template-columns:repeat(2,1fr)!important;}
     .dig-grid{grid-template-columns:repeat(2,1fr)!important;}
     .prog-grid{grid-template-columns:1fr!important;}
+    .event-grid{grid-template-columns:1fr!important;}
     .conf-testi-grid{grid-template-columns:1fr!important;}
     .reservation-grid{grid-template-columns:1fr!important;}
     .vision-grid{grid-template-columns:1fr!important;}
@@ -269,6 +285,9 @@
     /* Programmes */
     .prog-grid{grid-template-columns:1fr!important;}
     .prog-check-grid{grid-template-columns:1fr!important;}
+    .event-grid{grid-template-columns:1fr!important;}
+    .event-card{padding:1.6rem;}
+    .event-card h3{font-size:1.6rem;}
     .conf-stat-grid{grid-template-columns:repeat(2,1fr)!important;}
     .conf-testi-grid{grid-template-columns:1fr!important;}
     .vision-grid{grid-template-columns:1fr!important;}
@@ -606,44 +625,86 @@
     <div class="slide-up" style="text-align:center; margin-bottom:3.5rem;">
       <span class="gv-stag"><i class="fas fa-rocket"></i> NOS PROGRAMMES</span>
       <h2 class="gv-h2">GOVIBE <span style="background:linear-gradient(135deg,#DC2626,#ff6b6b); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">Programmes</span></h2>
-      <p class="gv-sub" style="margin:0 auto; text-align:center;">Accompagnement et financement des entrepreneurs haïtiens.</p>
+      <p class="gv-sub" style="margin:0 auto; text-align:center;">Accompagnement, financement et collaboration pour les entrepreneurs et organisations en Haïti.</p>
     </div>
 
-    <div class="prog-grid" style="display:grid; grid-template-columns:repeat(2,1fr); gap:2rem;">
+    <div class="prog-grid" style="display:grid; grid-template-columns:repeat(3,1fr); gap:2rem;">
       <div class="programme-card slide-up">
         <div style="position:absolute;top:0;left:0;width:100%;height:4px;background:linear-gradient(90deg,#DC2626,#ff6b6b);"></div>
         <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem;">
-          <div style="width:50px;height:50px;background:rgba(220,38,38,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:#DC2626;">
-            <i class="fas fa-rocket"></i>
+          <div style="width:50px;height:50px;background:rgba(220,38,38,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:#DC2626;flex-shrink:0;">
+            <i class="fas fa-handshake"></i>
           </div>
-          <h3>Programme d'Incubation</h3>
+          <h3 style="font-size:1.35rem;">GOVIBE Partner Network</h3>
         </div>
-        <p style="color:#64748b; line-height:1.7; margin-bottom:1.2rem;">Accompagnement complet des startups, de l'idée à la levée de fonds avec mentorat d'experts.</p>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:.7rem; margin-bottom:1.5rem;">
-          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Structuration idée</span>
-          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Business model</span>
-          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Prototype MVP</span>
-          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Mentorat expert</span>
+        <p style="color:#64748b; line-height:1.7; margin-bottom:1.2rem;">Permet aux organisations et groupements partenaires d'accéder à des espaces, ressources et avantages de GOVIBE en échange d'une visibilité et d'une collaboration officielle.</p>
+        <div class="prog-check-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:.7rem; margin-bottom:1.5rem;">
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Accès aux espaces</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Ressources partagées</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Visibilité officielle</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Collaboration formelle</span>
         </div>
-        <a href="#reservation" class="gv-btn-prim">Postuler →</a>
+        <a href="{{ route('partenaires') }}#devenir-partenaire" class="gv-btn-prim">Devenir partenaire →</a>
+      </div>
+
+      <div class="programme-card slide-up delay-1">
+        <div style="position:absolute;top:0;left:0;width:100%;height:4px;background:linear-gradient(90deg,#DC2626,#ff6b6b);"></div>
+        <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem;">
+          <div style="width:50px;height:50px;background:rgba(220,38,38,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:#DC2626;flex-shrink:0;">
+            <i class="fas fa-credit-card"></i>
+          </div>
+          <h3 style="font-size:1.35rem;">GOVIBE Digital Credit</h3>
+        </div>
+        <p style="color:#64748b; line-height:1.7; margin-bottom:1.2rem;">Financement et accompagnement destinés aux entrepreneurs et PME ayant des projets à potentiel, avec un appui financier ou technologique selon des conditions définies par projet.</p>
+        <div class="prog-check-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:.7rem; margin-bottom:1.5rem;">
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Appui financier</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Appui technologique</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Projets à potentiel</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Conditions sur mesure</span>
+        </div>
+        <a href="#reservation" class="gv-btn-prim">Faire une demande →</a>
       </div>
 
       <div class="programme-card slide-up delay-2">
         <div style="position:absolute;top:0;left:0;width:100%;height:4px;background:linear-gradient(90deg,#DC2626,#ff6b6b);"></div>
         <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem;">
-          <div style="width:50px;height:50px;background:rgba(220,38,38,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:#DC2626;">
-            <i class="fas fa-credit-card"></i>
+          <div style="width:50px;height:50px;background:rgba(220,38,38,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:#DC2626;flex-shrink:0;">
+            <i class="fas fa-rocket"></i>
           </div>
-          <h3>Crédit Digital</h3>
+          <h3 style="font-size:1.35rem;">GOVIBE Digital Incubation</h3>
         </div>
-        <p style="color:#64748b; line-height:1.7; margin-bottom:1.2rem;">Faciliter l'accès au financement pour entrepreneurs et PME haïtiennes via l'IA.</p>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:.7rem; margin-bottom:1.5rem;">
-          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-bolt" style="color:#DC2626;"></i> Microcrédit</span>
-          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-chart-line" style="color:#DC2626;"></i> Scoring IA</span>
-          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-clock" style="color:#DC2626;"></i> Paiement flexible</span>
-          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-chart-bar" style="color:#DC2626;"></i> Suivi digital</span>
+        <p style="color:#64748b; line-height:1.7; margin-bottom:1.2rem;">Accompagne les startups et projets numériques de l'idée jusqu'au développement, avec mentorat, technologie, formation, réseau et accès à l'écosystème GOVIBE.</p>
+        <div class="prog-check-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:.7rem; margin-bottom:1.5rem;">
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Mentorat expert</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Technologie &amp; formation</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> Réseau GOVIBE</span>
+          <span style="font-size:.87rem; color:#475569;"><i class="fas fa-check-circle" style="color:#DC2626;"></i> De l'idée au produit</span>
         </div>
-        <a href="#reservation" class="gv-btn-prim">Faire une demande →</a>
+        <a href="#reservation" class="gv-btn-prim">Postuler →</a>
+      </div>
+    </div>
+
+    {{-- ÉVÉNEMENTS ANNUELS --}}
+    <div class="slide-up" style="text-align:center; margin:4rem 0 2.5rem;">
+      <span class="gv-stag"><i class="fas fa-calendar-check"></i> ÉVÉNEMENTS ANNUELS</span>
+      <h3 style="font-family:'Anton',sans-serif; font-size:clamp(1.5rem,3.5vw,2.1rem); color:#0f172a; margin-top:.6rem;">Nos rendez-vous de l'année</h3>
+    </div>
+
+    <div class="event-grid" style="display:grid; grid-template-columns:repeat(2,1fr); gap:2rem;">
+      <div class="event-card slide-up">
+        <div class="event-badge"><i class="fas fa-users"></i> Forum annuel</div>
+        <h3>FINPO</h3>
+        <p class="event-sub">Forum des Institutions Publiques, Privées &amp; ONG</p>
+        <p class="event-desc">Grand rendez-vous annuel réunissant institutions, ONG, entreprises et acteurs du développement pour créer des connexions, partager des opportunités et favoriser des collaborations concrètes.</p>
+        <a href="#reservation" class="gv-btn-prim">S'informer →</a>
+      </div>
+
+      <div class="event-card slide-up delay-1">
+        <div class="event-badge"><i class="fas fa-brain"></i> Forum national + ateliers</div>
+        <h3>AI IMPACT</h3>
+        <p class="event-sub">Forum National et Ateliers Pratiques sur l'Intelligence Artificielle</p>
+        <p class="event-desc">Événement annuel dédié à l'IA, réunissant entrepreneurs, jeunes, professionnels, institutions et entreprises autour de formations, démonstrations, innovations et opportunités liées à l'intelligence artificielle.</p>
+        <a href="#reservation" class="gv-btn-prim">S'informer →</a>
       </div>
     </div>
 
