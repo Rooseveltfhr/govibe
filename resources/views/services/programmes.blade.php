@@ -172,6 +172,136 @@
 }
 .prog-meta-item i { color: #DC2626; font-size: .85rem; }
 
+/* Programmes structurants — les trois piliers */
+.pillar-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+    margin-top: 48px;
+}
+.pillar-card {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-top: 4px solid #DC2626;
+    border-radius: 16px;
+    padding: 32px 28px;
+    transition: box-shadow .25s, transform .25s;
+}
+.dark .pillar-card { background: #1e293b; border-color: #334155; border-top-color: #DC2626; }
+.pillar-card:hover { box-shadow: 0 12px 40px rgba(220,38,38,.12); transform: translateY(-4px); }
+.pillar-icon {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    background: rgba(220,38,38,.1);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 20px;
+}
+.pillar-icon i { font-size: 1.5rem; color: #DC2626; }
+.pillar-card h3 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 6px;
+    line-height: 1.25;
+}
+.dark .pillar-card h3 { color: #f1f5f9; }
+.pillar-for {
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #DC2626;
+    margin-bottom: 14px;
+}
+.pillar-card > p:not(.pillar-for) {
+    font-size: .92rem;
+    color: #64748b;
+    line-height: 1.7;
+    margin-bottom: 20px;
+}
+.dark .pillar-card > p:not(.pillar-for) { color: #94a3b8; }
+.pillar-list {
+    list-style: none; padding: 0;
+    margin: 0 0 26px;
+    display: flex; flex-direction: column; gap: 10px;
+    /* pousse le bouton en bas quelle que soit la longueur du texte */
+    flex-grow: 1;
+}
+.pillar-list li {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: .88rem; color: #374151; line-height: 1.45;
+}
+.dark .pillar-list li { color: #cbd5e1; }
+.pillar-list li i { color: #DC2626; font-size: .9rem; flex-shrink: 0; margin-top: 3px; }
+
+/* Événements annuels */
+.event-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px;
+    margin-top: 48px;
+}
+.event-card {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0a0f1e 0%, #1a0505 100%);
+    border: 1px solid rgba(220,38,38,.28);
+    border-radius: 20px;
+    padding: 36px 32px;
+    transition: box-shadow .25s, transform .25s, border-color .25s;
+}
+.event-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 48px rgba(220,38,38,.18);
+    border-color: rgba(220,38,38,.5);
+}
+.event-card::before {
+    content: '';
+    position: absolute;
+    top: -70px; right: -70px;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background: rgba(220,38,38,.09);
+    pointer-events: none;
+}
+.event-card > * { position: relative; }
+.event-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(220,38,38,.18);
+    border: 1px solid rgba(220,38,38,.38);
+    color: #f87171;
+    font-size: .72rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    padding: 5px 14px; border-radius: 100px;
+    margin-bottom: 18px;
+}
+.event-card h3 {
+    font-size: 2rem; font-weight: 800;
+    color: #fff; letter-spacing: .03em;
+    margin-bottom: 6px;
+}
+.event-sub {
+    color: #DC2626; font-weight: 700;
+    font-size: .9rem; line-height: 1.4;
+    margin-bottom: 16px;
+}
+.event-desc {
+    color: rgba(255,255,255,.7);
+    font-size: .93rem; line-height: 1.75;
+    margin-bottom: 20px;
+}
+.event-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+.event-tags span {
+    font-size: .76rem;
+    color: rgba(255,255,255,.75);
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 100px;
+    padding: 4px 12px;
+}
+
 /* Bootcamp / Feature highlight */
 .bootcamp-banner {
     background: linear-gradient(135deg, #0a0f1e 0%, #1a0505 100%);
@@ -335,20 +465,32 @@
 }
 .prog-cta-btn-out:hover { border-color: #fff; background: rgba(255,255,255,.1); color: #fff; }
 
+@media (max-width: 1024px) {
+    /* Trois piliers : deux colonnes avant l'empilement complet. */
+    .pillar-grid { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 900px) {
     .prog-hero { padding: 90px 0 60px; }
     .bootcamp-banner { grid-template-columns: 1fr; padding: 32px; }
+    .event-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 768px) {
     .prog-grid { grid-template-columns: 1fr; }
+    .pillar-grid { grid-template-columns: 1fr; gap: 20px; }
     .prog-stats { gap: 24px; }
     .process-steps { grid-template-columns: 1fr 1fr; }
+    .pillar-card { padding: 26px 22px; }
+    .event-card { padding: 28px 22px; }
+    .event-card h3 { font-size: 1.65rem; }
 }
 @media (max-width: 576px) {
     .bootcamp-banner { padding: 24px; }
     .bootcamp-banner h3 { font-size: 1.3rem; }
     .process-steps { grid-template-columns: 1fr; }
     .prog-hero { padding: 70px 0 48px; }
+    .event-card { padding: 24px 18px; }
+    .event-card h3 { font-size: 1.45rem; }
+    .event-tags span { font-size: .72rem; }
 }
 </style>
 
@@ -422,11 +564,117 @@
     </div>
 </section>
 
-<!-- PROGRAMMES GRID -->
+<!-- PROGRAMMES STRUCTURANTS -->
+<section class="prog-section alt">
+    <div class="gv-wrap">
+        <div class="gv-stag">Programmes structurants</div>
+        <h2 class="section-title">Les trois piliers de l'accompagnement GOVIBE</h2>
+        <p class="section-subtitle">Collaborer, financer, incuber — trois portes d'entrée dans l'écosystème, selon votre profil et la maturité de votre projet.</p>
+
+        <div class="pillar-grid">
+
+            <div class="pillar-card slide-up">
+                <div class="pillar-icon"><i class="fas fa-handshake"></i></div>
+                <h3>GOVIBE Partner Network</h3>
+                <p class="pillar-for">Pour les organisations et groupements</p>
+                <p>Permet aux organisations et groupements partenaires d'accéder à des espaces, ressources et avantages de GOVIBE en échange d'une visibilité et d'une collaboration officielle.</p>
+                <ul class="pillar-list">
+                    <li><i class="fas fa-check-circle"></i> Accès aux espaces et infrastructures</li>
+                    <li><i class="fas fa-check-circle"></i> Ressources et avantages partagés</li>
+                    <li><i class="fas fa-check-circle"></i> Visibilité sur nos supports</li>
+                    <li><i class="fas fa-check-circle"></i> Collaboration officialisée</li>
+                </ul>
+                <a href="{{ route('partenaires') }}#devenir-partenaire" class="gv-btn-prim" style="width:100%;justify-content:center;">
+                    Devenir partenaire <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="pillar-card slide-up">
+                <div class="pillar-icon"><i class="fas fa-credit-card"></i></div>
+                <h3>GOVIBE Digital Credit</h3>
+                <p class="pillar-for">Pour les entrepreneurs et PME</p>
+                <p>Financement et accompagnement destinés aux entrepreneurs et PME ayant des projets à potentiel, avec un appui financier ou technologique en échange de conditions définies selon le projet.</p>
+                <ul class="pillar-list">
+                    <li><i class="fas fa-check-circle"></i> Appui financier au projet</li>
+                    <li><i class="fas fa-check-circle"></i> Appui technologique</li>
+                    <li><i class="fas fa-check-circle"></i> Évaluation du potentiel</li>
+                    <li><i class="fas fa-check-circle"></i> Conditions définies par projet</li>
+                </ul>
+                <a href="{{ route('home') }}#reservation" class="gv-btn-prim" style="width:100%;justify-content:center;">
+                    Faire une demande <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="pillar-card slide-up">
+                <div class="pillar-icon"><i class="fas fa-rocket"></i></div>
+                <h3>GOVIBE Digital Incubation</h3>
+                <p class="pillar-for">Pour les startups et projets numériques</p>
+                <p>Accompagne les startups et projets numériques de l'idée jusqu'au développement, avec mentorat, technologie, formation, réseau et accès à l'écosystème GOVIBE.</p>
+                <ul class="pillar-list">
+                    <li><i class="fas fa-check-circle"></i> Mentorat par des experts</li>
+                    <li><i class="fas fa-check-circle"></i> Technologie et formation</li>
+                    <li><i class="fas fa-check-circle"></i> Accès au réseau GOVIBE</li>
+                    <li><i class="fas fa-check-circle"></i> De l'idée au développement</li>
+                </ul>
+                <a href="{{ route('home') }}#reservation" class="gv-btn-prim" style="width:100%;justify-content:center;">
+                    Postuler <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- ÉVÉNEMENTS ANNUELS -->
 <section class="prog-section">
     <div class="gv-wrap">
+        <div class="gv-stag">Rendez-vous annuels</div>
+        <h2 class="section-title">Nos événements de l'année</h2>
+        <p class="section-subtitle">Deux temps forts qui rassemblent l'écosystème haïtien — institutions, entreprises, ONG et jeunes talents.</p>
+
+        <div class="event-grid">
+
+            <div class="event-card slide-up">
+                <div class="event-badge"><i class="fas fa-users"></i> Forum annuel</div>
+                <h3>FINPO</h3>
+                <p class="event-sub">Forum des Institutions Publiques, Privées &amp; ONG</p>
+                <p class="event-desc">Grand rendez-vous annuel réunissant institutions, ONG, entreprises et acteurs du développement pour créer des connexions, partager des opportunités et favoriser des collaborations concrètes.</p>
+                <div class="event-tags">
+                    <span>Institutions publiques</span>
+                    <span>Secteur privé</span>
+                    <span>ONG</span>
+                    <span>Networking</span>
+                </div>
+                <a href="{{ route('home') }}#reservation" class="gv-btn-prim">
+                    S'informer <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="event-card slide-up">
+                <div class="event-badge"><i class="fas fa-brain"></i> Forum national + ateliers</div>
+                <h3>AI IMPACT</h3>
+                <p class="event-sub">Forum National et Ateliers Pratiques sur l'Intelligence Artificielle</p>
+                <p class="event-desc">Événement annuel dédié à l'IA, réunissant entrepreneurs, jeunes, professionnels, institutions et entreprises autour de formations, démonstrations, innovations et opportunités liées à l'intelligence artificielle.</p>
+                <div class="event-tags">
+                    <span>Formations</span>
+                    <span>Démonstrations</span>
+                    <span>Innovations</span>
+                    <span>Ateliers pratiques</span>
+                </div>
+                <a href="{{ route('home') }}#reservation" class="gv-btn-prim">
+                    S'informer <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- PROGRAMMES GRID -->
+<section class="prog-section alt">
+    <div class="gv-wrap">
         <div class="gv-stag">Catalogue</div>
-        <h2 class="section-title">Tous nos programmes</h2>
+        <h2 class="section-title">Nos formations</h2>
         <p class="section-subtitle">Des formations courtes aux parcours longs, adaptés à votre niveau et à vos objectifs.</p>
 
         <div class="prog-grid">
@@ -608,7 +856,7 @@
 </section>
 
 <!-- PROCESSUS D'INSCRIPTION -->
-<section class="prog-section alt">
+<section class="prog-section">
     <div class="gv-wrap">
         <div class="gv-stag">Comment ça marche</div>
         <h2 class="section-title">Processus d'inscription</h2>
