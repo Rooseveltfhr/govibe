@@ -5,11 +5,14 @@ namespace Tests\Support;
 use Generator;
 use Modules\AIProvider\Contracts\AIProvider;
 use Modules\AIProvider\Contracts\SupportsChat;
+use Modules\AIProvider\Contracts\SupportsTranscription;
 use Modules\AIProvider\DTO\ChatRequest;
 use Modules\AIProvider\DTO\ChatResponse;
 use Modules\AIProvider\DTO\ModelDescriptor;
 use Modules\AIProvider\DTO\StreamChunk;
 use Modules\AIProvider\DTO\TokenUsage;
+use Modules\AIProvider\DTO\TranscriptionRequest;
+use Modules\AIProvider\DTO\TranscriptionResponse;
 use Modules\AIProvider\Enums\Capability;
 use Modules\AIProvider\Exceptions\ProviderException;
 
@@ -17,7 +20,7 @@ use Modules\AIProvider\Exceptions\ProviderException;
  * Fournisseur factice : permet d'exercer le routeur et l'API de bout en bout
  * sans aucun appel réseau.
  */
-class FakeChatProvider implements AIProvider, SupportsChat
+class FakeChatProvider implements AIProvider, SupportsChat, SupportsTranscription
 {
     public int $calls = 0;
 
@@ -30,6 +33,7 @@ class FakeChatProvider implements AIProvider, SupportsChat
         private readonly string $reply = 'Bonjou!',
         private readonly array $deltas = ['Bon', 'jou', '!'],
         private readonly bool $configured = true,
+        private readonly string $transcript = 'Ki lè nou louvri?',
     ) {}
 
     public function key(): string
@@ -98,5 +102,16 @@ class FakeChatProvider implements AIProvider, SupportsChat
         }
 
         yield StreamChunk::end(new TokenUsage(12, 8));
+    }
+
+    public function transcribe(TranscriptionRequest $request): TranscriptionResponse
+    {
+        $this->calls++;
+
+        if ($this->failWith !== null) {
+            throw $this->failWith;
+        }
+
+        return new TranscriptionResponse($this->transcript, $this->key, $request->language);
     }
 }

@@ -7,6 +7,7 @@ use InvalidArgumentException;
 use Modules\Agents\Runtime\AgentBuilder;
 use Modules\AIProvider\Exceptions\NoProviderAvailableException;
 use Modules\AIProvider\Registry\ProviderRegistry;
+use Modules\AIServices\Transcription\TranscriptionService;
 
 /**
  * Teste yon ajan dirèk nan tèminal la, ak vrè router la — sa ki dèyè
@@ -23,12 +24,38 @@ class DemoAgentCommand extends Command
         {--key=demo : Kle inik ajan an}
         {--lang= : Lang demo a (ht|fr|en|es) — defo: lang sektè a}
         {--knowledge=* : Konesans kle=valè, ex: --knowledge="orè=10h-22h"}
-        {--question=* : Kesyon pèsonalize — sinon kesyon egzanp sektè a}';
+        {--question=* : Kesyon pèsonalize — sinon kesyon egzanp sektè a}
+        {--audio= : Chemen yon fichye odyo (.mp3/.wav/.m4a) — transkri l epi sèvi kòm kesyon}';
 
-    protected $description = 'Fè yon ajan reponn kesyon demo ak vrè router la, dirèk nan tèminal la.';
+    protected $description = 'Fè yon ajan reponn kesyon demo (tèks oswa vwa) ak vrè router la, dirèk nan tèminal la.';
 
-    public function handle(AgentBuilder $builder, ProviderRegistry $providers): int
+    public function handle(AgentBuilder $builder, ProviderRegistry $providers, TranscriptionService $transcription): int
     {
+        $spoken = false;
+        $questions = $this->option('question') ?: null;
+
+        $audioPath = $this->option('audio');
+        if ($audioPath !== null) {
+            if (! is_file($audioPath)) {
+                $this->error("Fichye odyo a pa egziste: {$audioPath}");
+
+                return self::FAILURE;
+            }
+
+            try {
+                $result = $transcription->transcribe($audioPath, $this->option('lang') ?: null);
+            } catch (NoProviderAvailableException $e) {
+                $this->error("Pa gen okenn founisè transkripsyon (vwa→tèks) konfigire: {$e->getMessage()}");
+                $this->line('Ajoute yon kle API ki sipòte transkripsyon (ex: OPENAI_API_KEY pou Whisper) nan .env.');
+
+                return self::FAILURE;
+            }
+
+            $this->info("🎙️  Vwa transkri ({$result['provider']}): \"{$result['text']}\"");
+            $spoken = true;
+            $questions = [$result['text']];
+        }
+
         if ($providers->configured() === []) {
             $this->error('Pa gen okenn founisè AI konfigire (OPENAI_API_KEY, ANTHROPIC_API_KEY…).');
             $this->line('Ajoute omwen yon kle API nan .env pou w ka gen yon vrè repons, epi eseye ankò.');
@@ -59,8 +86,6 @@ class DemoAgentCommand extends Command
             return self::FAILURE;
         }
 
-        $questions = $this->option('question') ?: null;
-
         try {
             $turns = $builder->demo($agent, $questions, $this->option('lang') ?: null);
         } catch (NoProviderAvailableException $e) {
@@ -79,6 +104,10 @@ class DemoAgentCommand extends Command
                 $turn->latencyMs,
             ], $turns),
         );
+
+        if ($spoken) {
+            $this->comment('ℹ️  Sa a se soti nan vwa: nenpòt aksyon ekri (kòmand, randevou) ta mande konfimasyon anvan li egzekite.');
+        }
 
         return self::SUCCESS;
     }

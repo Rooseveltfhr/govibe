@@ -38,5 +38,18 @@ return [
             'quality_by_language' => ['fr' => 90, 'en' => 92, 'es' => 90, 'ht' => 68],
             'expected_latency_ms' => 2200,
         ],
+        [
+            // Pri odyo se pa milyon jeton (pa gen jeton antre/sòti isit la) —
+            // se pri pa minit reyèl OpenAI a; 0 isit la se yon valè kwatye,
+            // pa yon pri egzat. Modèl sa a pa antre nan chwa AiRouter la
+            // (li pa gen kapasite 'chat') — TranscriptionService jwenn li
+            // dirèkteman pa premye founisè konfigire ki sipòte transkripsyon.
+            'key' => 'whisper-1',
+            'name' => 'Whisper',
+            'capabilities' => ['transcription'],
+            'input_price_per_million' => 0,
+            'output_price_per_million' => 0,
+            'quality_by_language' => ['fr' => 85, 'en' => 90, 'es' => 85, 'ht' => 40],
+        ],
     ],
 ];
