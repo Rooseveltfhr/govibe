@@ -24,14 +24,18 @@ class CheckoutService
         'event' => \Modules\Tagtoa\App\Models\Event\Order::class,
     ];
 
-    /** Drivers disponibles. */
-    protected function driver(string $gateway): ?GatewayDriver
+    /**
+     * Instancie le driver AVEC le tenant concerné : si la passerelle est réglée
+     * en mode « le marchand encaisse » et que ce marchand a branché ses propres
+     * identifiants, le paiement part sur SON compte et non sur celui de TAGTOA.
+     */
+    protected function driver(string $gateway, ?string $tenantId = null): ?GatewayDriver
     {
         return match ($gateway) {
-            'moncash'      => new MonCashDriver,
-            'paypal'       => new \Modules\Tagtoa\App\Support\Gateways\PayPalDriver,
-            'coinpayments' => new \Modules\Tagtoa\App\Support\Gateways\CoinPaymentsDriver,
-            'stripe'       => new \Modules\Tagtoa\App\Support\Gateways\StripeDriver,
+            'moncash'      => new MonCashDriver($tenantId),
+            'paypal'       => new \Modules\Tagtoa\App\Support\Gateways\PayPalDriver($tenantId),
+            'coinpayments' => new \Modules\Tagtoa\App\Support\Gateways\CoinPaymentsDriver($tenantId),
+            'stripe'       => new \Modules\Tagtoa\App\Support\Gateways\StripeDriver($tenantId),
             default        => null,
         };
     }
@@ -44,10 +48,10 @@ class CheckoutService
     public function start(string $type, int $orderId, string $gateway = 'moncash'): ?string
     {
         $order = $this->loadOrder($type, $orderId);
-        if (! $order || $order->isPaid() || ! GatewayManager::enabled($gateway)) {
+        if (! $order || $order->isPaid() || ! GatewayManager::enabled($gateway, $order->tenant_id)) {
             return null;
         }
-        $driver = $this->driver($gateway);
+        $driver = $this->driver($gateway, $order->tenant_id);
         if (! $driver) {
             return null;
         }
@@ -84,7 +88,7 @@ class CheckoutService
             return true;
         }
 
-        $driver = $this->driver($txn->gateway);
+        $driver = $this->driver($txn->gateway, $txn->tenant_id);
         if (! $driver) {
             return false;
         }
@@ -110,10 +114,10 @@ class CheckoutService
      */
     public function startPayPage(\Modules\Tagtoa\App\Models\Pay\PaymentPage $page, \Modules\Tagtoa\App\Models\Pay\PaymentMethod $method, string $gateway, float $amount, array $payer = []): ?string
     {
-        if ($amount <= 0 || ! GatewayManager::enabled($gateway)) {
+        if ($amount <= 0 || ! GatewayManager::enabled($gateway, $page->tenant_id)) {
             return null;
         }
-        $driver = $this->driver($gateway);
+        $driver = $this->driver($gateway, $page->tenant_id);
         if (! $driver) {
             return null;
         }
@@ -144,10 +148,10 @@ class CheckoutService
      */
     public function startCardTopup(\Modules\Tagtoa\App\Models\Card\CardAccount $card, float $amount, string $gateway): ?string
     {
-        if ($amount <= 0 || ! GatewayManager::enabled($gateway) || ! $card->isSpendable()) {
+        if ($amount <= 0 || ! GatewayManager::enabled($gateway, $card->tenant_id) || ! $card->isSpendable()) {
             return null;
         }
-        $driver = $this->driver($gateway);
+        $driver = $this->driver($gateway, $card->tenant_id);
         if (! $driver) {
             return null;
         }
@@ -174,6 +178,8 @@ class CheckoutService
     public function startSubscription(?string $tenantId, string $plan, string $gateway = 'moncash'): ?string
     {
         $price = (float) (\Modules\Tagtoa\App\Services\Billing\PlanService::effectivePlans()[$plan]['price'] ?? 0);
+        // Un abonnement est payé À TAGTOA : on reste volontairement sur les
+        // identifiants plateforme (aucun tenant passé au driver).
         if ($price <= 0 || ! GatewayManager::enabled($gateway)) {
             return null;
         }

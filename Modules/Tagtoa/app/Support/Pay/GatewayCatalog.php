@@ -114,11 +114,18 @@ class GatewayCatalog
         return $out;
     }
 
+    /** Surcharges plateforme, chargées une seule fois par requête. */
+    private static ?array $overridesCache = null;
+
     /** Surcharges plateforme depuis la base. Tolérant : [] si la table manque. */
     public static function overrides(): array
     {
+        if (self::$overridesCache !== null) {
+            return self::$overridesCache;
+        }
+
         try {
-            return GatewaySetting::query()->get()->keyBy('gateway')
+            self::$overridesCache = GatewaySetting::query()->get()->keyBy('gateway')
                 ->map(fn ($s) => [
                     'is_enabled'      => (bool) $s->is_enabled,
                     'credential_mode' => $s->credential_mode,
@@ -126,8 +133,35 @@ class GatewayCatalog
                     'fee_fixed'       => (float) $s->fee_fixed,
                 ])->all();
         } catch (\Throwable $e) {
-            return [];
+            self::$overridesCache = [];
         }
+
+        return self::$overridesCache;
+    }
+
+    /** À appeler après modification des réglages plateforme. */
+    public static function flush(): void
+    {
+        self::$overridesCache = null;
+    }
+
+    /**
+     * Mode d'encaissement d'un DRIVER (les identifiants sont par driver, alors
+     * que le mode est réglé par type de méthode). Un driver bascule en mode
+     * marchand dès qu'au moins un des types qu'il sert y est réglé — sinon un
+     * marchand ayant branché son compte Stripe verrait ses cartes encaissées
+     * par la plateforme selon le type utilisé, ce qui serait incompréhensible.
+     */
+    public static function driverMode(string $driver): string
+    {
+        foreach (self::effective() as $meta) {
+            if (($meta['driver'] ?? null) === $driver
+                && ($meta['credential_mode'] ?? null) === self::MODE_MERCHANT) {
+                return self::MODE_MERCHANT;
+            }
+        }
+
+        return self::MODE_PLATFORM;
     }
 
     /** Catalogue effectif : registre + surcharges plateforme. */
@@ -137,19 +171,26 @@ class GatewayCatalog
     }
 
     /**
-     * Catalogue tel que le marchand doit le voir : chaque passerelle porte en
-     * plus `online_ready` — vrai seulement si la passerelle est automatique,
-     * activée par le super_admin, et que les identifiants existent vraiment.
+     * Catalogue tel que le marchand doit le voir. Chaque passerelle porte :
+     *   online_ready    — encaissement automatique réellement possible ;
+     *   needs_own_keys  — la passerelle attend que CE marchand branche ses
+     *                     propres identifiants (mode « le marchand encaisse »).
+     *
      * Une passerelle auto non prête reste proposable en mode manuel (preuve).
      */
-    public static function forMerchant(): array
+    public static function forMerchant(?string $tenantId = null): array
     {
         $out = [];
         foreach (self::effective() as $type => $meta) {
             $driver = $meta['driver'] ?? null;
+
             $meta['online_ready'] = (bool) $meta['is_enabled']
                 && $driver !== null
-                && GatewayManager::enabled($driver);
+                && GatewayManager::enabled($driver, $tenantId);
+
+            $meta['needs_own_keys'] = $driver !== null
+                && ($meta['credential_mode'] ?? null) === self::MODE_MERCHANT;
+
             $out[$type] = $meta;
         }
 

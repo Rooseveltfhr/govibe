@@ -19,9 +19,9 @@ class PayPalDriver implements GatewayDriver
     protected ?string $clientId;
     protected ?string $secret;
 
-    public function __construct()
+    public function __construct(?string $tenantId = null)
     {
-        $cfg = GatewayManager::config('paypal');
+        $cfg = GatewayManager::config('paypal', $tenantId);
         $this->mode = $cfg['mode'] ?? 'sandbox';
         $this->clientId = $cfg['credentials']['client_id'] ?? null;
         $this->secret = $cfg['credentials']['secret'] ?? null;

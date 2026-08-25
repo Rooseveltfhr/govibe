@@ -11,11 +11,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Api\ApiPayment;
+use Modules\Tagtoa\App\Models\Pay\MerchantGatewayCredential;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Models\Pay\PaymentProof;
 use Modules\Tagtoa\App\Services\Api\ApiPaymentService;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Modules\Tagtoa\App\Support\GatewayManager;
 use Modules\Tagtoa\App\Support\Pay\GatewayCatalog;
+use Modules\Tagtoa\App\Support\Pay\GatewayCredentialFields;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -36,11 +39,10 @@ class DashboardController extends Controller
 
     public function create(): View
     {
-        return view('tagtoa::pay.dashboard.form', [
-            'page'    => new PaymentPage(),
-            'vcards'  => $this->vcards(),
-            'catalog' => GatewayCatalog::split(GatewayCatalog::forMerchant()),
-        ]);
+        return view('tagtoa::pay.dashboard.form', array_merge([
+            'page'   => new PaymentPage(),
+            'vcards' => $this->vcards(),
+        ], $this->gatewayViewData()));
     }
 
     public function store(Request $request): RedirectResponse
@@ -63,11 +65,10 @@ $data = $this->validatePage($request);
     {
         $page = $this->ownPage($id, ['methods']);
 
-        return view('tagtoa::pay.dashboard.form', [
-            'page'    => $page,
-            'vcards'  => $this->vcards(),
-            'catalog' => GatewayCatalog::split(GatewayCatalog::forMerchant()),
-        ]);
+        return view('tagtoa::pay.dashboard.form', array_merge([
+            'page'   => $page,
+            'vcards' => $this->vcards(),
+        ], $this->gatewayViewData()));
     }
 
     public function update(Request $request, int $id): RedirectResponse
@@ -139,6 +140,105 @@ $data = $this->validatePage($request);
         return back()->with('success', $msg);
     }
 
+    /**
+     * Données nécessaires au formulaire de passerelles, pour CE marchand.
+     *
+     * `anchor` désigne, pour chaque driver, le seul type qui affichera le
+     * formulaire d'identifiants : les identifiants sont par driver, alors que
+     * plusieurs types en dépendent (usdt/usdc/btc/eth → coinpayments). Sans ça
+     * le marchand verrait quatre fois le même formulaire.
+     */
+    protected function gatewayViewData(): array
+    {
+        $tenantId = Tenant::id();
+        $catalog  = GatewayCatalog::forMerchant($tenantId);
+        $stored   = GatewayManager::merchantStored((string) $tenantId);
+
+        $specs = [];
+        $anchor = [];
+        foreach ($catalog as $type => $meta) {
+            $driver = $meta['driver'] ?? null;
+            if (! $driver || empty($meta['needs_own_keys'])) {
+                continue;
+            }
+            $anchor[$driver] ??= $type;
+            if (! isset($specs[$driver])) {
+                $cfg  = (array) config('tagtoa.gateways.'.$driver, []);
+                $keys = array_keys((array) ($cfg['credentials'] ?? []));
+                $mine = (array) ($stored[$driver]['credentials'] ?? []);
+
+                $specs[$driver] = [
+                    'label'    => $cfg['label'] ?? ucfirst($driver),
+                    'keys'     => $keys,
+                    'has_mode' => array_key_exists('mode', $cfg),
+                    'mode'     => $stored[$driver]['mode'] ?? ($cfg['mode'] ?? 'sandbox'),
+                    // Uniquement l'état des clés DU MARCHAND : on ne lui indique
+                    // jamais si TAGTOA possède ses propres identifiants côté
+                    // serveur — ce n'est pas son information.
+                    'filled'   => array_map(
+                        fn ($k) => isset($mine[$k]) && $mine[$k] !== '',
+                        array_combine($keys, $keys) ?: []
+                    ),
+                ];
+            }
+        }
+
+        return [
+            'catalog'     => GatewayCatalog::split($catalog),
+            'driverSpecs' => $specs,
+            'credAnchor'  => $anchor,
+        ];
+    }
+
+    /**
+     * Enregistre les identifiants API du MARCHAND pour un driver.
+     *
+     * Mêmes règles que côté fondateur : chiffrés au repos, jamais réaffichés,
+     * un champ vide conserve la valeur existante, effacement explicite. Refusé
+     * si la passerelle n'est pas réglée en mode « le marchand encaisse » —
+     * sinon un marchand pourrait stocker des clés qui ne serviraient jamais.
+     */
+    public function saveGatewayCredentials(Request $request, string $driver): RedirectResponse
+    {
+        $config = (array) config('tagtoa.gateways.'.$driver);
+        abort_if($config === [], 404);
+        abort_unless(
+            GatewayCatalog::driverMode($driver) === GatewayCatalog::MODE_MERCHANT,
+            403,
+            __('Cette passerelle est encaissée par TAGTOA : vous n\'avez pas d\'identifiants à fournir.')
+        );
+
+        $keys = array_keys((array) ($config['credentials'] ?? []));
+        $rules = ['clear' => ['nullable', 'boolean'], 'mode' => ['nullable', Rule::in(['sandbox', 'live'])]];
+        foreach ($keys as $key) {
+            $rules['credentials.'.$key] = ['nullable', 'string', 'max:400'];
+        }
+        $data = $request->validate($rules);
+
+        $clear  = ! empty($data['clear']);
+        $record = MerchantGatewayCredential::firstOrNew([
+            'tenant_id' => Tenant::id(), 'driver' => $driver,
+        ]);
+        $record->values = GatewayCredentialFields::applySubmission(
+            (array) ($record->values ?? []),
+            $data,
+            $clear
+        );
+        $record->save();
+
+        GatewayManager::flush();
+        GatewayCatalog::flush();
+        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)->log(
+            $clear ? 'gateway.merchant_credentials_cleared' : 'gateway.merchant_credentials_updated',
+            $record,
+            $driver
+        );
+
+        return back()->with('success', $clear
+            ? __('Identifiants effacés.')
+            : __('Identifiants enregistrés. Les paiements par cette passerelle arriveront sur votre compte.'));
+    }
+
     protected function ownPage(int $id, array $with = []): PaymentPage
     {
         return PaymentPage::with($with)->where('tenant_id', Tenant::id())->findOrFail($id);
@@ -173,7 +273,7 @@ $data = $this->validatePage($request);
      */
     protected function syncMethods(PaymentPage $page, Request $request): void
     {
-        $catalog = GatewayCatalog::forMerchant();
+        $catalog = GatewayCatalog::forMerchant(Tenant::id());
         $order   = array_flip(array_keys($catalog));
 
         $rows = $request->input('methods', []);

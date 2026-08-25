@@ -36,4 +36,28 @@ abstract class TestCase extends BaseTestCase
     {
         $this->loadMigrationsFrom(__DIR__.'/../Database/migrations');
     }
+
+    /**
+     * Les caches statiques (identifiants et réglages de passerelles) vivent le
+     * temps d'une REQUÊTE en production, mais survivent d'un test à l'autre
+     * dans le même processus PHP. On les vide systématiquement pour qu'aucun
+     * test n'hérite de l'état d'un autre.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->flushTagtoaStaticCaches();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->flushTagtoaStaticCaches();
+        parent::tearDown();
+    }
+
+    private function flushTagtoaStaticCaches(): void
+    {
+        \Modules\Tagtoa\App\Support\GatewayManager::flush();
+        \Modules\Tagtoa\App\Support\Pay\GatewayCatalog::flush();
+    }
 }

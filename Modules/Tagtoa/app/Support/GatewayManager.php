@@ -12,23 +12,54 @@ namespace Modules\Tagtoa\App\Support;
  */
 class GatewayManager
 {
-    /** Identifiants saisis en base, chargés une seule fois par requête. */
+    /** Identifiants plateforme, chargés une seule fois par requête. */
     private static ?array $storedCache = null;
 
+    /** Identifiants marchand, mis en cache par tenant. */
+    private static array $merchantCache = [];
+
     /**
-     * Config effective d'un driver : config('tagtoa.gateways.{driver}')
-     * SURCHARGÉE par les identifiants saisis dans le super-admin.
+     * Config effective d'un driver, dans cet ordre de priorité :
+     *   1. config/.env du serveur
+     *   2. identifiants PLATEFORME saisis par le fondateur (super-admin)
+     *   3. identifiants du MARCHAND — uniquement si la passerelle est réglée en
+     *      mode « le marchand encaisse » et qu'un tenant est fourni.
      *
-     * C'est le seul point d'entrée des drivers vers leurs identifiants, donc
-     * les brancher ici suffit : MonCashDriver, PayPalDriver, StripeDriver et
-     * CoinPaymentsDriver reçoivent automatiquement les valeurs de la base sans
-     * être modifiés.
+     * C'est le seul point d'entrée des drivers vers leurs identifiants : les
+     * brancher ici suffit, les quatre drivers en bénéficient sans changement
+     * de logique interne.
      */
-    public static function config(string $driver): array
+    public static function config(string $driver, ?string $tenantId = null): array
     {
         $base = (array) config('tagtoa.gateways.'.$driver, []);
+        $cfg = Pay\GatewayCredentialFields::merge($base, self::stored()[$driver] ?? null);
 
-        return Pay\GatewayCredentialFields::merge($base, self::stored()[$driver] ?? null);
+        if ($tenantId !== null && Pay\GatewayCatalog::driverMode($driver) === Pay\GatewayCatalog::MODE_MERCHANT) {
+            $cfg = Pay\GatewayCredentialFields::merge($cfg, self::merchantStored($tenantId)[$driver] ?? null);
+        }
+
+        return $cfg;
+    }
+
+    /**
+     * Identifiants du marchand, tous drivers confondus. Tolérant comme la
+     * version plateforme : une table absente ne casse pas les paiements.
+     */
+    public static function merchantStored(string $tenantId): array
+    {
+        if (array_key_exists($tenantId, self::$merchantCache)) {
+            return self::$merchantCache[$tenantId];
+        }
+
+        try {
+            self::$merchantCache[$tenantId] = \Modules\Tagtoa\App\Models\Pay\MerchantGatewayCredential::query()
+                ->where('tenant_id', $tenantId)->get()
+                ->mapWithKeys(fn ($r) => [$r->driver => (array) $r->values])->all();
+        } catch (\Throwable $e) {
+            self::$merchantCache[$tenantId] = [];
+        }
+
+        return self::$merchantCache[$tenantId];
     }
 
     /**
@@ -53,16 +84,20 @@ class GatewayManager
         return self::$storedCache;
     }
 
-    /** À appeler après enregistrement dans le super-admin. */
+    /** À appeler après enregistrement d'identifiants (plateforme ou marchand). */
     public static function flush(): void
     {
         self::$storedCache = null;
+        self::$merchantCache = [];
     }
 
-    /** Un driver est « activé » si TOUTES ses clés d'identifiants sont remplies. */
-    public static function enabled(string $driver): bool
+    /**
+     * Un driver est « activé » si TOUTES ses clés d'identifiants sont remplies.
+     * Avec un tenant, on tient compte des identifiants propres au marchand.
+     */
+    public static function enabled(string $driver, ?string $tenantId = null): bool
     {
-        $creds = self::config($driver)['credentials'] ?? null;
+        $creds = self::config($driver, $tenantId)['credentials'] ?? null;
         if (! is_array($creds) || empty($creds)) {
             return false;
         }
@@ -76,11 +111,11 @@ class GatewayManager
     }
 
     /** Le type de méthode peut-il être réglé en ligne MAINTENANT ? */
-    public static function onlineAvailable(string $type): bool
+    public static function onlineAvailable(string $type, ?string $tenantId = null): bool
     {
         $driver = PaymentGateway::driver($type);
 
-        return $driver !== null && self::enabled($driver);
+        return $driver !== null && self::enabled($driver, $tenantId);
     }
 
     /** Liste des drivers actuellement activés (pour diagnostic/dashboard). */

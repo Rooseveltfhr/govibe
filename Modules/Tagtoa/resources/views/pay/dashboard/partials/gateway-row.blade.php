@@ -8,6 +8,11 @@
     $on       = $m ? (bool) $m->is_active : false;
     // Une passerelle auto réellement branchée encaisse seule : rien à saisir.
     $apiReady = ! empty($meta['online_ready']);
+    // Les identifiants du marchand se saisissent dans une section à part (ils
+    // valent pour TOUTES ses pages, pas seulement celle-ci) — ici on se
+    // contente de dire à quoi s'attendre.
+    $drv      = $meta['driver'] ?? null;
+    $ownKeys  = ! empty($meta['needs_own_keys']) && $drv ? ($driverSpecs[$drv] ?? null) : null;
 @endphp
 <div class="gwrow">
     <label class="gwhead">
@@ -32,17 +37,28 @@
         @if($apiReady)
             <p style="color:var(--muted);font-size:13px;margin-top:12px">
                 <i class="fa-solid fa-bolt" style="color:#2cb809"></i>
-                {{ __('Encaissement automatique : le client paie en ligne, aucune coordonnée à saisir ici.') }}
+                @if(! empty($meta['needs_own_keys']))
+                    {{ __('Encaissement automatique sur VOTRE compte : l\'argent arrive directement chez vous.') }}
+                @else
+                    {{ __('Encaissement automatique : le client paie en ligne, aucune coordonnée à saisir ici.') }}
+                @endif
             </p>
             <label class="lbl">{{ __('Libellé affiché') }} <span style="font-weight:400;color:var(--muted)">({{ __('optionnel') }})</span></label>
             <input name="methods[{{ $type }}][label]" class="inp" maxlength="120"
                    value="{{ old('methods.'.$type.'.label', $m->label ?? '') }}" placeholder="{{ $meta['label'] }}">
         @else
             @if($meta['mode'] === \Modules\Tagtoa\App\Support\PaymentGateway::MODE_AUTO)
-                <p style="color:#7a5200;font-size:13px;margin-top:12px">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    {{ __('Les identifiants API ne sont pas encore configurés : cette passerelle fonctionnera sur preuve manuelle en attendant.') }}
-                </p>
+                @if($ownKeys)
+                    <p style="color:#7a5200;font-size:13px;margin-top:12px">
+                        <i class="fa-solid fa-key"></i>
+                        {{ __('Branchez votre propre compte :n pour encaisser automatiquement. L\'argent ira directement chez vous — TAGTOA ne touche jamais les fonds.', ['n' => $ownKeys['label']]) }}
+                    </p>
+                @else
+                    <p style="color:#7a5200;font-size:13px;margin-top:12px">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        {{ __('Les identifiants API ne sont pas encore configurés : cette passerelle fonctionnera sur preuve manuelle en attendant.') }}
+                    </p>
+                @endif
             @endif
 
             <div class="row" style="margin-top:12px">

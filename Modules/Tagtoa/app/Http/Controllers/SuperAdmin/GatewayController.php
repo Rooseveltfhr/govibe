@@ -109,6 +109,7 @@ class GatewayController extends Controller
         $record->save();
 
         GatewayManager::flush();
+        GatewayCatalog::flush();
 
         // On journalise l'ACTION, jamais les valeurs.
         app(AuditService::class)->log(
@@ -153,6 +154,8 @@ class GatewayController extends Controller
             $touched[] = $type;
         }
 
+        GatewayCatalog::flush();
+        GatewayManager::flush();
         app(AuditService::class)->log('gateway.config_updated', null, implode(', ', $touched));
 
         return back()->with('success', __('Passerelles mises à jour.'));

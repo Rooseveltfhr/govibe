@@ -18,9 +18,9 @@ class CoinPaymentsDriver implements GatewayDriver
     protected ?string $publicKey;
     protected ?string $privateKey;
 
-    public function __construct()
+    public function __construct(?string $tenantId = null)
     {
-        $cfg = GatewayManager::config('coinpayments');
+        $cfg = GatewayManager::config('coinpayments', $tenantId);
         $this->publicKey = $cfg['credentials']['public_key'] ?? null;
         $this->privateKey = $cfg['credentials']['private_key'] ?? null;
     }

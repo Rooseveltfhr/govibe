@@ -120,6 +120,9 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/proofs/{id}/image', [PayDashboard::class, 'proofImage'])->name('proof.image');
         Route::post('/proofs/{id}/approve', [PayDashboard::class, 'approveProof'])->name('proofs.approve');
         Route::post('/proofs/{id}/reject', [PayDashboard::class, 'rejectProof'])->name('proofs.reject');
+        // Identifiants API du marchand (mode « le marchand encaisse »).
+        Route::post('/gateways/{driver}/credentials', [PayDashboard::class, 'saveGatewayCredentials'])
+            ->where('driver', '[a-z0-9_]+')->name('gateway.credentials');
     });
 
     // SITE (création de site web par abonnement)

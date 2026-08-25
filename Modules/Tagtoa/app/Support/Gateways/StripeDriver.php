@@ -18,9 +18,9 @@ class StripeDriver implements GatewayDriver
 {
     protected ?string $secret;
 
-    public function __construct()
+    public function __construct(?string $tenantId = null)
     {
-        $cfg = GatewayManager::config('stripe');
+        $cfg = GatewayManager::config('stripe', $tenantId);
         // credentials.secret = clé secrète (sk_live_… / sk_test_…).
         $this->secret = $cfg['credentials']['secret'] ?? null;
     }
