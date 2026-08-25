@@ -3,6 +3,7 @@
 namespace Modules\Agents\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
+use Modules\Agents\Console\DemoAgentCommand;
 use Nwidart\Modules\Support\ModuleServiceProvider;
 
 class AgentsServiceProvider extends ModuleServiceProvider
@@ -22,7 +23,9 @@ class AgentsServiceProvider extends ModuleServiceProvider
      *
      * @var string[]
      */
-    // protected array $commands = [];
+    protected array $commands = [
+        DemoAgentCommand::class,
+    ];
 
     /**
      * Provider classes to register.
