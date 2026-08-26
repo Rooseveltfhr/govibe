@@ -27,7 +27,9 @@ use App\Http\Controllers\ERP\CRM\ContractController;
 use App\Http\Controllers\ERP\Admin\SubscriptionController;
 use App\Http\Controllers\BootcampController;
 use App\Http\Controllers\PartenaireController;
+use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\ERP\PartenaireAdminController;
+use App\Http\Controllers\ERP\EvenementAdminController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -48,6 +50,15 @@ Route::get('/tarifs', [PageController::class, 'tarifs'])->name('tarifs');
 // Public: Service pages
 Route::get('/call-center', [PageController::class, 'callCenter'])->name('call-center');
 Route::get('/programmes', [PageController::class, 'programmes'])->name('programmes');
+
+// Public: Événements — inscription
+// /evenements/{slug} est l'URL à diffuser en publicité pour un événement.
+// La confirmation vit sous /evenements/confirmation/{slug} : deux segments,
+// donc aucune collision possible avec un slug d'événement.
+Route::get('/evenements', [EvenementController::class, 'index'])->name('evenements.index');
+Route::post('/evenements/inscription', [EvenementController::class, 'store'])->name('evenements.store');
+Route::get('/evenements/confirmation/{evenement}', [EvenementController::class, 'confirmation'])->name('evenements.confirmation');
+Route::get('/evenements/{evenement}', [EvenementController::class, 'show'])->name('evenements.show');
 
 // Public: Partenaires
 Route::get('/partenaires', [PartenaireController::class, 'index'])->name('partenaires');
@@ -234,6 +245,18 @@ Route::prefix('erp')->name('erp.')->group(function () {
             Route::post('/{partenaire}/vitrine', [PartenaireAdminController::class, 'updateVitrine'])->name('vitrine');
             Route::delete('/{partenaire}/logo', [PartenaireAdminController::class, 'destroyLogo'])->name('logo.destroy');
             Route::delete('/{partenaire}', [PartenaireAdminController::class, 'destroy'])->name('destroy');
+        });
+
+        // ── Événements ────────────────────────────────────
+        Route::prefix('evenements')->name('evenements.')->group(function () {
+            Route::get('/', [EvenementAdminController::class, 'index'])->name('index');
+            Route::post('/', [EvenementAdminController::class, 'store'])->name('store');
+            Route::put('/{evenement}', [EvenementAdminController::class, 'update'])->name('update');
+            Route::delete('/{evenement}', [EvenementAdminController::class, 'destroy'])->name('destroy');
+            Route::get('/{evenement}/reservations', [EvenementAdminController::class, 'reservations'])->name('reservations');
+            Route::get('/{evenement}/export', [EvenementAdminController::class, 'exportReservations'])->name('export');
+            Route::patch('/reservations/{reservation}/presence', [EvenementAdminController::class, 'togglePresence'])->name('presence');
+            Route::delete('/reservations/{reservation}', [EvenementAdminController::class, 'destroyReservation'])->name('reservations.destroy');
         });
 
         // ── Super Admin ───────────────────────────────────

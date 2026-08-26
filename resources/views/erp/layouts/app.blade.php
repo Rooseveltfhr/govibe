@@ -167,6 +167,14 @@
                 <i class="bi bi-calendar-check-fill icon"></i>
                 <span class="label">Réservations</span>
             </a>
+            <a href="{{ route('erp.evenements.index') }}" class="sidebar-link {{ request()->routeIs('erp.evenements.*') ? 'active' : '' }}">
+                <i class="bi bi-calendar-event-fill icon"></i>
+                <span class="label">Événements</span>
+            </a>
+            <a href="{{ route('erp.partenaires.index') }}" class="sidebar-link {{ request()->routeIs('erp.partenaires.*') ? 'active' : '' }}">
+                <i class="bi bi-people-fill icon"></i>
+                <span class="label">Partenaires</span>
+            </a>
 
             <div class="sidebar-section mt-2">Finance</div>
 
