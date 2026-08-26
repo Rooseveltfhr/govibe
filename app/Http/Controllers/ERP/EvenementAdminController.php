@@ -121,12 +121,16 @@ class EvenementAdminController extends Controller
             // BOM UTF-8 : sans lui Excel casse les accents.
             fwrite($out, "\xEF\xBB\xBF");
 
+            // Séparateur « ; » attendu par Excel en locale française.
+            // Échappement explicitement vide : c'est la règle CSV standard
+            // (guillemets doublés) et le futur défaut de PHP, dont le
+            // changement provoque sinon une dépréciation en 8.4.
             fputcsv($out, [
                 'Prénom', 'Nom', 'Email', 'WhatsApp', 'Téléphone',
                 'Pays', 'Ville', 'Commune', 'Profession', 'Sexe',
                 'Situation matrimoniale', 'Statut actuel', 'Motivation',
                 'Présence confirmée', 'Inscrit le',
-            ], ';');
+            ], ';', '"', '');
 
             // chunk : la mémoire ne dépend pas du nombre d'inscrits.
             $evenement->reservations()->orderBy('id')->chunk(200, function ($lot) use ($out) {
@@ -138,7 +142,7 @@ class EvenementAdminController extends Controller
                         $r->motivation,
                         $r->presence_confirmee ? 'Oui' : 'Non',
                         $r->created_at->format('d/m/Y H:i'),
-                    ], ';');
+                    ], ';', '"', '');
                 }
             });
 
