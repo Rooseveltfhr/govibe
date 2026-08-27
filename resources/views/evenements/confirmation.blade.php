@@ -4,7 +4,17 @@
 @section('description', 'Votre inscription à ' . $evenement->titre . ' est enregistrée.')
 
 @section('head')
+@php
+  $accent = $evenement->couleur_accent;
+  $accentDark = $evenement->couleur_foncee;
+  $accentRgb = $evenement->couleur_rgb;
+@endphp
 <style>
+  :root {
+    --ev-accent: {{ $accent }};
+    --ev-accent-dark: {{ $accentDark }};
+    --ev-accent-rgb: {{ $accentRgb }};
+  }
   .cf-section {
     background:linear-gradient(135deg,#0a0000 0%,#1a0004 55%,#050505 100%);
     min-height:calc(100vh - 140px);
@@ -13,7 +23,7 @@
   }
   .cf-section::before {
     content:''; position:absolute; inset:0;
-    background:radial-gradient(ellipse 55% 60% at 50% 35%,rgba(220,38,38,.15) 0%,transparent 70%);
+    background:radial-gradient(ellipse 55% 60% at 50% 35%,rgba(var(--ev-accent-rgb),.15) 0%,transparent 70%);
   }
   .cf-card {
     position:relative; z-index:1; max-width:620px; width:100%; text-align:center;
@@ -22,19 +32,29 @@
   }
   .cf-check {
     width:76px; height:76px; border-radius:50%; margin:0 auto 1.6rem;
-    background:linear-gradient(135deg,#DC2626,#991b1b);
+    background:linear-gradient(135deg,var(--ev-accent),var(--ev-accent-dark));
     display:flex; align-items:center; justify-content:center;
-    font-size:2rem; color:#fff; box-shadow:0 0 40px rgba(220,38,38,.45);
+    font-size:2rem; color:#fff; box-shadow:0 0 40px rgba(var(--ev-accent-rgb),.45);
   }
   .cf-card h1 {
     font-family:'Anton',sans-serif; font-size:clamp(1.6rem,4.5vw,2.4rem);
     color:#fff; margin-bottom:.7rem; letter-spacing:.02em;
   }
   .cf-event {
-    display:inline-block; color:#DC2626; font-weight:700;
+    display:inline-block; color:var(--ev-accent); font-weight:700;
     font-size:1.05rem; margin-bottom:1.2rem;
   }
   .cf-card p.lead { color:rgba(255,255,255,.7); line-height:1.8; font-size:.96rem; }
+
+  /* Anton sur les éléments de style ; le récapitulatif et le texte courant
+     gardent la police de lecture. */
+  .cf-event, .cf-btn-wa, .cf-btn-ghost, .cf-recap-row .k {
+    font-family:'Anton',sans-serif; font-weight:400;
+  }
+  .cf-event { letter-spacing:.06em; font-size:1.15rem; }
+  .cf-btn-wa { letter-spacing:.06em; font-size:1.05rem; }
+  .cf-btn-ghost { letter-spacing:.05em; }
+  .cf-recap-row .k { letter-spacing:.05em; font-size:.84rem; }
 
   .cf-recap {
     text-align:left; background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.08);
@@ -51,7 +71,7 @@
   .cf-actions { display:flex; flex-direction:column; gap:.8rem; margin-top:1.8rem; }
   .cf-btn-wa {
     display:inline-flex; align-items:center; justify-content:center; gap:.6rem;
-    background:linear-gradient(135deg,#DC2626,#991b1b); color:#fff;
+    background:linear-gradient(135deg,var(--ev-accent),var(--ev-accent-dark)); color:#fff;
     font-weight:700; font-size:1rem; padding:.95rem 1.6rem;
     border-radius:50px; transition:opacity .2s, transform .2s;
   }

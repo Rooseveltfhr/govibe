@@ -13,7 +13,7 @@ class Evenement extends Model
 
     protected $fillable = [
         'titre', 'slug', 'sous_titre', 'description', 'lieu',
-        'date_debut', 'date_fin', 'whatsapp_group_url',
+        'date_debut', 'date_fin', 'whatsapp_group_url', 'couleur',
         'actif', 'inscriptions_ouvertes', 'ordre',
     ];
 
@@ -59,6 +59,43 @@ class Evenement extends Model
         }
 
         return $slug;
+    }
+
+    /**
+     * Couleur d'accent, avec repli sur le rouge de marque si le champ est vide
+     * ou ne contient pas un hexadécimal valide.
+     */
+    public function getCouleurAccentAttribute(): string
+    {
+        $c = $this->couleur;
+
+        return (is_string($c) && preg_match('/^#[0-9a-fA-F]{6}$/', $c)) ? $c : '#DC2626';
+    }
+
+    /**
+     * Variante assombrie de la couleur d'accent, pour les dégradés et les
+     * survols. Évite de stocker deux couleurs à maintenir en cohérence.
+     */
+    public function getCouleurFonceeAttribute(): string
+    {
+        $hex = ltrim($this->couleur_accent, '#');
+
+        $rgb = array_map(
+            fn ($c) => (int) round(hexdec($c) * 0.72),
+            str_split($hex, 2)
+        );
+
+        return sprintf('#%02x%02x%02x', ...$rgb);
+    }
+
+    /**
+     * Composantes « r, g, b » pour les rgba() des fonds translucides.
+     */
+    public function getCouleurRgbAttribute(): string
+    {
+        $hex = ltrim($this->couleur_accent, '#');
+
+        return implode(', ', array_map(fn ($c) => hexdec($c), str_split($hex, 2)));
     }
 
     public function getDatesLibelleAttribute(): ?string

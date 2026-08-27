@@ -160,6 +160,9 @@ class EvenementAdminController extends Controller
             'date_debut' => 'nullable|date',
             'date_fin'   => 'nullable|date|after_or_equal:date_debut',
             'whatsapp_group_url' => 'nullable|url|max:255',
+            // Hexadécimal strict : la valeur est injectée telle quelle dans le
+            // CSS de la page publique.
+            'couleur'    => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'actif'      => 'nullable|boolean',
             'inscriptions_ouvertes' => 'nullable|boolean',
             'ordre'      => 'nullable|integer|min:0|max:9999',
@@ -167,6 +170,7 @@ class EvenementAdminController extends Controller
             'titre.required'   => 'Le titre est obligatoire.',
             'date_fin.after_or_equal' => 'La date de fin ne peut pas précéder la date de début.',
             'whatsapp_group_url.url'  => 'Le lien du groupe doit être une URL complète (https://…).',
+            'couleur.regex'           => 'La couleur doit être un code hexadécimal (#RRGGBB).',
         ]);
 
         // Une case décochée n'est pas envoyée : sans ces valeurs explicites,

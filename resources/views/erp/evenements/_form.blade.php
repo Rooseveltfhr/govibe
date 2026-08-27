@@ -65,7 +65,18 @@
     <p class="text-xs text-gray-400 mt-1">Affiché sur le bouton « Rejoindre le groupe », après l'inscription et sur la page de l'événement.</p>
 </div>
 
-<div class="grid gap-4 mt-4 items-end" style="grid-template-columns: repeat(3,1fr);">
+<div class="grid gap-4 mt-4 items-end" style="grid-template-columns: repeat(4,1fr);">
+    <div>
+        <label for="{{ $p }}couleur" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+            Couleur de la page
+        </label>
+        <div class="flex items-center gap-2">
+            <input type="color" id="{{ $p }}couleur" name="couleur"
+                   value="{{ old('couleur', $evenement->couleur ?? '#DC2626') }}"
+                   class="h-9 w-12 rounded border border-gray-200 dark:border-slate-600 cursor-pointer bg-transparent p-0">
+            <span class="text-xs text-gray-400">Accent du formulaire</span>
+        </div>
+    </div>
     <div>
         <label for="{{ $p }}ordre" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Ordre d'affichage</label>
         <input type="number" id="{{ $p }}ordre" name="ordre" min="0" max="9999"
