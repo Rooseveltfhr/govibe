@@ -28,6 +28,23 @@
   }
   .ev-hero-inner { position:relative; z-index:1; max-width:820px; margin:0 auto; text-align:center; }
 
+  /* En-tête avec visuel : deux colonnes, le texte à gauche. Le flyer n'est
+     jamais un fond — le titre resterait illisible et disparaîtrait au
+     redimensionnement. Les deux blocs se replient l'un sous l'autre. */
+  .ev-hero-flyer-layout {
+    position:relative; z-index:1; max-width:1120px; margin:0 auto;
+    display:grid; grid-template-columns:1fr minmax(0,420px);
+    gap:3rem; align-items:center; text-align:left;
+  }
+  .ev-hero-flyer-layout .ev-meta { justify-content:flex-start; }
+  .ev-hero-flyer-layout .ev-subtitle,
+  .ev-hero-flyer-layout .lead { margin-left:0; margin-right:0; }
+  .ev-flyer {
+    width:100%; height:auto; display:block; border-radius:16px;
+    box-shadow:0 24px 60px rgba(0,0,0,.5);
+    border:1px solid rgba(255,255,255,.12);
+  }
+
   /* Anton sur les éléments de style : titres, intitulés, boutons. Les champs
      de saisie et les paragraphes gardent la police de lecture — Anton est un
      display, illisible sur du texte long ou dans un input. */
@@ -133,12 +150,28 @@
   }
   .ev-group-link:hover { background:var(--ev-accent); color:#fff; }
 
+  /* Sous 980px la colonne du flyer devient trop étroite pour rester lisible :
+     on repasse en pile, texte d'abord — c'est lui qui porte l'information. */
+  @media (max-width:980px) {
+    .ev-hero-flyer-layout {
+      grid-template-columns:1fr; gap:2.2rem; text-align:center; max-width:640px;
+    }
+    .ev-hero-flyer-layout .ev-meta { justify-content:center; }
+    .ev-hero-flyer-layout .ev-subtitle,
+    .ev-hero-flyer-layout .lead { margin-left:auto; margin-right:auto; }
+    /* Le flyer ne doit pas repousser le formulaire hors de l'écran. */
+    .ev-flyer { max-width:380px; margin:0 auto; }
+  }
   @media (max-width:768px) {
     .ev-hero { padding:80px 1.2rem 50px; }
     .ev-section { padding:44px 1rem; }
     .ev-card { padding:1.6rem 1.2rem; }
     .ev-row, .ev-row-3 { grid-template-columns:1fr; gap:0; }
     .ev-meta { gap:1rem; }
+    .ev-flyer { max-width:300px; }
+  }
+  @media (max-width:480px) {
+    .ev-flyer { max-width:240px; }
   }
 </style>
 @endsection
@@ -151,27 +184,43 @@
 @endphp
 
 <section class="ev-hero">
-  <div class="ev-hero-inner">
-    <span class="ev-tag">Inscription</span>
+  {{-- Le visuel n'apparaît que s'il existe : sans lui, l'en-tête garde sa
+       mise en page centrée d'origine. --}}
+  <div class="{{ $vedette?->flyer_url ? 'ev-hero-flyer-layout' : 'ev-hero-inner' }}">
 
-    @if ($vedette)
-      <h1>{{ $vedette->titre }}</h1>
-      @if ($vedette->sous_titre)
-        <p class="ev-subtitle">{{ $vedette->sous_titre }}</p>
+    <div>
+      <span class="ev-tag">Inscription</span>
+
+      @if ($vedette)
+        <h1>{{ $vedette->titre }}</h1>
+        @if ($vedette->sous_titre)
+          <p class="ev-subtitle">{{ $vedette->sous_titre }}</p>
+        @endif
+        <div class="ev-meta">
+          @if ($vedette->dates_libelle)
+            <span class="ev-meta-item"><i class="fas fa-calendar-day"></i> {{ $vedette->dates_libelle }}</span>
+          @endif
+          @if ($vedette->lieu)
+            <span class="ev-meta-item"><i class="fas fa-map-marker-alt"></i> {{ $vedette->lieu }}</span>
+          @endif
+          <span class="ev-meta-item"><i class="fas fa-user-check"></i> Inscription gratuite</span>
+        </div>
+      @else
+        <h1>Nos <span>événements</span></h1>
+        <p class="lead">Aucun événement n'est ouvert aux inscriptions pour le moment. Revenez bientôt.</p>
       @endif
-      <div class="ev-meta">
-        @if ($vedette->dates_libelle)
-          <span class="ev-meta-item"><i class="fas fa-calendar-day"></i> {{ $vedette->dates_libelle }}</span>
-        @endif
-        @if ($vedette->lieu)
-          <span class="ev-meta-item"><i class="fas fa-map-marker-alt"></i> {{ $vedette->lieu }}</span>
-        @endif
-        <span class="ev-meta-item"><i class="fas fa-user-check"></i> Inscription gratuite</span>
+    </div>
+
+    @if ($vedette?->flyer_url)
+      <div>
+        {{-- width/height figés : réservent la place avant le chargement et
+             évitent que le texte saute quand l'image arrive. --}}
+        <img src="{{ $vedette->flyer_url }}"
+             alt="Affiche de {{ $vedette->titre }}"
+             class="ev-flyer" width="1040" height="1472" loading="eager">
       </div>
-    @else
-      <h1>Nos <span>événements</span></h1>
-      <p class="lead">Aucun événement n'est ouvert aux inscriptions pour le moment. Revenez bientôt.</p>
     @endif
+
   </div>
 </section>
 

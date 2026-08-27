@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Evenement;
 use App\Models\EvenementReservation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EvenementAdminController extends Controller
@@ -32,6 +33,7 @@ class EvenementAdminController extends Controller
         $data = $this->valider($request);
 
         $data['slug'] = Evenement::genererSlug($data['titre']);
+        $data = $this->gererFlyer($request, $data, null);
         Evenement::create($data);
 
         return back()->with('success', 'Événement créé. Son formulaire est en ligne.');
@@ -47,6 +49,7 @@ class EvenementAdminController extends Controller
             $data['slug'] = Evenement::genererSlug($data['titre'], $evenement->id);
         }
 
+        $data = $this->gererFlyer($request, $data, $evenement);
         $evenement->update($data);
 
         return back()->with('success', 'Événement mis à jour.');
@@ -150,6 +153,29 @@ class EvenementAdminController extends Controller
         }, $nomFichier, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
+    /**
+     * Téléversement de l'affiche. Sans nouveau fichier, la valeur existante
+     * est laissée intacte : « enregistrer » ne doit pas effacer l'affiche.
+     */
+    private function gererFlyer(Request $request, array $data, ?Evenement $evenement): array
+    {
+        if (! $request->hasFile('flyer')) {
+            unset($data['flyer']);
+
+            return $data;
+        }
+
+        // L'ancien fichier n'est supprimé que s'il vivait sur le disque public :
+        // les visuels livrés avec le dépôt ne sont pas à nous.
+        if ($evenement?->flyer && Storage::disk('public')->exists($evenement->flyer)) {
+            Storage::disk('public')->delete($evenement->flyer);
+        }
+
+        $data['flyer'] = $request->file('flyer')->store('evenements', 'public');
+
+        return $data;
+    }
+
     private function valider(Request $request): array
     {
         $data = $request->validate([
@@ -163,6 +189,9 @@ class EvenementAdminController extends Controller
             // Hexadécimal strict : la valeur est injectée telle quelle dans le
             // CSS de la page publique.
             'couleur'    => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            // mimes en plus de « image » : écarte le SVG, qui peut porter du
+            // script exécuté par le navigateur des visiteurs.
+            'flyer'      => 'nullable|image|mimes:jpeg,jpg,png,webp|max:4096',
             'actif'      => 'nullable|boolean',
             'inscriptions_ouvertes' => 'nullable|boolean',
             'ordre'      => 'nullable|integer|min:0|max:9999',
@@ -171,6 +200,9 @@ class EvenementAdminController extends Controller
             'date_fin.after_or_equal' => 'La date de fin ne peut pas précéder la date de début.',
             'whatsapp_group_url.url'  => 'Le lien du groupe doit être une URL complète (https://…).',
             'couleur.regex'           => 'La couleur doit être un code hexadécimal (#RRGGBB).',
+            'flyer.image'             => "L'affiche doit être une image (JPG, PNG ou WEBP).",
+            'flyer.mimes'             => 'Formats acceptés : JPG, PNG, WEBP.',
+            'flyer.max'               => "L'affiche ne doit pas dépasser 4 Mo.",
         ]);
 
         // Une case décochée n'est pas envoyée : sans ces valeurs explicites,

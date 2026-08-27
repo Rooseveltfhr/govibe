@@ -55,6 +55,22 @@
 </div>
 
 <div class="mt-4">
+    <label for="{{ $p }}flyer" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+        Affiche de l'événement (JPG, PNG, WEBP — max 4 Mo)
+    </label>
+    @if ($evenement?->flyer_url)
+        <div class="flex items-center gap-3 mb-2">
+            <img src="{{ $evenement->flyer_url }}" alt=""
+                 class="w-14 rounded border border-gray-200 dark:border-slate-600 bg-white">
+            <span class="text-xs text-gray-400">Affiche actuelle. Choisir un fichier la remplace.</span>
+        </div>
+    @endif
+    <input type="file" id="{{ $p }}flyer" name="flyer" accept="image/jpeg,image/png,image/webp"
+           class="w-full text-xs text-gray-600 dark:text-gray-300 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:bg-red-50 file:text-red-600 hover:file:bg-red-100">
+    <p class="text-xs text-gray-400 mt-1">Affichée dans l'en-tête, à côté du titre. Format portrait recommandé.</p>
+</div>
+
+<div class="mt-4">
     <label for="{{ $p }}whatsapp" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
         Lien du groupe WhatsApp
     </label>
