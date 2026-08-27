@@ -55,7 +55,7 @@
     </button>
 
     <div x-show="ouvert" x-cloak class="px-5 pb-5 border-t border-gray-100 dark:border-slate-700 pt-4">
-        <form method="POST" action="{{ route('erp.evenements.store') }}">
+        <form method="POST" action="{{ route('erp.evenements.store') }}" enctype="multipart/form-data">
             @csrf
             @include('erp.evenements._form', ['evenement' => null])
             <button type="submit" class="btn-primary mt-4">
@@ -135,7 +135,7 @@
                 </div>
 
                 <div x-show="edition" x-cloak class="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700">
-                    <form method="POST" action="{{ route('erp.evenements.update', $ev) }}">
+                    <form method="POST" action="{{ route('erp.evenements.update', $ev) }}" enctype="multipart/form-data">
                         @csrf @method('PUT')
                         @include('erp.evenements._form', ['evenement' => $ev])
                         <div class="flex gap-2 mt-4">
