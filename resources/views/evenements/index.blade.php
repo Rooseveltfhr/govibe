@@ -52,6 +52,17 @@
     color:#fff; line-height:1.1; margin-bottom:1rem; letter-spacing:.02em;
   }
   .ev-hero h1 span { color:var(--ev-accent); }
+
+  /* Le sous-titre reprend le traitement du titre : même police, même couleur.
+     Taille réduite pour que la hiérarchie tienne — deux lignes de même corps
+     se disputeraient l'attention. */
+  .ev-subtitle {
+    font-family:'Anton',sans-serif; font-weight:400;
+    font-size:clamp(1.05rem,2.8vw,1.65rem);
+    color:#fff; line-height:1.3; letter-spacing:.03em;
+    max-width:680px; margin:0 auto;
+  }
+
   .ev-hero .lead { color:rgba(255,255,255,.72); font-size:1.02rem; line-height:1.75; max-width:640px; margin:0 auto; }
   .ev-meta { display:flex; justify-content:center; gap:1.6rem; flex-wrap:wrap; margin-top:1.8rem; }
   .ev-meta-item { display:flex; align-items:center; gap:.45rem; color:rgba(255,255,255,.6); font-size:.86rem; }
@@ -146,7 +157,7 @@
     @if ($vedette)
       <h1>{{ $vedette->titre }}</h1>
       @if ($vedette->sous_titre)
-        <p class="lead">{{ $vedette->sous_titre }}</p>
+        <p class="ev-subtitle">{{ $vedette->sous_titre }}</p>
       @endif
       <div class="ev-meta">
         @if ($vedette->dates_libelle)
