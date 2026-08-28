@@ -1,0 +1,85 @@
+name: Deploy GOVIBE AI (louvia)
+
+# Premye etap: DYAGNOSTIK sèlman (li sèvè a, pa touche anyen). Menm VPS ak
+# tagtoa.com — menm secrets (VPS_HOST/VPS_USER/VPS_SSH_KEY/VPS_PORT), men yon
+# lòt aplikasyon (govibe-ai/) sou yon lòt sou-domèn (louvia.govibeht.com).
+# Deplwaman reyèl la ap vini nan yon workflow apa, apre nou konnen estrikti
+# reyèl anba sou-domèn nan (pou nou pa repete erè .env ekspoze piblik la).
+on:
+  workflow_dispatch:
+    inputs:
+      subdomain:
+        description: "Sou-domèn pou enspekte"
+        type: string
+        default: "louvia.govibeht.com"
+
+jobs:
+  diagnose:
+    name: Enspekte estrikti sèvè a (lekti sèl, pa touche anyen)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh-keyscan -p "$PORT" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Enspekte
+        env:
+          SUBDOMAIN: ${{ inputs.subdomain }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "SUBDOMAIN='$SUBDOMAIN' bash -s" <<'EOSSH'
+          set -uo pipefail
+          SUB="${SUBDOMAIN%%.*}"          # "louvia"
+          ROOT="${SUBDOMAIN#*.}"          # "govibeht.com"
+
+          echo "=== Idantite & anviwònman ==="
+          whoami; pwd; echo "HOME=$HOME"
+          php -v 2>/dev/null | head -1 || echo "php: pa jwenn"
+          php -m 2>/dev/null | grep -iE "pdo_sqlite|pdo_mysql|mbstring|curl|zip" || true
+          composer --version 2>/dev/null || echo "composer global: pa jwenn"
+          echo
+
+          echo "=== Rechèch dosye pou dwmèn/sou-domèn '$SUBDOMAIN' / '$ROOT' ==="
+          for base in /home/*/domains "$HOME/domains"; do
+            [ -d "$base" ] || continue
+            echo "--- $base ---"; ls -la "$base" 2>/dev/null
+          done
+          echo
+
+          echo "=== Chemen kandida ==="
+          for p in \
+            "/home/"*"/domains/$ROOT/public_html/$SUB" \
+            "/home/"*"/domains/$SUBDOMAIN" \
+            "/home/"*"/domains/$SUBDOMAIN/public_html" \
+            "$HOME/domains/$ROOT/public_html/$SUB" \
+            "$HOME/domains/$SUBDOMAIN" \
+            "$HOME/domains/$SUBDOMAIN/public_html" \
+          ; do
+            for m in $p; do
+              [ -e "$m" ] || continue
+              echo "--- $m ---"
+              ls -la "$m" 2>/dev/null | head -20
+              df -h "$m" 2>/dev/null | tail -1
+              echo
+            done
+          done
+
+          echo "=== DocumentRoot deklare (si li lizib) ==="
+          grep -rhi "documentroot" /usr/local/directadmin/data/users/*/httpd.conf 2>/dev/null | grep -i "$ROOT" || \
+            echo "(pa jwenn nan httpd.conf DirectAdmin — nòmal si pa gen aksè lekti)"
+
+          echo "=== Espas disk jeneral ==="
+          df -h "$HOME" 2>/dev/null || true
+          EOSSH
+
+      - name: Rezime
+        run: |
+          echo "Si ou wè yon dosye ki egziste men vid pou sou-domèn nan pi wo a,"
+          echo "sa vle di sou-domèn nan kreye men aplikasyon an poko deplwaye —"
+          echo "pwochen etap la se yon dezyèm workflow ki mete govibe-ai/ la"
+          echo "an sekirite (app andeyò rasin piblik la, .env pa aksesib)."
