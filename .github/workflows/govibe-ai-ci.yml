@@ -1,0 +1,73 @@
+name: govibe-ai CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "govibe-ai/**"
+      - ".github/workflows/govibe-ai-ci.yml"
+  pull_request:
+    paths:
+      - "govibe-ai/**"
+      - ".github/workflows/govibe-ai-ci.yml"
+  # Deklanchman manyèl: kòd govibe-ai/ a viv sou yon branch travay, epi
+  # deklanchè `pull_request` la PA tire lè PR a gen konfli (GitHub pa ka
+  # bati refs/pull/N/merge). San sa, pa gen okenn fason pou verifye yon
+  # branch travay — se sa ki te kite yon composer.lock ki mande PHP 8.4
+  # rive jouk sou sèvè a.
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch pou teste"
+        type: string
+        default: "claude/govibe-ai-architecture-kyhgvp"
+
+defaults:
+  run:
+    working-directory: govibe-ai
+
+jobs:
+  ci:
+    name: Lint + analyse + tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+
+      # 8.3 = vèsyon ki sou sèvè pwodiksyon an (louvia.govibeht.com).
+      # CI te sou 8.4: se poutèt sa yon composer.lock ki mande PHP >= 8.4.1
+      # te pase CI epi kraze sou premye deplwaman an. CI dwe teste sou menm
+      # vèsyon ak sèvè a, sinon li pa pwoteje kont anyen.
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: intl, zip, bcmath, pcntl, pdo_sqlite
+          coverage: none
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-govibe-ai-${{ hashFiles('govibe-ai/composer.lock') }}
+          restore-keys: composer-govibe-ai-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Code style (Pint)
+        run: vendor/bin/pint --test
+
+      - name: Static analysis (PHPStan)
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
+      - name: Prepare app
+        run: cp .env.example .env && php artisan key:generate
+
+      - name: Tests (Pest)
+        run: vendor/bin/pest --ci
