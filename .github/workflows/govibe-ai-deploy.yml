@@ -303,6 +303,41 @@ jobs:
           echo "--- .env pa dwe nan docroot la ---"
           if [ -f "$PUB/.env" ]; then echo "!! DANJE: .env nan docroot !!"; exit 1; fi
           echo "OK: pa gen .env nan docroot"
+
+          # --- Tès SOU SÈVÈ A menm (127.0.0.1 + antèt Host).
+          # Tès depi deyò a pa ka di nou anyen: san sètifika SSL, HTTP la
+          # bay yon 301 nan direksyon HTTPS ki kase — kidonk ni paj la ni
+          # kontwòl .env la pa verifye anyen. Isit la nou frape Apache
+          # dirèkteman: pa gen DNS, pa gen TLS, pa gen redireksyon —
+          # yon vrè repons ki soti nan aplikasyon an.
+          echo "==> Tès lokal (127.0.0.1, antèt Host: $SUBDOMAIN)"
+          lprobe() {
+            local out
+            out=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
+                  -H "Host: $SUBDOMAIN" "http://127.0.0.1$1" 2>/dev/null)
+            [ -n "$out" ] || out=000
+            printf '%s' "$out"
+          }
+          HOME_CODE=$(lprobe "/")
+          ENV_CODE=$(lprobe "/.env")
+          echo "  /      -> $HOME_CODE"
+          echo "  /.env  -> $ENV_CODE"
+
+          if [ "$ENV_CODE" = "200" ]; then
+            echo "!! DANJE: .env sèvi sou entènèt la (kòd 200) !!"
+            exit 1
+          fi
+
+          case "$HOME_CODE" in
+            200|30*) echo "OK: aplikasyon an reponn ($HOME_CODE)";;
+            5*) echo "!! Aplikasyon an deplwaye men li kraze ($HOME_CODE) — 30 dènye liy log la:"
+                tail -30 storage/logs/laravel.log 2>/dev/null || echo "(pa gen log)"
+                exit 1;;
+            000) echo "!! Apache pa reponn lokalman — konfigirasyon vhost la ka poko pare."
+                 exit 1;;
+            *) echo "!! Kòd ki pa atann: $HOME_CODE"; exit 1;;
+          esac
+
           echo "DEPLOY_OK"
           EOSSH
 
@@ -349,9 +384,15 @@ jobs:
             exit 1
           fi
 
+          # NÒT: verifikasyon ki fè lwa a fèt SOU SÈVÈ A (etap anvan an),
+          # paske li frape Apache dirèkteman. Tès depi deyò a enfòmatif
+          # toutotan SSL la poko bay: yon 301 HTTP->HTTPS pa pwouve ni
+          # aplikasyon an mache, ni .env pwoteje.
           case "$CODE" in
-            2*|3*) echo "✓ Sit la reponn ($CODE).";;
-            000) echo "::error::Sit la pa reponn ni sou HTTPS ni sou HTTP. Tcheke DNS ak docroot la."; exit 1;;
-            5*)  echo "::error::Sit la bay yon erè sèvè ($CODE) — app la deplwaye men li kraze. Gade laravel/storage/logs/laravel.log."; exit 1;;
-            *)   echo "::error::Sit la reponn ak yon kòd ki pa atann ($CODE)."; exit 1;;
+            2*)  echo "✓ Sit la reponn depi deyò ($CODE).";;
+            3*)  echo "::warning::Depi deyò nou jwenn yon redireksyon ($CODE) — pwobableman HTTP->HTTPS. Sa pa pwouve anyen toutotan sètifika SSL la poko bay. Verifikasyon reyèl la fèt sou sèvè a."
+                 echo "  (tès lokal la nan etap anvan an se sa ki konte)";;
+            5*)  echo "::error::Sit la bay yon erè sèvè ($CODE)."; exit 1;;
+            000) echo "::warning::Pa gen repons depi deyò (ni HTTPS ni HTTP). Tcheke DNS ak sètifika SSL la.";;
+            *)   echo "::warning::Kòd ki pa atann depi deyò ($CODE).";;
           esac
