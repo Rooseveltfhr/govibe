@@ -83,10 +83,10 @@ jobs:
           php -m 2>/dev/null | grep -iE "pdo_sqlite|pdo_mysql|mbstring|curl|zip|openssl" | tr '\n' ' '; echo
           composer --version 2>/dev/null || echo "composer: pa jwenn"
           echo
-          # composer.lock pinnen Symfony 8.1 => PHP >= 8.4.1 obligatwa.
-          echo "=== Tout PHP ki sou sèvè a (nou bezwen >= 8.4.1) ==="
+          # composer.json mande `php: ^8.3`; lock la rezoud kont 8.3.
+          echo "=== Tout PHP ki sou sèvè a (nou bezwen >= 8.3) ==="
           for c in /usr/local/php*/bin/php /opt/alt/php*/usr/bin/php /usr/local/bin/php8* \
-                   $(command -v php php8.4 php84 2>/dev/null); do
+                   $(command -v php php8.4 php84 php8.3 php83 2>/dev/null); do
             [ -x "$c" ] || continue
             echo "  $c -> $("$c" -r 'echo PHP_VERSION;' 2>/dev/null || echo '?')"
           done
@@ -151,29 +151,35 @@ jobs:
           PUB="$DOMAIN/public_html"
           cd "$APP" || exit 1
 
-          # --- Chwazi yon PHP ki ase resan.
-          # `php` pa defo a se 8.3.33, men composer.lock pinnen Symfony 8.1 ki
-          # egzije PHP >= 8.4.1. Sou DirectAdmin plizyè vèsyon PHP ap viv
-          # ansanm — nou chèche youn ki bon olye nou fòse ak
-          # --ignore-platform-reqs (sa ta enstale kòd ki pa ka kouri).
+          # --- Chwazi yon PHP ki satisfè composer.json (`php: ^8.3`).
+          # `php` pa defo a se 8.3.33. composer.lock rezoud kounye a kont
+          # PHP 8.3 (config.platform.php) => Laravel 13.29 + Symfony 7.4,
+          # kidonk 8.3 ase. Sou DirectAdmin plizyè vèsyon PHP ap viv ansanm:
+          # nou pran yon binè ki bon olye nou fòse ak --ignore-platform-reqs
+          # (sa ta enstale kòd ki pa ka kouri, epi echèk la ta parèt an
+          # pwodiksyon olye isit la).
           echo "==> PHP disponib sou sèvè a"
-          ls -1 /usr/local/php*/bin/php /opt/alt/php*/usr/bin/php /usr/local/bin/php8* 2>/dev/null || true
-          command -v php php8.4 php84 2>/dev/null || true
+          for c in /usr/local/php*/bin/php /opt/alt/php*/usr/bin/php \
+                   $(command -v php php8.4 php84 php8.3 php83 2>/dev/null); do
+            [ -x "$c" ] && echo "  $c -> $("$c" -r 'echo PHP_VERSION;' 2>/dev/null || echo '?')"
+          done
 
+          # Pi resan an dabò: si yon jou 8.4 vin enstale, nou pwofite l
+          # otomatikman san chanje anyen isit la.
           PHP_BIN=""
-          for cand in /usr/local/php84/bin/php /opt/alt/php84/usr/bin/php \
-                      /usr/local/bin/php8.4 /usr/local/bin/php84 \
-                      php8.4 php84 php; do
+          for cand in /usr/local/php84/bin/php /opt/alt/php84/usr/bin/php php8.4 php84 \
+                      /usr/local/php83/bin/php /opt/alt/php83/usr/bin/php php8.3 php83 \
+                      php; do
             c=$(command -v "$cand" 2>/dev/null || { [ -x "$cand" ] && echo "$cand"; })
             [ -n "$c" ] || continue
-            if "$c" -r 'exit(PHP_VERSION_ID >= 80401 ? 0 : 1);' 2>/dev/null; then
+            if "$c" -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);' 2>/dev/null; then
               PHP_BIN="$c"; break
             fi
           done
 
           if [ -z "$PHP_BIN" ]; then
-            echo "::error::Pa gen PHP >= 8.4.1 sou sèvè a. composer.lock (Symfony 8.1 / Laravel 13.20) egzije l."
-            echo "Solisyon: aktive PHP 8.4 pou domèn nan nan DirectAdmin, oswa enstale l ak custombuild."
+            echo "::error::Pa gen PHP >= 8.3 sou sèvè a — composer.json mande ^8.3."
+            echo "Solisyon: aktive PHP 8.3 (oswa pi wo) pou domèn nan nan DirectAdmin."
             exit 1
           fi
           echo "==> PHP chwazi: $PHP_BIN ($("$PHP_BIN" -r 'echo PHP_VERSION;'))"
