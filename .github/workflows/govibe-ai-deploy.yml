@@ -312,7 +312,16 @@ jobs:
           SUBDOMAIN: ${{ inputs.subdomain }}
         run: |
           set -uo pipefail
-          probe() { curl -sS -o /dev/null -w '%{http_code}' -L --max-time 30 "$1" 2>/dev/null || echo 000; }
+          # curl EKRI deja "000" via -w lè koneksyon an echwe, EPI li sòti ak
+          # yon kòd erè. Yon `|| echo 000` t ap kole yon dezyèm "000" => "000000",
+          # ki pa matche okenn tès epi ki te anpeche chit sou HTTP la fèt.
+          # Kidonk: nou pran sa curl ekri a, epi nou ranplase l sèlman si li vid.
+          probe() {
+            local out
+            out=$(curl -sS -o /dev/null -w '%{http_code}' -L --max-time 30 "$1" 2>/dev/null)
+            [ -n "$out" ] || out=000
+            printf '%s' "$out"
+          }
 
           # Sou-domèn nan ka poko gen sètifika SSL. Sa PA yon rezon pou di
           # aplikasyon an pa mache — nou tonbe sou HTTP pou tès la ka di nou
