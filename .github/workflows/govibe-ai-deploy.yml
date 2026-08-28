@@ -79,9 +79,17 @@ jobs:
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "DOMAIN='$DOMAIN' bash -s" <<'EOSSH'
           set -uo pipefail
           echo "=== Anviwònman ==="
-          php -v 2>/dev/null | head -1
+          echo "php pa defo : $(php -v 2>/dev/null | head -1)"
           php -m 2>/dev/null | grep -iE "pdo_sqlite|pdo_mysql|mbstring|curl|zip|openssl" | tr '\n' ' '; echo
           composer --version 2>/dev/null || echo "composer: pa jwenn"
+          echo
+          # composer.lock pinnen Symfony 8.1 => PHP >= 8.4.1 obligatwa.
+          echo "=== Tout PHP ki sou sèvè a (nou bezwen >= 8.4.1) ==="
+          for c in /usr/local/php*/bin/php /opt/alt/php*/usr/bin/php /usr/local/bin/php8* \
+                   $(command -v php php8.4 php84 2>/dev/null); do
+            [ -x "$c" ] || continue
+            echo "  $c -> $("$c" -r 'echo PHP_VERSION;' 2>/dev/null || echo '?')"
+          done
           echo
           echo "=== $DOMAIN ==="
           ls -la "$DOMAIN" 2>/dev/null
@@ -143,6 +151,45 @@ jobs:
           PUB="$DOMAIN/public_html"
           cd "$APP" || exit 1
 
+          # --- Chwazi yon PHP ki ase resan.
+          # `php` pa defo a se 8.3.33, men composer.lock pinnen Symfony 8.1 ki
+          # egzije PHP >= 8.4.1. Sou DirectAdmin plizyè vèsyon PHP ap viv
+          # ansanm — nou chèche youn ki bon olye nou fòse ak
+          # --ignore-platform-reqs (sa ta enstale kòd ki pa ka kouri).
+          echo "==> PHP disponib sou sèvè a"
+          ls -1 /usr/local/php*/bin/php /opt/alt/php*/usr/bin/php /usr/local/bin/php8* 2>/dev/null || true
+          command -v php php8.4 php84 2>/dev/null || true
+
+          PHP_BIN=""
+          for cand in /usr/local/php84/bin/php /opt/alt/php84/usr/bin/php \
+                      /usr/local/bin/php8.4 /usr/local/bin/php84 \
+                      php8.4 php84 php; do
+            c=$(command -v "$cand" 2>/dev/null || { [ -x "$cand" ] && echo "$cand"; })
+            [ -n "$c" ] || continue
+            if "$c" -r 'exit(PHP_VERSION_ID >= 80401 ? 0 : 1);' 2>/dev/null; then
+              PHP_BIN="$c"; break
+            fi
+          done
+
+          if [ -z "$PHP_BIN" ]; then
+            echo "::error::Pa gen PHP >= 8.4.1 sou sèvè a. composer.lock (Symfony 8.1 / Laravel 13.20) egzije l."
+            echo "Solisyon: aktive PHP 8.4 pou domèn nan nan DirectAdmin, oswa enstale l ak custombuild."
+            exit 1
+          fi
+          echo "==> PHP chwazi: $PHP_BIN ($("$PHP_BIN" -r 'echo PHP_VERSION;'))"
+
+          # Composer dwe kouri AK menm PHP a, sinon li rezoud kont 8.3 ankò.
+          if [ -f composer.phar ]; then
+            COMPOSER_CMD="$PHP_BIN composer.phar"
+          elif command -v composer >/dev/null 2>&1; then
+            COMPOSER_CMD="$PHP_BIN $(command -v composer)"
+          else
+            "$PHP_BIN" -r "copy('https://getcomposer.org/installer','/tmp/cs.php');" || exit 1
+            "$PHP_BIN" /tmp/cs.php --install-dir=. --filename=composer.phar || exit 1
+            rm -f /tmp/cs.php
+            COMPOSER_CMD="$PHP_BIN composer.phar"
+          fi
+
           # --- .env : kreye SÈLMAN si li absan. Yon deplwaman pa janm
           # ekraze konfigirasyon ki sou sèvè a (kle API, kredansyèl DB).
           if [ ! -f .env ]; then
@@ -171,22 +218,22 @@ jobs:
           [ -f database/database.sqlite ] || touch database/database.sqlite
 
           echo "==> Composer"
-          composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist || exit 1
+          $COMPOSER_CMD install --no-dev --optimize-autoloader --no-interaction --prefer-dist || exit 1
 
           if [ "$NEW_ENV" = "1" ] || ! grep -q '^APP_KEY=base64:' .env; then
-            php artisan key:generate --force || exit 1
+            "$PHP_BIN" artisan key:generate --force || exit 1
           fi
 
           echo "==> Migrasyon"
-          php artisan migrate --force || exit 1
+          "$PHP_BIN" artisan migrate --force || exit 1
 
           echo "==> Cache"
-          php artisan config:clear >/dev/null 2>&1 || true
-          php artisan route:clear  >/dev/null 2>&1 || true
-          php artisan view:clear   >/dev/null 2>&1 || true
-          php artisan config:cache >/dev/null 2>&1 || true
-          php artisan route:cache  >/dev/null 2>&1 || true
-          php artisan view:cache   >/dev/null 2>&1 || true
+          "$PHP_BIN" artisan config:clear >/dev/null 2>&1 || true
+          "$PHP_BIN" artisan route:clear  >/dev/null 2>&1 || true
+          "$PHP_BIN" artisan view:clear   >/dev/null 2>&1 || true
+          "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true
+          "$PHP_BIN" artisan route:cache  >/dev/null 2>&1 || true
+          "$PHP_BIN" artisan view:cache   >/dev/null 2>&1 || true
 
           chmod -R 775 storage bootstrap/cache 2>/dev/null || true
 
