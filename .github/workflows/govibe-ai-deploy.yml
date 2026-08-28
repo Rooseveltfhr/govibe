@@ -226,9 +226,23 @@ jobs:
           echo "==> Composer"
           $COMPOSER_CMD install --no-dev --optimize-autoloader --no-interaction --prefer-dist || exit 1
 
-          if [ "$NEW_ENV" = "1" ] || ! grep -q '^APP_KEY=base64:' .env; then
-            "$PHP_BIN" artisan key:generate --force || exit 1
+          # APP_KEY — san li, CHAK paj bay 500.
+          # `key:generate` ranplase yon liy `APP_KEY=` ki deja la; si liy lan
+          # pa egziste li ekri yon ERROR men li SÒTI AK KÒD 0. Se konsa yon
+          # deplwaman te "reyisi" ak yon app san kle. Kidonk: nou asire liy
+          # lan la anvan, epi nou verifye REZILTA a apre — pa kòd sòti a.
+          grep -q '^APP_KEY=' .env || echo 'APP_KEY=' >> .env
+
+          if ! grep -q '^APP_KEY=base64:' .env; then
+            "$PHP_BIN" artisan key:generate --force || true
           fi
+
+          if ! grep -q '^APP_KEY=base64:' .env; then
+            echo "::error::APP_KEY pa jenere. San li chak paj bay 500."
+            echo "Liy APP_KEY nan .env la:"; grep -c '^APP_KEY=' .env
+            exit 1
+          fi
+          echo "==> APP_KEY prezan"
 
           echo "==> Migrasyon"
           "$PHP_BIN" artisan migrate --force || exit 1
@@ -298,20 +312,37 @@ jobs:
           SUBDOMAIN: ${{ inputs.subdomain }}
         run: |
           set -uo pipefail
+          probe() { curl -sS -o /dev/null -w '%{http_code}' -L --max-time 30 "$1" 2>/dev/null || echo 000; }
+
+          # Sou-domèn nan ka poko gen sètifika SSL. Sa PA yon rezon pou di
+          # aplikasyon an pa mache — nou tonbe sou HTTP pou tès la ka di nou
+          # yon bagay reyèl, epi nou siyale SSL la kòm travay ki rete.
           echo "== Paj akèy =="
-          CODE=$(curl -sS -o /dev/null -w '%{http_code}' -L --max-time 30 "https://$SUBDOMAIN/" || echo 000)
-          echo "  https://$SUBDOMAIN/ -> $CODE"
+          SCHEME=https
+          CODE=$(probe "https://$SUBDOMAIN/")
+          if [ "$CODE" = "000" ]; then
+            HCODE=$(probe "http://$SUBDOMAIN/")
+            if [ "$HCODE" != "000" ]; then
+              echo "::warning::HTTPS pa reponn (sètifika SSL poko bay pou $SUBDOMAIN). Tès la fèt sou HTTP. Bay yon sètifika Let's Encrypt nan DirectAdmin."
+              SCHEME=http
+              CODE="$HCODE"
+            fi
+          fi
+          echo "  $SCHEME://$SUBDOMAIN/ -> $CODE"
 
           # Kontwòl sekirite ki konte: .env pa dwe janm lizib depi entènèt la.
+          # Li kouri sou pwotokòl ki reponn nan — sinon li pa teste anyen.
           echo "== .env pa dwe aksesib =="
-          ENVCODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "https://$SUBDOMAIN/.env" || echo 000)
-          echo "  https://$SUBDOMAIN/.env -> $ENVCODE"
+          ENVCODE=$(probe "$SCHEME://$SUBDOMAIN/.env")
+          echo "  $SCHEME://$SUBDOMAIN/.env -> $ENVCODE"
           if [ "$ENVCODE" = "200" ]; then
             echo "::error::.env EKSPOZE PIBLIKMAN — deplwaman an pa an sekirite."
             exit 1
           fi
 
           case "$CODE" in
-            2*|3*) echo "✓ Sit la reponn.";;
-            *) echo "::error::Sit la pa reponn (kòd $CODE). Gade log sèvè a."; exit 1;;
+            2*|3*) echo "✓ Sit la reponn ($CODE).";;
+            000) echo "::error::Sit la pa reponn ni sou HTTPS ni sou HTTP. Tcheke DNS ak docroot la."; exit 1;;
+            5*)  echo "::error::Sit la bay yon erè sèvè ($CODE) — app la deplwaye men li kraze. Gade laravel/storage/logs/laravel.log."; exit 1;;
+            *)   echo "::error::Sit la reponn ak yon kòd ki pa atann ($CODE)."; exit 1;;
           esac
