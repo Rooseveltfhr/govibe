@@ -304,41 +304,62 @@ jobs:
           if [ -f "$PUB/.env" ]; then echo "!! DANJE: .env nan docroot !!"; exit 1; fi
           echo "OK: pa gen .env nan docroot"
 
-          # --- Tès SOU SÈVÈ A menm (127.0.0.1 + antèt Host).
-          # Tès depi deyò a pa ka di nou anyen: san sètifika SSL, HTTP la
-          # bay yon 301 nan direksyon HTTPS ki kase — kidonk ni paj la ni
-          # kontwòl .env la pa verifye anyen. Isit la nou frape Apache
-          # dirèkteman: pa gen DNS, pa gen TLS, pa gen redireksyon —
-          # yon vrè repons ki soti nan aplikasyon an.
-          echo "==> Tès lokal (127.0.0.1, antèt Host: $SUBDOMAIN)"
+          echo "DEPLOY_OK"
+          EOSSH
+
+      # Etap apa, kout: rezilta a rete vizib nan bout log la olye li antere
+      # anba script la. Se VERIFIKASYON KI FÈ LWA A.
+      - name: Verifikasyon sou sèvè a
+        if: ${{ inputs.action == 'deploy' }}
+        env:
+          DOMAIN: ${{ steps.paths.outputs.domain }}
+          SUBDOMAIN: ${{ inputs.subdomain }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "DOMAIN='$DOMAIN' SUBDOMAIN='$SUBDOMAIN' bash -s" <<'EOSSH'
+          set -uo pipefail
+          cd "$DOMAIN/laravel" || exit 1
+
+          # Nou frape Apache SOU MACHIN NAN: pa gen DNS, pa gen rezo piblik.
+          # -k paske sètifika a poko bay — nou vle repons aplikasyon an, pa
+          # yon vèdik sou TLS. -L pou swiv redireksyon HTTP->HTTPS la, sinon
+          # nou ta jwenn yon 301 ki pa pwouve anyen (se erè tès anvan an).
           lprobe() {
             local out
-            out=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
-                  -H "Host: $SUBDOMAIN" "http://127.0.0.1$1" 2>/dev/null)
+            out=$(curl -sSk -o /dev/null -w '%{http_code}' -L --max-time 25 \
+                  --resolve "$SUBDOMAIN:443:127.0.0.1" \
+                  --resolve "$SUBDOMAIN:80:127.0.0.1" \
+                  "https://$SUBDOMAIN$1" 2>/dev/null)
             [ -n "$out" ] || out=000
             printf '%s' "$out"
           }
+
           HOME_CODE=$(lprobe "/")
           ENV_CODE=$(lprobe "/.env")
-          echo "  /      -> $HOME_CODE"
-          echo "  /.env  -> $ENV_CODE"
+
+          echo "=================================================="
+          echo " VERIFIKASYON SOU SÈVÈ A (127.0.0.1, TLS inyore)"
+          echo "   /       -> $HOME_CODE"
+          echo "   /.env   -> $ENV_CODE"
+          echo "=================================================="
 
           if [ "$ENV_CODE" = "200" ]; then
-            echo "!! DANJE: .env sèvi sou entènèt la (kòd 200) !!"
+            echo "::error::.env SÈVI SOU WEB LA (200) — deplwaman an pa an sekirite."
             exit 1
           fi
+          echo "OK: .env pa sèvi ($ENV_CODE)"
 
           case "$HOME_CODE" in
-            200|30*) echo "OK: aplikasyon an reponn ($HOME_CODE)";;
-            5*) echo "!! Aplikasyon an deplwaye men li kraze ($HOME_CODE) — 30 dènye liy log la:"
-                tail -30 storage/logs/laravel.log 2>/dev/null || echo "(pa gen log)"
-                exit 1;;
-            000) echo "!! Apache pa reponn lokalman — konfigirasyon vhost la ka poko pare."
+            200) echo "OK: aplikasyon an sèvi paj akèy la (200)";;
+            5*)  echo "::error::Aplikasyon an kraze ($HOME_CODE). 30 dènye liy log la:"
+                 tail -30 storage/logs/laravel.log 2>/dev/null || echo "(pa gen log)"
                  exit 1;;
-            *) echo "!! Kòd ki pa atann: $HOME_CODE"; exit 1;;
+            000) echo "::error::Apache pa reponn lokalman. Vhost la ka poko pare."; exit 1;;
+            *)   echo "::error::Kòd ki pa atann ($HOME_CODE) — sa pa yon paj ki mache."
+                 exit 1;;
           esac
-
-          echo "DEPLOY_OK"
           EOSSH
 
       - name: Smoke test piblik
