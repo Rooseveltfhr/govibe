@@ -22,10 +22,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 8.3 = vèsyon ki sou sèvè pwodiksyon an (louvia.govibeht.com).
+      # CI te sou 8.4: se poutèt sa yon composer.lock ki mande PHP >= 8.4.1
+      # te pase CI epi kraze sou premye deplwaman an. CI dwe teste sou menm
+      # vèsyon ak sèvè a, sinon li pa pwoteje kont anyen.
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.4"
+          php-version: "8.3"
           extensions: intl, zip, bcmath, pcntl, pdo_sqlite
           coverage: none
 
