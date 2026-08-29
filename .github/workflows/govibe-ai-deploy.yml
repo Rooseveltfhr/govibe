@@ -339,11 +339,34 @@ jobs:
           HOME_CODE=$(lprobe "/")
           ENV_CODE=$(lprobe "/.env")
 
+          # Yon 200 ka toujou se yon paj vid. Nou gade kontni an tou:
+          # se sèl fason pou di « paj la parèt » olye « sèvè a reponn ».
+          BODY=$(curl -sSk -L --max-time 25 \
+                 --resolve "$SUBDOMAIN:443:127.0.0.1" \
+                 --resolve "$SUBDOMAIN:80:127.0.0.1" \
+                 "https://$SUBDOMAIN/" 2>/dev/null)
+          BODY_LEN=$(printf '%s' "$BODY" | wc -c | tr -d ' ')
+
           echo "=================================================="
           echo " VERIFIKASYON SOU SÈVÈ A (127.0.0.1, TLS inyore)"
-          echo "   /       -> $HOME_CODE"
+          echo "   /       -> $HOME_CODE  (${BODY_LEN} okte)"
           echo "   /.env   -> $ENV_CODE"
           echo "=================================================="
+          echo "--- kontni paj akèy la (premye 12 liy) ---"
+          printf '%s\n' "$BODY" | head -12
+          echo "------------------------------------------"
+
+          # Yon paj ki reponn 200 men ki vid pa yon paj ki mache.
+          if [ "$HOME_CODE" = "200" ] && [ "${BODY_LEN:-0}" -lt 100 ]; then
+            echo "::error::Paj la reponn 200 men li prèske vid (${BODY_LEN} okte)."
+            exit 1
+          fi
+
+          # Ki kote redireksyon HTTP->HTTPS la soti (pou dokimante SSL la).
+          echo "--- HTTP san swiv redireksyon ---"
+          curl -sSk -o /dev/null -D - --max-time 15 \
+               --resolve "$SUBDOMAIN:80:127.0.0.1" \
+               "http://$SUBDOMAIN/" 2>/dev/null | head -6 || true
 
           if [ "$ENV_CODE" = "200" ]; then
             echo "::error::.env SÈVI SOU WEB LA (200) — deplwaman an pa an sekirite."
