@@ -356,17 +356,51 @@ jobs:
           printf '%s\n' "$BODY" | head -12
           echo "------------------------------------------"
 
+          # Paj defo Apache/DirectAdmin la. Li reponn 200, kidonk san gade
+          # kontni an nou ta kwè LOUVIA ap sèvi — men se vhost catch-all la
+          # k ap reponn, pa aplikasyon an. Sa vle di pa gen vhost pou
+          # sou-domèn nan sou pò a (tipikman: SSL poko aktive pou li).
+          if printf '%s' "$BODY" | grep -qi "webserver is functioning normally"; then
+            echo "::error::Se paj DEFO sèvè a k ap reponn, PA LOUVIA."
+            echo "  Sa vle di pa gen vhost pou $SUBDOMAIN sou pò 443 —"
+            echo "  tipikman paske SSL poko aktive pou sou-domèn nan."
+            echo "  Ranje: DirectAdmin > SSL Certificates > $SUBDOMAIN >"
+            echo "  « Free & automatic certificate from Let's Encrypt » > Save."
+            echo "  Sa kreye vhost HTTPS la ki pwente sou public_html."
+            exit 1
+          fi
+
           # Yon paj ki reponn 200 men ki vid pa yon paj ki mache.
           if [ "$HOME_CODE" = "200" ] && [ "${BODY_LEN:-0}" -lt 100 ]; then
             echo "::error::Paj la reponn 200 men li prèske vid (${BODY_LEN} okte)."
             exit 1
           fi
 
+          # Konfimasyon pozitif: se byen LOUVIA k ap reponn, pa yon lòt bagay.
+          if printf '%s' "$BODY" | grep -qi "GOVIBE AI"; then
+            echo "OK: se byen aplikasyon LOUVIA a k ap reponn."
+          else
+            echo "::warning::Paj la pa gen siyati LOUVIA a — verifye kontni an anwo."
+          fi
+
           # Ki kote redireksyon HTTP->HTTPS la soti (pou dokimante SSL la).
-          echo "--- HTTP san swiv redireksyon ---"
+          echo "--- HTTP (pò 80) san swiv redireksyon ---"
           curl -sSk -o /dev/null -D - --max-time 15 \
                --resolve "$SUBDOMAIN:80:127.0.0.1" \
                "http://$SUBDOMAIN/" 2>/dev/null | head -6 || true
+
+          # Eske vhost pò 80 la sèvi Laravel? Sa distenge de ka:
+          #  - sèlman SSL ki manke (pò 80 sèvi LOUVIA, li jis redirije)
+          #  - vhost la menm pa konfigire (pò 80 bay paj defo a tou)
+          echo "--- Kontni pò 80 (san swiv redireksyon) ---"
+          B80=$(curl -sSk --max-time 15 \
+                --resolve "$SUBDOMAIN:80:127.0.0.1" \
+                "http://$SUBDOMAIN/" 2>/dev/null)
+          if [ -z "$B80" ]; then
+            echo "(vid — se yon redireksyon san kò)"
+          else
+            printf '%s\n' "$B80" | head -5
+          fi
 
           if [ "$ENV_CODE" = "200" ]; then
             echo "::error::.env SÈVI SOU WEB LA (200) — deplwaman an pa an sekirite."
