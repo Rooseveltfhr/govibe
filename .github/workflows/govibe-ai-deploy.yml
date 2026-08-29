@@ -356,6 +356,25 @@ jobs:
           printf '%s\n' "$BODY" | head -12
           echo "------------------------------------------"
 
+          # Ki kote redireksyon HTTP->HTTPS la soti (pou dokimante SSL la).
+          echo "--- HTTP (pò 80) san swiv redireksyon ---"
+          curl -sSk -o /dev/null -D - --max-time 15 \
+               --resolve "$SUBDOMAIN:80:127.0.0.1" \
+               "http://$SUBDOMAIN/" 2>/dev/null | head -6 || true
+
+          # Eske vhost pò 80 la sèvi Laravel? Sa distenge de ka:
+          #  - sèlman SSL ki manke (pò 80 sèvi LOUVIA, li jis redirije)
+          #  - vhost la menm pa konfigire (pò 80 bay paj defo a tou)
+          echo "--- Kontni pò 80 (san swiv redireksyon) ---"
+          B80=$(curl -sSk --max-time 15 \
+                --resolve "$SUBDOMAIN:80:127.0.0.1" \
+                "http://$SUBDOMAIN/" 2>/dev/null)
+          if [ -z "$B80" ]; then
+            echo "(vid — se yon redireksyon san kò)"
+          else
+            printf '%s\n' "$B80" | head -5
+          fi
+
           # Paj defo Apache/DirectAdmin la. Li reponn 200, kidonk san gade
           # kontni an nou ta kwè LOUVIA ap sèvi — men se vhost catch-all la
           # k ap reponn, pa aplikasyon an. Sa vle di pa gen vhost pou
@@ -381,25 +400,6 @@ jobs:
             echo "OK: se byen aplikasyon LOUVIA a k ap reponn."
           else
             echo "::warning::Paj la pa gen siyati LOUVIA a — verifye kontni an anwo."
-          fi
-
-          # Ki kote redireksyon HTTP->HTTPS la soti (pou dokimante SSL la).
-          echo "--- HTTP (pò 80) san swiv redireksyon ---"
-          curl -sSk -o /dev/null -D - --max-time 15 \
-               --resolve "$SUBDOMAIN:80:127.0.0.1" \
-               "http://$SUBDOMAIN/" 2>/dev/null | head -6 || true
-
-          # Eske vhost pò 80 la sèvi Laravel? Sa distenge de ka:
-          #  - sèlman SSL ki manke (pò 80 sèvi LOUVIA, li jis redirije)
-          #  - vhost la menm pa konfigire (pò 80 bay paj defo a tou)
-          echo "--- Kontni pò 80 (san swiv redireksyon) ---"
-          B80=$(curl -sSk --max-time 15 \
-                --resolve "$SUBDOMAIN:80:127.0.0.1" \
-                "http://$SUBDOMAIN/" 2>/dev/null)
-          if [ -z "$B80" ]; then
-            echo "(vid — se yon redireksyon san kò)"
-          else
-            printf '%s\n' "$B80" | head -5
           fi
 
           if [ "$ENV_CODE" = "200" ]; then
