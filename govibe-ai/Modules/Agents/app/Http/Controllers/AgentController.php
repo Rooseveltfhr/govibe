@@ -1,0 +1,142 @@
+<?php
+
+namespace Modules\Agents\Http\Controllers;
+
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
+use Illuminate\Validation\Rule;
+use Modules\Agents\Models\Agent;
+use Modules\Agents\Runtime\AgentBuilder;
+use Modules\Agents\Templates\AgentTemplateRegistry;
+use Modules\AIProvider\Exceptions\NoProviderAvailableException;
+use Modules\AIProvider\Registry\ProviderRegistry;
+
+/**
+ * Katalòg modèl ajan yo, bouton « Demo » ak bouton « Kreye ».
+ *
+ * Demo a pa yon simulasyon: li pase nan menm router ak menm ajan ki pral
+ * reponn kliyan yo. Si demo a mache, ajan an mache.
+ */
+class AgentController extends Controller
+{
+    public function __construct(
+        private readonly AgentTemplateRegistry $templates,
+        private readonly AgentBuilder $builder,
+        private readonly ProviderRegistry $providers,
+    ) {}
+
+    /** Katalòg sektè yo + ajan ki deja kreye. */
+    public function index(): View
+    {
+        return view('agents::index', [
+            'templates' => $this->templates->all(),
+            'agents' => Agent::query()->latest()->get(),
+            'hasProvider' => $this->providers->configured() !== [],
+        ]);
+    }
+
+    /** Fòm « Kreye » pou yon sektè. */
+    public function create(string $sector): View
+    {
+        abort_unless($this->templates->has($sector), 404);
+
+        $descriptor = $this->templates->get($sector);
+
+        return view('agents::create', [
+            'descriptor' => $descriptor,
+            'questions' => $this->templates->sampleQuestions($sector, 'ht'),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'sector' => ['required', 'string', Rule::in(array_map(
+                static fn ($t) => $t->sector,
+                $this->templates->all(),
+            ))],
+            'name' => ['required', 'string', 'max:120'],
+            'handoff_to' => ['nullable', 'string', 'max:120'],
+            'knowledge' => ['nullable', 'array'],
+            'knowledge.*' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        // Chan konesans ki vid pa vle di anyen pou ajan an — nou pa sere yo,
+        // sinon konsiy la ta gen liy « Orè: » san repons.
+        $knowledge = array_filter(
+            $data['knowledge'] ?? [],
+            static fn ($v): bool => is_string($v) && trim($v) !== '',
+        );
+
+        $agent = Agent::create([
+            'key' => Agent::uniqueKeyFor($data['name']),
+            'name' => $data['name'],
+            'sector' => $data['sector'],
+            'knowledge' => $knowledge,
+            'channels' => ['whatsapp', 'web'],
+            'languages' => ['ht', 'fr'],
+            'handoff_to' => $data['handoff_to'] ?? null,
+        ]);
+
+        return redirect()
+            ->route('agents.show', $agent)
+            ->with('status', __('Agent créé.'));
+    }
+
+    public function show(Agent $agent): View
+    {
+        return view('agents::show', [
+            'agent' => $agent,
+            'definition' => $agent->toDefinition($this->templates),
+            'questions' => $this->templates->sampleQuestions($agent->sector, 'ht'),
+            'hasProvider' => $this->providers->configured() !== [],
+        ]);
+    }
+
+    /**
+     * Bouton « Demo ». Li mache ni sou yon ajan ki sove, ni sou yon modèl
+     * sektè (anvan kreyasyon) — konsa yon machann ka eseye anvan li angaje.
+     */
+    public function demo(Request $request, string $sector): View
+    {
+        abort_unless($this->templates->has($sector), 404);
+
+        $validated = $request->validate([
+            'question' => ['nullable', 'string', 'max:500'],
+            'agent' => ['nullable', 'integer', 'exists:agents,id'],
+        ]);
+
+        $agentModel = isset($validated['agent'])
+            ? Agent::find($validated['agent'])
+            : null;
+
+        $definition = $agentModel
+            ? $agentModel->toDefinition($this->templates)
+            : $this->builder->create($sector, 'demo', __('Démo'));
+
+        $question = trim($validated['question'] ?? '');
+        $questions = $question !== '' ? [$question] : null;
+
+        $turns = [];
+        $error = null;
+
+        try {
+            $turns = $this->builder->demo($definition, $questions);
+        } catch (NoProviderAvailableException $e) {
+            // Pa gen kle API konfigire: nou di sa klèman olye nou fè kwè
+            // demo a mache ak yon repons nou envante.
+            $error = __("Aucun fournisseur d'IA n'est configuré sur ce serveur.");
+        }
+
+        return view('agents::demo', [
+            'sector' => $sector,
+            'agentModel' => $agentModel,
+            'definition' => $definition,
+            'turns' => $turns,
+            'error' => $error,
+            'asked' => $question,
+        ]);
+    }
+}

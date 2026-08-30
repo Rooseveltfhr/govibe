@@ -1,5 +1,9 @@
 <?php
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
+
 it('uses french by default when nothing matches', function () {
     $this->withHeaders(['Accept-Language' => 'de'])->get('/');
 
@@ -7,7 +11,7 @@ it('uses french by default when nothing matches', function () {
 });
 
 it('switches locale with the lang query parameter', function () {
-    $this->get('/?lang=ht')->assertOk()->assertSee('Byenveni sou GOVIBE AI');
+    $this->get('/agents?lang=ht')->assertOk()->assertSee('Chwazi yon modèl');
 
     expect(app()->getLocale())->toBe('ht');
 });
