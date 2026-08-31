@@ -308,7 +308,7 @@ jobs:
           EOSSH
 
       # Etap apa, kout: rezilta a rete vizib nan bout log la olye li antere
-      # anba script la. Se VERIFIKASYON KI FÈ LWA A.
+      # anba script la. DYAGNOSTIK — se tès piblik la ki fè lwa.
       - name: Verifikasyon sou sèvè a
         if: ${{ inputs.action == 'deploy' }}
         env:
@@ -323,9 +323,9 @@ jobs:
           cd "$DOMAIN/laravel" || exit 1
 
           # Nou frape Apache SOU MACHIN NAN: pa gen DNS, pa gen rezo piblik.
-          # -k paske sètifika a poko bay — nou vle repons aplikasyon an, pa
-          # yon vèdik sou TLS. -L pou swiv redireksyon HTTP->HTTPS la, sinon
-          # nou ta jwenn yon 301 ki pa pwouve anyen (se erè tès anvan an).
+          # ⚠️ Sou sèvè sa a vhost louvia a mare sou IP piblik la, kidonk
+          # --resolve sou 127.0.0.1 ka tonbe sou vhost catch-all la. Se
+          # poutèt sa tout sa ki isit la se DYAGNOSTIK — eksepte yon 5xx.
           lprobe() {
             local out
             out=$(curl -sSk -o /dev/null -w '%{http_code}' -L --max-time 25 \
@@ -339,8 +339,6 @@ jobs:
           HOME_CODE=$(lprobe "/")
           ENV_CODE=$(lprobe "/.env")
 
-          # Yon 200 ka toujou se yon paj vid. Nou gade kontni an tou:
-          # se sèl fason pou di « paj la parèt » olye « sèvè a reponn ».
           BODY=$(curl -sSk -L --max-time 25 \
                  --resolve "$SUBDOMAIN:443:127.0.0.1" \
                  --resolve "$SUBDOMAIN:80:127.0.0.1" \
@@ -348,7 +346,7 @@ jobs:
           BODY_LEN=$(printf '%s' "$BODY" | wc -c | tr -d ' ')
 
           echo "=================================================="
-          echo " VERIFIKASYON SOU SÈVÈ A (127.0.0.1, TLS inyore)"
+          echo " DYAGNOSTIK SOU SÈVÈ A (127.0.0.1, TLS inyore)"
           echo "   /       -> $HOME_CODE  (${BODY_LEN} okte)"
           echo "   /.env   -> $ENV_CODE"
           echo "=================================================="
@@ -356,66 +354,28 @@ jobs:
           printf '%s\n' "$BODY" | head -12
           echo "------------------------------------------"
 
-          # Ki kote redireksyon HTTP->HTTPS la soti (pou dokimante SSL la).
           echo "--- HTTP (pò 80) san swiv redireksyon ---"
           curl -sSk -o /dev/null -D - --max-time 15 \
                --resolve "$SUBDOMAIN:80:127.0.0.1" \
                "http://$SUBDOMAIN/" 2>/dev/null | head -6 || true
 
-          # Eske vhost pò 80 la sèvi Laravel? Sa distenge de ka:
-          #  - sèlman SSL ki manke (pò 80 sèvi LOUVIA, li jis redirije)
-          #  - vhost la menm pa konfigire (pò 80 bay paj defo a tou)
-          echo "--- Kontni pò 80 (san swiv redireksyon) ---"
-          B80=$(curl -sSk --max-time 15 \
-                --resolve "$SUBDOMAIN:80:127.0.0.1" \
-                "http://$SUBDOMAIN/" 2>/dev/null)
-          if [ -z "$B80" ]; then
-            echo "(vid — se yon redireksyon san kò)"
-          else
-            printf '%s\n' "$B80" | head -5
-          fi
-
-          # Paj defo Apache/DirectAdmin la. Li reponn 200, kidonk san gade
-          # kontni an nou ta kwè LOUVIA ap sèvi — men se vhost catch-all la
-          # k ap reponn, pa aplikasyon an. Sa vle di pa gen vhost pou
-          # sou-domèn nan sou pò a (tipikman: SSL poko aktive pou li).
           if printf '%s' "$BODY" | grep -qi "webserver is functioning normally"; then
-            echo "::error::Se paj DEFO sèvè a k ap reponn, PA LOUVIA."
-            echo "  Sa vle di pa gen vhost pou $SUBDOMAIN sou pò 443 —"
-            echo "  tipikman paske SSL poko aktive pou sou-domèn nan."
-            echo "  Ranje: DirectAdmin > SSL Certificates > $SUBDOMAIN >"
-            echo "  « Free & automatic certificate from Let's Encrypt » > Save."
-            echo "  Sa kreye vhost HTTPS la ki pwente sou public_html."
-            exit 1
-          fi
-
-          # Yon paj ki reponn 200 men ki vid pa yon paj ki mache.
-          if [ "$HOME_CODE" = "200" ] && [ "${BODY_LEN:-0}" -lt 100 ]; then
-            echo "::error::Paj la reponn 200 men li prèske vid (${BODY_LEN} okte)."
-            exit 1
-          fi
-
-          # Konfimasyon pozitif: se byen LOUVIA k ap reponn, pa yon lòt bagay.
-          if printf '%s' "$BODY" | grep -qi "GOVIBE AI"; then
-            echo "OK: se byen aplikasyon LOUVIA a k ap reponn."
-          else
-            echo "::warning::Paj la pa gen siyati LOUVIA a — verifye kontni an anwo."
+            echo "::warning::Depi 127.0.0.1 se paj defo a ki reponn (vhost mare sou IP piblik la)."
+            echo "  Sa PA vle di sit la kase — gade tès piblik la anba a."
           fi
 
           if [ "$ENV_CODE" = "200" ]; then
             echo "::error::.env SÈVI SOU WEB LA (200) — deplwaman an pa an sekirite."
             exit 1
           fi
-          echo "OK: .env pa sèvi ($ENV_CODE)"
+          echo "OK: .env pa sèvi lokalman ($ENV_CODE)"
 
+          # Yon 5xx isit la se yon vrè siyal: li soti nan PHP, pa nan vhost.
           case "$HOME_CODE" in
-            200) echo "OK: aplikasyon an sèvi paj akèy la (200)";;
             5*)  echo "::error::Aplikasyon an kraze ($HOME_CODE). 30 dènye liy log la:"
                  tail -30 storage/logs/laravel.log 2>/dev/null || echo "(pa gen log)"
                  exit 1;;
-            000) echo "::error::Apache pa reponn lokalman. Vhost la ka poko pare."; exit 1;;
-            *)   echo "::error::Kòd ki pa atann ($HOME_CODE) — sa pa yon paj ki mache."
-                 exit 1;;
+            *)   echo "Enfo: kòd lokal $HOME_CODE (tès piblik la se sa ki konte).";;
           esac
           EOSSH
 
@@ -453,7 +413,6 @@ jobs:
           echo "  $SCHEME://$SUBDOMAIN/ -> $CODE"
 
           # Kontwòl sekirite ki konte: .env pa dwe janm lizib depi entènèt la.
-          # Li kouri sou pwotokòl ki reponn nan — sinon li pa teste anyen.
           echo "== .env pa dwe aksesib =="
           ENVCODE=$(probe "$SCHEME://$SUBDOMAIN/.env")
           echo "  $SCHEME://$SUBDOMAIN/.env -> $ENVCODE"
@@ -462,15 +421,29 @@ jobs:
             exit 1
           fi
 
-          # NÒT: verifikasyon ki fè lwa a fèt SOU SÈVÈ A (etap anvan an),
-          # paske li frape Apache dirèkteman. Tès depi deyò a enfòmatif
-          # toutotan SSL la poko bay: yon 301 HTTP->HTTPS pa pwouve ni
-          # aplikasyon an mache, ni .env pwoteje.
+          # SE ISIT LA VERIFIKASYON KI FÈ LWA A: se egzakteman sa yon vizitè
+          # jwenn. Tès lokal la pa ka jije, paske vhost la mare sou IP piblik
+          # la epi --resolve sou 127.0.0.1 tonbe sou vhost catch-all la.
           case "$CODE" in
             2*)  echo "✓ Sit la reponn depi deyò ($CODE).";;
-            3*)  echo "::warning::Depi deyò nou jwenn yon redireksyon ($CODE) — pwobableman HTTP->HTTPS. Sa pa pwouve anyen toutotan sètifika SSL la poko bay. Verifikasyon reyèl la fèt sou sèvè a."
-                 echo "  (tès lokal la nan etap anvan an se sa ki konte)";;
             5*)  echo "::error::Sit la bay yon erè sèvè ($CODE)."; exit 1;;
-            000) echo "::warning::Pa gen repons depi deyò (ni HTTPS ni HTTP). Tcheke DNS ak sètifika SSL la.";;
-            *)   echo "::warning::Kòd ki pa atann depi deyò ($CODE).";;
+            000) echo "::error::Pa gen repons depi deyò. Tcheke DNS ak sètifika SSL la."; exit 1;;
+            *)   echo "::error::Kòd ki pa atann depi deyò ($CODE)."; exit 1;;
           esac
+
+          # Yon 200 ka toujou se paj defo a. Nou egzije siyati LOUVIA a —
+          # verifye sa nou TANN, pa sèlman absans erè.
+          echo "== Kontni paj la =="
+          BODY=$(curl -sS -L --max-time 30 "$SCHEME://$SUBDOMAIN/" 2>/dev/null)
+          if printf '%s' "$BODY" | grep -qi "webserver is functioning normally"; then
+            echo "::error::Se paj DEFO sèvè a k ap sèvi piblikman, PA LOUVIA."
+            exit 1
+          fi
+          if printf '%s' "$BODY" | grep -q "LOUVIA"; then
+            echo "✓ Se byen LOUVIA k ap sèvi."
+            printf '%s\n' "$BODY" | grep -oE "Chwazi yon modèl|Choisissez un modèle|Restoran|Klinik|Lekòl" | sort -u | sed 's/^/    /'
+          else
+            echo "::error::Paj la pa gen siyati LOUVIA a. Premye liy yo:"
+            printf '%s\n' "$BODY" | head -10
+            exit 1
+          fi
