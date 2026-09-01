@@ -28,10 +28,12 @@ it('runs the sector sample questions through the real router and returns a trans
         'orè' => 'Lendi-Samdi 10h-22h',
     ]);
 
-    $demo = app(DemoConversation::class);
-    $turns = $demo->run($agent, $templates->sampleQuestions('restaurant', 'ht'));
+    $questions = $templates->sampleQuestions('restaurant', 'ht');
 
-    expect($turns)->toHaveCount(3);
+    $demo = app(DemoConversation::class);
+    $turns = $demo->run($agent, $questions);
+
+    expect($turns)->toHaveCount(count($questions));
 
     foreach ($turns as $turn) {
         expect($turn->answer)->toBe('Nou louvri 10h-22h.')

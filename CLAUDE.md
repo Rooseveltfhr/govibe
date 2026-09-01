@@ -180,15 +180,42 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
   Mete lojik la nan `@php ... @endphp` (san `use` — non konplè klas), pase yon varyab senp.
   AVAN chak push vue: konpile ak vrè konpilatè Blade (illuminate/view) + `php -l` rezilta a.
 
-## 9. GOVIBE AI (nouvo platfòm — an devlopman)
+## 9. LOUVIA / GOVIBE AI (nouvo platfòm — AN DIRÈK)
 - Platfòm SaaS IA (gateway multi-fournisseur + apps IA + ajan sektoryèl).
   Plan konplè: `docs/govibe-ai/ARCHITECTURE.md` (+ ADR nan `docs/govibe-ai/adr/`).
-- Kòd la nan **`govibe-ai/`** (Laravel 13 + PHP 8.4, `nwidart/laravel-modules`,
-  Postgres+pgvector, Redis, Pest, PHPStan/larastan, Pint, Docker compose dev).
+- Kòd la nan **`govibe-ai/`**: Laravel 13, **PHP 8.3** (pa 8.4 — se vèsyon VPS la),
+  `nwidart/laravel-modules`, Pest, PHPStan/larastan, Pint.
+- ⚠️ **Baz done: MySQL/SQLite, PA Postgres.** VPS la gen `pdo_mysql` + `pdo_sqlite`
+  sèlman. **Pa gen pgvector** → Knowledge Base ak embeddings mande yon desizyon
+  enfrastrikti anvan Phase 3.
+- ⚠️ `composer.lock` dwe rezoud kont **PHP 8.3** (`config.platform.php`). Yon lock
+  ki mande 8.4 pase CI men kraze sou deplwaman (Symfony 8.1 mande >= 8.4.1).
 - Branch devlopman: `claude/govibe-ai-architecture-kyhgvp` (PR #62).
-- CI separe: `.github/workflows/govibe-ai-ci.yml` (path-filtered `govibe-ai/**`).
-- **Faz 0 ✅**: skeleton + modil Core, i18n fr/ht/en/es (`LocaleNegotiator` pi +
-  middleware `SetLocale`), `config/govibe.php`, Docker, tès Pest (14), ADR-001.
+  ⚠️ **PR #62 gen istorik kase**: merge-base li se « Initial commit », kidonk tout
+  `Modules/Tagtoa/` parèt kòm konfli add/add. Konsekans: deklanchè `pull_request`
+  la PA tire (GitHub pa ka bati `refs/pull/N/merge`) → pouse sou branch la pa
+  deklanche okenn CI. Sèvi ak `workflow_dispatch` (gade anba).
+- CI: `.github/workflows/govibe-ai-ci.yml` sou **main**, ak `workflow_dispatch`
+  + parametre `branch` pou verifye nenpòt branch travay san depann de eta PR a.
+- Deplwaman: `.github/workflows/govibe-ai-deploy.yml` (manyèl sèlman,
+  `action=diagnose|deploy`). Sib: **https://louvia.govibeht.com** ✅ an dirèk.
+  Estrikti: `domains/louvia.govibeht.com/laravel/` (app, `.env`, `vendor/`) +
+  `public_html/` (sèlman `index.php` ki boote `../laravel`). `.env` verifye 403.
+- ⚠️ **Verifikasyon deplwaman**: vhost louvia a mare sou **IP piblik** la, pa sou
+  `127.0.0.1`. Yon `curl --resolve …:127.0.0.1` tonbe sou vhost catch-all la epi
+  bay « webserver is functioning normally » menm lè sit la byen mache. Tès ki fè
+  lwa a se tès **piblik** la, epi li dwe egzije siyati `LOUVIA` nan kontni an.
+- **Faz 0 ✅** skeleton + Core + i18n fr/ht/en/es · **Faz 1 ✅** AIProvider (7 konektè),
+  AIRouter (failover, circuit breaker), API konpatib OpenAI · **Ajan ✅**
+  `AgentDefinition`, `ConfirmationPolicy`, 3 modèl sektè, `AgentBuilder`,
+  vwa→tèks (Whisper) · **Entèfas ✅** katalòg `/agents`, bouton Demo ak Kreye,
+  tab `agents`. **140 tès Pest.**
+- ⚠️ **Pa gen otantifikasyon**: nenpòt moun ki gen URL la ka kreye yon ajan epi
+  wè konesans biznis lòt moun. Phase 1 (Identity: kont, òganizasyon, RBAC,
+  izolasyon tenan) dwe fèmen sa a anvan yon vrè machann antre.
+- ⚠️ **Pa gen kle IA sou sèvè a** → bouton Demo a di « pa gen founisè konfigire »
+  olye li bay yon repons. Yon sèl varyab anviwònman.
+- Achitekti MVP (10 desizyon, sa pou koupe, plan Phase 1):
+  https://claude.ai/code/artifact/9d47ec31-f7b9-400a-9a13-a252be3c00b9
 - ⚠️ Sandbox sa a: api.github.com bloke → dist composer echwe; enstale ak
-  `env -u GITHUB_TOKEN -u GH_TOKEN composer install --prefer-source` (cache VCS).
-  `phpstan/phpstan` = stub lokal (vrè phar la kouri sèlman nan CI).
+  `env -u GITHUB_TOKEN -u GH_TOKEN COMPOSER_PROCESS_TIMEOUT=900 composer install --prefer-source`.

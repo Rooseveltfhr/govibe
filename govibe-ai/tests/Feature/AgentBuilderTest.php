@@ -4,6 +4,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Agents\DTO\PendingAction;
 use Modules\Agents\Runtime\AgentBuilder;
 use Modules\Agents\Runtime\ConfirmationPolicy;
+use Modules\Agents\Templates\AgentTemplateRegistry;
 use Modules\AIProvider\Registry\ModelCatalog;
 use Modules\AIProvider\Registry\ProviderRegistry;
 use Modules\AIRouter\Routing\AiRouter;
@@ -61,7 +62,11 @@ it('runs a demo for a freshly created agent using its own sector questions', fun
 
     $turns = $builder->demo($agent);
 
-    expect($turns)->toHaveCount(3)
+    // Yon tou pa kesyon egzanp — nou derive kantite a, sinon tès la kase
+    // chak fwa yon sektè jwenn yon kesyon anplis.
+    $expected = count(app(AgentTemplateRegistry::class)->sampleQuestions('restaurant', 'ht'));
+
+    expect($turns)->toHaveCount($expected)
         ->and($turns[0]->answer)->toBe('Nou louvri 10h-22h.');
 });
 

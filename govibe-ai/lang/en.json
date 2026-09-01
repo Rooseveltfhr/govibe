@@ -52,5 +52,6 @@
     "Conversation": "Conversation",
     "Aucune réponse.": "No answer.",
     "Agent créé.": "Agent created.",
-    "Aucun fournisseur d'IA n'est configuré sur ce serveur.": "No AI provider is configured on this server."
+    "Aucun fournisseur d'IA n'est configuré sur ce serveur.": "No AI provider is configured on this server.",
+    "Paiement": "Payment"
 }

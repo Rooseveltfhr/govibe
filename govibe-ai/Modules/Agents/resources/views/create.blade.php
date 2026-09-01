@@ -2,7 +2,9 @@
     // Chan konesans yo depann de sektè a: yon restoran gen yon mni, yon
     // klinik gen sèvis. Nou mande sa ki itil pou sektè a sèlman.
     $fields = match ($descriptor->sector) {
-        'restaurant' => ['Menu' => 'menu', 'Horaires' => 'horaires', 'Adresse' => 'adresse', 'Livraison' => 'livraison'],
+        // L'agent ne cite que les moyens de paiement listés ici — sans ce champ
+        // il répond qu'il n'est pas sûr, ce qui bloque une commande.
+        'restaurant' => ['Menu' => 'menu', 'Horaires' => 'horaires', 'Adresse' => 'adresse', 'Livraison' => 'livraison', 'Paiement' => 'paiement'],
         'clinic' => ['Services' => 'services', 'Horaires' => 'horaires', 'Adresse' => 'adresse', 'Tarifs' => 'tarifs'],
         default => ['Programmes' => 'programmes', 'Horaires' => 'horaires', 'Adresse' => 'adresse', 'Frais' => 'frais'],
     };
