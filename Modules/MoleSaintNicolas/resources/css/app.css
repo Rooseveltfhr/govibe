@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji',
+        'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Palette Môle-Saint-Nicolas : mer + patrimoine + terre haïtienne */
+    --color-msn-sea-950: #04202e;
+    --color-msn-sea-900: #0a3345;
+    --color-msn-sea-700: #115373;
+    --color-msn-sea-500: #1c7ba3;
+    --color-msn-sand-100: #faf5ec;
+    --color-msn-sand-200: #f2e6d0;
+    --color-msn-terracotta-500: #c96a3e;
+    --color-msn-terracotta-600: #a8532e;
+    --color-msn-gold-400: #d4a94f;
+}

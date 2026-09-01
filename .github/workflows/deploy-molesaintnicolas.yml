@@ -1,0 +1,70 @@
+name: Deploy molesaintnicolas.com
+
+# Déploie l'app Laravel autonome Modules/MoleSaintNicolas vers l'hébergement
+# DirectAdmin du client (indépendant de l'infra GOVIBE). Voir
+# Modules/MoleSaintNicolas/deploy/README.md pour la configuration des secrets.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths: ["Modules/MoleSaintNicolas/**"]
+
+concurrency:
+  group: deploy-molesaintnicolas
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build + rsync release + bascule
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Modules/MoleSaintNicolas
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          tools: composer:v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dépendances PHP (production)
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+
+      - name: Build assets front
+        run: |
+          npm ci
+          npm run build
+
+      - name: Résoudre la cible SSH
+        id: target
+        run: |
+          echo "release=$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_OUTPUT"
+
+      - name: Rsync vers la release
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.MSN_VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.MSN_VPS_PORT }}" "${{ secrets.MSN_VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          RELEASE="${{ steps.target.outputs.release }}"
+          REMOTE_BASE="${{ secrets.MSN_VPS_APP_PATH }}"
+          REMOTE="${{ secrets.MSN_VPS_USER }}@${{ secrets.MSN_VPS_HOST }}"
+
+          ssh -i ~/.ssh/deploy_key -p "${{ secrets.MSN_VPS_PORT }}" -o StrictHostKeyChecking=no "$REMOTE" \
+            "mkdir -p $REMOTE_BASE/releases/$RELEASE"
+
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.MSN_VPS_PORT }} -o StrictHostKeyChecking=no" \
+            --exclude ".env" --exclude "storage" --exclude "tests" --exclude ".git" \
+            ./ "$REMOTE:$REMOTE_BASE/releases/$RELEASE/"
+
+          ssh -i ~/.ssh/deploy_key -p "${{ secrets.MSN_VPS_PORT }}" -o StrictHostKeyChecking=no "$REMOTE" \
+            "bash $REMOTE_BASE/releases/$RELEASE/deploy/remote-deploy.sh $REMOTE_BASE $RELEASE"
