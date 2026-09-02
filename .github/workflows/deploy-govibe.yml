@@ -196,12 +196,44 @@ jobs:
 
       - name: Vérifier que le site répond
         run: |
-          set -euo pipefail
-          CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 https://govibeht.com/ || echo "000")
-          echo "https://govibeht.com/ → HTTP $CODE"
-          case "$CODE" in
-            200|301|302) echo "✓ Le site répond." ;;
-            # 503 = artisan down toujours actif : le déploiement s'est mal terminé.
-            503) echo "::error::Site en mode maintenance (503) — le déploiement ne s'est pas terminé proprement. Lancer 'php artisan up' sur le serveur."; exit 1 ;;
-            *) echo "::error::Réponse inattendue ($CODE) après déploiement."; exit 1 ;;
-          esac
+          set -uo pipefail
+
+          BASE="https://govibeht.com"
+          ECHEC=0
+
+          # Un 200 sur l'accueil ne dit rien des routes qu'on vient de déployer :
+          # une page qui plante en 500 passerait ce contrôle. On frappe donc
+          # chaque page publique importante, et une page ERP pour vérifier qu'elle
+          # exige toujours une authentification.
+          verifier() {
+            local chemin="$1" attendu="$2" role="$3"
+            local code
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$BASE$chemin")
+            [ -n "$code" ] || code="000"
+            if echo "$attendu" | grep -qw "$code"; then
+              echo "  ✓ $chemin → $code   ($role)"
+            else
+              echo "::error::$chemin → HTTP $code, attendu $attendu ($role)"
+              ECHEC=1
+            fi
+          }
+
+          echo "Pages publiques"
+          verifier "/"                 "200 301 302" "accueil"
+          verifier "/about"            "200 301 302" "à propos"
+          verifier "/programmes"       "200 301 302" "programmes"
+          verifier "/partenaires"      "200 301 302" "partenaires"
+          verifier "/fiche-technique"  "200 301 302" "formulaire agent"
+
+          echo "Contrôle d'accès"
+          # 302 vers la connexion, ou 403. Un 200 signifierait que la prospection
+          # commerciale est lisible par n'importe qui.
+          verifier "/erp/fiches"       "302 301 403" "ERP protégé"
+
+          if [ "$ECHEC" -ne 0 ]; then
+            echo "::error::Le déploiement est passé mais le site ne répond pas correctement."
+            echo "Un 503 signifie qu'artisan down est resté actif : lancer 'php artisan up' sur le serveur."
+            exit 1
+          fi
+          echo "✓ Toutes les pages vérifiées répondent."
+
