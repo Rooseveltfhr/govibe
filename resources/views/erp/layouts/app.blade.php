@@ -178,6 +178,11 @@
 
             <div class="sidebar-section mt-2">Finance</div>
 
+            <a href="{{ route('erp.paiements.index') }}" class="sidebar-link {{ request()->routeIs('erp.paiements.*') ? 'active' : '' }}">
+                <i class="bi bi-credit-card-2-front-fill icon"></i>
+                <span class="label">Moyens de paiement</span>
+            </a>
+
             <a href="{{ route('erp.finance.index') }}" class="sidebar-link {{ request()->routeIs('erp.finance.*') ? 'active' : '' }}">
                 <i class="bi bi-graph-up-arrow icon"></i>
                 <span class="label">Finance</span>

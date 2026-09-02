@@ -30,6 +30,7 @@ use App\Http\Controllers\PartenaireController;
 use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\ERP\PartenaireAdminController;
 use App\Http\Controllers\ERP\EvenementAdminController;
+use App\Http\Controllers\ERP\PasserellePaiementController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -59,6 +60,9 @@ Route::get('/evenements', [EvenementController::class, 'index'])->name('evenemen
 Route::post('/evenements/inscription', [EvenementController::class, 'store'])->name('evenements.store');
 Route::get('/evenements/confirmation/{evenement}', [EvenementController::class, 'confirmation'])->name('evenements.confirmation');
 Route::get('/evenements/{evenement}', [EvenementController::class, 'show'])->name('evenements.show');
+
+// Public: Moyens de paiement
+Route::view('/paiement', 'paiement')->name('paiement');
 
 // Public: Partenaires
 Route::get('/partenaires', [PartenaireController::class, 'index'])->name('partenaires');
@@ -257,6 +261,16 @@ Route::prefix('erp')->name('erp.')->group(function () {
             Route::get('/{evenement}/export', [EvenementAdminController::class, 'exportReservations'])->name('export');
             Route::patch('/reservations/{reservation}/presence', [EvenementAdminController::class, 'togglePresence'])->name('presence');
             Route::delete('/reservations/{reservation}', [EvenementAdminController::class, 'destroyReservation'])->name('reservations.destroy');
+        });
+
+        // ── Moyens de paiement ────────────────────────────
+        Route::prefix('paiements')->name('paiements.')->group(function () {
+            Route::get('/', [PasserellePaiementController::class, 'index'])->name('index');
+            // POST et non PUT : les envois de fichiers passent en multipart.
+            Route::post('/', [PasserellePaiementController::class, 'store'])->name('store');
+            Route::post('/{passerelle}', [PasserellePaiementController::class, 'update'])->name('update');
+            Route::delete('/{passerelle}/fichier', [PasserellePaiementController::class, 'destroyFichier'])->name('fichier.destroy');
+            Route::delete('/{passerelle}', [PasserellePaiementController::class, 'destroy'])->name('destroy');
         });
 
         // ── Super Admin ───────────────────────────────────
