@@ -53,5 +53,9 @@
     "Aucune réponse.": "Sin respuesta.",
     "Agent créé.": "Agente creado.",
     "Aucun fournisseur d'IA n'est configuré sur ce serveur.": "No hay proveedor de IA configurado en este servidor.",
-    "Paiement": "Pago"
+    "Paiement": "Pago",
+    "L'agent se souvient de l'échange : commandez en plusieurs messages, comme un vrai client.": "El agente recuerda el intercambio: pida en varios mensajes, como un cliente real.",
+    "Essayez par exemple": "Pruebe por ejemplo",
+    "Votre message": "Su mensaje",
+    "Recommencer": "Reiniciar"
 }

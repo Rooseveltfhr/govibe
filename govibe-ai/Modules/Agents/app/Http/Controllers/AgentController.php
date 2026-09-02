@@ -7,8 +7,11 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Validation\Rule;
+use Modules\Agents\DTO\IncomingMessage;
 use Modules\Agents\Models\Agent;
 use Modules\Agents\Runtime\AgentBuilder;
+use Modules\Agents\Runtime\AgentRuntime;
+use Modules\Agents\Runtime\Conversation;
 use Modules\Agents\Templates\AgentTemplateRegistry;
 use Modules\AIProvider\Exceptions\NoProviderAvailableException;
 use Modules\AIProvider\Registry\ProviderRegistry;
@@ -24,6 +27,7 @@ class AgentController extends Controller
     public function __construct(
         private readonly AgentTemplateRegistry $templates,
         private readonly AgentBuilder $builder,
+        private readonly AgentRuntime $runtime,
         private readonly ProviderRegistry $providers,
     ) {}
 
@@ -96,47 +100,77 @@ class AgentController extends Controller
     }
 
     /**
-     * Bouton « Demo ». Li mache ni sou yon ajan ki sove, ni sou yon modèl
-     * sektè (anvan kreyasyon) — konsa yon machann ka eseye anvan li angaje.
+     * Bouton « Demo » — yon vrè konvèsasyon, pa yon seri kesyon apa.
+     *
+     * Istorik la viv nan sesyon an paske se yon esè: yon machann k ap eseye
+     * yon ajan pa bezwen nou sere konvèsasyon l nan baz done a. Lè kanal yo
+     * rive (WhatsApp, telefòn), se yo k ap pote istorik la — menm runtime,
+     * yon lòt kote pou sere l.
      */
-    public function demo(Request $request, string $sector): View
+    public function demo(Request $request, string $sector): View|RedirectResponse
     {
         abort_unless($this->templates->has($sector), 404);
 
         $validated = $request->validate([
             'question' => ['nullable', 'string', 'max:500'],
             'agent' => ['nullable', 'integer', 'exists:agents,id'],
+            'reset' => ['nullable'],
         ]);
 
-        $agentModel = isset($validated['agent'])
-            ? Agent::find($validated['agent'])
-            : null;
+        $agentModel = isset($validated['agent']) ? Agent::find($validated['agent']) : null;
 
         $definition = $agentModel
             ? $agentModel->toDefinition($this->templates)
             : $this->builder->create($sector, 'demo', __('Démo'));
 
-        $question = trim($validated['question'] ?? '');
-        $questions = $question !== '' ? [$question] : null;
+        // Chak ajan gen pwòp konvèsasyon l: eseye Chez A pa dwe kite tras nan
+        // demo Chez B. « template » se esè a sou modèl sektè a, anvan kreyasyon.
+        $scope = $agentModel === null ? 'template' : (string) $agentModel->id;
+        $sessionKey = 'louvia.demo.'.$sector.'.'.$scope;
 
-        $turns = [];
+        if ($request->has('reset')) {
+            $request->session()->forget($sessionKey);
+
+            return redirect()->route('agents.demo', array_filter([
+                'sector' => $sector,
+                'agent' => $agentModel?->id,
+            ]));
+        }
+
+        $conversation = Conversation::fromArray((array) $request->session()->get($sessionKey, []));
+
+        $question = trim($validated['question'] ?? '');
         $error = null;
 
-        try {
-            $turns = $this->builder->demo($definition, $questions);
-        } catch (NoProviderAvailableException $e) {
-            // Pa gen kle API konfigire: nou di sa klèman olye nou fè kwè
-            // demo a mache ak yon repons nou envante.
-            $error = __("Aucun fournisseur d'IA n'est configuré sur ce serveur.");
+        if ($question !== '') {
+            try {
+                $outcome = $this->runtime->respond(
+                    agent: $definition,
+                    conversation: $conversation,
+                    message: new IncomingMessage(
+                        channel: 'web',
+                        conversationRef: $sessionKey,
+                        text: $question,
+                    ),
+                );
+
+                $conversation = $outcome->conversation;
+                $request->session()->put($sessionKey, $conversation->toArray());
+            } catch (NoProviderAvailableException $e) {
+                // Pa gen kle API konfigire: nou di sa klèman olye nou fè kwè
+                // demo a mache ak yon repons nou envante.
+                $error = __("Aucun fournisseur d'IA n'est configuré sur ce serveur.");
+            }
         }
 
         return view('agents::demo', [
             'sector' => $sector,
             'agentModel' => $agentModel,
             'definition' => $definition,
-            'turns' => $turns,
+            'conversation' => $conversation,
+            'suggestions' => $this->templates->sampleQuestions($sector, $definition->defaultLanguage()),
             'error' => $error,
-            'asked' => $question,
+            'hasProvider' => $this->providers->configured() !== [],
         ]);
     }
 }

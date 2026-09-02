@@ -53,5 +53,9 @@
     "Aucune réponse.": "Pa gen repons.",
     "Agent créé.": "Ajan an kreye.",
     "Aucun fournisseur d'IA n'est configuré sur ce serveur.": "Pa gen okenn founisè IA konfigire sou sèvè sa a.",
-    "Paiement": "Peman"
+    "Paiement": "Peman",
+    "L'agent se souvient de l'échange : commandez en plusieurs messages, comme un vrai client.": "Ajan an sonje echanj lan: kòmande an plizyè mesaj, tankou yon vrè kliyan.",
+    "Essayez par exemple": "Eseye pa egzanp",
+    "Votre message": "Mesaj ou",
+    "Recommencer": "Rekòmanse"
 }

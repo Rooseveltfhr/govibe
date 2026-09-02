@@ -150,3 +150,48 @@ it('warns on the catalogue when no AI key is configured', function () {
 
     $this->get(route('agents.index'))->assertOk()->assertSee(__("Aucune clé d'IA n'est configurée sur ce serveur : le bouton Démo affichera une erreur au lieu d'une vraie réponse."));
 });
+
+// Sa a se konpòtman ki konte pou machann nan: li tape yon dezyèm mesaj epi
+// ajan an toujou konnen sa li te mande nan premye a.
+it('remembers the exchange between two requests on the demo page', function () {
+    useCatalogProvider(new FakeChatProvider('demo', reply: 'Ak ki akonpayman?'));
+
+    $this->post(route('agents.demo', 'restaurant'), ['question' => 'Mwen vle de griyo'])
+        ->assertOk()
+        ->assertSee('Mwen vle de griyo');
+
+    // Dezyèm rekèt: premye mesaj la dwe toujou sou paj la.
+    $this->post(route('agents.demo', 'restaurant'), ['question' => 'Diri kole'])
+        ->assertOk()
+        ->assertSee('Mwen vle de griyo')
+        ->assertSee('Diri kole');
+});
+
+it('forgets the exchange when the merchant starts over', function () {
+    useCatalogProvider(new FakeChatProvider('demo', reply: 'Ak ki akonpayman?'));
+
+    // Yon fraz ki PA nan sijesyon yo: sinon assertDontSee la ta tonbe sou yon
+    // bouton sijesyon epi li ta di istorik la la pandan li efase.
+    $this->post(route('agents.demo', 'restaurant'), ['question' => 'Zonbi kabrit anba tonèl']);
+
+    $this->post(route('agents.demo', 'restaurant'), ['reset' => '1'])
+        ->assertRedirect(route('agents.demo', 'restaurant'));
+
+    $this->get(route('agents.demo', 'restaurant'))
+        ->assertOk()
+        ->assertDontSee('Zonbi kabrit anba tonèl');
+});
+
+it('keeps two agents’ demo conversations apart', function () {
+    useCatalogProvider(new FakeChatProvider('demo', reply: 'Oke.'));
+
+    $a = Agent::create(['key' => 'a', 'name' => 'Chez A', 'sector' => 'restaurant']);
+    $b = Agent::create(['key' => 'b', 'name' => 'Chez B', 'sector' => 'restaurant']);
+
+    $this->post(route('agents.demo', 'restaurant'), ['agent' => $a->id, 'question' => 'Sekrè A']);
+
+    $this->post(route('agents.demo', 'restaurant'), ['agent' => $b->id, 'question' => 'Sekrè B'])
+        ->assertOk()
+        ->assertSee('Sekrè B')
+        ->assertDontSee('Sekrè A');
+});

@@ -53,5 +53,9 @@
     "Aucune réponse.": "No answer.",
     "Agent créé.": "Agent created.",
     "Aucun fournisseur d'IA n'est configuré sur ce serveur.": "No AI provider is configured on this server.",
-    "Paiement": "Payment"
+    "Paiement": "Payment",
+    "L'agent se souvient de l'échange : commandez en plusieurs messages, comme un vrai client.": "The agent remembers the exchange: order over several messages, like a real customer.",
+    "Essayez par exemple": "Try for example",
+    "Votre message": "Your message",
+    "Recommencer": "Start over"
 }
