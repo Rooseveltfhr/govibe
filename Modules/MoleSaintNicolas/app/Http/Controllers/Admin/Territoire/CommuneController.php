@@ -44,12 +44,7 @@ class CommuneController extends Controller
 
     public function update(Request $request, Commune $commune): RedirectResponse
     {
-        $data = $this->validated($request);
-
-        if ($data['content_status'] === 'verified' && ! $commune->isVerified()) {
-            $data['verified_by'] = $request->user()->id;
-            $data['verified_at'] = now();
-        }
+        $data = $commune->applyVerificationStamp($this->validated($request), $request->user());
 
         $commune->update($data);
 

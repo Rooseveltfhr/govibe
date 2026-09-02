@@ -14,6 +14,9 @@
                 <a href="{{ route('admin.dashboard') }}" class="font-semibold text-msn-sea-900">Administration</a>
                 <a href="{{ route('admin.territoire.communes.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Communes</a>
                 <a href="{{ route('admin.territoire.sections.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Sections communales</a>
+                <a href="{{ route('admin.histoire.periods.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Périodes</a>
+                <a href="{{ route('admin.histoire.events.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Événements</a>
+                <a href="{{ route('admin.histoire.figures.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Personnages</a>
             </div>
         </nav>
     @endauth

@@ -44,12 +44,7 @@ class SectionCommunaleController extends Controller
 
     public function update(Request $request, SectionCommunale $section): RedirectResponse
     {
-        $data = $this->validated($request);
-
-        if ($data['content_status'] === 'verified' && ! $section->isVerified()) {
-            $data['verified_by'] = $request->user()->id;
-            $data['verified_at'] = now();
-        }
+        $data = $section->applyVerificationStamp($this->validated($request), $request->user());
 
         $section->update($data);
 
