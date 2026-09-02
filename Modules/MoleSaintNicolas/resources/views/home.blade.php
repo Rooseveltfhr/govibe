@@ -15,17 +15,38 @@
                 <a href="#histoire" class="rounded-full bg-msn-terracotta-500 px-6 py-3 font-semibold text-white hover:bg-msn-terracotta-600">
                     Découvrir Môle-Saint-Nicolas
                 </a>
-                <a href="#territoire" class="rounded-full border border-msn-sand-200 px-6 py-3 font-semibold hover:bg-msn-sand-100/10">
+                <a href="{{ route('territoire.index') }}" class="rounded-full border border-msn-sand-200 px-6 py-3 font-semibold hover:bg-msn-sand-100/10">
                     Explorer le territoire
                 </a>
             </div>
         </div>
     </section>
 
+    <section id="territoire" class="border-b border-msn-sand-200 py-16">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Territoire et sections communales</h2>
+            <p class="mt-2 text-msn-sea-700">L'arrondissement de {{ $arrondissement?->name ?? 'Môle-Saint-Nicolas' }} et ses communes.</p>
+
+            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                @forelse ($arrondissement?->communes ?? [] as $commune)
+                    <a href="{{ route('territoire.commune', $commune->slug) }}"
+                       class="block rounded-2xl border border-msn-sand-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+                        <h3 class="font-semibold text-msn-sea-900">{{ $commune->name }}</h3>
+                    </a>
+                @empty
+                    <p class="text-msn-sea-700">[Information à compléter]</p>
+                @endforelse
+            </div>
+
+            <a href="{{ route('territoire.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
+                Voir tout le territoire &rarr;
+            </a>
+        </div>
+    </section>
+
     @php
         $sections = [
             ['id' => 'histoire', 'title' => "Découvrir son histoire", 'note' => 'Timeline historique — Phase 2'],
-            ['id' => 'territoire', 'title' => 'Territoire et sections communales', 'note' => 'Arrondissement, communes, sections — Phase 2'],
             ['id' => 'sites-historiques', 'title' => 'Sites historiques', 'note' => 'Fiches détaillées + carte — Phase 2'],
             ['id' => 'centre-ville', 'title' => 'Centre-ville', 'note' => 'Phase 2'],
             ['id' => 'sejour', 'title' => 'Où séjourner ?', 'note' => 'Hôtels et hébergements — Phase 3'],

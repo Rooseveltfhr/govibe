@@ -15,7 +15,7 @@
             </a>
             <div class="hidden items-center gap-6 text-sm md:flex">
                 <a href="{{ route('home') }}#histoire" class="hover:text-msn-gold-400">Histoire</a>
-                <a href="{{ route('home') }}#territoire" class="hover:text-msn-gold-400">Territoire</a>
+                <a href="{{ route('territoire.index') }}" class="hover:text-msn-gold-400">Territoire</a>
                 <a href="{{ route('home') }}#sejour" class="hover:text-msn-gold-400">Où séjourner</a>
                 <a href="{{ route('home') }}#restaurants" class="hover:text-msn-gold-400">Restaurants</a>
             </div>
