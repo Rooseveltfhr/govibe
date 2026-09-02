@@ -12,6 +12,11 @@
         <h2 class="font-bold text-gray-800 dark:text-white">Nouvelle réservation</h2>
     </div>
     <div class="content-card p-7">
+        @if(session('error'))
+        <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-5 dark:bg-red-900/20 dark:border-red-800">
+            <p class="text-red-600 text-sm dark:text-red-400">{{ session('error') }}</p>
+        </div>
+        @endif
         @if($errors->any())
         <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-5">
             @foreach($errors->all() as $e)<p class="text-red-600 text-sm">• {{ $e }}</p>@endforeach
@@ -36,12 +41,12 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Début *</label>
-                    <input type="datetime-local" name="start_at" value="{{ old('start_at') }}" required
+                    <input type="datetime-local" name="start_datetime" value="{{ old('start_datetime') }}" required
                            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Fin *</label>
-                    <input type="datetime-local" name="end_at" value="{{ old('end_at') }}" required
+                    <input type="datetime-local" name="end_datetime" value="{{ old('end_datetime') }}" required
                            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
                 </div>
             </div>

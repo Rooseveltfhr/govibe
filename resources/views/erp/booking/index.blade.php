@@ -36,11 +36,11 @@
                 @forelse($bookings as $b)
                 @php $sc=['pending'=>'bg-yellow-100 text-yellow-700','confirmed'=>'bg-green-100 text-green-700','cancelled'=>'bg-red-100 text-red-700']; @endphp
                 <tr class="table-row">
-                    <td class="px-5 py-3.5 text-sm font-medium text-gray-800 dark:text-white">{{ $b->title }}</td>
+                    <td class="px-5 py-3.5 text-sm font-medium text-gray-800 dark:text-white">{{ $b->title ?: $b->reference }}</td>
                     <td class="px-5 py-3.5 text-sm text-gray-500">{{ $b->client->name ?? '—' }}</td>
-                    <td class="px-5 py-3.5 text-xs text-gray-400">{{ \Carbon\Carbon::parse($b->start_at)->format('d/m/Y H:i') }}</td>
-                    <td class="px-5 py-3.5 text-xs text-gray-400">{{ \Carbon\Carbon::parse($b->end_at)->format('d/m/Y H:i') }}</td>
-                    <td class="px-5 py-3.5 text-xs text-gray-500">{{ $b->space ?? '—' }}</td>
+                    <td class="px-5 py-3.5 text-xs text-gray-400">{{ $b->start_datetime->format('d/m/Y H:i') }}</td>
+                    <td class="px-5 py-3.5 text-xs text-gray-400">{{ $b->end_datetime->format('d/m/Y H:i') }}</td>
+                    <td class="px-5 py-3.5 text-xs text-gray-500">{{ $b->space?->name ?? '—' }}</td>
                     <td class="px-5 py-3.5"><span class="badge text-xs {{ $sc[$b->status] ?? 'bg-gray-100 text-gray-600' }}">{{ ucfirst($b->status) }}</span></td>
                 </tr>
                 @empty
