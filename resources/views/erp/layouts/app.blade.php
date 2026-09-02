@@ -176,6 +176,11 @@
                 <span class="label">Partenaires</span>
             </a>
 
+            <a href="{{ route('erp.fiches.index') }}" class="sidebar-link {{ request()->routeIs('erp.fiches.*') ? 'active' : '' }}">
+                <i class="bi bi-clipboard-data-fill icon"></i>
+                <span class="label">Fiches techniques</span>
+            </a>
+
             <div class="sidebar-section mt-2">Finance</div>
 
             <a href="{{ route('erp.paiements.index') }}" class="sidebar-link {{ request()->routeIs('erp.paiements.*') ? 'active' : '' }}">

@@ -28,9 +28,11 @@ use App\Http\Controllers\ERP\Admin\SubscriptionController;
 use App\Http\Controllers\BootcampController;
 use App\Http\Controllers\PartenaireController;
 use App\Http\Controllers\EvenementController;
+use App\Http\Controllers\FicheTechniqueController;
 use App\Http\Controllers\ERP\PartenaireAdminController;
 use App\Http\Controllers\ERP\EvenementAdminController;
 use App\Http\Controllers\ERP\PasserellePaiementController;
+use App\Http\Controllers\ERP\FicheTechniqueAdminController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -60,6 +62,13 @@ Route::get('/evenements', [EvenementController::class, 'index'])->name('evenemen
 Route::post('/evenements/inscription', [EvenementController::class, 'store'])->name('evenements.store');
 Route::get('/evenements/confirmation/{evenement}', [EvenementController::class, 'confirmation'])->name('evenements.confirmation');
 Route::get('/evenements/{evenement}', [EvenementController::class, 'show'])->name('evenements.show');
+
+// Fiche technique — remplie par les agents chez le prospect.
+// URL publique : les agents la remplissent sur leur téléphone, sans
+// authentification ERP ; le champ « agent » identifie qui a rempli.
+Route::get('/fiche-technique', [FicheTechniqueController::class, 'create'])->name('fiche-technique.create');
+Route::post('/fiche-technique', [FicheTechniqueController::class, 'store'])->name('fiche-technique.store');
+Route::get('/fiche-technique/merci/{fiche}', [FicheTechniqueController::class, 'merci'])->name('fiche-technique.merci');
 
 // Public: Moyens de paiement
 Route::view('/paiement', 'paiement')->name('paiement');
@@ -271,6 +280,16 @@ Route::prefix('erp')->name('erp.')->group(function () {
             Route::post('/{passerelle}', [PasserellePaiementController::class, 'update'])->name('update');
             Route::delete('/{passerelle}/fichier', [PasserellePaiementController::class, 'destroyFichier'])->name('fichier.destroy');
             Route::delete('/{passerelle}', [PasserellePaiementController::class, 'destroy'])->name('destroy');
+        });
+
+        // ── Fiches techniques (prospection) ───────────────
+        Route::prefix('fiches')->name('fiches.')->group(function () {
+            Route::get('/', [FicheTechniqueAdminController::class, 'index'])->name('index');
+            Route::get('/export', [FicheTechniqueAdminController::class, 'export'])->name('export');
+            Route::get('/{fiche}', [FicheTechniqueAdminController::class, 'show'])->name('show');
+            Route::post('/{fiche}/suivi', [FicheTechniqueAdminController::class, 'storeSuivi'])->name('suivi');
+            Route::patch('/{fiche}/qualification', [FicheTechniqueAdminController::class, 'updateQualification'])->name('qualification');
+            Route::delete('/{fiche}', [FicheTechniqueAdminController::class, 'destroy'])->name('destroy');
         });
 
         // ── Super Admin ───────────────────────────────────
