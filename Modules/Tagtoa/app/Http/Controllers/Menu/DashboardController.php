@@ -16,6 +16,7 @@ use Modules\Tagtoa\App\Models\Menu\Order;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Services\Menu\MenuOrderService;
 use Modules\Tagtoa\App\Support\Locale;
+use Modules\Tagtoa\App\Support\Menu\BusinessProfile;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -209,6 +210,10 @@ $data = $this->validateMenu($request);
                         'price'        => round((float) ($it['price'] ?? 0), 2),
                         'emoji'        => $it['emoji'] ?? null,
                         'badge'        => $it['badge'] ?? null,
+                        // Champs propres au métier (chambre, boisson, plat…) :
+                        // seuls ceux déclarés pour CE type entrent en base, chacun
+                        // contraint à son domaine. Rien d'inconnu n'est écrit.
+                        'specs'        => BusinessProfile::sanitize($menu->type, $it['specs'] ?? null),
                         'is_featured'  => ! empty($it['is_featured']),
                         'is_available' => ! isset($it['is_available']) ? true : (bool) $it['is_available'],
                         'stock'        => (! isset($it['stock']) || $it['stock'] === '') ? null : max(0, (int) $it['stock']),

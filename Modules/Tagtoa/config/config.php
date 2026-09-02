@@ -174,6 +174,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Modules visibles dans le tableau de bord marchand
+    |--------------------------------------------------------------------------
+    | Ce que le marchand voit dans sa barre latérale et sur sa page d'accueil.
+    | Masquer n'est PAS supprimer : les routes d'un module absent d'ici restent
+    | servies et ses données intactes — un marchand qui a déjà des liens NFC
+    | imprimés ou des cartes de fidélité ne perd rien.
+    |
+    | Rallumer un module = ajouter sa clé ici. Clés disponibles :
+    |   menu, pos, event, pay, analytics, customers, reviews, qr, plan,
+    |   site, store, cards, loyalty, links, booking, billing, audit
+    */
+    'modules_enabled' => \Modules\Tagtoa\App\Support\DashboardModules::DEFAULT_ENABLED,
+
+    /*
+    |--------------------------------------------------------------------------
     | Devises supportées
     |--------------------------------------------------------------------------
     | symbol : symbole affiché · decimals : nb de décimales ·
