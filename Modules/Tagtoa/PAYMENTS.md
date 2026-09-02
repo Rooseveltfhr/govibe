@@ -1,6 +1,43 @@
 # TAGTOA PAY — passerelles de paiement
 
-## Architecture
+## Où vivent les moyens de paiement — au niveau du MARCHAND
+
+Le marchand configure ses moyens de paiement **une seule fois** sur
+`/tagtoa/pay/methods`. Ils s'appliquent à **tous** ses liens : créer un lien ne
+demande plus de ressaisir un numéro de compte, et corriger un numéro le corrige
+partout d'un coup.
+
+Techniquement, ces méthodes sont portées par une page « bibliothèque »
+(`tagtoa_payment_pages.is_library = true`), une par marchand, jamais listée dans
+le dashboard ni servie publiquement. `MerchantMethods` est le seul point de
+lecture ; la page publique, la page hébergée d'un paiement API et la soumission
+de preuve passent toutes par lui, **scopé au `tenant_id` de la page** — une
+méthode d'un autre marchand n'est donc jamais payable.
+
+Reprise des données existantes : la migration
+`2026_09_02_000113_consolidate_payment_methods_per_merchant` **rattache** les
+méthodes existantes à la bibliothèque et **désactive** les doublons au lieu de
+les supprimer — les preuves de paiement sont supprimées en cascade depuis les
+méthodes, donc effacer une méthode effacerait l'historique du marchand.
+
+### Qui saisit quoi
+
+| Famille | Identifiants | Rôle du marchand |
+|---|---|---|
+| **Automatique** (MonCash, PayPal, carte, crypto) | clés API du **super-admin** uniquement (`.env`, jamais en base ni côté marchand) | activer / désactiver ce qu'il veut proposer |
+| **Manuel** (Zelle, Unibank, Sogebank, BNC, USDT, NatCash…) | **ses propres** coordonnées : nom du compte, numéro, institution, QR, consignes | tout saisir, une fois |
+
+## Types de lien
+
+| Type | Usage | Montant |
+|---|---|---|
+| `invoice` | facturer un client (nom/titre, description, prix, devise) | fixe, ou laissé vide = libre |
+| `donation` | recevoir un don / du soutien | typiquement libre |
+
+Après création, le marchand arrive sur l'écran de partage : copier le lien,
+l'envoyer sur WhatsApp, ouvrir la page, générer le QR.
+
+## Architecture des passerelles
 Chaque méthode de paiement a un **mode** :
 - **auto** (API) : règlement en ligne automatique via une passerelle.
 - **manuel** (preuve) : le client paie hors-ligne puis envoie une capture ;
@@ -18,6 +55,13 @@ Classification dans `app/Support/PaymentGateway.php`.
 | card | auto | stripe |
 | usdt / usdc / btc / eth | auto | coinpayments |
 | natcash, zelle, cashapp, unibank, sogebank, capitalbank, bnc, … | manuel | — |
+
+> **NatCash** : aucun driver automatique n'existe à ce jour dans le module — la
+> documentation API officielle de l'opérateur n'est pas en notre possession.
+> NatCash fonctionne donc en **manuel** (le marchand saisit son numéro, le
+> client envoie une preuve). Le jour où la documentation officielle est
+> obtenue, un driver s'ajoute comme les autres et la méthode bascule seule en
+> automatique, sans que le marchand ait quoi que ce soit à refaire.
 
 ## Identifiants (secrets) — à définir en .env / GitHub secrets
 > NE JAMAIS committer ces valeurs. Tant qu'elles sont absentes, la méthode
@@ -88,7 +132,11 @@ coordonnées bancaires du marchand ni d'identifiant interne.
 ### Réglages plateforme par passerelle
 
 `/tagtoa/admin/gateways` (super_admin) : activation, frais TAGTOA (% + fixe) et
-**mode de credentials** par passerelle —
-`merchant` (le marchand branche ses propres identifiants, l'argent va direct
-chez lui) ou `platform` (TAGTOA encaisse en agrégateur : n'activer qu'avec les
-accords PayPal Commerce Platform / Stripe Connect / Digicel).
+saisie des identifiants API. **C'est le seul endroit où des clés de passerelle
+sont saisies** : un marchand n'en fournit jamais.
+
+Conséquence à ne pas perdre de vue : quand TAGTOA encaisse avec ses propres
+clés, TAGTOA est un **agrégateur de paiement** et reverse ensuite au marchand.
+N'activer une passerelle automatique en production qu'avec l'accord contractuel
+correspondant (PayPal Commerce Platform / Stripe Connect / Digicel) et en
+conformité BRH Circulaire 121 — voir `RISKS.md`.

@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Api\ApiKey;
 use Modules\Tagtoa\App\Models\Api\ApiPayment;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
+use Modules\Tagtoa\App\Services\Pay\MerchantMethods;
 use Modules\Tagtoa\App\Support\Pay\GatewayCatalog;
 
 /**
@@ -69,14 +70,16 @@ class ApiPaymentService
      */
     public function resolvePage(?string $tenantId, ?string $alias = null): PaymentPage
     {
-        $q = PaymentPage::where('tenant_id', $tenantId)->where('is_active', true);
+        $q = PaymentPage::where('tenant_id', $tenantId)->where('is_active', true)
+            ->where('is_library', false); // page technique : jamais exposée à l'API
         $page = $alias ? (clone $q)->where('alias', $alias)->first() : null;
         $page = $page ?: $q->oldest('id')->first();
 
         if (! $page) {
             throw new \RuntimeException(self::ERR_NO_PAGE);
         }
-        if ($page->activeMethods()->count() === 0) {
+        // Les moyens appartiennent au MARCHAND (configurés une fois), pas au lien.
+        if (app(MerchantMethods::class)->active($page->tenant_id)->isEmpty()) {
             throw new \RuntimeException(self::ERR_NO_METHOD);
         }
 
@@ -140,7 +143,7 @@ class ApiPaymentService
     {
         $catalog = GatewayCatalog::forMerchant();
 
-        return $page->activeMethods->map(function ($m) use ($catalog) {
+        return app(MerchantMethods::class)->active($page->tenant_id)->map(function ($m) use ($catalog) {
             $meta = $catalog[$m->type] ?? [];
 
             return [
