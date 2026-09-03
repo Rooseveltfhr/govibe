@@ -394,19 +394,29 @@ case "$ACTION" in
     # En dernier, et intégral : c'est le bloc d'achat lui-même. « Template:: »
     # est l'alias de namespace du thème actif, pas un dossier — il faut le
     # résoudre vers templates/basic, sinon on cherche un fichier inexistant.
-    grp "Partiels inclus par la fiche (bloc d'achat — intégral)"
+    # Le bloc d'achat vit dans un partiel inclus par la fiche. « Template:: »
+    # est l'alias de namespace du thème actif, pas un dossier : il faut le
+    # résoudre vers templates/basic, sinon on cherche un fichier inexistant.
+    grp "Partiels inclus par la fiche : galerie et prix (début du bloc d'achat)"
     if [ -f "$F" ]; then
       grep -oE "@(include|includeIf)\('[^']+'" "$F" | sed "s/.*'\(.*\)'/\1/" | sort -u | while read -r inc; do
         REL=$(printf '%s' "$inc" | sed 's/^Template:://' | tr '.' '/')
         for P in "$TPL/$REL.blade.php" "$APPDIR/resources/views/$REL.blade.php"; do
           [ -f "$P" ] || continue
-          echo "===== $inc → ${P#$APPDIR/} ($(wc -l < "$P") lignes) ====="
-          cat -n "$P"
+          echo "===== $inc → ${P#$APPDIR/} ($(wc -l < "$P") lignes) — 35 premières ====="
+          sed -n '1,35p' "$P" | cat -n
           continue 2
         done
         echo "===== $inc : introuvable (essayé $TPL/$REL.blade.php) ====="
       done
     fi
+    echo
+    echo "-- sélecteurs existants dans product-details.css (pour ne rien écraser à l'aveugle) --"
+    grep -oE "^[.#][A-Za-z0-9_.#>: -]{2,60}\{" "$DOCROOT/assets/templates/basic/css/product-details.css" 2>/dev/null \
+      | tr -d '{' | head -60
+    echo "-- bloc DJOUNES déjà présent dans custom.css ? --"
+    grep -c "DJOUNES" "$DOCROOT/assets/templates/basic/css/custom.css" 2>/dev/null || echo 0
+    wc -l "$DOCROOT/assets/templates/basic/css/custom.css" 2>/dev/null
     egrp
     ;;
   scan_accueil)
