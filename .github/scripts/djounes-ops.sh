@@ -418,6 +418,27 @@ case "$ACTION" in
     grep -c "DJOUNES" "$DOCROOT/assets/templates/basic/css/custom.css" 2>/dev/null || echo 0
     wc -l "$DOCROOT/assets/templates/basic/css/custom.css" 2>/dev/null
     egrp
+
+    # Deux inconnues qui casseraient la sélection d'une taille ou d'une couleur
+    # si on les devinait : la classe que le script bascule sur le bouton choisi,
+    # et les styles que le thème applique déjà à ces boutons.
+    grp "État sélectionné : classe basculée par le script"
+    grep -nE "addClass|removeClass|classList" \
+      "$DOCROOT/assets/templates/basic/js/product_details.js" 2>/dev/null | head -20
+    egrp
+
+    grp "Styles existants des boutons d'attribut (main.css)"
+    grep -nE "^\.(attribute-value|attribute-name|color-attribute|text-attribute|attribute-value-wrapper)[^{]*\{" \
+      "$DOCROOT/assets/templates/basic/css/main.css" 2>/dev/null | head -30
+    echo "-- règles complètes --"
+    awk '/^\.(attribute-value|attribute-name|color-attribute|text-attribute|attribute-value-wrapper)[^{]*\{/,/\}/' \
+      "$DOCROOT/assets/templates/basic/css/main.css" 2>/dev/null | head -80
+    egrp
+
+    grp "Galerie telle qu'elle est rendue (HTML public)"
+    curl -sS -m 25 "https://$DOM/product/nurse-scrub-set" 2>/dev/null \
+      | sed -n '/id="variantImages"/,/col-md-7/p' | head -40
+    egrp
     ;;
   scan_accueil)
     # Où accrocher une vitrine de produits sur l'accueil : ce que le contrôleur
