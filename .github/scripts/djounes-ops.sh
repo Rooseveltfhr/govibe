@@ -345,6 +345,66 @@ case "$ACTION" in
       "$APPDIR/resources/views/templates/basic/product_details.blade.php" 2>/dev/null | head -25
     egrp
     ;;
+  scan_fiche)
+    # Avant de redessiner la fiche produit, on lit exactement ce qu'il y a :
+    # le gabarit entier, ce que le contrôleur lui passe, où le thème charge son
+    # CSS, et comment les variantes sont choisies. Rien n'est deviné.
+    TPL="$APPDIR/resources/views/templates/basic"
+    grp "Gabarit de la fiche produit (intégral)"
+    F="$TPL/product_details.blade.php"
+    if [ -f "$F" ]; then
+      echo "== $(wc -l < "$F") lignes : ${F#$APPDIR/} =="
+      cat -n "$F"
+    else
+      echo "(product_details.blade.php absent)"
+      ls -1 "$TPL"/*.blade.php 2>/dev/null | xargs -n1 basename 2>/dev/null | head -30
+    fi
+    egrp
+
+    grp "Partiels inclus par la fiche"
+    if [ -f "$F" ]; then
+      grep -oE "@(include|includeIf)\('[^']+'" "$F" | sed "s/.*'\(.*\)'/\1/" | sort -u | while read -r inc; do
+        P="$APPDIR/resources/views/$(printf '%s' "$inc" | tr '.' '/').blade.php"
+        if [ -f "$P" ]; then
+          echo "===== $inc ($(wc -l < "$P") lignes) ====="
+          cat -n "$P"
+        else
+          echo "===== $inc : fichier non trouvé ($P) ====="
+        fi
+      done
+    fi
+    egrp
+
+    grp "Ce que le contrôleur passe à la vue"
+    for C in "$APPDIR/app/Http/Controllers/SiteController.php" \
+             "$APPDIR/app/Http/Controllers/ProductController.php"; do
+      [ -f "$C" ] || continue
+      echo "== ${C#$APPDIR/} =="
+      sed -n '/function productDetails\|function product(/,/^    }/p' "$C" | head -60
+    done
+    echo "-- route de la fiche --"
+    grep -n "product_details\|productDetails\|product/{" "$APPDIR/routes/web.php" 2>/dev/null | head -8
+    egrp
+
+    grp "Où le thème charge son CSS et son JS"
+    for L in "$TPL/layouts/frontend.blade.php" "$TPL/layouts/app.blade.php" \
+             "$TPL/layouts/master.blade.php"; do
+      [ -f "$L" ] || continue
+      echo "== ${L#$APPDIR/} ($(wc -l < "$L") lignes) =="
+      grep -nE "asset\(|@stack|@yield|@push|<link|<script" "$L" | head -40
+    done
+    echo "-- feuilles de style présentes --"
+    for d in "$DOCROOT/assets/templates/basic/css" "$DOCROOT/assets/global/css"; do
+      [ -d "$d" ] && { echo "[${d#$DOCROOT/}]"; ls -1sh "$d" 2>/dev/null | head -15; }
+    done
+    egrp
+
+    grp "Variantes : ce que le thème sait déjà afficher"
+    grep -rn "attribute_values\|variant" "$TPL" 2>/dev/null | sed "s|$APPDIR/||" | head -25
+    echo "-- ajout au panier (route + JS) --"
+    grep -n "add-to-cart\|addToCart\|cart.store\|cart/add" "$APPDIR/routes/web.php" 2>/dev/null | head -8
+    egrp
+    ;;
   scan_accueil)
     # Où accrocher une vitrine de produits sur l'accueil : ce que le contrôleur
     # passe à la vue, comment les sections sont assemblées, et si le thème sait
