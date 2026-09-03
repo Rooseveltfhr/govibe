@@ -207,7 +207,19 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
   59 tab, 32 pasrèl disponib men 0 konfigire. Schema a gen **varyant**
   (`product_variants`+`attributes`) — se sa TAGTOA STORE pa genyen, donk boutik
   DJOUNES rete sou Visermart. `install/` neutralize (4 out 2026). Konsta konplè +
-  plan mak la: `docs/DJOUNES.md`.
+  plan mak la: `docs/DJOUNES.md`. Chart mak la: `docs/DJOUNES_BRAND.md`.
+  **Mak la poze (sept. 2026)**: logo+koulè (`#0B3B2E`/`#0A0A0A`/`#D4AF37`), USD,
+  8 pwodwi + 3 kategori + 5 atribi + 42 varyant, dekoup PNG transparan, vitrin
+  « Shift favorites », 3 paj legal, koupon FIRST15, backup cron chak jou, panèl
+  admin an koulè mak (san touche verifikasyon lisans ViserLab), 8 bànyè carousel
+  (**fòma natif 1284×345** — pa 1920×760, script la konprese vètikalman), epi
+  fich pwodwi a **an CSS sèlman** (`custom.css`, blòk delimite).
+  ⚠️ Metòd: toujou yon aksyon `scan_*` (lekti sèl) AVAN nenpòt ekriti — tèm nan
+  abiye `<span>` andedan (`.text-attribute`/`.color-attribute`), pa `<button>`,
+  e klas seleksyon an se `active`. Chak ekriti fè dump+backup anvan, verifye 200
+  apre, epi restore pou kont li si l echwe (`~/djounes-backups/`).
+  ⏳ Bezwen aksyon fondatè: Stripe+PayPal, SMTP, adrès/telefòn/imèl biwo US
+  (pou paj legal yo), Terms of Service, GA/Meta Pixel, chanje modpas admin.
 
 ## 7. Done demo (pou teste)
 - MENU: `demo-menu` · PAY: `demo` · LINKS: `demo-links` · EVENT: `demo-concert` · BOOKING: `demo-booking`

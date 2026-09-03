@@ -133,9 +133,29 @@ certificat TLS**, 30 dernières lignes des journaux d'erreurs, tâches cron.
 | Action | Effet | Réversible |
 |---|---|---|
 | `inventaire` | lecture seule, ne modifie rien | — |
+| `scan_*` (`scan_banner`, `scan_accueil`, `scan_collection`, `scan_fiche`, `scan_marque`, `scan_admin`, `scan_modeles`, `schema_catalogue`, `diag_catalogue`) | lecture seule : relèvent la structure réelle (gabarits, modèles, casts, classes CSS) avant toute écriture | — |
+| `demarrage_marque` | logo, couleurs, devise, catalogue de départ | oui, dump + sauvegarde fichiers avant |
+| `contenu_marque` | textes d'accueil, pages légales, coupon, sauvegarde quotidienne | oui, dump avant |
+| `catalogue_variantes` | vitrine d'accueil, attributs, variantes, découpes transparentes | oui, dump avant |
+| `bannieres_marque` | remplace les 8 diapositives du carrousel et leur donne une destination | oui, dump + anciennes images conservées |
+| `fiche_marque` | fiche produit à la charte, **en CSS seulement** (bloc délimité dans `custom.css`) | oui, `custom.css` sauvegardée avant |
+| `admin_marque` | couleurs et nom de la marque dans le panneau d'administration | oui, sauvegarde avant |
+| `securiser_install` | neutralise le dossier `install/` | oui, dossier renommé |
 | `vider_cache` | `artisan optimize:clear` (Laravel) ou vidage de `wp-content/cache` (WordPress) | oui, le cache se régénère |
 | `mettre_en_pause` | `public_html` → `public_html.paused` + page « Maintenance » | oui, via `reprendre_site` |
 | `reprendre_site` | restaure `public_html.paused` | oui |
+
+Méthode suivie pour toute écriture : **d'abord un `scan_*` en lecture seule**
+pour relever la structure réelle (schéma, casts Eloquent, constantes, classes
+CSS, classe basculée par le JS), **puis** l'action qui écrit. Deviner coûte
+plus cher que lire : c'est ce qui a évité de casser la sélection de taille et
+de couleur sur la fiche produit, où le thème habille le `<span>` intérieur et
+non le `<button>`.
+
+Chaque action qui écrit prend un `mysqldump` et une copie des fichiers
+concernés **avant**, vérifie que les pages répondent 200 **après**, et
+restaure d'elle-même sinon. Les sauvegardes restent dans
+`~/djounes-backups/`.
 
 Le champ `fetch_file` récupère un fichier de configuration (chemin **relatif** au
 dossier du domaine, ex. `public_html/wp-config.php`) sous forme d'artefact, sans
