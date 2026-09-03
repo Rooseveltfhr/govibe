@@ -58,6 +58,16 @@ $app = require_once __DIR__.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use App\Models\Frontend;
+use App\Models\Page;
+
+/* Le modèle Frontend caste data_values : on reçoit déjà un objet, et une
+   affectation le ré-encode. Décoder ou encoder soi-même casse tout — c'est
+   ce qui a fait échouer le premier passage. */
+function charger($v) {
+    if (is_object($v) || is_array($v)) return (object) $v;
+    $d = json_decode((string) $v);
+    return is_object($d) ? $d : null;
+}
 
 $dir = getenv('BANDIR');
 
@@ -101,8 +111,8 @@ function adapter(string $dir, string $fichier, ?string $modele): void {
 foreach ($rows as $i => $row) {
     if (!isset($slides[$i])) { echo "  #{$row->id} : pas de visuel prévu, inchangée\n"; continue; }
     [$fichier, $lien] = $slides[$i];
-    $data = json_decode($row->data_values);
-    if (!is_object($data)) { echo "  #{$row->id} : JSON illisible, ignorée\n"; continue; }
+    $data = charger($row->data_values);
+    if (!$data) { echo "  #{$row->id} : contenu illisible, ignorée\n"; continue; }
 
     $ancien = property_exists($data, 'slider') ? $data->slider : null;
     adapter($dir, $fichier, $ancien);
@@ -112,22 +122,41 @@ foreach ($rows as $i => $row) {
     if (property_exists($data, 'link'))   $data->link   = $lien;
     if (property_exists($data, 'has_image')) $data->has_image = '1';
 
-    $row->data_values = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $row->data_values = $data;
     $row->save();
     echo "  #{$row->id} : $fichier → $lien" . ($ancien ? "  (remplace $ancien)" : "") . "\n";
+}
+
+/* Un carrousel invisible ne sert à rien : la section « banner » n'était pas
+   dans la liste des sections de l'accueil. On la met en tête, devant
+   « recent_viewed » qui n'a rien à montrer à un premier visiteur. */
+$home = Page::where('slug', '/')->first();
+if ($home) {
+    $secs = $home->secs;
+    if (is_string($secs)) $secs = json_decode($secs, true);
+    $secs = is_array($secs) ? $secs : [];
+    if (!in_array('banner', $secs, true)) {
+        array_unshift($secs, 'banner');
+        $home->secs = $secs;
+        $home->save();
+        echo "section « banner » activée en tête de l'accueil\n";
+    } else {
+        echo "section « banner » déjà active sur l'accueil\n";
+    }
+    echo "sections de l'accueil : " . implode(', ', $secs) . "\n";
 }
 
 /* Le titre de la section, au cas où il porte encore un texte de démonstration. */
 $c = Frontend::where('data_keys', 'banner.content')->first();
 if ($c) {
-    $d = json_decode($c->data_values);
-    if (is_object($d)) {
+    $d = charger($c->data_values);
+    if ($d) {
         foreach (['heading' => 'Built for the 12-hour shift', 'title' => 'Built for the 12-hour shift',
                   'short_description' => 'Scrubs for the floor. Body care for after.',
                   'description' => 'Scrubs for the floor. Body care for after.'] as $k => $v) {
             if (property_exists($d, $k) && is_string($d->$k)) $d->$k = $v;
         }
-        $c->data_values = json_encode($d, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $c->data_values = $d;
         $c->save();
         echo "banner.content mis à jour\n";
     }
