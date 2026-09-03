@@ -226,6 +226,8 @@ jobs:
           verifier "/fiche-technique"  "200 301 302" "formulaire agent"
           verifier "/paiement"         "200 301 302" "moyens de paiement"
           verifier "/paiement/preuve"  "200 301 302" "envoi de preuve"
+          verifier "/agents-ia"        "200 301 302" "catalogue Agents IA"
+          verifier "/agents-ia/demande" "200 301 302" "demande d'Agent IA"
 
           echo "Contrôle d'accès"
           # 302 vers la connexion, ou 403. Un 200 signifierait que la prospection
@@ -234,6 +236,7 @@ jobs:
           # Les preuves portent des captures de transactions : un 200 ici
           # signifierait qu'elles sont consultables sans compte.
           verifier "/erp/preuves"      "302 301 403" "preuves protégées"
+          verifier "/erp/agents-ia"    "302 301 403" "demandes IA protégées"
 
           if [ "$ECHEC" -ne 0 ]; then
             echo "::error::Le déploiement est passé mais le site ne répond pas correctement."
