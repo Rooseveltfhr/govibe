@@ -13,6 +13,7 @@ final readonly class TemplateDescriptor
     /**
      * @param  callable(string, string, array<string, mixed>, list<string>, list<string>, ?string): AgentDefinition  $factory
      * @param  callable(string): list<string>  $sampleQuestions
+     * @param  list<string>  $capabilities  sa ajan an fè konkrèman, an fraz kout
      */
     public function __construct(
         public string $sector,
@@ -20,5 +21,6 @@ final readonly class TemplateDescriptor
         public string $description,
         public mixed $factory,
         public mixed $sampleQuestions,
+        public array $capabilities = [],
     ) {}
 }

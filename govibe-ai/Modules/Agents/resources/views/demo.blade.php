@@ -1,13 +1,16 @@
 <x-agents::layouts.app :title="__('Démo')">
 
-    <h1>{{ __('Démo') }} — {{ $definition->name }}</h1>
-    <p class="lead">
-        {{ __("L'agent se souvient de l'échange : commandez en plusieurs messages, comme un vrai client.") }}
-    </p>
+    <div class="page-head">
+        <h1>{{ __('Démo') }} — {{ $definition->name }}</h1>
+        <p class="lead">
+            {{ __("L'agent se souvient de l'échange : commandez en plusieurs messages, comme un vrai client.") }}
+        </p>
+    </div>
 
     @unless ($hasProvider)
         <div class="note">
-            {{ __("Aucune clé d'IA n'est configurée sur ce serveur : le bouton Démo affichera une erreur au lieu d'une vraie réponse.") }}
+            <strong>{{ __("Aucune clé d'IA n'est configurée sur ce serveur.") }}</strong>
+            {{ __("La démo ne peut pas répondre tant qu'une clé n'est pas ajoutée : aucune réponse ne sera inventée à la place.") }}
         </div>
     @endunless
 
@@ -17,34 +20,35 @@
 
     @if ($conversation->isEmpty())
         <h2>{{ __('Essayez par exemple') }}</h2>
-        @foreach ($suggestions as $suggestion)
-            <form method="POST" action="{{ route('agents.demo', $sector) }}" style="margin-bottom:.5rem">
-                @csrf
-                @if ($agentModel)
-                    <input type="hidden" name="agent" value="{{ $agentModel->id }}">
-                @endif
-                <input type="hidden" name="question" value="{{ $suggestion }}">
-                <button type="submit" class="btn">{{ $suggestion }}</button>
-            </form>
-        @endforeach
+        <div class="row">
+            @foreach ($suggestions as $suggestion)
+                <form method="POST" action="{{ route('agents.demo', $sector) }}">
+                    @csrf
+                    @if ($agentModel)
+                        <input type="hidden" name="agent" value="{{ $agentModel->id }}">
+                    @endif
+                    <input type="hidden" name="question" value="{{ $suggestion }}">
+                    <button type="submit" class="btn">{{ $suggestion }}</button>
+                </form>
+            @endforeach
+        </div>
     @else
         <h2>{{ __('Conversation') }}</h2>
-        @foreach ($conversation->turns as $turn)
-            <div class="turn">
-                @if ($turn->role === 'user')
-                    <p class="q">{{ $turn->content }}</p>
-                @else
-                    <p class="a">{{ $turn->content }}</p>
-                    @if (($turn->meta['provider'] ?? null))
+        <div class="thread">
+            @foreach ($conversation->turns as $turn)
+                <div class="msg {{ $turn->role === 'user' ? 'from-user' : '' }}">
+                    <p class="who">{{ $turn->role === 'user' ? __('Client') : $definition->name }}</p>
+                    <p class="body">{{ $turn->content }}</p>
+                    @if ($turn->role !== 'user' && ($turn->meta['provider'] ?? null))
                         <div class="meta">
                             {{ $turn->meta['provider'] }}
                             @if ($turn->meta['model'] ?? null) · {{ $turn->meta['model'] }} @endif
                             @if (isset($turn->meta['latency_ms'])) · {{ $turn->meta['latency_ms'] }} ms @endif
                         </div>
                     @endif
-                @endif
-            </div>
-        @endforeach
+                </div>
+            @endforeach
+        </div>
     @endif
 
     <form method="POST" action="{{ route('agents.demo', $sector) }}">
@@ -68,6 +72,6 @@
         </div>
     </form>
 
-    <p style="margin-top:1.5rem"><a href="{{ route('agents.index') }}">← {{ __('Tous les modèles') }}</a></p>
+    <p class="back"><a href="{{ route('agents.index') }}">{{ __('Tous les modèles') }}</a></p>
 
 </x-agents::layouts.app>

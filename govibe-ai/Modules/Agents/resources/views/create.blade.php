@@ -12,8 +12,10 @@
 
 <x-agents::layouts.app :title="__('Créer un agent')">
 
-    <h1>{{ __('Créer') }} — {{ $descriptor->label }}</h1>
-    <p class="lead">{{ $descriptor->description }}</p>
+    <div class="page-head">
+        <h1>{{ __('Créer') }} — {{ $descriptor->label }}</h1>
+        <p class="lead">{{ $descriptor->description }}</p>
+    </div>
 
     <div class="note">
         {{ __("Ce que vous écrivez ici est tout ce que l'agent saura. S'il ne trouve pas la réponse, il le dira au lieu d'inventer.") }}
@@ -23,29 +25,42 @@
         @csrf
         <input type="hidden" name="sector" value="{{ $descriptor->sector }}">
 
-        <label for="name">{{ __("Nom de l'entreprise") }}</label>
-        <input type="text" id="name" name="name" value="{{ old('name') }}" required maxlength="120">
-        @error('name') <div class="err">{{ $message }}</div> @enderror
+        <fieldset>
+            <legend>{{ __('Entreprise') }}</legend>
 
-        @foreach ($fields as $label => $key)
-            <label for="k-{{ $key }}">{{ __($label) }}</label>
-            <textarea id="k-{{ $key }}" name="knowledge[{{ $key }}]">{{ old('knowledge.'.$key) }}</textarea>
-        @endforeach
+            <label for="name">{{ __("Nom de l'entreprise") }}</label>
+            <input type="text" id="name" name="name" value="{{ old('name') }}" required maxlength="120">
+            @error('name') <div class="err">{{ $message }}</div> @enderror
 
-        <label for="handoff">{{ __("Contact humain (si l'agent n'est pas sûr)") }}</label>
-        <input type="text" id="handoff" name="handoff_to" value="{{ old('handoff_to') }}" maxlength="120">
+            <label for="handoff">
+                {{ __('Contact humain') }}
+                <span class="hint">{{ __("L'agent y renvoie le client dès qu'il n'est pas sûr.") }}</span>
+            </label>
+            <input type="text" id="handoff" name="handoff_to" value="{{ old('handoff_to') }}" maxlength="120">
+        </fieldset>
 
-        <div class="row" style="margin-top:1.3rem">
+        <fieldset>
+            <legend>{{ __("Ce que l'agent saura") }}</legend>
+
+            @foreach ($fields as $label => $key)
+                <label for="k-{{ $key }}">{{ __($label) }}</label>
+                <textarea id="k-{{ $key }}" name="knowledge[{{ $key }}]">{{ old('knowledge.'.$key) }}</textarea>
+            @endforeach
+        </fieldset>
+
+        <div class="row">
             <button type="submit" class="btn btn-primary">{{ __('Créer') }}</button>
             <a class="btn" href="{{ route('agents.index') }}">{{ __('Annuler') }}</a>
         </div>
     </form>
 
     <h2>{{ __('Questions que cet agent sait traiter') }}</h2>
-    <ul class="empty">
+    <div class="list">
         @foreach ($questions as $q)
-            <li>{{ $q }}</li>
+            <div class="item">{{ $q }}</div>
         @endforeach
-    </ul>
+    </div>
+
+    <p class="back"><a href="{{ route('agents.index') }}">{{ __('Tous les modèles') }}</a></p>
 
 </x-agents::layouts.app>

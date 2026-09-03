@@ -30,10 +30,19 @@ class AgentTemplateRegistry
     /**
      * @param  callable(string, string, array<string, mixed>, list<string>, list<string>, ?string): AgentDefinition  $factory
      * @param  callable(string): list<string>  $sampleQuestions
+     * @param  list<string>  $capabilities
      */
-    public function register(string $sector, string $label, string $description, callable $factory, callable $sampleQuestions): void
-    {
-        $this->templates[$sector] = new TemplateDescriptor($sector, $label, $description, $factory, $sampleQuestions);
+    public function register(
+        string $sector,
+        string $label,
+        string $description,
+        callable $factory,
+        callable $sampleQuestions,
+        array $capabilities = [],
+    ): void {
+        $this->templates[$sector] = new TemplateDescriptor(
+            $sector, $label, $description, $factory, $sampleQuestions, $capabilities,
+        );
     }
 
     public function has(string $sector): bool
@@ -93,27 +102,45 @@ class AgentTemplateRegistry
     private function registerDefaults(): void
     {
         $this->register(
-            'restaurant',
-            'Restoran',
-            'Kòmand, mni, pri, rezèvasyon tab.',
-            RestaurantTemplate::make(...),
-            RestaurantTemplate::sampleQuestions(...),
+            sector: 'restaurant',
+            label: 'Restoran',
+            description: 'Reponn kliyan sou WhatsApp: mni, pri, akonpayman, kòmand.',
+            factory: RestaurantTemplate::make(...),
+            sampleQuestions: RestaurantTemplate::sampleQuestions(...),
+            capabilities: [
+                'Bay pri an goud, epi konvèti an dola ayisyen',
+                'Pwopoze akonpayman ak pikliz anvan li valide',
+                'Mande adrès ak yon repè anvan yon livrezon',
+                'Konfime chak kòmand anvan li anrejistre l',
+            ],
         );
 
         $this->register(
-            'clinic',
-            'Klinik / Sante',
-            'Randevou, sèvis, pri — zewo konsèy medikal.',
-            ClinicTemplate::make(...),
-            ClinicTemplate::sampleQuestions(...),
+            sector: 'clinic',
+            label: 'Klinik / Sante',
+            description: 'Randevou, sèvis, tarif — zewo konsèy medikal.',
+            factory: ClinicTemplate::make(...),
+            sampleQuestions: ClinicTemplate::sampleQuestions(...),
+            capabilities: [
+                'Bay sèvis, orè ak tarif klinik la sèlman',
+                'Pran randevou apre yon konfimasyon',
+                'Pa janm bay dyagnostik ni preskripsyon',
+                'Pase bay yon moun lè li pa sèten',
+            ],
         );
 
         $this->register(
-            'school',
-            'Lekòl',
-            'Enskripsyon, pwogram, frè, randevou ak direksyon an.',
-            SchoolTemplate::make(...),
-            SchoolTemplate::sampleQuestions(...),
+            sector: 'school',
+            label: 'Lekòl',
+            description: 'Enskripsyon, pwogram, frè, randevou ak direksyon an.',
+            factory: SchoolTemplate::make(...),
+            sampleQuestions: SchoolTemplate::sampleQuestions(...),
+            capabilities: [
+                'Eksplike pwogram ak kondisyon enskripsyon',
+                'Bay frè lekòl la jan direksyon an mete yo',
+                'Pran randevou ak direksyon an',
+                'Pa janm envante yon frè ni yon dat',
+            ],
         );
     }
 }

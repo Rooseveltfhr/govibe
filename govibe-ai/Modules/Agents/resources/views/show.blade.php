@@ -1,19 +1,22 @@
 <x-agents::layouts.app :title="$agent->name">
 
-    <h1>{{ $agent->name }}</h1>
-    <p class="lead">
-        <span class="tag">{{ $agent->sector }}</span>
-        @foreach ($definition->languages as $lang)
-            <span class="tag">{{ strtoupper($lang) }}</span>
-        @endforeach
-        @foreach ($definition->channels as $ch)
-            <span class="tag">{{ $ch }}</span>
-        @endforeach
-    </p>
+    <div class="page-head">
+        <h1>{{ $agent->name }}</h1>
+        <p class="lead">
+            <span class="tag">{{ $agent->sector }}</span>
+            @foreach ($definition->languages as $lang)
+                <span class="tag">{{ strtoupper($lang) }}</span>
+            @endforeach
+            @foreach ($definition->channels as $ch)
+                <span class="tag">{{ $ch }}</span>
+            @endforeach
+        </p>
+    </div>
 
     @unless ($hasProvider)
         <div class="note">
-            {{ __("Aucune clé d'IA n'est configurée sur ce serveur : la démo affichera une erreur au lieu d'une vraie réponse.") }}
+            <strong>{{ __("Aucune clé d'IA n'est configurée sur ce serveur.") }}</strong>
+            {{ __("La démo ne peut pas répondre tant qu'une clé n'est pas ajoutée : aucune réponse ne sera inventée à la place.") }}
         </div>
     @endunless
 
@@ -59,6 +62,6 @@
         </tr>
     </table>
 
-    <p style="margin-top:1.5rem"><a href="{{ route('agents.index') }}">← {{ __('Tous les agents') }}</a></p>
+    <p class="back"><a href="{{ route('agents.index') }}">{{ __('Tous les agents') }}</a></p>
 
 </x-agents::layouts.app>

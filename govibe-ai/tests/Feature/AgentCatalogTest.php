@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Agents\Models\Agent;
+use Modules\Agents\Templates\AgentTemplateRegistry;
 use Modules\AIProvider\Registry\ModelCatalog;
 use Modules\AIProvider\Registry\ProviderRegistry;
 use Modules\AIRouter\Routing\AiRouter;
@@ -29,6 +30,22 @@ it('shows the sector catalogue with a Demo and a Create button', function () {
         ->assertSee('Lekòl')
         ->assertSee(route('agents.demo', 'restaurant'))
         ->assertSee(route('agents.create', 'restaurant'));
+});
+
+// Yon kat ki gen sèlman yon tit pa di machann nan anyen. Kat la dwe di sa
+// ajan an fè konkrèman, sinon « chwazi yon modèl » se yon devinèt.
+it('says on each card what the agent actually does', function () {
+    $registry = new AgentTemplateRegistry;
+
+    $response = $this->get(route('agents.index'))->assertOk();
+
+    foreach ($registry->all() as $template) {
+        expect($template->capabilities)->not->toBeEmpty();
+
+        foreach ($template->capabilities as $capability) {
+            $response->assertSee($capability, false);
+        }
+    }
 });
 
 it('sends the site root to the catalogue', function () {
@@ -148,7 +165,9 @@ it('says plainly that no AI key is configured instead of faking an answer', func
 it('warns on the catalogue when no AI key is configured', function () {
     useCatalogProvider();
 
-    $this->get(route('agents.index'))->assertOk()->assertSee(__("Aucune clé d'IA n'est configurée sur ce serveur : le bouton Démo affichera une erreur au lieu d'une vraie réponse."));
+    $this->get(route('agents.index'))
+        ->assertOk()
+        ->assertSee(__("Aucune clé d'IA n'est configurée sur ce serveur."));
 });
 
 // Sa a se konpòtman ki konte pou machann nan: li tape yon dezyèm mesaj epi
