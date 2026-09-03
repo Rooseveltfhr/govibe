@@ -5,22 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'LOUVIA' }}</title>
     <style>
-        /* Palèt antrepriz sobr, fon klè. Yon sèl koulè aksan, sèvi ak li ra:
-           bouton prensipal la ak lyen yo. Rès la se gri ak liy fen. */
+        /* Fon blan, tèks nwa, bouton vèt. Gri yo sèvi sèlman pou liy ak
+           tèks segondè — yo pa yon dezyèm fon. */
         :root {
-            --page: #f5f6f8;
+            --page: #ffffff;
             --surface: #ffffff;
-            --line: #e3e6ea;
-            --line-strong: #cdd3da;
-            --ink: #11161c;
-            --ink-soft: #3f4954;
-            --muted: #6b7480;
-            --accent: #1b4a86;
-            --accent-hover: #153c6d;
-            --accent-soft: #eef3f9;
-            --ok-ink: #1a5c3c;
-            --ok-bg: #eef7f2;
-            --ok-line: #bfdfcd;
+            --line: #e0e0e0;
+            --line-strong: #c4c4c4;
+            --ink: #000000;
+            --ink-soft: #2b2b2b;
+            --muted: #5f5f5f;
+            --accent: #0f8a3d;
+            --accent-hover: #0b6c2f;
+            --accent-soft: #eaf6ee;
+            --ok-ink: #0b6c2f;
+            --ok-bg: #eaf6ee;
+            --ok-line: #b6ddc4;
             --warn-ink: #7a5300;
             --warn-bg: #fdf7e8;
             --warn-line: #ead9ac;
@@ -100,11 +100,47 @@
             text-decoration: none; font-size: .89rem; font-weight: 500;
             cursor: pointer; font-family: inherit; line-height: 1.5;
         }
-        .btn:hover { background: #f0f2f5; text-decoration: none; }
+        /* Tout bouton yo vèt. Yon bouton plen pou aksyon prensipal la, yon
+           bouton ak kontou pou lòt yo: menm koulè, de nivo. */
+        .btn { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+        .btn:hover { background: var(--accent-soft); text-decoration: none; }
         .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
         .btn-primary:hover { background: var(--accent-hover); }
         .btn-quiet { border-color: transparent; background: transparent; color: var(--accent); padding-left: 0; }
         .btn-quiet:hover { background: transparent; text-decoration: underline; }
+        .btn[disabled] { opacity: .5; cursor: default; }
+
+        /* ---- Demo santre: apèl ak chat ---- */
+        .stage { max-width: 620px; margin: 0 auto; text-align: center; }
+        .stage h1 { font-size: 1.5rem; }
+        .stage .lead { margin: 0 auto; }
+        .modes { display: flex; gap: .6rem; justify-content: center; margin: 1.6rem 0; }
+        .mode-btn {
+            display: inline-flex; align-items: center; gap: .5rem;
+            padding: .8rem 1.6rem; border-radius: 999px; font-size: 1rem; font-weight: 600;
+            border: 2px solid var(--accent); background: var(--surface); color: var(--accent);
+            text-decoration: none; cursor: pointer; font-family: inherit;
+        }
+        .mode-btn:hover { background: var(--accent-soft); text-decoration: none; }
+        .mode-btn[aria-current="true"] { background: var(--accent); color: #fff; }
+        .mode-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+        .stage .thread { text-align: left; margin: 1.2rem 0; }
+        .composer {
+            border: 1px solid var(--line); border-radius: var(--radius);
+            background: var(--surface); padding: .9rem; margin-top: 1.2rem;
+        }
+        .composer .fields { display: flex; gap: .5rem; align-items: center; }
+        .composer input[type=text] { flex: 1; }
+        .mic {
+            width: 44px; height: 44px; flex: none; border-radius: 999px;
+            border: 2px solid var(--accent); background: var(--surface); color: var(--accent);
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+        }
+        .mic svg { width: 18px; height: 18px; fill: currentColor; }
+        .mic[data-state="recording"] { background: var(--accent); color: #fff; animation: pulse 1.4s infinite; }
+        @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 var(--accent-soft); } 50% { box-shadow: 0 0 0 8px var(--accent-soft); } }
+        .composer .status { margin: .6rem 0 0; font-size: .86rem; color: var(--muted); min-height: 1.2em; }
 
         /* ---- Fòm ---- */
         label { display: block; margin: 1.1rem 0 .3rem; font-size: .86rem; font-weight: 600; color: var(--ink-soft); }

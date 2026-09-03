@@ -61,5 +61,20 @@
     "Client": "Cliente",
     "Entreprise": "Empresa",
     "Ce que l'agent saura": "Lo que el agente sabrá",
-    "L'agent y renvoie le client dès qu'il n'est pas sûr.": "El agente deriva al cliente aquí en cuanto no está seguro."
+    "L'agent y renvoie le client dès qu'il n'est pas sûr.": "El agente deriva al cliente aquí en cuanto no está seguro.",
+    "Appelez l'agent et il vous répond à la voix ; écrivez-lui et il répond par écrit. C'est le même agent, avec la même mémoire.": "Llame al agente y le responde con voz; escríbale y le responde por escrito. Es el mismo agente, con la misma memoria.",
+    "Appel": "Llamada",
+    "Chat": "Chat",
+    "La voix n'est pas encore activée sur ce serveur : l'agent répondra par écrit. Ajoutez une clé ElevenLabs pour l'entendre.": "La voz aún no está activada en este servidor: el agente responderá por escrito. Añada una clave de ElevenLabs para oírlo.",
+    "Parler": "Hablar",
+    "Écrivez, ou parlez avec le micro": "Escriba, o hable con el micrófono",
+    "Le micro est ouvert — parlez, puis fermez le micro.": "El micrófono está abierto: hable y luego ciérrelo.",
+    "Micro fermé. Envoi…": "Micrófono cerrado. Enviando…",
+    "L'agent réfléchit…": "El agente está pensando…",
+    "L'agent répond.": "El agente está respondiendo.",
+    "Le micro est refusé par le navigateur. Écrivez votre message.": "El navegador ha denegado el micrófono. Escriba su mensaje.",
+    "L'envoi a échoué. Réessayez.": "El envío ha fallado. Inténtelo de nuevo.",
+    "Fermer le micro": "Cerrar el micrófono",
+    "La transcription vocale n'est pas disponible sur ce serveur.": "La transcripción de voz no está disponible en este servidor.",
+    "Rien n'a été entendu. Réessayez.": "No se ha oído nada. Inténtelo de nuevo."
 }

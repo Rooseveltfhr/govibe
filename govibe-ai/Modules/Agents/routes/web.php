@@ -16,5 +16,6 @@ Route::prefix('agents')->name('agents.')->group(function (): void {
     Route::get('/nouvo/{sector}', [AgentController::class, 'create'])->name('create');
     Route::post('/', [AgentController::class, 'store'])->name('store');
     Route::match(['get', 'post'], '/demo/{sector}', [AgentController::class, 'demo'])->name('demo');
+    Route::post('/demo/{sector}/vwa', [AgentController::class, 'voice'])->name('demo.voice');
     Route::get('/{agent}', [AgentController::class, 'show'])->name('show');
 });

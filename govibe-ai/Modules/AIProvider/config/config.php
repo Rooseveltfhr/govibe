@@ -2,6 +2,7 @@
 
 use Modules\AIProvider\Connectors\Anthropic\AnthropicProvider;
 use Modules\AIProvider\Connectors\DeepSeek\DeepSeekProvider;
+use Modules\AIProvider\Connectors\ElevenLabs\ElevenLabsProvider;
 use Modules\AIProvider\Connectors\Gemini\GeminiProvider;
 use Modules\AIProvider\Connectors\HuggingFace\HuggingFaceProvider;
 use Modules\AIProvider\Connectors\Mistral\MistralProvider;
@@ -68,6 +69,17 @@ return [
             'api_key' => env('OPENROUTER_API_KEY', ''),
             'base_url' => env('OPENROUTER_BASE_URL'),
             'site_url' => env('APP_URL', 'https://govibe.ai'),
+        ],
+
+        // Vwa (ak transkripsyon). Pa yon founisè chat: manifest la pa
+        // deklare kapasite 'chat', kidonk router la pa janm chwazi l pou
+        // reponn — li chwazi l pou pale.
+        'elevenlabs' => [
+            'class' => ElevenLabsProvider::class,
+            'enabled' => env('ELEVENLABS_ENABLED', true),
+            'api_key' => env('ELEVENLABS_API_KEY', ''),
+            'base_url' => env('ELEVENLABS_BASE_URL'),
+            'voice_id' => env('ELEVENLABS_VOICE_ID', ''),
         ],
 
         'huggingface' => [

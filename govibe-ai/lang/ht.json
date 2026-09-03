@@ -61,5 +61,20 @@
     "Client": "Kliyan",
     "Entreprise": "Biznis",
     "Ce que l'agent saura": "Sa ajan an ap konnen",
-    "L'agent y renvoie le client dès qu'il n'est pas sûr.": "Ajan an voye kliyan an la depi li pa sèten."
+    "L'agent y renvoie le client dès qu'il n'est pas sûr.": "Ajan an voye kliyan an la depi li pa sèten.",
+    "Appelez l'agent et il vous répond à la voix ; écrivez-lui et il répond par écrit. C'est le même agent, avec la même mémoire.": "Rele ajan an, l ap reponn ou alavwa; ekri l, l ap reponn alekri. Se menm ajan an, ak menm memwa a.",
+    "Appel": "Apèl",
+    "Chat": "Chat",
+    "La voix n'est pas encore activée sur ce serveur : l'agent répondra par écrit. Ajoutez une clé ElevenLabs pour l'entendre.": "Vwa a poko aktive sou sèvè a: ajan an ap reponn alekri. Ajoute yon kle ElevenLabs pou tande l.",
+    "Parler": "Pale",
+    "Écrivez, ou parlez avec le micro": "Ekri, oswa pale ak mikwo a",
+    "Le micro est ouvert — parlez, puis fermez le micro.": "Mikwo a louvri — pale, apre sa fèmen mikwo a.",
+    "Micro fermé. Envoi…": "Mikwo fèmen. N ap voye…",
+    "L'agent réfléchit…": "Ajan an ap reflechi…",
+    "L'agent répond.": "Ajan an ap reponn.",
+    "Le micro est refusé par le navigateur. Écrivez votre message.": "Navigatè a refize mikwo a. Ekri mesaj ou.",
+    "L'envoi a échoué. Réessayez.": "Voye a echwe. Eseye ankò.",
+    "Fermer le micro": "Fèmen mikwo a",
+    "La transcription vocale n'est pas disponible sur ce serveur.": "Transkripsyon vokal la pa disponib sou sèvè a.",
+    "Rien n'a été entendu. Réessayez.": "Nou pa tande anyen. Eseye ankò."
 }

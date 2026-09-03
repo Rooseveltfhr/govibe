@@ -65,6 +65,23 @@ class ProviderRegistry
         ));
     }
 
+    /**
+     * Founisè ki gen kredansyèl EPI ki konnen fè yon bagay presi.
+     *
+     * Yon kle ElevenLabs pou kont li pa vle di ajan yo ka reponn: li vle di
+     * yo ka pale. San distenksyon sa a, paj la ta di « tout bon » pandan
+     * chak mesaj ap tonbe.
+     *
+     * @return list<AIProvider>
+     */
+    public function configuredFor(Capability $capability): array
+    {
+        return array_values(array_filter(
+            $this->configured(),
+            static fn (AIProvider $provider): bool => in_array($capability, $provider->capabilities(), true),
+        ));
+    }
+
     public function get(string $key): ?AIProvider
     {
         return $this->providers[$key] ?? null;

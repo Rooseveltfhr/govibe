@@ -3,6 +3,7 @@
 namespace Modules\Agents\Http\Controllers;
 
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -13,8 +14,12 @@ use Modules\Agents\Runtime\AgentBuilder;
 use Modules\Agents\Runtime\AgentRuntime;
 use Modules\Agents\Runtime\Conversation;
 use Modules\Agents\Templates\AgentTemplateRegistry;
+use Modules\AIProvider\Enums\Capability;
 use Modules\AIProvider\Exceptions\NoProviderAvailableException;
+use Modules\AIProvider\Exceptions\ProviderException;
 use Modules\AIProvider\Registry\ProviderRegistry;
+use Modules\AIServices\Speech\SpeechService;
+use Modules\AIServices\Transcription\TranscriptionService;
 
 /**
  * Katalòg modèl ajan yo, bouton « Demo » ak bouton « Kreye ».
@@ -29,6 +34,8 @@ class AgentController extends Controller
         private readonly AgentBuilder $builder,
         private readonly AgentRuntime $runtime,
         private readonly ProviderRegistry $providers,
+        private readonly SpeechService $speech,
+        private readonly TranscriptionService $transcription,
     ) {}
 
     /** Katalòg sektè yo + ajan ki deja kreye. */
@@ -37,7 +44,7 @@ class AgentController extends Controller
         return view('agents::index', [
             'templates' => $this->templates->all(),
             'agents' => Agent::query()->latest()->get(),
-            'hasProvider' => $this->providers->configured() !== [],
+            'hasProvider' => $this->providers->configuredFor(Capability::Chat) !== [],
         ]);
     }
 
@@ -95,7 +102,7 @@ class AgentController extends Controller
             'agent' => $agent,
             'definition' => $agent->toDefinition($this->templates),
             'questions' => $this->templates->sampleQuestions($agent->sector, 'ht'),
-            'hasProvider' => $this->providers->configured() !== [],
+            'hasProvider' => $this->providers->configuredFor(Capability::Chat) !== [],
         ]);
     }
 
@@ -115,6 +122,7 @@ class AgentController extends Controller
             'question' => ['nullable', 'string', 'max:500'],
             'agent' => ['nullable', 'integer', 'exists:agents,id'],
             'reset' => ['nullable'],
+            'mode' => ['nullable', 'string'],
         ]);
 
         $agentModel = isset($validated['agent']) ? Agent::find($validated['agent']) : null;
@@ -123,10 +131,7 @@ class AgentController extends Controller
             ? $agentModel->toDefinition($this->templates)
             : $this->builder->create($sector, 'demo', __('Démo'));
 
-        // Chak ajan gen pwòp konvèsasyon l: eseye Chez A pa dwe kite tras nan
-        // demo Chez B. « template » se esè a sou modèl sektè a, anvan kreyasyon.
-        $scope = $agentModel === null ? 'template' : (string) $agentModel->id;
-        $sessionKey = 'louvia.demo.'.$sector.'.'.$scope;
+        $sessionKey = $this->sessionKey($sector, $agentModel);
 
         if ($request->has('reset')) {
             $request->session()->forget($sessionKey);
@@ -170,7 +175,123 @@ class AgentController extends Controller
             'conversation' => $conversation,
             'suggestions' => $this->templates->sampleQuestions($sector, $definition->defaultLanguage()),
             'error' => $error,
-            'hasProvider' => $this->providers->configured() !== [],
+            'hasProvider' => $this->providers->configuredFor(Capability::Chat) !== [],
+            'hasVoice' => $this->speech->available(),
+            'mode' => $request->string('mode')->toString() === 'call' ? 'call' : 'chat',
         ]);
+    }
+
+    /**
+     * Mòd « Apèl »: moun nan pale, ajan an reponn ak vwa.
+     *
+     * Menm runtime, menm memwa, menm politik konfimasyon ak mòd chat la —
+     * sèl bagay ki chanje se pòt antre a (odyo→tèks) ak pòt sòti a
+     * (tèks→odyo). Se sa ki fè yon ajan, pa de.
+     *
+     * Repons lan se JSON paske paj la rele l san rechaje: yon apèl ki ta
+     * rechaje paj la chak fraz pa ta yon apèl.
+     */
+    public function voice(Request $request, string $sector): JsonResponse
+    {
+        abort_unless($this->templates->has($sector), 404);
+
+        $validated = $request->validate([
+            'audio' => ['nullable', 'file', 'max:10240'],
+            'text' => ['nullable', 'string', 'max:500'],
+            'agent' => ['nullable', 'integer', 'exists:agents,id'],
+            'speak' => ['nullable'],
+        ]);
+
+        $agentModel = isset($validated['agent']) ? Agent::find($validated['agent']) : null;
+        $definition = $agentModel
+            ? $agentModel->toDefinition($this->templates)
+            : $this->builder->create($sector, 'demo', __('Démo'));
+
+        $sessionKey = $this->sessionKey($sector, $agentModel);
+        $language = $definition->defaultLanguage();
+
+        // ── Pòt antre: odyo → tèks
+        $audio = $request->file('audio');
+        $spokenPath = null;
+        $text = trim((string) ($validated['text'] ?? ''));
+
+        if ($audio !== null && ! is_array($audio) && $audio->isValid()) {
+            $spokenPath = $audio->getRealPath() ?: null;
+
+            try {
+                $transcription = $this->transcription->transcribe(
+                    audioPath: (string) $spokenPath,
+                    language: $language,
+                    prefer: 'elevenlabs',
+                );
+                $text = trim($transcription['text']);
+            } catch (NoProviderAvailableException|ProviderException $e) {
+                return response()->json([
+                    'error' => __("La transcription vocale n'est pas disponible sur ce serveur."),
+                ], 503);
+            }
+        }
+
+        if ($text === '') {
+            return response()->json([
+                'error' => __("Rien n'a été entendu. Réessayez."),
+            ], 422);
+        }
+
+        // ── Ajan an
+        $conversation = Conversation::fromArray((array) $request->session()->get($sessionKey, []));
+
+        try {
+            $outcome = $this->runtime->respond(
+                agent: $definition,
+                conversation: $conversation,
+                message: new IncomingMessage(
+                    channel: 'web',
+                    conversationRef: $sessionKey,
+                    text: $text,
+                    audioPath: $spokenPath,
+                ),
+            );
+        } catch (NoProviderAvailableException|ProviderException $e) {
+            return response()->json([
+                'error' => __("Aucun fournisseur d'IA n'est configuré sur ce serveur."),
+            ], 503);
+        }
+
+        $request->session()->put($sessionKey, $outcome->conversation->toArray());
+
+        // ── Pòt sòti: tèks → vwa, sèlman si mòd apèl la mande l (yon mesaj
+        // ekri nan mòd chat pa dwe boule kredi vwa). Si vwa a tonbe, repons
+        // lan rive kanmenm an tèks: yon apèl san son pi bon pase yon apèl
+        // san repons.
+        $spokenAudio = null;
+
+        if ($request->boolean('speak')) {
+            try {
+                $spokenAudio = $this->speech->speak($outcome->reply->text, $language)->toDataUri();
+            } catch (NoProviderAvailableException|ProviderException $e) {
+                $spokenAudio = null;
+            }
+        }
+
+        return response()->json([
+            'transcript' => $text,
+            'reply' => $outcome->reply->text,
+            'audio' => $spokenAudio,
+            'provider' => $outcome->provider,
+            'model' => $outcome->model,
+            'latency_ms' => $outcome->latencyMs,
+        ]);
+    }
+
+    /**
+     * Chak ajan gen pwòp konvèsasyon l: eseye Chez A pa dwe kite tras nan
+     * demo Chez B. « template » se esè a sou modèl sektè a, anvan kreyasyon.
+     */
+    private function sessionKey(string $sector, ?Agent $agentModel): string
+    {
+        $scope = $agentModel === null ? 'template' : (string) $agentModel->id;
+
+        return 'louvia.demo.'.$sector.'.'.$scope;
     }
 }

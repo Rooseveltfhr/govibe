@@ -61,5 +61,20 @@
     "Client": "Customer",
     "Entreprise": "Business",
     "Ce que l'agent saura": "What the agent will know",
-    "L'agent y renvoie le client dès qu'il n'est pas sûr.": "The agent hands the customer over here as soon as it is unsure."
+    "L'agent y renvoie le client dès qu'il n'est pas sûr.": "The agent hands the customer over here as soon as it is unsure.",
+    "Appelez l'agent et il vous répond à la voix ; écrivez-lui et il répond par écrit. C'est le même agent, avec la même mémoire.": "Call the agent and it answers out loud; write to it and it answers in writing. It is the same agent, with the same memory.",
+    "Appel": "Call",
+    "Chat": "Chat",
+    "La voix n'est pas encore activée sur ce serveur : l'agent répondra par écrit. Ajoutez une clé ElevenLabs pour l'entendre.": "Voice is not enabled on this server yet: the agent will answer in writing. Add an ElevenLabs key to hear it.",
+    "Parler": "Speak",
+    "Écrivez, ou parlez avec le micro": "Write, or speak with the microphone",
+    "Le micro est ouvert — parlez, puis fermez le micro.": "The microphone is open — speak, then close it.",
+    "Micro fermé. Envoi…": "Microphone closed. Sending…",
+    "L'agent réfléchit…": "The agent is thinking…",
+    "L'agent répond.": "The agent is answering.",
+    "Le micro est refusé par le navigateur. Écrivez votre message.": "The browser refused the microphone. Write your message instead.",
+    "L'envoi a échoué. Réessayez.": "Sending failed. Try again.",
+    "Fermer le micro": "Close the microphone",
+    "La transcription vocale n'est pas disponible sur ce serveur.": "Voice transcription is not available on this server.",
+    "Rien n'a été entendu. Réessayez.": "Nothing was heard. Try again."
 }
