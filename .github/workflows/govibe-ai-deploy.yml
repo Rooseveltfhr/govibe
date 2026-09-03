@@ -27,6 +27,11 @@ on:
         description: "Sou-domèn sib"
         type: string
         default: "louvia.govibeht.com"
+      ai_provider:
+        description: "Founisè pou kle secrets.LOUVIA_AI_KEY la (kite 'okenn' si pa gen kle)"
+        type: choice
+        options: ["okenn", "openai", "anthropic", "gemini", "deepseek", "mistral", "openrouter", "huggingface"]
+        default: "okenn"
 
 # De deplwaman ansanm ta pilonnen youn lòt (composer, migrate, cache).
 # Nou pa koupe youn k ap kouri: sa ta kite sit la an mentnans.
@@ -136,6 +141,36 @@ jobs:
             govibe-ai/ \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$DOMAIN/laravel/"
 
+      # Kle IA a: li soti nan yon secret GitHub epi li ale dirèkteman sou
+      # sèvè a nan yon fichye. Li pa janm parèt nan yon liy kòmand (kidonk
+      # pa nan `ps` sou sèvè a), ni nan yon jounal: sa ki afiche se non
+      # varyab la sèlman. Etap sa a sote nèt si pa gen kle oswa si
+      # ai_provider='okenn' — konsa yon deplwaman òdinè pa touche .env.
+      - name: Voye kle IA a (si genyen)
+        if: ${{ inputs.action == 'deploy' && inputs.ai_provider != 'okenn' }}
+        env:
+          DOMAIN: ${{ steps.paths.outputs.domain }}
+          AI_PROVIDER: ${{ inputs.ai_provider }}
+          AI_KEY: ${{ secrets.LOUVIA_AI_KEY }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+
+          if [ -z "${AI_KEY:-}" ]; then
+            echo "::error::inputs.ai_provider='$AI_PROVIDER' men secret LOUVIA_AI_KEY la vid."
+            echo "Ajoute l nan Settings > Secrets and variables > Actions, epi relanse."
+            exit 1
+          fi
+
+          VAR="$(echo "$AI_PROVIDER" | tr '[:lower:]' '[:upper:]')_API_KEY"
+          echo "Varyab ki pral ekri nan .env: $VAR (valè a pa afiche)"
+
+          umask 077
+          printf '%s=%s\n' "$VAR" "$AI_KEY" > /tmp/louvia-ai.env
+          scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
+            /tmp/louvia-ai.env \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$DOMAIN/laravel/.ai-key.pending"
+          rm -f /tmp/louvia-ai.env
+
       - name: Enstale, migre, pibliye
         if: ${{ inputs.action == 'deploy' }}
         env:
@@ -217,6 +252,24 @@ jobs:
           else
             echo "APP_URL=https://$SUBDOMAIN" >> .env
           fi
+          # --- Kle IA a, si etap anvan an te depoze youn. Nou ranplase liy
+          # lan si li deja la (yon kle ki chanje dwe pran), epi nou efase
+          # fichye a menm si sed la echwe — li pa dwe rete sou disk.
+          AI_APPLIED=0
+          if [ -f .ai-key.pending ]; then
+            AI_VAR="$(cut -d= -f1 < .ai-key.pending)"
+            if [ -n "$AI_VAR" ]; then
+              grep -v "^${AI_VAR}=" .env > .env.next 2>/dev/null || cp .env .env.next
+              cat .ai-key.pending >> .env.next
+              mv -f .env.next .env
+              echo "==> Kle IA ekri nan .env ($AI_VAR)"
+              AI_APPLIED=1
+            else
+              echo "::warning::.ai-key.pending malfòme — nou inyore l."
+            fi
+            rm -f .ai-key.pending .env.next
+          fi
+
           chmod 600 .env
 
           # SQLite: ase pou premye vèsyon an, epi zewo kredansyèl pou fè fwit.
@@ -256,6 +309,19 @@ jobs:
           "$PHP_BIN" artisan view:cache   >/dev/null 2>&1 || true
 
           chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+
+          # --- Founisè IA: nou di eta a chak deplwaman (kòmand lan pa janm
+          # ekri yon kle). Si nou fèk ekri yon kle epi eta a toujou zewo,
+          # se yon echèk: sinon nou ta dekouvri sa sou paj demo a.
+          echo "==> Founisè IA"
+          "$PHP_BIN" artisan govibe:providers
+          PROVIDERS_RC=$?
+
+          if [ "$AI_APPLIED" = "1" ] && [ "$PROVIDERS_RC" != "0" ]; then
+            echo "::error::Kle a ekri nan .env men okenn founisè pa konfigire."
+            echo "Verifye ke ai_provider a matche ak kalite kle a (egzanp: yon kle sk-... se openai)."
+            exit 1
+          fi
 
           # --- Docroot: SÈLMAN asset piblik + yon index.php ki boote ../laravel.
           echo "==> Docroot"
