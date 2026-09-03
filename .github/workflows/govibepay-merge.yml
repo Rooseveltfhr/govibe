@@ -1,0 +1,774 @@
+name: GOVIBEPAY — Fusion app.govibepay.com → govibepay.com
+
+# Fusionne l'application (app.govibepay.com — script QRPay « GOVIBEPAY WALLET »)
+# sur le domaine racine govibepay.com :
+#  - la page d'accueil ACTUELLE de govibepay.com est CONSERVÉE telle quelle et
+#    devient la home du script (aucune redesign : c'est le design existant) ;
+#  - le contenu actuel du docroot racine n'est jamais déplacé en bloc : les
+#    assets de la home et les dossiers existants restent en place ;
+#  - app.govibepay.com devient une redirection 301 vers la racine ;
+#  - le nom du script est mis à la marque GOVIBEPay (sans jamais toucher aux URLs).
+#
+# DÉLIBÉRÉMENT manuel (bouton) + mode « inspect » par défaut (aucun changement).
+# Ordre : 1) inspect → lire le rapport  2) merge  3) vérifier le site.
+# En cas de problème : mode rollback.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "inspect = audit seul · diagnose = pourquoi le login ne marche pas · assets = retirer la dépendance au CDN mort · merge = fusionner · landing = réinstaller la home · brand = marque GOVIBEPay · rollback = tout défaire"
+        type: choice
+        options:
+          - inspect
+          - diagnose
+          - assets
+          - merge
+          - landing
+          - brand
+          - rollback
+        default: inspect
+
+concurrency:
+  group: govibepay-merge
+  cancel-in-progress: false
+
+env:
+  # Domaine racine cible et sous-domaine à vider. Centralisés ici.
+  ROOT_DOMAIN: govibepay.com
+  APP_SUBDOMAIN: app.govibepay.com
+
+jobs:
+  run:
+    name: ${{ inputs.mode }} sur le VPS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh-keyscan -p "$PORT" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # ------------------------------------------------------------------
+      # INSPECT — toujours exécuté : photographie la structure réelle du
+      # serveur AVANT d'agir, et signale les expositions publiques. Aucune écriture.
+      # ------------------------------------------------------------------
+      - name: Inspect (audit, aucun changement)
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          PUB="$DOM/public_html"
+          APPDOM="$HOME/domains/app.govibepay.com"
+
+          echo "=== $PUB (docroot racine) ==="
+          ls -la "$PUB" 2>/dev/null | head -30
+          echo ""
+          echo "=== Page d'accueil actuelle ($PUB/index.php) ==="
+          if [ -f "$PUB/index.php" ]; then
+            echo "taille : $(wc -c < "$PUB/index.php") octets"
+            if grep -q '<?php' "$PUB/index.php"; then echo "type   : contient du PHP"; else echo "type   : HTML pur"; fi
+            echo "--- références d'assets (chemins relatifs) ---"
+            grep -oE '(src|href)="[^"h][^":]*"' "$PUB/index.php" 2>/dev/null \
+              | sed -E 's/.*"([^\/"]+)\/.*/\1\//' | sort -u | head -15
+          else
+            echo "(pas d'index.php à la racine)"
+          fi
+          echo ""
+          echo "=== Racine du script (app) ==="
+          LROOT=""
+          for c in "$APPDOM/public_html" "$PUB/app" "$DOM/govibepay-app"; do
+            if [ -f "$c/artisan" ]; then LROOT="$c"; break; fi
+            if [ -f "$c/../artisan" ]; then LROOT="$(cd "$c/.." && pwd)"; break; fi
+          done
+          if [ -n "$LROOT" ]; then
+            echo "Script : $LROOT"
+            [ -d "$LROOT/public" ] && echo "public/ : présent" || echo "public/ : ABSENT (structure inhabituelle)"
+            grep -E '^(APP_NAME|APP_URL|MAIL_FROM_NAME)=' "$LROOT/.env" 2>/dev/null || echo "(.env illisible)"
+            echo "--- marque visible « AppDevs » (hors URLs) ---"
+            grep -rIn --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=storage \
+                 --exclude-dir=.git --exclude-dir='resources[A-Z]*' -e 'AppDevs' \
+                 "$LROOT/resources" 2>/dev/null | grep -viE 'appdevs\.(net|cloud)|appdevsx|cdn\.appdevs' | head -10 \
+              || echo "(aucune mention hors URL)"
+          else
+            echo "(racine du script non détectée)"
+          fi
+          echo ""
+          echo "=== ⚠️ EXPOSITIONS PUBLIQUES (à vérifier d'urgence) ==="
+          for U in "/.env" "/.envMM" "/.env.example" "/install/" "/app/install/"; do
+            for H in govibepay.com app.govibepay.com; do
+              C=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' --resolve "$H:443:127.0.0.1" "https://$H$U" 2>/dev/null)
+              case "$C" in 200) echo "  🔴 https://$H$U -> $C  ACCESSIBLE PUBLIQUEMENT";; 403|404) echo "  ✅ https://$H$U -> $C";; *) echo "  ?  https://$H$U -> $C";; esac
+            done
+          done
+          echo "--- archives du script téléchargeables dans le docroot ? ---"
+          find "$PUB" -maxdepth 3 -name '*.zip' -size +1M 2>/dev/null | head -5 || true
+          echo ""
+          echo "=== Version PHP CLI ==="
+          php -v 2>/dev/null | head -1 || echo "php introuvable"
+          echo ""
+          echo "=== HTTP local (sans DNS/CDN) ==="
+          for H in govibepay.com app.govibepay.com; do
+            curl -skS -m 12 -o /dev/null -w "  https://$H -> code=%{http_code} time=%{time_total}s\n" --resolve "$H:443:127.0.0.1" "https://$H/" || echo "  $H -> échec"
+          done
+          echo ""
+          echo "=== Fusion déjà effectuée ? ==="
+          if [ -f "$DOM/.govibepay-merge.meta" ]; then echo "OUI :"; cat "$DOM/.govibepay-merge.meta"; else echo "non (aucun marqueur)"; fi
+          echo ""
+          echo "=== Sauvegardes de fusion présentes ==="
+          ls -d "$DOM"/govibepay-merge-backup-* 2>/dev/null || echo "(aucune)"
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # DIAGNOSE — pourquoi https://app.govibepay.com/admin/login ne marche pas.
+      # Lecture seule, SAUF un vidage de cache et une remise en ordre des
+      # permissions storage/ + bootstrap/cache (causes n°1 des 419/500 au login).
+      # Aucune donnée sensible n'est affichée (pas de mot de passe, pas d'APP_KEY).
+      # ------------------------------------------------------------------
+      - name: Diagnose (login admin)
+        if: ${{ inputs.mode == 'diagnose' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          APPDOM="$HOME/domains/app.govibepay.com"
+          LROOT=""
+          for c in "$APPDOM/public_html" "$DOM/public_html/app" "$DOM/govibepay-app"; do
+            [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+          done
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          echo "Script : $LROOT"
+          echo ""
+
+          echo "=== 1. Réponse HTTP par chemin (hôte app.govibepay.com) ==="
+          for U in "/" "/login" "/register" "/user/login" "/merchant/login" "/agent/login" "/admin" "/admin/login"; do
+            CODE=$(curl -skS -m 15 -o /dev/null -w '%{http_code}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com$U" 2>/dev/null)
+            SIZE=$(curl -skS -m 15 -o /dev/null -w '%{size_download}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com$U" 2>/dev/null)
+            printf '  %-22s code=%s taille=%s\n' "$U" "$CODE" "$SIZE"
+          done
+          echo "  (une taille ~355 = page d'erreur Apache : la requête n'atteint PAS Laravel)"
+          echo ""
+
+          echo "=== 1b. Réécriture Apache (pourquoi une requête n'atteint pas Laravel) ==="
+          echo "--- .htaccess à la racine du script ---"
+          [ -f "$LROOT/.htaccess" ] && cat "$LROOT/.htaccess" || echo "  (ABSENT)"
+          echo "--- public/index.php présent ? ---"
+          [ -f "$LROOT/public/index.php" ] && echo "  oui" || echo "  🔴 NON"
+          echo "--- public/.htaccess ---"
+          [ -f "$LROOT/public/.htaccess" ] && head -25 "$LROOT/public/.htaccess" || echo "  (ABSENT)"
+          echo ""
+
+          echo "=== 1c. Le chemin du login admin existe-t-il dans le script ? ==="
+          grep -rIn --include='*.php' -iE "prefix\(?['\"]?admin|'admin/login'|admin\.login" "$LROOT/routes" 2>/dev/null | head -10 || echo "  (rien trouvé dans routes/)"
+          echo "--- fichiers de routes présents ---"
+          ls "$LROOT/routes" 2>/dev/null
+          echo ""
+          echo "--- le formulaire contient-il un jeton CSRF ? ---"
+          BODY=$(curl -skS -m 15 --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/admin/login" 2>/dev/null)
+          echo "$BODY" | grep -qi 'csrf-token\|_token' && echo "  ✅ jeton CSRF présent dans la page" || echo "  ⚠️ AUCUN jeton CSRF trouvé (page d'erreur ? page vide ?)"
+          echo "  titre de la page : $(echo "$BODY" | grep -oiE '<title>[^<]*' | head -1)"
+          echo "  cookie de session émis : $(curl -skS -m 15 -D - -o /dev/null --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/admin/login" 2>/dev/null | grep -ci '^set-cookie') en-tête(s)"
+          echo ""
+
+          echo "=== 2. Configuration (clés non sensibles) ==="
+          grep -E '^(APP_ENV|APP_DEBUG|APP_URL|SESSION_DRIVER|SESSION_DOMAIN|SESSION_SECURE_COOKIE|CACHE_DRIVER|CACHE_STORE|QUEUE_CONNECTION|DB_CONNECTION|DB_HOST|DB_DATABASE)=' "$LROOT/.env" 2>/dev/null || echo "(.env illisible)"
+          echo ""
+
+          echo "=== 3. Permissions (cause n°1 des 500/419) ==="
+          for d in storage storage/framework storage/framework/sessions storage/framework/views storage/framework/cache storage/logs bootstrap/cache; do
+            if [ -d "$LROOT/$d" ]; then
+              W=$([ -w "$LROOT/$d" ] && echo "inscriptible" || echo "🔴 NON INSCRIPTIBLE")
+              printf '  %-34s %s  %s\n' "$d" "$(stat -c '%a %U' "$LROOT/$d" 2>/dev/null)" "$W"
+            else
+              echo "  🔴 $d ABSENT"
+            fi
+          done
+          echo ""
+
+          echo "=== 4. Journal Laravel — erreurs DISTINCTES (pas 40 fois la même) ==="
+          LOG="$LROOT/storage/logs/laravel.log"
+          if [ -f "$LOG" ]; then
+            echo "  (fichier : $(du -h "$LOG" | cut -f1), modifié $(date -r "$LOG" '+%Y-%m-%d %H:%M'))"
+            echo "  --- types d'erreur les plus fréquents ---"
+            grep -aoE '(ERROR|CRITICAL|EMERGENCY): [^{]{0,90}' "$LOG" 2>/dev/null \
+              | sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}//g' | sort | uniq -c | sort -rn | head -12
+            echo "  --- 10 dernières erreurs (horodatées) ---"
+            grep -aE 'ERROR|CRITICAL|EMERGENCY' "$LOG" 2>/dev/null | tail -10 | cut -c1-180
+          else
+            echo "  (aucun laravel.log)"
+          fi
+          echo ""
+
+          echo "=== 5. Table de routes RÉELLEMENT enregistrée ==="
+          # route:list plante sur ce script (constructeur de contrôleur qui échoue) :
+          # on amorce Laravel sans instancier aucun contrôleur.
+          cat > "$LROOT/.govibepay-routes.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          $routes = app('router')->getRoutes();
+          echo "TOTAL ROUTES: ".count($routes)."\n";
+          // Routes d'administration : c'est la réponse à « quelle est l'URL du login ».
+          $adm = [];
+          foreach ($routes as $r) {
+              $n = (string) $r->getName();
+              if (str_starts_with($n, 'admin.')) { $adm[] = implode('|', $r->methods()).' /'.$r->uri().'  ['.$n.']'; }
+          }
+          echo "ROUTES ADMIN ENREGISTREES: ".count($adm)."\n";
+          foreach ($adm as $h) {
+              if (preg_match('#login|auth|^GET\|HEAD /admin  #i', $h)) { echo "  $h\n"; }
+          }
+          if (! $adm) { echo "  🔴 AUCUNE route admin : routes/admin.php n'est PAS chargé\n"; }
+          // Routes web de connexion (hors API)
+          $web = [];
+          foreach ($routes as $r) {
+              $u = $r->uri();
+              if (preg_match('#login#i', $u) && ! str_starts_with($u, 'api') && ! str_contains($u, '-api/')) {
+                  $web[] = implode('|', $r->methods()).' /'.$u.'  ['.($r->getName() ?: '-').']';
+              }
+          }
+          echo "ROUTES WEB CONTENANT « login » (".count($web)."):\n";
+          foreach (array_slice($web, 0, 20) as $h) { echo "  $h\n"; }
+          EOPHP
+          ( cd "$LROOT" && php .govibepay-routes.php 2>&1 | head -35 ) || echo "  🔴 l'amorçage de Laravel ÉCHOUE (voir l'erreur ci-dessus) — c'est la cause du 404 partout"
+          rm -f "$LROOT/.govibepay-routes.php"
+          echo ""
+          echo "--- comment les fichiers de routes sont chargés ---"
+          sed -n '1,80p' "$LROOT/app/Providers/RouteServiceProvider.php" 2>/dev/null | grep -nE 'loadRoutesFrom|prefix|group|middleware|function boot|routes/' | head -20
+          echo "--- préfixe admin configurable ? ---"
+          grep -rIn --include='*.php' -iE "admin_prefix|ADMIN_PREFIX|'prefix'\s*=>\s*'?admin" "$LROOT/config" "$LROOT/app/Providers" 2>/dev/null | head -8 || echo "  (aucun préfixe configurable trouvé)"
+          echo ""
+
+          echo "=== 5b. Page de connexion admin : pourquoi le champ ne réagit pas ? ==="
+          # Le préfixe admin vient de la base. On le lit pour ATTEINDRE la page,
+          # mais on ne l'affiche JAMAIS (dépôt public) — seuls les constats sortent.
+          # On interroge la base VIA LARAVEL (sa propre config) : analyser le .env
+          # à la main échouait silencieusement. Le préfixe n'est jamais affiché.
+          cat > "$LROOT/.govibepay-prefix.php" <<'EOPHP'
+          <?php
+          require __DIR__.'/vendor/autoload.php';
+          $app = require_once __DIR__.'/bootstrap/app.php';
+          $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+          try {
+              $row = Illuminate\Support\Facades\DB::table('basic_settings')->first();
+              foreach (['admin_prefix', 'admin_panel_prefix', 'prefix'] as $col) {
+                  if ($row && isset($row->$col) && $row->$col !== '') { echo $row->$col; exit; }
+              }
+              fwrite(STDERR, "colonnes de basic_settings contenant 'prefix' : ");
+              fwrite(STDERR, implode(',', array_values(array_filter(array_keys((array) $row), fn ($k) => str_contains($k, 'prefix')))) ?: '(aucune)');
+          } catch (Throwable $e) {
+              fwrite(STDERR, 'base inaccessible : '.get_class($e).' — '.substr($e->getMessage(), 0, 80));
+          }
+          EOPHP
+          PFX=$( cd "$LROOT" && php .govibepay-prefix.php 2>>/tmp/gvp-prefix.err )
+          rm -f "$LROOT/.govibepay-prefix.php"
+          [ -s /tmp/gvp-prefix.err ] && { echo "  (info base : $(cat /tmp/gvp-prefix.err))"; rm -f /tmp/gvp-prefix.err; }
+          if [ -z "$PFX" ]; then
+            echo "  ⚠️ préfixe admin illisible en base — on teste /admin par défaut"
+            echo "  --- colonnes contenant « prefix » (noms seuls, aucune valeur) ---"
+            L="$LROOT" php -r '
+              $e=@file(getenv("L")."/.env"); $c=[];
+              foreach((array)$e as $l){ if(preg_match("/^\s*([A-Z_]+)\s*=\s*\"?([^\"\r\n]*)\"?/",$l,$m)) $c[$m[1]]=$m[2]; }
+              try{
+                $db=$c["DB_DATABASE"]??"";
+                $p=new PDO("mysql:host=".($c["DB_HOST"]??"127.0.0.1").";dbname=".$db,$c["DB_USERNAME"]??"",$c["DB_PASSWORD"]??"");
+                $q=$p->prepare("SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND COLUMN_NAME LIKE ?");
+                $q->execute([$db,"%prefix%"]);
+                foreach($q->fetchAll(PDO::FETCH_NUM) as $r){ echo "    ".$r[0].".".$r[1]."\n"; }
+              }catch(Throwable $t){ echo "    (connexion base impossible : ".get_class($t).")\n"; }
+            ' 2>/dev/null
+            PFX="admin"
+          else
+            echo "  ✅ préfixe admin lu en base (valeur masquée : ${#PFX} caractères)"
+          fi
+          PAGE=$(curl -skS -m 20 --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/$PFX/login" 2>/dev/null)
+          CODE=$(curl -skS -m 20 -o /dev/null -w '%{http_code}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/$PFX/login" 2>/dev/null)
+          echo "  page de connexion : code=$CODE taille=$(printf '%s' "$PAGE" | wc -c) octets"
+          echo "  jeton CSRF        : $(printf '%s' "$PAGE" | grep -c 'csrf-token\|_token') occurrence(s)"
+          echo ""
+          echo "  --- champs de saisie bloqués côté HTML ? ---"
+          for ATTR in readonly disabled 'pointer-events' 'user-select'; do
+            N=$(printf '%s' "$PAGE" | grep -ci "$ATTR")
+            [ "$N" != "0" ] && echo "  ⚠️ « $ATTR » présent $N fois dans la page" || echo "  ✅ pas de « $ATTR »"
+          done
+          echo ""
+          echo "  --- superpositions qui peuvent intercepter le toucher ---"
+          for W in preloader loader overlay modal-backdrop 'position:fixed' 'z-index'; do
+            N=$(printf '%s' "$PAGE" | grep -ci "$W")
+            [ "$N" != "0" ] && echo "  • « $W » : $N occurrence(s)" || true
+          done
+          echo ""
+          echo "  --- viewport mobile déclaré ? ---"
+          printf '%s' "$PAGE" | grep -qi 'name="viewport"' && echo "  ✅ balise viewport présente" || echo "  🔴 AUCUNE balise viewport : sur mobile la page est rendue en taille bureau"
+          echo ""
+          echo "  --- assets EXTERNES dont dépend la page (SPOF si injoignables) ---"
+          printf '%s' "$PAGE" | grep -oE '(src|href)="https?://[^"]+"' | sed -E 's/.*"https?:\/\/([^\/"]+).*/\1/' | sort | uniq -c | sort -rn | head -10
+          echo "  --- ces hôtes répondent-ils DEPUIS LE SERVEUR ? ---"
+          for H in appdevs.cloud cdn.appdevs.net; do
+            RC=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' "https://$H/" 2>/dev/null)
+            case "$RC" in 000) echo "  🔴 $H INJOIGNABLE (timeout) — le CSS/JS qu'il sert ne charge pas";; *) echo "  ✅ $H -> $RC";; esac
+          done
+          echo ""
+          echo "  --- assets LOCAUX référencés qui manquent sur le disque ---"
+          MISS=0
+          for P in $(printf '%s' "$PAGE" | grep -oE '(src|href)="/[^"]+\.(css|js)"' | sed -E 's/.*"(\/[^"]+)"/\1/' | sort -u | head -25); do
+            [ -f "$LROOT/public$P" ] || { echo "  🔴 manquant : $P"; MISS=$((MISS+1)); }
+          done
+          [ "$MISS" = "0" ] && echo "  ✅ tous les assets locaux référencés existent"
+          echo ""
+
+          echo "=== 6. Réparation sûre : vidage des caches ==="
+          ( cd "$LROOT" && for c in config:clear cache:clear route:clear view:clear; do
+              printf '  artisan %-14s ' "$c"; php artisan $c >/dev/null 2>&1 && echo "ok" || echo "échec (ignoré)"
+            done ) || true
+          echo "--- permissions remises en ordre ---"
+          chmod -R u+rwX "$LROOT/storage" "$LROOT/bootstrap/cache" 2>/dev/null && echo "  storage/ + bootstrap/cache : ok" || echo "  (chmod partiel)"
+          echo ""
+
+          echo "=== 7. Nouvelle réponse après réparation ==="
+          for H in app.govibepay.com; do
+            curl -skS -m 15 -o /dev/null -w "  https://$H/admin/login -> code=%{http_code}\n" --resolve "$H:443:127.0.0.1" "https://$H/admin/login" || true
+          done
+          echo ""
+          echo "NOTE: si le code est 200 et qu'un jeton CSRF est présent, la page marche —"
+          echo "le problème est alors le mot de passe. Dites-le moi : je peux ajouter un mode"
+          echo "de réinitialisation du mot de passe administrateur."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # MERGE — sert le script à la racine SANS déplacer le docroot existant.
+      # La home actuelle est conservée (avec ses assets) et devient la home
+      # du script via une route '/'. Idempotent (marqueur), non destructif.
+      # ------------------------------------------------------------------
+      - name: Merge (fusion app → racine)
+        if: ${{ inputs.mode == 'merge' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          TS=$(date +%Y%m%d-%H%M%S)
+          DOM="$HOME/domains/govibepay.com"
+          PUB="$DOM/public_html"
+          APPDOM="$HOME/domains/app.govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          BK="$DOM/govibepay-merge-backup-$TS"
+          [ -d "$PUB" ] || { echo "ERREUR: $PUB introuvable"; exit 1; }
+
+          if [ -f "$MARK" ]; then
+            echo "Déjà fusionné — rien à refaire :"; cat "$MARK"; exit 0
+          fi
+
+          # 1) Racine du script (Laravel attendu)
+          LROOT=""
+          for c in "$APPDOM/public_html" "$PUB/app" "$DOM/govibepay-app"; do
+            if [ -f "$c/artisan" ]; then LROOT="$c"; break; fi
+            if [ -f "$c/../artisan" ]; then LROOT="$(cd "$c/.." && pwd)"; break; fi
+          done
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable — lancer 'inspect'."; exit 1; }
+          [ -d "$LROOT/public" ] || { echo "ERREUR: $LROOT/public absent — structure inattendue, abandon."; exit 1; }
+          [ -f "$LROOT/vendor/autoload.php" ] || { echo "ERREUR: vendor/ absent dans $LROOT — abandon."; exit 1; }
+          echo "Script : $LROOT"
+
+          mkdir -p "$BK"
+
+          # 2) La home ACTUELLE de govibepay.com est conservée telle quelle.
+          #    Elle reste DANS le docroot pour que ses assets relatifs marchent,
+          #    et le script la servira sur '/'.
+          HOMEFILE=""
+          if [ -f "$PUB/index.php" ]; then
+            cp -a "$PUB/index.php" "$BK/index.php"
+            mv "$PUB/index.php" "$PUB/govibepay-home.php"
+            HOMEFILE="$PUB/govibepay-home.php"
+            echo "→ home actuelle conservée : $HOMEFILE ($(wc -c < "$HOMEFILE") octets)"
+          elif [ -f "$PUB/index.html" ]; then
+            cp -a "$PUB/index.html" "$BK/index.html"
+            mv "$PUB/index.html" "$PUB/govibepay-home.php"
+            HOMEFILE="$PUB/govibepay-home.php"
+            echo "→ home actuelle conservée : $HOMEFILE"
+          else
+            echo "→ aucune home existante trouvée (le script servira sa propre page d'accueil)"
+          fi
+
+          # 3) Assets publics du script copiés dans le docroot SANS écraser
+          #    l'existant (les fichiers de la home actuelle sont préservés).
+          [ -f "$PUB/.htaccess" ] && cp -a "$PUB/.htaccess" "$BK/.htaccess"
+          cp -an "$LROOT/public/." "$PUB/" 2>/dev/null || true
+          echo "→ assets du script copiés (sans écraser l'existant)"
+
+          # 4) Front controller pointé en ABSOLU sur la racine du script
+          cat > "$PUB/index.php" <<EOPHP
+          <?php
+          // GOVIBEPAY — front controller genere (fusion app.govibepay.com -> govibepay.com)
+          define('LARAVEL_START', microtime(true));
+          if (file_exists(\$maintenance = '$LROOT/storage/framework/maintenance.php')) {
+              require \$maintenance;
+          }
+          require '$LROOT/vendor/autoload.php';
+          \$app = require_once '$LROOT/bootstrap/app.php';
+          \$kernel = \$app->make(Illuminate\Contracts\Http\Kernel::class);
+          \$response = \$kernel->handle(\$request = Illuminate\Http\Request::capture());
+          \$response->send();
+          \$kernel->terminate(\$request, \$response);
+          EOPHP
+          php -l "$PUB/index.php" || { echo "ERREUR: front controller invalide"; exit 1; }
+
+          # 5) storage public + APP_URL
+          [ -L "$PUB/storage" ] && rm -f "$PUB/storage"
+          [ -d "$LROOT/storage/app/public" ] && ln -s "$LROOT/storage/app/public" "$PUB/storage" 2>/dev/null || true
+          ENVF="$LROOT/.env"
+          if [ -f "$ENVF" ]; then
+            cp -a "$ENVF" "$BK/.env"
+            if grep -q '^APP_URL=' "$ENVF"; then
+              sed -i 's#^APP_URL=.*#APP_URL=https://govibepay.com#' "$ENVF"
+            else
+              echo 'APP_URL=https://govibepay.com' >> "$ENVF"
+            fi
+            grep -E '^APP_URL=' "$ENVF"
+          fi
+
+          # 6) app.govibepay.com → redirection 301. Le docroot du sous-domaine EST
+          #    la racine du script : on n'y écrit QUE le .htaccess de redirection
+          #    (conditionné sur l'hôte) et on laisse les fichiers du script intacts.
+          VDIR="$APPDOM/public_html"
+          if [ -d "$VDIR" ]; then
+            [ -f "$VDIR/.htaccess" ] && cp -a "$VDIR/.htaccess" "$BK/subdomain.htaccess"
+            cat > "$VDIR/.htaccess" <<'EOHT'
+          # GOVIBEPAY-REDIRECT — app.govibepay.com est fusionné dans govibepay.com.
+          RewriteEngine On
+          RewriteCond %{HTTP_HOST} ^app\.govibepay\.com$ [NC]
+          RewriteRule ^(.*)$ https://govibepay.com/$1 [R=301,L]
+          EOHT
+            echo "→ app.govibepay.com : redirection 301 installée (fichiers du script intacts)"
+          fi
+
+          # 7) Marqueur
+          {
+            echo "ts=$TS"
+            echo "lroot=$LROOT"
+            echo "pub=$PUB"
+            echo "homefile=${HOMEFILE:-}"
+            echo "vacated=$VDIR"
+            echo "backup=$BK"
+          } > "$MARK"
+          ( cd "$LROOT" && php artisan config:clear >/dev/null 2>&1; php artisan cache:clear >/dev/null 2>&1 ) || true
+          echo ""; echo "=== Fusion OK ==="; cat "$MARK"
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # LANDING — installe la route '/' dans le script pour servir la home
+      # conservée. Aucune réécriture de design : c'est le fichier existant.
+      # ------------------------------------------------------------------
+      - name: Install home route (page d'accueil dans le script)
+        if: ${{ inputs.mode == 'merge' || inputs.mode == 'landing' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          [ -f "$MARK" ] || { echo "ERREUR: fusion pas encore faite — lancer le mode merge d'abord."; exit 1; }
+          LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          HOMEFILE=$(grep '^homefile=' "$MARK" | cut -d= -f2-)
+          [ -n "$LROOT" ] && [ -f "$LROOT/routes/web.php" ] || { echo "ERREUR: routes/web.php introuvable"; exit 1; }
+          if [ -z "$HOMEFILE" ] || [ ! -f "$HOMEFILE" ]; then
+            echo "Aucune home conservée à servir — le script garde sa page d'accueil. Rien à faire."; exit 0
+          fi
+
+          WEB="$LROOT/routes/web.php"
+          [ -f "$WEB.bak-govibepay" ] || cp -a "$WEB" "$WEB.bak-govibepay"
+          if grep -q 'GOVIBEPAY-LANDING-ROUTE' "$WEB"; then
+            echo "Route déjà présente — mise à jour du chemin."
+            sed -i "s#^// GOVIBEPAY-HOME-FILE=.*#// GOVIBEPAY-HOME-FILE=$HOMEFILE#" "$WEB"
+          else
+            cat >> "$WEB" <<EOPHP
+
+          // GOVIBEPAY-LANDING-ROUTE — home publique de govibepay.com.
+          // Sert la page d'accueil existante du domaine (design conservé tel quel).
+          // Enregistrée en dernier : elle prend le pas sur la home d'origine du script.
+          // GOVIBEPAY-HOME-FILE=$HOMEFILE
+          Route::get('/', function () {
+              \$f = '$HOMEFILE';
+              if (! is_file(\$f)) {
+                  abort(404);
+              }
+              ob_start();
+              include \$f;
+
+              return response(ob_get_clean());
+          });
+          EOPHP
+          fi
+
+          if ! php -l "$WEB" >/dev/null 2>&1; then
+            echo "ERREUR: routes/web.php invalide — restauration immédiate"
+            cp -a "$WEB.bak-govibepay" "$WEB"
+            php -l "$WEB" && echo "(restauré)"
+            exit 1
+          fi
+          ( cd "$LROOT" && php artisan route:clear >/dev/null 2>&1; php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
+          echo "→ route '/' installée dans le script, servant : $HOMEFILE"
+          curl -skS -m 12 -o /dev/null -w "  https://govibepay.com/ -> code=%{http_code}\n" --resolve "govibepay.com:443:127.0.0.1" "https://govibepay.com/" || true
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # BRAND — met le script à la marque GOVIBEPay.
+      # ⚠️ Ne touche JAMAIS aux URLs (appdevs.net / appdevs.cloud / appdevsx /
+      # qrpay.appdevs.net) : les réécrire casserait le chargement des assets.
+      # Seules les mentions de marque VISIBLES sont remplacées.
+      # ------------------------------------------------------------------
+      - name: Brand (marque GOVIBEPay)
+        if: ${{ inputs.mode == 'merge' || inputs.mode == 'brand' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          TS=$(date +%Y%m%d-%H%M%S)
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          BRAND="GOVIBEPay"
+
+          LROOT=""
+          [ -f "$MARK" ] && LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          if [ -z "$LROOT" ] || [ ! -d "$LROOT" ]; then
+            for c in "$HOME/domains/app.govibepay.com/public_html" "$DOM/public_html/app" "$DOM/govibepay-app"; do
+              if [ -f "$c/artisan" ]; then LROOT="$c"; break; fi
+            done
+          fi
+          [ -n "$LROOT" ] && [ -d "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          echo "Script : $LROOT"
+
+          # 1) .env — nom applicatif
+          ENVF="$LROOT/.env"
+          if [ -f "$ENVF" ]; then
+            CUR=$(grep -E '^APP_NAME=' "$ENVF" | head -1)
+            echo "APP_NAME actuel : ${CUR:-(absent)}"
+            if echo "$CUR" | grep -qiE 'appdev'; then
+              cp -a "$ENVF" "$ENVF.bak-brand-$TS"
+              sed -i "s#^APP_NAME=.*#APP_NAME=\"$BRAND\"#" "$ENVF"
+              echo "→ APP_NAME mis à $BRAND"
+            else
+              echo "→ APP_NAME ne contient pas « appdev » : laissé tel quel (pas de casse inutile)."
+            fi
+          fi
+
+          # 2) Mentions VISIBLES de la marque éditeur, hors URLs et hors dossiers
+          #    de sauvegarde (resourcesBBBB, resources.bak…).
+          BK="$DOM/brand-backup-$TS"
+          COUNT=0
+          for zone in resources/views lang resources/lang; do
+            Z="$LROOT/$zone"
+            [ -d "$Z" ] || continue
+            while IFS= read -r f; do
+              case "$f" in *"/resources"[A-Z]*|*".bak/"*|*"/vendor/"*|*"/node_modules/"*) continue;; esac
+              # lignes contenant une URL du fournisseur : on les saute entièrement
+              grep -qiE 'appdevs\.(net|cloud)|appdevsx|cdn\.appdevs' "$f" && HASURL=1 || HASURL=0
+              rel="${f#$LROOT/}"
+              mkdir -p "$BK/$(dirname "$rel")"
+              cp -a "$f" "$BK/$rel"
+              if [ "$HASURL" = "1" ]; then
+                # remplacement ligne par ligne en épargnant les lignes à URL
+                awk -v b="$BRAND" '
+                  /appdevs\.(net|cloud)|appdevsx|cdn\.appdevs/ { print; next }
+                  { gsub(/AppDevs\.?/, b); gsub(/Appdevs/, b); gsub(/appdev/, b); print }
+                ' "$f" > "$f.brandtmp" && mv "$f.brandtmp" "$f"
+              else
+                sed -i -e "s/AppDevs\./$BRAND/g" -e "s/AppDevs/$BRAND/g" -e "s/Appdevs/$BRAND/g" -e "s/appdev/$BRAND/g" "$f"
+              fi
+              case "$f" in
+                *.php)
+                  if ! php -l "$f" >/dev/null 2>&1; then
+                    echo "!! $rel cassé — restauré"; cp -a "$BK/$rel" "$f"
+                  fi
+                  ;;
+              esac
+              COUNT=$((COUNT+1))
+            done < <(grep -rIli --exclude-dir=node_modules --exclude-dir=vendor -e 'appdev' "$Z" 2>/dev/null)
+          done
+          echo "→ $COUNT fichier(s) modifié(s) ; sauvegarde : $BK"
+          echo "   (les URLs appdevs.net / appdevs.cloud sont volontairement INTACTES :"
+          echo "    les réécrire casserait le CSS/JS du script.)"
+
+          ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
+          echo ""
+          echo "NOTE: le nom affiché du site vient souvent des Réglages en BASE DE DONNÉES"
+          echo "(panneau admin → Settings / Site Name). S'il reste « appdev » quelque part,"
+          echo "c'est là qu'il faut le changer."
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # ASSETS — supprime la dépendance externe du script à cdn.appdevs.net,
+      # qui NE RÉPOND PLUS (timeout) alors que les pages d'authentification
+      # y chargent leur CSS et leurs modules JS : le formulaire de connexion
+      # reste donc inerte. Les fichiers sont téléchargés en local quand c'est
+      # possible, sinon repointés vers appdevs.cloud (l'hôte encore vivant).
+      # Sauvegarde par fichier + php -l ; annulable par rollback.
+      # ------------------------------------------------------------------
+      - name: Assets (retirer la dépendance au CDN mort)
+        if: ${{ inputs.mode == 'assets' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          TS=$(date +%Y%m%d-%H%M%S)
+          DOM="$HOME/domains/govibepay.com"
+          LROOT=""
+          for c in "$HOME/domains/app.govibepay.com/public_html" "$DOM/public_html/app" "$DOM/govibepay-app"; do
+            [ -f "$c/artisan" ] && { LROOT="$c"; break; }
+          done
+          [ -n "$LROOT" ] || { echo "ERREUR: script introuvable."; exit 1; }
+          # NB: on n'utilise PAS /vendor/ dans l'URL — beaucoup d'hébergeurs
+          # bloquent ce chemin pour protéger le dossier Composer (constaté ici :
+          # les fichiers existaient mais répondaient 404).
+          WEBDIR="gvp-assets/fileholder/v1.0"
+          VDIR="$LROOT/public/$WEBDIR"
+          BK="$DOM/assets-backup-$TS"
+          mkdir -p "$VDIR/css" "$VDIR/js" "$BK"
+
+          echo "=== Fichiers servis par le CDN mort, référencés par le script ==="
+          FILES="css/fileholder-style.css js/fileholder-script.js js/fileholder-settings.js"
+          OKDL=1
+          for F in $FILES; do
+            # appdevs.cloud (vivant) sert les mêmes chemins sous /cdn/
+            if curl -fsS -m 25 -o "$VDIR/$F" "https://appdevs.cloud/cdn/fileholder/v1.0/$F" 2>/dev/null; then
+              echo "  ✅ $F téléchargé ($(wc -c < "$VDIR/$F") octets)"
+            else
+              echo "  🔴 $F : téléchargement impossible"
+              OKDL=0
+            fi
+          done
+          echo ""
+
+          chmod -R a+rX "$LROOT/public/gvp-assets" 2>/dev/null || true
+          if [ "$OKDL" = "1" ]; then
+            MODE="local"; echo "→ les assets seront servis LOCALEMENT (/$WEBDIR/...)"
+          else
+            MODE="cloud"; echo "→ téléchargement partiel : on repointe simplement vers appdevs.cloud"
+          fi
+          echo ""
+
+          echo "=== Réécriture des références (sauvegarde par fichier) ==="
+          COUNT=0
+          while IFS= read -r f; do
+            case "$f" in *"/resources"[A-Z]*|*".bak/"*|*"/vendor/"*|*"/node_modules/"*) continue;; esac
+            rel="${f#$LROOT/}"
+            mkdir -p "$BK/$(dirname "$rel")"
+            cp -a "$f" "$BK/$rel"
+            if [ "$MODE" = "local" ]; then
+              # /vendor/... = chemin d'un passage précédent, bloqué par l'hébergeur : on le corrige aussi
+              sed -i -e "s#https://cdn\.appdevs\.net/fileholder/v1\.0/#/$WEBDIR/#g" \
+                     -e "s#https://appdevs\.cloud/cdn/fileholder/v1\.0/#/$WEBDIR/#g" \
+                     -e "s#/vendor/fileholder/v1\.0/#/$WEBDIR/#g" "$f"
+            else
+              sed -i -e 's#https://cdn\.appdevs\.net/fileholder/v1\.0/#https://appdevs.cloud/cdn/fileholder/v1.0/#g' \
+                     -e 's#/vendor/fileholder/v1\.0/#https://appdevs.cloud/cdn/fileholder/v1.0/#g' "$f"
+            fi
+            case "$f" in
+              *.php) php -l "$f" >/dev/null 2>&1 || { echo "  !! $rel cassé — restauré"; cp -a "$BK/$rel" "$f"; continue; };;
+            esac
+            echo "  • $rel"
+            COUNT=$((COUNT+1))
+          done < <(grep -rIl --exclude-dir=vendor --exclude-dir=node_modules -e 'cdn\.appdevs\.net\|appdevs\.cloud\|/vendor/fileholder/' "$LROOT/resources" 2>/dev/null)
+          echo "→ $COUNT fichier(s) modifié(s) ; sauvegarde : $BK"
+          echo "  (marqueur pour rollback)"
+          echo "assets_backup=$BK" >> "$DOM/.govibepay-assets.meta"
+
+          ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1; php artisan config:clear >/dev/null 2>&1 ) || true
+          echo ""
+          echo "=== Vérification : références externes restantes dans resources/ ==="
+          grep -rIo --exclude-dir=vendor --exclude-dir=node_modules -e 'cdn\.appdevs\.net' "$LROOT/resources" 2>/dev/null | wc -l | sed 's/^/  cdn.appdevs.net (mort) : /'
+          echo "=== Les assets locaux répondent-ils ? ==="
+          ALLOK=1
+          for F in $FILES; do
+            RC=$(curl -skS -m 10 -o /dev/null -w '%{http_code}' --resolve "app.govibepay.com:443:127.0.0.1" "https://app.govibepay.com/$WEBDIR/$F" 2>/dev/null)
+            echo "  /$WEBDIR/$F -> $RC"
+            [ "$RC" = "200" ] || ALLOK=0
+          done
+          if [ "$ALLOK" = "1" ]; then
+            echo "  ✅ les assets sont servis correctement — la page de connexion a ce qu'il lui faut"
+          else
+            echo "  🔴 les assets ne sont pas servis : on REVIENT aux URLs externes (appdevs.cloud, vivant)"
+            while IFS= read -r f; do
+              case "$f" in *"/vendor/"*|*"/node_modules/"*) continue;; esac
+              sed -i "s#/$WEBDIR/#https://appdevs.cloud/cdn/fileholder/v1.0/#g" "$f"
+            done < <(grep -rIl --exclude-dir=vendor --exclude-dir=node_modules -e "/$WEBDIR/" "$LROOT/resources" 2>/dev/null)
+            ( cd "$LROOT" && php artisan view:clear >/dev/null 2>&1 ) || true
+            echo "  → références repointées vers appdevs.cloud (hôte joignable)"
+          fi
+          EOSSH
+
+      # ------------------------------------------------------------------
+      # ROLLBACK — remet tout dans l'état d'avant la fusion.
+      # ------------------------------------------------------------------
+      - name: Rollback
+        if: ${{ inputs.mode == 'rollback' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          DOM="$HOME/domains/govibepay.com"
+          MARK="$DOM/.govibepay-merge.meta"
+          [ -f "$MARK" ] || { echo "ERREUR: aucun marqueur de fusion — rien à restaurer."; exit 1; }
+          echo "=== Marqueur ==="; cat "$MARK"
+          LROOT=$(grep '^lroot=' "$MARK" | cut -d= -f2-)
+          PUB=$(grep '^pub=' "$MARK" | cut -d= -f2-)
+          HOMEFILE=$(grep '^homefile=' "$MARK" | cut -d= -f2-)
+          VDIR=$(grep '^vacated=' "$MARK" | cut -d= -f2-)
+          BK=$(grep '^backup=' "$MARK" | cut -d= -f2-)
+
+          # 1) home d'origine remise en index.php
+          if [ -n "$BK" ] && [ -f "$BK/index.php" ]; then
+            [ -n "$HOMEFILE" ] && [ -f "$HOMEFILE" ] && rm -f "$HOMEFILE"
+            cp -a "$BK/index.php" "$PUB/index.php"
+            echo "→ page d'accueil d'origine restaurée"
+          elif [ -n "$BK" ] && [ -f "$BK/index.html" ]; then
+            [ -n "$HOMEFILE" ] && [ -f "$HOMEFILE" ] && rm -f "$HOMEFILE"
+            cp -a "$BK/index.html" "$PUB/index.html"
+            rm -f "$PUB/index.php"
+            echo "→ page d'accueil d'origine restaurée (index.html)"
+          fi
+          # 2) .htaccess racine
+          if [ -n "$BK" ] && [ -f "$BK/.htaccess" ]; then cp -a "$BK/.htaccess" "$PUB/.htaccess"; echo "→ .htaccess racine restauré"; fi
+          # 3) sous-domaine
+          if [ -n "$VDIR" ] && [ -d "$VDIR" ]; then
+            if [ -n "$BK" ] && [ -f "$BK/subdomain.htaccess" ]; then
+              cp -a "$BK/subdomain.htaccess" "$VDIR/.htaccess"; echo "→ .htaccess du sous-domaine restauré"
+            else
+              rm -f "$VDIR/.htaccess"; echo "→ redirection du sous-domaine retirée"
+            fi
+          fi
+          # 3b) assets vendorisés (mode assets) : restaurer les vues d'origine
+          AB=$(ls -dt "$DOM"/assets-backup-* 2>/dev/null | head -1)
+          if [ -n "$AB" ] && [ -d "$AB" ] && [ -n "$LROOT" ]; then
+            cp -a "$AB/." "$LROOT/"; rm -f "$DOM/.govibepay-assets.meta"
+            echo "→ références d'assets restaurées depuis $AB"
+          fi
+          # 4) route '/' + marque dans le script
+          if [ -n "$LROOT" ] && [ -d "$LROOT" ]; then
+            if [ -f "$LROOT/routes/web.php.bak-govibepay" ]; then
+              cp -a "$LROOT/routes/web.php.bak-govibepay" "$LROOT/routes/web.php"; echo "→ routes/web.php restauré"
+            fi
+            B=$(ls -dt "$DOM"/brand-backup-* 2>/dev/null | head -1)
+            if [ -n "$B" ] && [ -d "$B" ]; then cp -a "$B/." "$LROOT/"; echo "→ marque restaurée depuis $B"; fi
+            if [ -n "$BK" ] && [ -f "$BK/.env" ]; then cp -a "$BK/.env" "$LROOT/.env"; echo "→ .env restauré"; fi
+            ( cd "$LROOT" && php artisan config:clear >/dev/null 2>&1; php artisan route:clear >/dev/null 2>&1; php artisan view:clear >/dev/null 2>&1 ) || true
+          fi
+          rm -f "$MARK"
+          echo "=== Rollback OK ==="
+          for H in govibepay.com app.govibepay.com; do
+            curl -skS -m 12 -o /dev/null -w "  https://$H -> code=%{http_code}\n" --resolve "$H:443:127.0.0.1" "https://$H/" || true
+          done
+          EOSSH

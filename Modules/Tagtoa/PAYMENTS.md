@@ -55,3 +55,40 @@ Classification dans `app/Support/PaymentGateway.php`.
 - ✅ Config + détection d'activation (GatewayManager)
 - ⏳ Drivers API réels (1 PR par passerelle, testé avec identifiants) :
   route `tagtoa.pay.checkout` + IPN/webhook + vérification de signature.
+
+---
+
+## API développeur (v1)
+
+Permet à n'importe quel site tiers d'encaisser avec les méthodes de paiement
+TAGTOA d'un marchand. Le marchand crée sa clé sur `/tagtoa/developer`.
+
+- Base : `https://tagtoa.com/api/v1/tagtoa`
+- Auth : `Authorization: Bearer tag_live_xxxxxxxx_…` (jamais de session/CSRF)
+- Limite : 120 appels/minute/clé
+
+| Méthode | Endpoint | Rôle |
+|---|---|---|
+| GET  | `/ping` | vérifier la clé |
+| GET  | `/payment-methods` | méthodes que verra le client |
+| POST | `/payments` | créer un paiement → `checkout_url` |
+| GET  | `/payments/{reference}` | état d'un paiement |
+
+Parcours : le site tiers crée le paiement → redirige le client vers
+`checkout_url` (`/pay/i/{reference}`, page hébergée par TAGTOA, montant imposé
+côté serveur) → le client paie → le marchand approuve la preuve dans son
+dashboard → le paiement passe à `paid` et TAGTOA notifie `callback_url`
+(POST signé HMAC-SHA256 dans l'en-tête `X-Tagtoa-Signature`).
+
+Sécurité : `POST /payments` est idempotent sur `external_id` (un réessai ne
+facture pas deux fois) ; les clés ne sont stockées qu'en SHA-256 et le jeton
+complet n'est affiché qu'à la création ; l'API ne renvoie jamais les
+coordonnées bancaires du marchand ni d'identifiant interne.
+
+### Réglages plateforme par passerelle
+
+`/tagtoa/admin/gateways` (super_admin) : activation, frais TAGTOA (% + fixe) et
+**mode de credentials** par passerelle —
+`merchant` (le marchand branche ses propres identifiants, l'argent va direct
+chez lui) ou `platform` (TAGTOA encaisse en agrégateur : n'activer qu'avec les
+accords PayPal Commerce Platform / Stripe Connect / Digicel).

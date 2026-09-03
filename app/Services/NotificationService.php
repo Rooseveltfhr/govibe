@@ -73,11 +73,13 @@ class NotificationService
         $error   = null;
 
         try {
+            $prevTimeout = ini_set('default_socket_timeout', 10);
             Mail::html($htmlBody, function ($mail) use ($to, $name, $subject) {
                 $mail->to($to, $name)
                      ->subject($subject)
                      ->from(config('mail.from.address'), config('mail.from.name'));
             });
+            ini_set('default_socket_timeout', $prevTimeout);
             $success = true;
         } catch (\Throwable $e) {
             $error = $e->getMessage();

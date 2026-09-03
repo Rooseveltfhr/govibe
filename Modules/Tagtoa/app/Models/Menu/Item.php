@@ -4,6 +4,7 @@ namespace Modules\Tagtoa\App\Models\Menu;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -45,5 +46,10 @@ class Item extends Model
     public function getImageUrlAttribute(): ?string
     {
         return $this->image_path ? Storage::url($this->image_path) : null;
+    }
+
+    public function options(): HasMany
+    {
+        return $this->hasMany(ItemOption::class, 'item_id')->orderBy('sort');
     }
 }

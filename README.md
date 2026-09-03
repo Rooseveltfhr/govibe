@@ -73,6 +73,42 @@ Le script `deploy.sh` installe automatiquement:
 - Certificat SSL Let's Encrypt
 - Systemd worker pour les queues
 
+### Publier une mise à jour
+
+`deploy.sh` sert **uniquement à la première installation** (il provisionne le
+serveur, demande un mot de passe MySQL et relance les seeders). Pour publier de
+nouveaux commits sur un serveur déjà en place:
+
+```bash
+# Sur le VPS, en root:
+cd /var/www/govibe
+git fetch origin main && git checkout main && git pull origin main
+bash update.sh
+```
+
+`update.sh` récupère la branche, installe les dépendances, applique les
+migrations, reconstruit les caches Laravel, restaure les permissions et
+redémarre Nginx / PHP-FPM / le worker — le tout derrière `php artisan down`.
+
+### Déploiement automatique
+
+Le workflow `.github/workflows/deploy-govibe.yml` exécute ces étapes tout seul
+à chaque push sur `main` (ou à la demande, via *Actions → Deploy GOVIBE to VPS
+→ Run workflow*).
+
+Il réutilise les secrets `VPS_HOST` / `VPS_USER` / `VPS_SSH_KEY` / `VPS_PORT`.
+Si govibeht.com vit sur une autre machine que tagtoa.com, définir à la place
+`GOVIBE_VPS_HOST` / `GOVIBE_VPS_USER` / `GOVIBE_VPS_SSH_KEY` /
+`GOVIBE_VPS_PORT` — ils ont priorité. `GOVIBE_APP_DIR` permet de surcharger
+`/var/www/govibe`.
+
+Avant toute modification, le workflow vérifie que le répertoire cible est bien
+le dépôt `govibe`; si les secrets pointent ailleurs, il s'arrête sans rien
+toucher. Il termine par un contrôle HTTP sur https://govibeht.com/.
+
+> Ne pas confondre avec `deploy.yml`, qui déploie **le module TAGTOA** sur
+> tagtoa.com et ne se déclenche que sur `Modules/Tagtoa/**`.
+
 ### Configuration email (Gmail)
 
 Dans `/var/www/govibe/.env`:

@@ -52,7 +52,7 @@ class POSController extends Controller
             'items.*.id'       => 'required|integer',
             'items.*.qty'      => 'required|integer|min:1',
             'discount'         => 'nullable|numeric|min:0',
-            'payment_method'   => 'required|in:cash,moncash,natcash,bank,card,paypal,zelle,usdt',
+            'payment_method'   => 'required|in:cash,moncash,natcash,bank_transfer,card,paypal,zelle,usdt',
             'client_name'      => 'nullable|string|max:255',
         ]);
 

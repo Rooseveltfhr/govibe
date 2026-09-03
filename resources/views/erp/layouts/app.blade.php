@@ -139,6 +139,10 @@
                 <i class="bi bi-people-fill icon"></i>
                 <span class="label">CRM / Clients</span>
             </a>
+            <a href="{{ route('erp.crm.anniversaires') }}" class="sidebar-link {{ request()->routeIs('erp.crm.anniversaires*') ? 'active' : '' }}">
+                <i class="bi bi-cake2-fill icon"></i>
+                <span class="label">Anniversaires</span>
+            </a>
             <a href="{{ route('erp.crm.notifications.index') }}" class="sidebar-link {{ request()->routeIs('erp.crm.notifications*') ? 'active' : '' }}">
                 <i class="bi bi-send-fill icon"></i>
                 <span class="label">Notifications</span>
@@ -163,8 +167,26 @@
                 <i class="bi bi-calendar-check-fill icon"></i>
                 <span class="label">Réservations</span>
             </a>
+            <a href="{{ route('erp.evenements.index') }}" class="sidebar-link {{ request()->routeIs('erp.evenements.*') ? 'active' : '' }}">
+                <i class="bi bi-calendar-event-fill icon"></i>
+                <span class="label">Événements</span>
+            </a>
+            <a href="{{ route('erp.partenaires.index') }}" class="sidebar-link {{ request()->routeIs('erp.partenaires.*') ? 'active' : '' }}">
+                <i class="bi bi-people-fill icon"></i>
+                <span class="label">Partenaires</span>
+            </a>
+
+            <a href="{{ route('erp.fiches.index') }}" class="sidebar-link {{ request()->routeIs('erp.fiches.*') ? 'active' : '' }}">
+                <i class="bi bi-clipboard-data-fill icon"></i>
+                <span class="label">Fiches techniques</span>
+            </a>
 
             <div class="sidebar-section mt-2">Finance</div>
+
+            <a href="{{ route('erp.paiements.index') }}" class="sidebar-link {{ request()->routeIs('erp.paiements.*') ? 'active' : '' }}">
+                <i class="bi bi-credit-card-2-front-fill icon"></i>
+                <span class="label">Moyens de paiement</span>
+            </a>
 
             <a href="{{ route('erp.finance.index') }}" class="sidebar-link {{ request()->routeIs('erp.finance.*') ? 'active' : '' }}">
                 <i class="bi bi-graph-up-arrow icon"></i>
@@ -185,9 +207,17 @@
                 <i class="bi bi-person-workspace icon"></i>
                 <span class="label">Ressources Humaines</span>
             </a>
-            <a href="{{ route('erp.academy.index') }}" class="sidebar-link {{ request()->routeIs('erp.academy.*') ? 'active' : '' }}">
+            <a href="{{ route('erp.academy.index') }}" class="sidebar-link {{ request()->routeIs('erp.academy.index') ? 'active' : '' }}">
                 <i class="bi bi-mortarboard-fill icon"></i>
                 <span class="label">GOVIBE Academy</span>
+            </a>
+            <a href="{{ route('erp.academy.inscriptions.index') }}" class="sidebar-link {{ request()->routeIs('erp.academy.inscriptions*') ? 'active' : '' }}" style="padding-left:28px">
+                <i class="bi bi-person-check-fill icon" style="font-size:13px"></i>
+                <span class="label" style="font-size:12px">Inscriptions</span>
+            </a>
+            <a href="{{ route('erp.academy.bootcamp.index') }}" class="sidebar-link {{ request()->routeIs('erp.academy.bootcamp*') ? 'active' : '' }}" style="padding-left:28px">
+                <i class="bi bi-robot icon" style="font-size:13px"></i>
+                <span class="label" style="font-size:12px">Bootcamp IA</span>
             </a>
             <a href="{{ route('erp.inventory.index') }}" class="sidebar-link {{ request()->routeIs('erp.inventory.*') ? 'active' : '' }}">
                 <i class="bi bi-box-seam-fill icon"></i>

@@ -1,0 +1,449 @@
+name: Deploy GOVIBE AI (louvia)
+
+# Deplwaman LOUVIA (govibe-ai/) sou louvia.govibeht.com — menm VPS ak
+# tagtoa.com, menm secrets (VPS_HOST/VPS_USER/VPS_SSH_KEY/VPS_PORT).
+#
+# Manyèl SÈLMAN (workflow_dispatch): yon push pa dwe janm deplwaye tou sèl
+# pandan platfòm nan poko estab.
+#
+# Estrikti sekirite (leson TAGTOA — .env te ekspoze piblik, CLAUDE.md §6):
+#   domains/louvia.govibeht.com/
+#   ├── laravel/       ← APLIKASYON an (.env, vendor/, Modules/) — ANDEYÒ web
+#   └── public_html/   ← docroot — SÈLMAN index.php + asset piblik
+# .env pa janm ka rive nan yon URL paske li pa anba docroot la ditou.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Sa pou fè"
+        type: choice
+        options: ["diagnose", "deploy"]
+        default: "diagnose"
+      branch:
+        description: "Branch ki gen kòd govibe-ai/ la"
+        type: string
+        default: "claude/govibe-ai-architecture-kyhgvp"
+      subdomain:
+        description: "Sou-domèn sib"
+        type: string
+        default: "louvia.govibeht.com"
+
+# De deplwaman ansanm ta pilonnen youn lòt (composer, migrate, cache).
+# Nou pa koupe youn k ap kouri: sa ta kite sit la an mentnans.
+concurrency:
+  group: deploy-louvia
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: ${{ inputs.action == 'deploy' && 'Deplwaye LOUVIA' || 'Enspekte sèvè a (lekti sèl)' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh-keyscan -p "$PORT" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # Rezoud chemen an sou sèvè a olye nou kode l an di: si dosye a deplase,
+      # deplwaman an swiv.
+      - name: Rezoud chemen domèn nan
+        id: paths
+        env:
+          SUBDOMAIN: ${{ inputs.subdomain }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          DIR=$(ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "ls -d /home/*/domains/$SUBDOMAIN \$HOME/domains/$SUBDOMAIN 2>/dev/null | head -1") || true
+          if [ -z "$DIR" ]; then
+            echo "::error::Dosye domèn nan pa jwenn pou $SUBDOMAIN. Kreye sou-domèn nan nan DirectAdmin anvan."
+            exit 1
+          fi
+          echo "domain=$DIR" >> "$GITHUB_OUTPUT"
+          echo "==> Domèn: $DIR"
+
+      - name: Enspekte (lekti sèl)
+        if: ${{ inputs.action == 'diagnose' }}
+        env:
+          DOMAIN: ${{ steps.paths.outputs.domain }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "DOMAIN='$DOMAIN' bash -s" <<'EOSSH'
+          set -uo pipefail
+          echo "=== Anviwònman ==="
+          echo "php pa defo : $(php -v 2>/dev/null | head -1)"
+          php -m 2>/dev/null | grep -iE "pdo_sqlite|pdo_mysql|mbstring|curl|zip|openssl" | tr '\n' ' '; echo
+          composer --version 2>/dev/null || echo "composer: pa jwenn"
+          echo
+          # composer.json mande `php: ^8.3`; lock la rezoud kont 8.3.
+          echo "=== Tout PHP ki sou sèvè a (nou bezwen >= 8.3) ==="
+          for c in /usr/local/php*/bin/php /opt/alt/php*/usr/bin/php /usr/local/bin/php8* \
+                   $(command -v php php8.4 php84 php8.3 php83 2>/dev/null); do
+            [ -x "$c" ] || continue
+            echo "  $c -> $("$c" -r 'echo PHP_VERSION;' 2>/dev/null || echo '?')"
+          done
+          echo
+          echo "=== $DOMAIN ==="
+          ls -la "$DOMAIN" 2>/dev/null
+          echo
+          echo "=== docroot ==="
+          ls -la "$DOMAIN/public_html" 2>/dev/null
+          echo
+          echo "=== app (laravel/) ==="
+          if [ -f "$DOMAIN/laravel/artisan" ]; then
+            echo "artisan: prezan"
+            ( cd "$DOMAIN/laravel" && php artisan --version 2>&1 | head -1 )
+            [ -f "$DOMAIN/laravel/.env" ] && echo ".env: prezan" || echo ".env: absan"
+            [ -d "$DOMAIN/laravel/vendor" ] && echo "vendor/: prezan" || echo "vendor/: absan"
+          else
+            echo "poko deplwaye (pa gen laravel/artisan)"
+          fi
+          echo
+          echo "=== Espas disk ==="
+          df -h "$DOMAIN" 2>/dev/null | tail -1
+          EOSSH
+
+      # rsync san --delete-excluded: .env, vendor/ ak baz done a sou sèvè a
+      # SIVI yon deplwaman — yo pa nan git, epi yo pa dwe janm efase.
+      - name: Voye kòd la (rsync)
+        if: ${{ inputs.action == 'deploy' }}
+        env:
+          DOMAIN: ${{ steps.paths.outputs.domain }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p '$DOMAIN/laravel'"
+          rsync -az --delete \
+            --exclude '.env' \
+            --exclude '.env.*' \
+            --exclude 'vendor/' \
+            --exclude 'node_modules/' \
+            --exclude '.git/' \
+            --exclude 'database/*.sqlite' \
+            --exclude 'storage/logs/*' \
+            --exclude 'storage/framework/cache/*' \
+            --exclude 'storage/framework/sessions/*' \
+            --exclude 'storage/framework/views/*' \
+            -e "ssh -i ~/.ssh/id_deploy -p $PORT -o StrictHostKeyChecking=accept-new" \
+            govibe-ai/ \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$DOMAIN/laravel/"
+
+      - name: Enstale, migre, pibliye
+        if: ${{ inputs.action == 'deploy' }}
+        env:
+          DOMAIN: ${{ steps.paths.outputs.domain }}
+          SUBDOMAIN: ${{ inputs.subdomain }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "DOMAIN='$DOMAIN' SUBDOMAIN='$SUBDOMAIN' bash -s" <<'EOSSH'
+          set -uo pipefail
+          APP="$DOMAIN/laravel"
+          PUB="$DOMAIN/public_html"
+          cd "$APP" || exit 1
+
+          # --- Chwazi yon PHP ki satisfè composer.json (`php: ^8.3`).
+          # `php` pa defo a se 8.3.33. composer.lock rezoud kounye a kont
+          # PHP 8.3 (config.platform.php) => Laravel 13.29 + Symfony 7.4,
+          # kidonk 8.3 ase. Sou DirectAdmin plizyè vèsyon PHP ap viv ansanm:
+          # nou pran yon binè ki bon olye nou fòse ak --ignore-platform-reqs
+          # (sa ta enstale kòd ki pa ka kouri, epi echèk la ta parèt an
+          # pwodiksyon olye isit la).
+          echo "==> PHP disponib sou sèvè a"
+          for c in /usr/local/php*/bin/php /opt/alt/php*/usr/bin/php \
+                   $(command -v php php8.4 php84 php8.3 php83 2>/dev/null); do
+            [ -x "$c" ] && echo "  $c -> $("$c" -r 'echo PHP_VERSION;' 2>/dev/null || echo '?')"
+          done
+
+          # Pi resan an dabò: si yon jou 8.4 vin enstale, nou pwofite l
+          # otomatikman san chanje anyen isit la.
+          PHP_BIN=""
+          for cand in /usr/local/php84/bin/php /opt/alt/php84/usr/bin/php php8.4 php84 \
+                      /usr/local/php83/bin/php /opt/alt/php83/usr/bin/php php8.3 php83 \
+                      php; do
+            c=$(command -v "$cand" 2>/dev/null || { [ -x "$cand" ] && echo "$cand"; })
+            [ -n "$c" ] || continue
+            if "$c" -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);' 2>/dev/null; then
+              PHP_BIN="$c"; break
+            fi
+          done
+
+          if [ -z "$PHP_BIN" ]; then
+            echo "::error::Pa gen PHP >= 8.3 sou sèvè a — composer.json mande ^8.3."
+            echo "Solisyon: aktive PHP 8.3 (oswa pi wo) pou domèn nan nan DirectAdmin."
+            exit 1
+          fi
+          echo "==> PHP chwazi: $PHP_BIN ($("$PHP_BIN" -r 'echo PHP_VERSION;'))"
+
+          # Composer dwe kouri AK menm PHP a, sinon li rezoud kont 8.3 ankò.
+          if [ -f composer.phar ]; then
+            COMPOSER_CMD="$PHP_BIN composer.phar"
+          elif command -v composer >/dev/null 2>&1; then
+            COMPOSER_CMD="$PHP_BIN $(command -v composer)"
+          else
+            "$PHP_BIN" -r "copy('https://getcomposer.org/installer','/tmp/cs.php');" || exit 1
+            "$PHP_BIN" /tmp/cs.php --install-dir=. --filename=composer.phar || exit 1
+            rm -f /tmp/cs.php
+            COMPOSER_CMD="$PHP_BIN composer.phar"
+          fi
+
+          # --- .env : kreye SÈLMAN si li absan. Yon deplwaman pa janm
+          # ekraze konfigirasyon ki sou sèvè a (kle API, kredansyèl DB).
+          if [ ! -f .env ]; then
+            echo "==> .env absan — kreyasyon depi .env.example"
+            cp .env.example .env
+            NEW_ENV=1
+          else
+            echo "==> .env egziste — nou kite l jan l ye"
+            NEW_ENV=0
+          fi
+
+          # Dirsisman: pa negosyab an pwodiksyon.
+          sed -i 's/^APP_ENV=.*/APP_ENV=production/' .env
+          sed -i 's/^APP_DEBUG=.*/APP_DEBUG=false/' .env
+          grep -q '^APP_ENV=' .env   || echo 'APP_ENV=production' >> .env
+          grep -q '^APP_DEBUG=' .env || echo 'APP_DEBUG=false' >> .env
+          if grep -q '^APP_URL=' .env; then
+            sed -i "s#^APP_URL=.*#APP_URL=https://$SUBDOMAIN#" .env
+          else
+            echo "APP_URL=https://$SUBDOMAIN" >> .env
+          fi
+          chmod 600 .env
+
+          # SQLite: ase pou premye vèsyon an, epi zewo kredansyèl pou fè fwit.
+          mkdir -p database storage/logs storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache
+          [ -f database/database.sqlite ] || touch database/database.sqlite
+
+          echo "==> Composer"
+          $COMPOSER_CMD install --no-dev --optimize-autoloader --no-interaction --prefer-dist || exit 1
+
+          # APP_KEY — san li, CHAK paj bay 500.
+          # `key:generate` ranplase yon liy `APP_KEY=` ki deja la; si liy lan
+          # pa egziste li ekri yon ERROR men li SÒTI AK KÒD 0. Se konsa yon
+          # deplwaman te "reyisi" ak yon app san kle. Kidonk: nou asire liy
+          # lan la anvan, epi nou verifye REZILTA a apre — pa kòd sòti a.
+          grep -q '^APP_KEY=' .env || echo 'APP_KEY=' >> .env
+
+          if ! grep -q '^APP_KEY=base64:' .env; then
+            "$PHP_BIN" artisan key:generate --force || true
+          fi
+
+          if ! grep -q '^APP_KEY=base64:' .env; then
+            echo "::error::APP_KEY pa jenere. San li chak paj bay 500."
+            echo "Liy APP_KEY nan .env la:"; grep -c '^APP_KEY=' .env
+            exit 1
+          fi
+          echo "==> APP_KEY prezan"
+
+          echo "==> Migrasyon"
+          "$PHP_BIN" artisan migrate --force || exit 1
+
+          echo "==> Cache"
+          "$PHP_BIN" artisan config:clear >/dev/null 2>&1 || true
+          "$PHP_BIN" artisan route:clear  >/dev/null 2>&1 || true
+          "$PHP_BIN" artisan view:clear   >/dev/null 2>&1 || true
+          "$PHP_BIN" artisan config:cache >/dev/null 2>&1 || true
+          "$PHP_BIN" artisan route:cache  >/dev/null 2>&1 || true
+          "$PHP_BIN" artisan view:cache   >/dev/null 2>&1 || true
+
+          chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+
+          # --- Docroot: SÈLMAN asset piblik + yon index.php ki boote ../laravel.
+          echo "==> Docroot"
+          mkdir -p "$PUB"
+          # index.html DirectAdmin la ta kache index.php nou an.
+          [ -f "$PUB/index.html" ] && mv -f "$PUB/index.html" "$PUB/index.html.disabled"
+          cp -f "$APP/public/robots.txt"  "$PUB/robots.txt"  2>/dev/null || true
+          cp -f "$APP/public/favicon.ico" "$PUB/favicon.ico" 2>/dev/null || true
+          [ -d "$APP/public/build" ] && cp -rf "$APP/public/build" "$PUB/" 2>/dev/null || true
+
+          # .htaccess: baz Laravel la + yon blòk refi (defans an pwofondè).
+          # Rekonstwi nèt chak fwa => idanpotan, pa gen doub blòk.
+          cp -f "$APP/public/.htaccess" "$PUB/.htaccess" 2>/dev/null || true
+          cat >> "$PUB/.htaccess" <<'HTEOF'
+
+          # LOUVIA — refize sèvi fichye sansib (defans an pwofondè)
+          <FilesMatch "^\.env|^\.git|composer\.(json|lock)$|^artisan$">
+              Require all denied
+          </FilesMatch>
+          HTEOF
+
+          # index.php nèf chak fwa (idanpotan) — li pwente sou ../laravel.
+          cat > "$PUB/index.php" <<'PHPEOF'
+          <?php
+
+          use Illuminate\Foundation\Application;
+          use Illuminate\Http\Request;
+
+          define('LARAVEL_START', microtime(true));
+
+          if (file_exists($maintenance = __DIR__.'/../laravel/storage/framework/maintenance.php')) {
+              require $maintenance;
+          }
+
+          require __DIR__.'/../laravel/vendor/autoload.php';
+
+          /** @var Application $app */
+          $app = require_once __DIR__.'/../laravel/bootstrap/app.php';
+
+          $app->handleRequest(Request::capture());
+          PHPEOF
+
+          echo "==> Kontwòl final"
+          ls -la "$PUB" | head -15
+          echo "--- .env pa dwe nan docroot la ---"
+          if [ -f "$PUB/.env" ]; then echo "!! DANJE: .env nan docroot !!"; exit 1; fi
+          echo "OK: pa gen .env nan docroot"
+
+          echo "DEPLOY_OK"
+          EOSSH
+
+      # Etap apa, kout: rezilta a rete vizib nan bout log la olye li antere
+      # anba script la. DYAGNOSTIK — se tès piblik la ki fè lwa.
+      - name: Verifikasyon sou sèvè a
+        if: ${{ inputs.action == 'deploy' }}
+        env:
+          DOMAIN: ${{ steps.paths.outputs.domain }}
+          SUBDOMAIN: ${{ inputs.subdomain }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "DOMAIN='$DOMAIN' SUBDOMAIN='$SUBDOMAIN' bash -s" <<'EOSSH'
+          set -uo pipefail
+          cd "$DOMAIN/laravel" || exit 1
+
+          # Nou frape Apache SOU MACHIN NAN: pa gen DNS, pa gen rezo piblik.
+          # ⚠️ Sou sèvè sa a vhost louvia a mare sou IP piblik la, kidonk
+          # --resolve sou 127.0.0.1 ka tonbe sou vhost catch-all la. Se
+          # poutèt sa tout sa ki isit la se DYAGNOSTIK — eksepte yon 5xx.
+          lprobe() {
+            local out
+            out=$(curl -sSk -o /dev/null -w '%{http_code}' -L --max-time 25 \
+                  --resolve "$SUBDOMAIN:443:127.0.0.1" \
+                  --resolve "$SUBDOMAIN:80:127.0.0.1" \
+                  "https://$SUBDOMAIN$1" 2>/dev/null)
+            [ -n "$out" ] || out=000
+            printf '%s' "$out"
+          }
+
+          HOME_CODE=$(lprobe "/")
+          ENV_CODE=$(lprobe "/.env")
+
+          BODY=$(curl -sSk -L --max-time 25 \
+                 --resolve "$SUBDOMAIN:443:127.0.0.1" \
+                 --resolve "$SUBDOMAIN:80:127.0.0.1" \
+                 "https://$SUBDOMAIN/" 2>/dev/null)
+          BODY_LEN=$(printf '%s' "$BODY" | wc -c | tr -d ' ')
+
+          echo "=================================================="
+          echo " DYAGNOSTIK SOU SÈVÈ A (127.0.0.1, TLS inyore)"
+          echo "   /       -> $HOME_CODE  (${BODY_LEN} okte)"
+          echo "   /.env   -> $ENV_CODE"
+          echo "=================================================="
+          echo "--- kontni paj akèy la (premye 12 liy) ---"
+          printf '%s\n' "$BODY" | head -12
+          echo "------------------------------------------"
+
+          echo "--- HTTP (pò 80) san swiv redireksyon ---"
+          curl -sSk -o /dev/null -D - --max-time 15 \
+               --resolve "$SUBDOMAIN:80:127.0.0.1" \
+               "http://$SUBDOMAIN/" 2>/dev/null | head -6 || true
+
+          if printf '%s' "$BODY" | grep -qi "webserver is functioning normally"; then
+            echo "::warning::Depi 127.0.0.1 se paj defo a ki reponn (vhost mare sou IP piblik la)."
+            echo "  Sa PA vle di sit la kase — gade tès piblik la anba a."
+          fi
+
+          if [ "$ENV_CODE" = "200" ]; then
+            echo "::error::.env SÈVI SOU WEB LA (200) — deplwaman an pa an sekirite."
+            exit 1
+          fi
+          echo "OK: .env pa sèvi lokalman ($ENV_CODE)"
+
+          # Yon 5xx isit la se yon vrè siyal: li soti nan PHP, pa nan vhost.
+          case "$HOME_CODE" in
+            5*)  echo "::error::Aplikasyon an kraze ($HOME_CODE). 30 dènye liy log la:"
+                 tail -30 storage/logs/laravel.log 2>/dev/null || echo "(pa gen log)"
+                 exit 1;;
+            *)   echo "Enfo: kòd lokal $HOME_CODE (tès piblik la se sa ki konte).";;
+          esac
+          EOSSH
+
+      - name: Smoke test piblik
+        if: ${{ inputs.action == 'deploy' }}
+        env:
+          SUBDOMAIN: ${{ inputs.subdomain }}
+        run: |
+          set -uo pipefail
+          # curl EKRI deja "000" via -w lè koneksyon an echwe, EPI li sòti ak
+          # yon kòd erè. Yon `|| echo 000` t ap kole yon dezyèm "000" => "000000",
+          # ki pa matche okenn tès epi ki te anpeche chit sou HTTP la fèt.
+          # Kidonk: nou pran sa curl ekri a, epi nou ranplase l sèlman si li vid.
+          probe() {
+            local out
+            out=$(curl -sS -o /dev/null -w '%{http_code}' -L --max-time 30 "$1" 2>/dev/null)
+            [ -n "$out" ] || out=000
+            printf '%s' "$out"
+          }
+
+          # Sou-domèn nan ka poko gen sètifika SSL. Sa PA yon rezon pou di
+          # aplikasyon an pa mache — nou tonbe sou HTTP pou tès la ka di nou
+          # yon bagay reyèl, epi nou siyale SSL la kòm travay ki rete.
+          echo "== Paj akèy =="
+          SCHEME=https
+          CODE=$(probe "https://$SUBDOMAIN/")
+          if [ "$CODE" = "000" ]; then
+            HCODE=$(probe "http://$SUBDOMAIN/")
+            if [ "$HCODE" != "000" ]; then
+              echo "::warning::HTTPS pa reponn (sètifika SSL poko bay pou $SUBDOMAIN). Tès la fèt sou HTTP. Bay yon sètifika Let's Encrypt nan DirectAdmin."
+              SCHEME=http
+              CODE="$HCODE"
+            fi
+          fi
+          echo "  $SCHEME://$SUBDOMAIN/ -> $CODE"
+
+          # Kontwòl sekirite ki konte: .env pa dwe janm lizib depi entènèt la.
+          echo "== .env pa dwe aksesib =="
+          ENVCODE=$(probe "$SCHEME://$SUBDOMAIN/.env")
+          echo "  $SCHEME://$SUBDOMAIN/.env -> $ENVCODE"
+          if [ "$ENVCODE" = "200" ]; then
+            echo "::error::.env EKSPOZE PIBLIKMAN — deplwaman an pa an sekirite."
+            exit 1
+          fi
+
+          # SE ISIT LA VERIFIKASYON KI FÈ LWA A: se egzakteman sa yon vizitè
+          # jwenn. Tès lokal la pa ka jije, paske vhost la mare sou IP piblik
+          # la epi --resolve sou 127.0.0.1 tonbe sou vhost catch-all la.
+          case "$CODE" in
+            2*)  echo "✓ Sit la reponn depi deyò ($CODE).";;
+            5*)  echo "::error::Sit la bay yon erè sèvè ($CODE)."; exit 1;;
+            000) echo "::error::Pa gen repons depi deyò. Tcheke DNS ak sètifika SSL la."; exit 1;;
+            *)   echo "::error::Kòd ki pa atann depi deyò ($CODE)."; exit 1;;
+          esac
+
+          # Yon 200 ka toujou se paj defo a. Nou egzije siyati LOUVIA a —
+          # verifye sa nou TANN, pa sèlman absans erè.
+          echo "== Kontni paj la =="
+          BODY=$(curl -sS -L --max-time 30 "$SCHEME://$SUBDOMAIN/" 2>/dev/null)
+          if printf '%s' "$BODY" | grep -qi "webserver is functioning normally"; then
+            echo "::error::Se paj DEFO sèvè a k ap sèvi piblikman, PA LOUVIA."
+            exit 1
+          fi
+          if printf '%s' "$BODY" | grep -q "LOUVIA"; then
+            echo "✓ Se byen LOUVIA k ap sèvi."
+            printf '%s\n' "$BODY" | grep -oE "Chwazi yon modèl|Choisissez un modèle|Restoran|Klinik|Lekòl" | sort -u | sed 's/^/    /'
+          else
+            echo "::error::Paj la pa gen siyati LOUVIA a. Premye liy yo:"
+            printf '%s\n' "$BODY" | head -10
+            exit 1
+          fi

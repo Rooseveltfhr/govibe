@@ -66,3 +66,20 @@ Hub: `/tagtoa/home`
 2. Deploy `DEPLOY_OK` ✅
 3. Smoke piblik: tout 200 ✅
 4. Tès tach (spot check) youn nan panèl ki chanje yo.
+
+## F. Test de charge (load test)
+Okenn test de charge pa t egziste anvan — script disponib kounye a
+(`ab` si li enstale, sinon fallback curl+xargs, pa gen dependans oblije) :
+```bash
+bash Modules/Tagtoa/scripts/loadtest.sh https://tagtoa.com 10 200
+```
+⚠️ Sa jenere trafik REYÈL — prefere yon anviwònman staging, oswa avèti
+avan kouri kont `tagtoa.com` pandan lè klyan yo aktif. Pandan/apre teste,
+gade `/tagtoa/admin/status` (Super-admin → État système) pou verifye
+BD/kach/queue toujou an sante.
+
+## G. État système (transparence)
+`/tagtoa/admin/status` (super_admin) montre — an lekti sèl, san sekrè
+afiche — anviwònman reyèl (pwouve li pa localhost), BD, kach, queue,
+eta sekirite NFC (anonse klèman si li PA branche nan check-in), ak yon
+lis limit koni (yon sèl VPS, pa gen bêta-test long ak vrè machann, elatriye).

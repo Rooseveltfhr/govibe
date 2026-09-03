@@ -1,8 +1,10 @@
 {{--
     TAGTOA — liens des modules directement dans le menu latéral Biztap (au lieu
     du bouton flottant séparé, jugé peu clair). Inclus depuis l'override
-    Modules/Tagtoa/resources/views/overrides/layouts/sidebar.blade.php, juste
-    après @include('layouts.menu') — ne touche donc JAMAIS le menu Biztap natif.
+    Modules/Tagtoa/resources/views/overrides/layouts/sidebar.blade.php, EN
+    PREMIER (avant @include('layouts.menu'), démoté sous « Compte ») — la
+    navigation produit doit être ce que le marchand voit en premier. Ne touche
+    donc JAMAIS le menu Biztap natif, seulement sa position dans la liste.
     Même structure/markup que layouts/menu.blade.php (nav-item / nav-link /
     aside-menu-icon / aside-menu-title) pour un rendu visuel identique.
 --}}
@@ -23,6 +25,7 @@
         ['route' => 'tagtoa.pos.index', 'icon' => 'fa-solid fa-cash-register', 'color' => 'icon-color-bs-pink', 'label' => __('Caisse (POS)')],
         ['route' => 'tagtoa.cards.index', 'icon' => 'fa-solid fa-credit-card', 'color' => 'icon-color-bs-lightred', 'label' => __('Carte TAGTOA')],
         ['route' => 'tagtoa.billing.index', 'icon' => 'fa-solid fa-chart-line', 'color' => 'icon-color-bs-peach', 'label' => __('Revenus')],
+        ['route' => 'tagtoa.developer.index', 'icon' => 'fa-solid fa-code', 'color' => 'icon-color-bs-blue', 'label' => __('Développeur (API)')],
     ];
 @endphp
 

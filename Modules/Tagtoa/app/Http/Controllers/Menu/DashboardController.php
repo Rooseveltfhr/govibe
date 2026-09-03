@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Models\Menu\Item;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Menu\Order;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
@@ -63,7 +64,7 @@ $data = $this->validateMenu($request);
 
     public function edit(int $id): View
     {
-        $menu = $this->own($id, ['categories.items']);
+        $menu = $this->own($id, ['categories.items.options.choices']);
 
         return view('tagtoa::menu.form', [
             'menu'     => $menu,
@@ -170,21 +171,26 @@ $data = $this->validateMenu($request);
         ]);
     }
 
-    /** Synchronise catégories + items depuis le formulaire imbriqué (cats[][items][]). */
+    /**
+     * Synchronise catégories + items depuis le formulaire imbriqué (cats[][items][]).
+     * Important : on NE réindexe PAS les tableaux (pas d'array_values) — les clés
+     * $ci/$ii doivent rester celles soumises par le navigateur pour que
+     * $request->file("cats.$ci.items.$ii.image") retrouve le bon fichier.
+     */
     protected function syncContent(Menu $menu, Request $request): void
     {
         $cats = $request->input('cats', []);
         $keepCats = [];
 
-        DB::transaction(function () use ($menu, $cats, &$keepCats) {
-            foreach (array_values($cats) as $ci => $c) {
+        DB::transaction(function () use ($menu, $cats, $request, &$keepCats) {
+            foreach ($cats as $ci => $c) {
                 if (empty($c['name'])) {
                     continue;
                 }
                 $catAttrs = [
                     'name'      => $c['name'],
                     'icon'      => $c['icon'] ?? null,
-                    'sort'      => $ci,
+                    'sort'      => (int) $ci,
                     'is_active' => true,
                 ];
                 $cat = ! empty($c['id']) ? $menu->categories()->whereKey($c['id'])->first() : null;
@@ -192,7 +198,7 @@ $data = $this->validateMenu($request);
                 $keepCats[] = $cat->id;
 
                 $keepItems = [];
-                foreach (array_values($c['items'] ?? []) as $ii => $it) {
+                foreach (($c['items'] ?? []) as $ii => $it) {
                     if (empty($it['name'])) {
                         continue;
                     }
@@ -206,16 +212,64 @@ $data = $this->validateMenu($request);
                         'is_featured'  => ! empty($it['is_featured']),
                         'is_available' => ! isset($it['is_available']) ? true : (bool) $it['is_available'],
                         'stock'        => (! isset($it['stock']) || $it['stock'] === '') ? null : max(0, (int) $it['stock']),
-                        'sort'         => $ii,
+                        'sort'         => (int) $ii,
                     ];
                     $item = ! empty($it['id']) ? $cat->items()->whereKey($it['id'])->first() : null;
+
+                    $file = $request->file("cats.$ci.items.$ii.image");
+                    if ($file) {
+                        $request->validate(["cats.$ci.items.$ii.image" => ['image', 'max:2048']]);
+                        $itemAttrs['image_path'] = $file->store('tagtoa/menu-items', 'public');
+                    } elseif (! empty($it['remove_image'])) {
+                        $itemAttrs['image_path'] = null;
+                    }
+
                     $item ? $item->update($itemAttrs) : $item = $cat->items()->create($itemAttrs);
                     $keepItems[] = $item->id;
+
+                    $this->syncItemOptions($item, $it['options'] ?? []);
                 }
                 $cat->items()->whereNotIn('id', $keepItems ?: [0])->delete();
             }
             $menu->categories()->whereNotIn('id', $keepCats ?: [0])->delete();
         });
+    }
+
+    /** Synchronise les groupes d'options + choix d'un item (cats[][items][][options][][choices][]). */
+    protected function syncItemOptions(Item $item, array $options): void
+    {
+        $keepOptions = [];
+        foreach ($options as $oi => $o) {
+            if (empty($o['name'])) {
+                continue;
+            }
+            $optAttrs = [
+                'name'     => $o['name'],
+                'required' => ! empty($o['required']),
+                'multiple' => ! empty($o['multiple']),
+                'sort'     => (int) $oi,
+            ];
+            $opt = ! empty($o['id']) ? $item->options()->whereKey($o['id'])->first() : null;
+            $opt ? $opt->update($optAttrs) : $opt = $item->options()->create($optAttrs);
+            $keepOptions[] = $opt->id;
+
+            $keepChoices = [];
+            foreach (($o['choices'] ?? []) as $chi => $ch) {
+                if (empty($ch['label'])) {
+                    continue;
+                }
+                $chAttrs = [
+                    'label'       => $ch['label'],
+                    'price_delta' => round((float) ($ch['price_delta'] ?? 0), 2),
+                    'sort'        => (int) $chi,
+                ];
+                $choice = ! empty($ch['id']) ? $opt->choices()->whereKey($ch['id'])->first() : null;
+                $choice ? $choice->update($chAttrs) : $choice = $opt->choices()->create($chAttrs);
+                $keepChoices[] = $choice->id;
+            }
+            $opt->choices()->whereNotIn('id', $keepChoices ?: [0])->delete();
+        }
+        $item->options()->whereNotIn('id', $keepOptions ?: [0])->delete();
     }
 
     protected function vcards()

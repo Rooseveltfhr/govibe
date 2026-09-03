@@ -1,0 +1,239 @@
+name: Deploy GOVIBE to VPS
+
+# Déploie l'application GOVIBE (govibeht.com, /var/www/govibe).
+#
+# À ne pas confondre avec deploy.yml, qui déploie le module TAGTOA sur
+# tagtoa.com et ne se déclenche que sur Modules/Tagtoa/**.
+#
+# Secrets : réutilise VPS_HOST / VPS_USER / VPS_SSH_KEY / VPS_PORT. Si
+# govibeht.com vit sur une autre machine, définir GOVIBE_VPS_HOST /
+# GOVIBE_VPS_USER / GOVIBE_VPS_SSH_KEY / GOVIBE_VPS_PORT : ils ont priorité.
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branche à déployer"
+        type: string
+        default: "main"
+  push:
+    branches: ["main"]
+    # Une modification purement TAGTOA n'a pas à redéployer GOVIBE.
+    paths-ignore:
+      - "Modules/Tagtoa/**"
+      - "**.md"
+
+# Jamais deux déploiements GOVIBE en parallèle : ils se marcheraient dessus
+# (migrations, caches, artisan down/up). On ne coupe pas un déploiement en
+# cours — l'interrompre laisserait le site en mode maintenance.
+concurrency:
+  group: deploy-govibe
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Update + migrate + cache rebuild
+    runs-on: ubuntu-latest
+    steps:
+      - name: Résoudre la cible et la clé SSH
+        id: target
+        env:
+          GOVIBE_HOST: ${{ secrets.GOVIBE_VPS_HOST }}
+          GOVIBE_USER: ${{ secrets.GOVIBE_VPS_USER }}
+          GOVIBE_PORT: ${{ secrets.GOVIBE_VPS_PORT }}
+          GOVIBE_KEY: ${{ secrets.GOVIBE_VPS_SSH_KEY }}
+          FALLBACK_HOST: ${{ secrets.VPS_HOST }}
+          FALLBACK_USER: ${{ secrets.VPS_USER }}
+          FALLBACK_PORT: ${{ secrets.VPS_PORT }}
+          FALLBACK_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+
+          HOST="${GOVIBE_HOST:-$FALLBACK_HOST}"
+          USER="${GOVIBE_USER:-$FALLBACK_USER}"
+          PORT="${GOVIBE_PORT:-$FALLBACK_PORT}"; PORT="${PORT:-22}"
+          KEY="${GOVIBE_KEY:-$FALLBACK_KEY}"
+
+          [ -n "$HOST" ] || { echo "::error::Aucun hôte : définir VPS_HOST ou GOVIBE_VPS_HOST."; exit 1; }
+          [ -n "$USER" ] || { echo "::error::Aucun utilisateur : définir VPS_USER ou GOVIBE_VPS_USER."; exit 1; }
+          [ -n "$KEY" ]  || { echo "::error::Aucune clé SSH : définir VPS_SSH_KEY ou GOVIBE_VPS_SSH_KEY."; exit 1; }
+
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "$PORT" "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Les valeurs vont dans l'output, jamais la clé.
+          echo "host=$HOST" >> "$GITHUB_OUTPUT"
+          echo "user=$USER" >> "$GITHUB_OUTPUT"
+          echo "port=$PORT" >> "$GITHUB_OUTPUT"
+
+      - name: Localiser l'application sur l'hôte
+        # Étape séparée et non destructive : elle ne fait que lire. Si les
+        # secrets pointent vers une autre machine, on s'arrête ici sans avoir
+        # touché à quoi que ce soit.
+        #
+        # Le chemin n'est pas codé en dur : selon l'hébergement, l'app vit dans
+        # /var/www/govibe ou dans une arborescence ~/domains/<domaine>/…
+        # On sonde les emplacements probables et on retient le dépôt dont
+        # remote.origin.url contient « govibe ».
+        id: locate
+        env:
+          APP_DIR: ${{ secrets.GOVIBE_APP_DIR }}
+        run: |
+          set -euo pipefail
+          OUT=$(ssh -i ~/.ssh/id_deploy -p "${{ steps.target.outputs.port }}" \
+              -o StrictHostKeyChecking=accept-new \
+              "${{ steps.target.outputs.user }}@${{ steps.target.outputs.host }}" \
+              "bash -s" <<EOSSH
+          set -uo pipefail
+          HINT="$APP_DIR"
+
+          is_govibe() {
+            [ -d "\$1/.git" ] || return 1
+            git -C "\$1" config --get remote.origin.url 2>/dev/null | grep -qi govibe
+          }
+
+          # 1. Chemin fourni explicitement via le secret GOVIBE_APP_DIR.
+          if [ -n "\$HINT" ]; then
+            if is_govibe "\$HINT"; then echo "FOUND:\$HINT"; exit 0; fi
+            echo "INFO:GOVIBE_APP_DIR=\$HINT ne contient pas le dépôt govibe."
+          fi
+
+          # 2. Emplacements probables. Les hébergements de type panel placent
+          #    Laravel sous domains/<domaine>/, souvent dans un sous-dossier.
+          for base in /var/www/govibe /var/www/govibeht.com \
+                      "\$HOME"/domains/govibeht.com /home/*/domains/govibeht.com \
+                      "\$HOME"/domains/www.govibeht.com; do
+            for sub in "" /govibe /laravel /public_html/laravel /app /public_html; do
+              d="\${base}\${sub}"
+              if is_govibe "\$d"; then echo "FOUND:\$d"; exit 0; fi
+            done
+          done
+
+          # 3. Filet de sécurité : balayage à un niveau sous les dossiers de
+          #    domaine, pour ne pas dépendre du nom exact du sous-dossier.
+          for d in "\$HOME"/domains/*govibeht.com/*/ /home/*/domains/*govibeht.com/*/; do
+            if is_govibe "\${d%/}"; then echo "FOUND:\${d%/}"; exit 0; fi
+          done
+
+          # 4. Rien trouvé : on dresse l'inventaire des dépôts présents pour
+          #    que l'erreur soit exploitable plutôt qu'aveugle.
+          echo "INFO:Aucun dépôt govibe aux emplacements sondés."
+          echo "INFO:Dépôts git trouvés sur cet hôte :"
+          for d in /var/www/*/ "\$HOME"/domains/*/ "\$HOME"/domains/*/*/ /home/*/domains/*/; do
+            [ -d "\${d}.git" ] || continue
+            echo "INFO:  \${d} → \$(git -C "\$d" config --get remote.origin.url 2>/dev/null || echo '?')"
+          done
+          echo "INFO:Contenu de \$HOME/domains :"
+          ls -1 "\$HOME"/domains 2>/dev/null | sed 's/^/INFO:  /' || echo "INFO:  (absent)"
+          exit 0
+          EOSSH
+          ) || true
+
+          printf '%s\n' "$OUT" | grep -v '^FOUND:' | sed 's/^INFO://' || true
+
+          DIR=$(printf '%s\n' "$OUT" | grep '^FOUND:' | head -1 | cut -d: -f2-)
+          if [ -z "$DIR" ]; then
+            echo "::error::Dépôt GOVIBE introuvable sur cet hôte. L'inventaire ci-dessus indique ce qui s'y trouve — définir le secret GOVIBE_APP_DIR avec le bon chemin, ou GOVIBE_VPS_HOST si govibeht.com est sur une autre machine."
+            exit 1
+          fi
+          echo "✓ Dépôt GOVIBE trouvé : $DIR"
+          echo "app_dir=$DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Déployer
+        env:
+          # Chemin résolu par l'étape de localisation, jamais deviné ici.
+          APP_DIR: ${{ steps.locate.outputs.app_dir }}
+          BRANCH: ${{ inputs.branch || 'main' }}
+        run: |
+          set -euo pipefail
+          DIR="$APP_DIR"
+          ssh -i ~/.ssh/id_deploy -p "${{ steps.target.outputs.port }}" \
+              -o StrictHostKeyChecking=accept-new \
+              "${{ steps.target.outputs.user }}@${{ steps.target.outputs.host }}" \
+              "bash -s" <<EOSSH
+          set -euo pipefail
+          DIR="$DIR"
+          BRANCH="$BRANCH"
+          cd "\$DIR"
+
+          # Pas de sudo : sur cet hôte le compte SSH est propriétaire du site et
+          # n'a pas de sudo sans mot de passe. update.sh s'adapte de lui-même
+          # (chown et systemctl ne sont tentés qu'en root).
+
+          # On récupère d'abord le code : update.sh lui-même vit dans le dépôt,
+          # donc on veut sa version la plus récente avant de l'exécuter. Cette
+          # amorce doit donc reproduire les mêmes précautions que update.sh.
+
+          # Le serveur peut porter des retouches faites à la main : un checkout
+          # les écraserait et git refuserait. On les met de côté — un stash est
+          # récupérable (git stash list), une écrasement ne l'est pas.
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "Modifications locales sur le serveur — mises de côté dans un stash :"
+            git status --porcelain | sed 's/^/  /'
+            git stash push -u -m "deploy-govibe \$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          fi
+
+          git fetch origin "\$BRANCH"
+          # La branche cible peut ne pas exister localement (le serveur était
+          # resté sur celle que deploy.sh codait en dur).
+          if git show-ref --verify --quiet "refs/heads/\$BRANCH"; then
+            git checkout "\$BRANCH"
+            git pull --ff-only origin "\$BRANCH"
+          else
+            git checkout -b "\$BRANCH" "origin/\$BRANCH"
+          fi
+
+          if [ ! -f update.sh ]; then
+            echo "::error::update.sh absent de \$DIR après le pull (branche \$BRANCH)."
+            exit 1
+          fi
+
+          # update.sh : composer, migrate --force, caches, permissions,
+          # le tout derrière artisan down.
+          env BRANCH="\$BRANCH" APP_DIR="\$DIR" bash update.sh
+          EOSSH
+
+      - name: Vérifier que le site répond
+        run: |
+          set -uo pipefail
+
+          BASE="https://govibeht.com"
+          ECHEC=0
+
+          # Un 200 sur l'accueil ne dit rien des routes qu'on vient de déployer :
+          # une page qui plante en 500 passerait ce contrôle. On frappe donc
+          # chaque page publique importante, et une page ERP pour vérifier qu'elle
+          # exige toujours une authentification.
+          verifier() {
+            local chemin="$1" attendu="$2" role="$3"
+            local code
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$BASE$chemin")
+            [ -n "$code" ] || code="000"
+            if echo "$attendu" | grep -qw "$code"; then
+              echo "  ✓ $chemin → $code   ($role)"
+            else
+              echo "::error::$chemin → HTTP $code, attendu $attendu ($role)"
+              ECHEC=1
+            fi
+          }
+
+          echo "Pages publiques"
+          verifier "/"                 "200 301 302" "accueil"
+          verifier "/about"            "200 301 302" "à propos"
+          verifier "/programmes"       "200 301 302" "programmes"
+          verifier "/partenaires"      "200 301 302" "partenaires"
+          verifier "/fiche-technique"  "200 301 302" "formulaire agent"
+
+          echo "Contrôle d'accès"
+          # 302 vers la connexion, ou 403. Un 200 signifierait que la prospection
+          # commerciale est lisible par n'importe qui.
+          verifier "/erp/fiches"       "302 301 403" "ERP protégé"
+
+          if [ "$ECHEC" -ne 0 ]; then
+            echo "::error::Le déploiement est passé mais le site ne répond pas correctement."
+            echo "Un 503 signifie qu'artisan down est resté actif : lancer 'php artisan up' sur le serveur."
+            exit 1
+          fi
+          echo "✓ Toutes les pages vérifiées répondent."
+

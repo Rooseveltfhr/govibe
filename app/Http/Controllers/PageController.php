@@ -32,6 +32,16 @@ class PageController extends Controller
         return view('academy');
     }
 
+    public function callCenter()
+    {
+        return view('services.call-center');
+    }
+
+    public function programmes()
+    {
+        return view('services.programmes');
+    }
+
     public function tarifs(): \Illuminate\View\View
     {
         $plans = SubscriptionPlan::where('is_active', true)

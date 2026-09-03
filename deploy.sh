@@ -10,7 +10,7 @@ set -e
 
 APP_DIR="/var/www/govibe"
 REPO_URL="https://github.com/Rooseveltfhr/govibe.git"
-BRANCH="claude/govibe-academy-registration-c8j6gd"
+BRANCH="${BRANCH:-main}"
 DOMAIN="govibeht.com"
 DB_NAME="govibe_prod"
 DB_USER="govibe_user"
@@ -118,12 +118,17 @@ setup_database() {
     read -sp "Choisissez un mot de passe pour la base de données MySQL: " DB_PASS
     echo
 
-    mysql -u root <<SQL 2>/dev/null || mysql -u root -p <<SQL
+    # Le script est stocké dans une variable : deux here-documents partageant
+    # le même délimiteur sur une seule ligne ne sont pas analysables par bash.
+    SQL_SCRIPT=$(cat <<SQL
 CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
 FLUSH PRIVILEGES;
 SQL
+)
+    # 1re tentative : socket root sans mot de passe. Sinon, root avec mot de passe.
+    mysql -u root <<<"$SQL_SCRIPT" 2>/dev/null || mysql -u root -p <<<"$SQL_SCRIPT"
     info "Base de données '${DB_NAME}' créée."
 }
 

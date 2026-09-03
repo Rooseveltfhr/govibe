@@ -3,6 +3,37 @@
 > Rezime an kreyòl: `djounes.com` sou yon **kont ebèjman apa** (pa VPS tagtoa a).
 > Pou m ka travay sou li, mete 3 sekrè GitHub yo (§3). Anvan sa, mwen pa gen okenn
 > aksè — panèl la mande yon login, e rezo sesyon an bloke domèn nan.
+>
+> **Ce fichier est la mémoire de djounes.com.** `CLAUDE.md` n'en parle pas : c'est
+> ici qu'il faut lire avant de toucher à ce site, et ici qu'il faut écrire après.
+
+## 0. État de la mise à la marque (septembre 2026)
+
+| Fait | État |
+|---|---|
+| Logo, couleurs (`#0B3B2E` vert forêt / `#0A0A0A` noir / `#D4AF37` or), devise USD | ✅ en ligne |
+| 8 produits, 3 catégories, 5 attributs, 42 variantes, découpes PNG transparentes | ✅ en ligne |
+| Vitrine d'accueil « Shift favorites », 3 pages légales, coupon FIRST15 | ✅ en ligne |
+| Sauvegarde automatique quotidienne (`~/bin/djounes-backup.sh`, cron `17 3 * * *`) | ✅ installée |
+| Panneau d'administration aux couleurs de la marque | ✅ en ligne |
+| 8 bannières du carrousel, au **format natif 1284×345** | ✅ en ligne |
+| Fiche produit à la charte, **en CSS seulement** (`custom.css`) | ✅ en ligne |
+| Stripe + PayPal, SMTP, adresse/téléphone/e-mail du bureau US, Terms of Service, GA/Meta Pixel | ⏳ **action du fondateur** |
+
+Deux pièges déjà payés, à ne pas redécouvrir :
+
+- **Bannières** : les diapositives du thème mesurent **1284×345**. Un visuel dessiné
+  dans un autre rapport est écrasé verticalement par le redimensionnement. On les
+  dessine au double (2568×690) et le script réduit au format natif.
+- **Fiche produit** : le thème habille le `<span>` intérieur
+  (`.text-attribute` / `.color-attribute`), **pas** le `<button>`, et la classe de
+  sélection posée par `product_details.js` est **`active`**. Habiller le bouton ou
+  deviner la classe rend la sélection invisible — juste avant l'achat.
+
+La vérification de licence ViserLab (`helpers.php`, `systemDetails()['name']`)
+n'est **pas** touchée : la contourner serait un contournement de licence. Pour
+retirer la dépendance, deux voies légitimes — migrer hors du script, ou prendre
+une licence étendue / marque blanche chez ViserLab.
 
 ## 1. Ce qu'on sait (vérifié)
 

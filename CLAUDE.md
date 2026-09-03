@@ -1,243 +1,101 @@
-# CLAUDE.md — TAGTOA (mémoire vivante / living memory)
+# CLAUDE.md — TAGTOA (GOVIBE Innovation Hub)
 
-> **LIS FICHYE SA ANVAN OU TOUCHE OKENN FICHYE.**
-> Sa se memwa otorite a sou eta AKTYÈL pwojè TAGTOA. Claude Code li l otomatikman
-> nan kòmansman chak sesyon. Mete l AJOU lè yon bagay enpòtan chanje.
->
-> Memwa istorik/detay konplè: voir `tagtoa/CLAUDE.md` (brief orijinal).
+> Instructions permanentes pour Claude Code sur ce dépôt. Ce fichier est lu automatiquement à chaque session.
+
+## 1. Contexte du projet
+
+**TAGTOA** est une plateforme SaaS NFC/QR multi-tenant développée en **Laravel/PHP + MySQL**, architecture **PWA offline-first**.
+
+**Modules actifs :**
+- `CONNECT` — identité, auth, gestion tenant
+- `PAY` — paiements, intégration MAGOCASH (ledger double-entrée)
+- `MENU` — catalogue produits/services par tenant
+- `LINKS` — liens NFC/QR dynamiques
+- `LOYALTY` — points, récompenses, cashback
+- `EVENT` — billetterie et check-in événementiel
+- `POS` — point de vente hors-ligne
+
+**Contraintes non négociables :**
+- Isolation stricte multi-tenant (aucune fuite de données entre tenants)
+- Ledger MAGOCASH : double-entrée obligatoire, aucune écriture directe sur les soldes
+- Conformité BRH Circulaire 121 sur toute logique financière
+- Offline-first : toute feature PAY/LOYALTY/POS doit gérer la synchronisation et la résolution de conflits
 
 ---
 
-## 1. Ki sa TAGTOA ye
-SaaS **NFC/QR business platform** pou Ayiti (tagtoa.com), GOVIBE Ecosystem.
-Fondatè: Roosevelt Forestal. Pwojè « $1M » — egzijans: jeni durab, kalite ekspè.
+## 2. Workflow obligatoire (ne jamais sauter d'étape)
 
-Grafe sou yon SaaS vcard achte ki rele **Biztap** (Laravel 10, `nwidart/laravel-modules`,
-`stancl/tenancy`, `spatie/laravel-permission`). **Tout TAGTOA nan YON sèl modil**:
-`Modules/Tagtoa/` (Opsyon 3 — sou-dosye pa fonksyonalite).
+1. Comprendre l'objectif exact du module demandé
+2. Poser des questions si l'information est incomplète
+3. Proposer l'architecture technique avant de coder
+4. Identifier les risques (sécurité, scalabilité, régression)
+5. Attendre validation de Roosevelt avant d'implémenter
+6. Développer **un seul module à la fois**
+7. Tester (voir section 4)
+8. Produire un rapport de complétion (voir section 6)
 
-## 2. Règ ABSOLI
-- **Baz done**: PA JANM modifye tab egzistan yo. Sèlman ajoute tab nouvo ak prefiks
-  `tagtoa_*`. Kolòn nouvo dwe nullable/default.
-- **Devlopman**: branch `claude/serene-brahmagupta-do562e`. Reset sou `origin/main`
-  AVAN chak nouvo travay; `--force-with-lease` apre. PR an draft → CI vèt → merge squash.
-- **Deplwaman**: merge nan `main` deklanche auto-deploy (GitHub Actions → VPS).
-- **Idantite modèl**: pa janm mete ID modèl nan commit/PR/kòd.
+Ne jamais construire plusieurs modules simultanément. Ne jamais livrer du code "placeholder" quand une implémentation réelle est possible.
 
-## 3. Eta modil yo (AKTYÈL)
-| Modil | Eta | Wout piblik | Dashboard |
-|---|---|---|---|
-| SITE (sitwèb pa abònman) | ✅ Bati + live | `/site/{alias}` | `/tagtoa/site` |
-| MENU (restoran/club/lounge/otèl) | ✅ Bati + live | `/menu/{alias}` | `/tagtoa/menu` |
-| PAY (24 metòd, prèv manyèl) | ✅ Bati + live | `/pay/{alias}` | `/tagtoa/pay` |
-| LOYALTY (kat NFC, pwen) | ✅ Bati + live | `/loyalty/card/{token}` | `/tagtoa/loyalty` |
-| LINKS (Linktree + don) | ✅ Bati + live | `/links/{alias}` | `/tagtoa/links` |
-| EVENT (tikè + checkin + wallet NFC) | ✅ Bati + live | `/event/{alias}` | `/tagtoa/event` |
-| BOOKING (rendez-vous) | ✅ Bati + live | `/book/{alias}` | `/tagtoa/booking` |
-| POS (kès offline) | ✅ Bati + live | — | `/tagtoa/pos` |
-| BILLING (revni/komisyon) | ✅ Bati + live | — | `/tagtoa/billing` |
-| CONNECT (vcard) | ↩️ Biztap egzistan | `/{alias}` | Biztap |
+---
 
-Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{alias}`).
-24 tab `tagtoa_*`.
+## 3. Détection automatique de bugs et échecs (QA)
 
-## 4. i18n + Lajan (Faz 1 — ✅ live)
-- Lang: **fr (sous) · ht · en · es** — `resources/lang/{en,ht,es}.json` (313 kle),
-  chaje via `loadJsonTranslationsFrom`. Middleware `App\Http\Middleware\SetLocale`
-  (?lang → session → cookie → Accept-Language → default) sou tout wout web modil la.
-- Sèlktè lang: `resources/views/partials/lang.blade.php` (san JS), nan dashboard topbar
-  + paj piblik (menu, pay, links, event).
-- Lajan pa lang: ht→HTG, en→USD, fr→EUR, es→DOP (+ CAD). Config: `config/config.php`.
-- Helpers: `App\Support\Locale` (lang/devise kouran), `App\Support\Money` (fòmataj,
-  tolerab — `Money::DEFAULTS` mache menm san config/Laravel).
+### 3.1 Revue de code obligatoire avant merge
+```bash
+# Revue générale — correction, sécurité, performance, style
+/review
 
-## 5. Plan faz yo
-- **Faz 1 — Lang + Lajan** ✅ FÈT (PR #9)
-- **Faz 2 — Kolòn revni** 🔨 AN KOU:
-  - ✅ Kòmand MENU nan DB (`tagtoa_menu_orders` + `_order_items`) — kaptire sou paj
-    piblik (`MenuOrderService`, pri enpoze sèvè, idempotan via client_uuid),
-    jesyon kòmand dashboard (`/tagtoa/menu/{id}/orders`, estati + ankese),
-    komisyon otomatik sou kòmand peye (`RevenueService::record('menu_order',…)`).
-  - ✅ Relve & règleman komisyon (BILLING): rezime pa deviz (brut/komisyon/à régler/réglé),
-    bouton « Régler » (accrued→settled, `settled_at`), export CSV.
-  - ✅ Fondasyon pasrèl PAY: rejis auto/manyèl (`Support/PaymentGateway`), deteksyon
-    aktivasyon (`Support/GatewayManager`, kredansyèl nan config/.env), afichaj piblik
-    rich (logo+koulè mak, institution, nom du compte, numéro, QR), chan institution+logo
-    nan dashboard. Doc kredansyèl: `Modules/Tagtoa/PAYMENTS.md`.
-  - ✅ Driver Stripe (kat) + paiement en ligne PAGES PAY (payer sezi montan → preuve
-    approuvée + komisyon). ✅ CARTE TAGTOA (closed-loop, valab sou TOUT TAGTOA):
-    `Support/Card/CardWallet` pi teste (UID normalize/hash, matematik solde antye, PIN),
-    tab `tagtoa_card_accounts`+`_card_txns` (grand livre imuab), `CardWalletService`
-    (charge/topup/refund atomik+idempotan+lockForUpdate), dashboard `/tagtoa/cards`
-    (émèt/rechaje/bloke/istwa), paj piblik PAY (tap NFC+PIN → débit enstantane),
-    terminal staff EVENT (peye biyè ak kat, `skip_commission` pou pa konte 2 fwa).
-  - ⏳ RES: drivers API reyèl (1 PR pa pasrèl, teste ak kredansyèl): MonCash, PayPal(+kat),
-    CoinPayments (USDT/USDC/BTC/ETH), Stripe, Authorize.Net — route `tagtoa.pay.checkout`
-    + webhook/IPN. Metòd manyèl yo (NatCash, Zelle, CashApp, Unibank, Sogebank, Capital
-    Bank, BNC) rete sou prèv.
-- **Faz 3 — Abonman + plan gating** ✅ FÈT: `tagtoa_subscriptions` + config `tagtoa.plans`
-  (free/pro/enterprise, limit pa modil), `PlanService` (limit/usage/canCreate),
-  trait `EnforcesPlan` (guard nan store() tout modil), paj `/tagtoa/plan` (usage +
-  chanjman fòfè self-service). Peman fòfè otomatik = ap vini ak pasrèl PAY.
-  - Plan yo **editab an dirèk** (pri+limit) via `/tagtoa/admin/plans` (super_admin):
-    tab `tagtoa_plans` sipèchaje config la (`PlanService::effectivePlans()`, tolerab).
-  - Plan entènasyonal: **free/pro/enterprise/reseller(Revendeur)/franchise**. Kle limit
-    `cards` = aktivasyon kat NFC (free/pro=0, enterprise/reseller/franchise=∞) → gate nan
-    `Card\DashboardController::store` (EnforcesPlan). Deviz elaji (15: +GBP/XOF/XAF/NGN/…).
-    Modèl biznis NFC: logisyèl-dabò (BYOC), maj kat via revandè/franchise, +% komisyon.
-- **Faz 4 — Eksperyans machann** 🔨 AN KOU:
-  - ✅ QR & Partage (`/tagtoa/qr`): QR pa resous piblik (Site/Menu/Pay/Links/Event),
-    telechaje SVG, afich enprimab (`Support/Qr` simple-qrcode + fallback qrserver).
-  - ✅ Analytics (`/tagtoa/analytics`): `AnalyticsService` (revni pa deviz, kòmand,
-    vizit, komisyon, graf 14 jou, top pwodwi). CRM (`/tagtoa/customers`):
-    `CrmService` agrege kliyan an lekti depi menu/event/pay/pos/loyalty (dedoub pa telefòn).
-  - ✅ Notifikasyon imèl (opt-in): `Services/Notifications/NotificationService` (compose +
-    validRecipient = lojik pi teste; voye tolerab via `Mail::raw`, try/catch, no-op si
-    dezaktive). Branche sou kreyasyon randevou (alèt machann + konfimasyon kliyan).
-    Aktive ak `TAGTOA_NOTIFY=true` + config MAIL_* sou VPS la (bezwen aksyon itilizatè).
-  - ⏳ RES: notifikasyon WhatsApp (bezwen API/kredansyèl — bloke).
-- **Faz 5 — Booking, reviews, estòk, PWA POS, tès, jounal odit** 🔨 AN KOU:
-  - ✅ BOOKING (rendez-vous): `tagtoa_booking_pages` + `_booking_services` + `_bookings`.
-    Paj piblik `/book/{alias}` (chwazi prestation + dat/lè + koordone → JSON, idempotan
-    via client_uuid, pri enpoze sèvè depi prestation aktif), `BookingService` (placeBooking
-    + markCompleted → komisyon `RevenueService::record('booking',…)`), dashboard
-    `/tagtoa/booking` (CRUD paj + prestations répétables + lis randevou + estati),
-    `EnforcesPlan` guard (`booking`: free=0, pro/ent=null), demo `demo-booking`.
-  - ✅ Notifikasyon imèl opt-in branche sou randevou (gade Faz 4 RES).
-  - ✅ REVIEWS (avis kliyan): tab `tagtoa_reviews` (polimòfik via subject_type+subject_id:
-    menu/booking/site/event). `ReviewService` (average/clampRating/distribution = lojik pi
-    teste; submit idempotan via client_uuid, note bòne 1..5, stati `pending`). Soumèt piblik
-    (`POST /reviews`, tenant_id+alias dérivés sèvè anti-spoof), seksyon piblik reutilizab
-    `partials/reviews.blade.php` (rezime+etwal+fòm) branche sou paj menu+booking. Moderasyon
-    dashboard `/tagtoa/reviews` (pibliye/rejte/reponn/efase, filtre pa stati). Demo reviews.
-  - ✅ ESTÒK (inventory): `StockService` pi (canFulfill/remaining/isLow/isOut, null=san limit,
-    teste). POS te gen stòk deja (kolòn + dekremante sou lavant). Ajoute pou MENU: kolòn
-    `stock` nullable sou `tagtoa_menu_items` (migrasyon 000073), kapti nan fòm dashboard
-    (chak atik), enpoze + dekremante nan `MenuOrderService` (refize kòmand si ripti),
-    badj « Épuisé » + dezaktive sou paj piblik, kont « stock faible » sou lis menu. Demo stòk.
-  - ✅ JOUNAL ODIT (audit): tab `tagtoa_audit_logs`, `AuditService` (log tolerab + actionLabel
-    pi teste). Branche sou aksyon sansib: moderasyon avi (approve/reject/reply/delete),
-    estati randevou (completed/cancelled/confirmed), kòmand menu ankese, billing settle/update,
-    chanjman fòfè. Viewer lekti sèl `/tagtoa/audit` (filtre pa aksyon, pajine).
-  - ✅ PWA POS: kès la enstalab + offline. Manifeste pa terminal (`/tagtoa/pos/{id}/app.webmanifest`),
-    service worker (`/tagtoa/pos/sw.js`, network-first navigation + cache-first asset, scope
-    `/tagtoa/pos/`), ikòn SVG (`/tagtoa/pos/icon.svg`), bouton « Installer » (beforeinstallprompt).
-    Lavant offline (localStorage queue + sync) te deja egziste — PWA ajoute app shell hors-ligne.
-  - ⏳ RES: notifikasyon WhatsApp (API — bloke, bezwen kredansyèl).
-- **EVENT WALLET (closed-loop + NFC)** 🔨 AN KOU (plan: `Modules/Tagtoa/docs/EVENT_WALLET_PLAN.md`):
-  - ✅ 4 tab `tagtoa_ev_*` (nfc_tags UID hashé, wallet_accounts, wallet_txns, wallet_entries).
-    Ledger **double-entry immuab** (`Support/Event/Ledger` pi, teste; Σdébits==Σcrédits,
-    montan an unités mineures). Actions (`PostLedgerTransaction` atomik + `lockForUpdate` +
-    idempotans, `TopUp/Charge/Refund/Payout`, `IssueNfcTag/ResolveNfcTag`,
-    `OpenEventWalletAccounts`). Dashboard `/tagtoa/event/{id}/wallet` (recharge, tags,
-    réconciliation stands, payout, export CSV) + terminal vandè (Web NFC tap → encaisse).
-    `Money::toMinor/fromMinor/formatMinor`. Tès Feature `WalletFlowTest` (kouri nan Biztap).
-  - ✅ Notifikasyon: kanal email (egziste) + **WhatsApp via Twilio** (`NotificationService::whatsapp`,
-    tolerab/opt-in, dòman san credentials), `Job SendNotification` (queue, milti-kanal),
-    `normalizePhone` (pi, teste). Branche sou booking + wallet (top-up/achat). Aktive ak
-    `TAGTOA_WA_NOTIFY=true` + `TAGTOA_TWILIO_SID/TOKEN/WHATSAPP_FROM` sou VPS (bezwen itilizatè).
-  - ✅ Check-in NFC: `CheckinService::resolveNfcCode` (UID→billet), endpoint `scan-nfc`,
-    bouton NFC nan scanner. Notifikasyon antre: òganizatè pa imèl (`tagtoa_ev_events.notify_email`)
-    + patisipan pa WhatsApp. Encodage kat: `EncodeParticipantCard` (billet+wallet+rechaj) sou
-    dashboard wallet. Gid konplè: `docs/EVENT_NFC_GUIDE.md`.
-  - ⏳ RES: top-up API reyèl (drivers PAY — bloke).
-- **EVENT STAFF + BIYÈT HYBRIDE** ✅ FÈT (PR #42/#44/#45, patèn « Festival Couleur » adapte multi-tenant):
-  - Tab: `tagtoa_ev_staff` (scoped event_id, wòl admin|vente|checkin, pin_hash bcrypt),
-    `tagtoa_ev_sync_conflicts`, `staff_id` sou checkins, `checkin_mode` (qr|nfc|both) sou events.
-  - Lojik pi teste: `StaffPinService` (PIN 4-6 chif, matris wòl→ekran), `SyncReconciler`
-    (dedoub client_uuid + doub antre). Nan `tests/bootstrap.php`.
-  - Òganizatè `/tagtoa/event/{id}/staff`: CRUD staff (limit pa fòfè: free=0/pro=10/ent=∞,
-    kle `staff` nan config plans), konfli sync, export CSV check-ins pa staff. Tout odite.
-  - Terminal teren `/event/staff/{alias}` (san login Laravel): PIN + rate-limit 8/min,
-    ekran pa wòl — check-in (kod/UID + Web NFC, **offline IndexedDB** + sync pa lo),
-    vant (WhatsApp obligatwa, kat NFC oswa e-biyè QR), retrè kat (lye biyè an liy → UID,
-    refize si kòmand pa peye), suivi admin. Demo: Admin/1234, Vente/2222, Checkin/3333.
-  - Kòmand an liy: bouton « Encaisser » (`orders.paid`) → markPaid + komisyon + odit.
-- **ROADMAP KALITE (Faz 4/5/7)** ✅ FÈT (PR #65/#66 + NFC):
-  - **Faz 4 — Tès entegrite wout** (PR #65): `RouteIntegrityTest` + `Support/Dev/RouteNames`
-    (analiz estatik pi) verifye chak `route('tagtoa.*')` nan vi/kontrolè byen defini nan
-    `routes/web.php` — anpeche 500 `RouteNotFoundException` (CI pa bòt Laravel). 153 defini/132 itilize/0 manke.
-  - **Faz 5 — Asèt souveren** (PR #66): scanner biyè a te chaje html5-qrcode depi unpkg (SPOF
-    ekstèn sou chèk-in). Kounye a vendored lokalman + sèvi via `AssetController` (wout piblik
-    `tagtoa.asset`, kach imuab). `resources/assets/vendor/`.
-  - **Faz 7 — Sekirite NFC (anti-klonaj/anti-rejeu)** ⏳ DÒMAN (kòd pi teste): `Support/Nfc/AesCmac`
-    (RFC 4493, pwouve vs vektè ofisyèl) + `Support/Nfc/Ntag424` (SUN/SDM: dérivation kle sesyon SV2,
-    troncature, verif CMAC, ekstrè UID/kontè, anti-rejeu). `AesCmacTest`+`Ntag424Test` (13 tès).
-    Gid aktivasyon: `docs/NFC_SECURITY.md`. **Bezwen aksyon fondatè**: pwovizyone kle NTAG424 +
-    valide SV2 kont tag reyèl AVAN kable nan check-in/wallet (pa modifye kòd live san tès entegrasyon).
+# Revue de sécurité obligatoire sur PAY, LOYALTY, EVENT (données financières/sensibles)
+/security-review
+```
+**Règle :** aucun merge sur `PAY`, `LOYALTY` ou toute route touchant MAGOCASH sans `/security-review` passé sans alerte critique.
 
-## 6. Deplwaman & URL
-- ✅ **RESTRUKTIRASYON FINI** (jiyè 2026): app la nan
-  `$HOME/domains/tagtoa.com/laravel/`, docroot = `public_html/` (front controller
-  `public_html/index.php` pwente sou `../laravel`). Base = **rasin `https://tagtoa.com/`**.
-  Kont lan se **govibepay.com** (tagtoa.com = addon domain), donk `$HOME` = kont govibepay.
-- ⚠️ **PYÈJ chemen**: `/home` PA lizib → glob `/home/*/domains` **echwe**. Sèvi ak
-  `$HOME/domains/tagtoa.com`. deploy.yml gen yon fallback `$HOME/domains` (li mache).
-- ✅ **500 « Mix manifest not found » REPARE**: `mix()` chèche `laravel/public/mix-manifest.json`
-  men asèt bati yo nan `public_html/`. `remote-deploy.sh` relye otomatikman
-  (mix-manifest + dosye asèt public_html → laravel/public) + `config:cache`+`view:cache`.
-- Zouti dyagnostik/reparasyon: `.github/workflows/diagnose.yml` (bouton, lekti log +
-  vidaj cache + relye asèt, SAN DB). Deklanche via Actions (input `clear_cache`).
-- ⚠️ Aksyon itilizatè toujou: woule `DB_PASSWORD` (te ekspoze), `TAGTOA_CONTACT_WHATSAPP`
-  (bouton Solutions), `TAGTOA_TWILIO_*` (WhatsApp), kle NTAG424 (Faz 7).
-- Login admin: `https://tagtoa.com/login` (rasin). Konekte → LandingController redirije
-  otomatik sou `/tagtoa/home` (hub TAGTOA). `/sadmin` = admin platfòm Biztap (apa).
-- **Event (kontinye jiyè 2026, PR #71-75)**: kreyasyon anrichi (type elaji, mode biyè
-  qr/nfc/both, prix vizib depi kreyasyon, discount `compare_at_price`), vente staff
-  (metòd peman TAGTOA Pay + li NFC), annuaire piblik `/events`, konfimasyon achte
-  (WhatsApp/email), dat fen + partage. Landing: seksyon Solutions (Identity/Access + kontak).
-- **Paj akèy piblik** (`LandingController` → `landing.blade.php`) sou wout rasin `/`
-  (modil la override akèy Biztap la — wout anrejistre apre). Parèt sou `<base>/`.
-  Pou l parèt sou **bare tagtoa.com**: pwente docroot domèn nan sou dosye `public/`
-  Laravel la nan DirectAdmin (oswa redireksyon nan public_html/).
-- CI: `.github/workflows/ci.yml` (lint + `phpunit --testsuite Unit`, bootstrap
-  `tests/bootstrap.php` chaje sous pi yo manyèlman — ajoute nouvo klas pi la).
-- Deploy: `.github/workflows/deploy.yml` → `Modules/Tagtoa/deploy/remote-deploy.sh`
-  (down → dump-autoload → migrate → smoke → seed demo → up; rollback otomatik).
-- Seed demo idempotent sou chak deploy (`TAGTOA_SEED_DEMO=0` pou koupe).
-- Smoke piblik opsyonèl: mete `TAGTOA_SMOKE_BASE=https://tagtoa.com/tapbiz/public`.
-- **djounes.com = ebèjman APA** (panèl DirectAdmin `vda8400.is.cc:2222`, IP
-  173.225.109.155) — PA menm sèvè ak tagtoa.com/govibepay.com (67.217.56.29).
-  Zouti: `.github/workflows/djounes.yml` + `.github/scripts/djounes-ops.sh`
-  (envantè lekti sèl, vide cache, pause/reprann, rale yon fichye an atefak).
-  Sekrè `DJOUNES_SSH_HOST/USER/KEY` konfigire ✅ (SSH sou **pò 22**, pa 2222).
-  Sekrè `VPS_*` yo PA valab la — workflow la refize yo espre.
-  **Sa ki sou li**: **Visermart** (e-commerce Laravel ViserLab), app nan
-  `public_html/core/`, PHP 8.3.31. Boutik la **vid** (0 pwodwi/kategori/kòmand),
-  59 tab, 32 pasrèl disponib men 0 konfigire. Schema a gen **varyant**
-  (`product_variants`+`attributes`) — se sa TAGTOA STORE pa genyen, donk boutik
-  DJOUNES rete sou Visermart. `install/` neutralize (4 out 2026). Konsta konplè +
-  plan mak la: `docs/DJOUNES.md`. Chart mak la: `docs/DJOUNES_BRAND.md`.
-  **Mak la poze (sept. 2026)**: logo+koulè (`#0B3B2E`/`#0A0A0A`/`#D4AF37`), USD,
-  8 pwodwi + 3 kategori + 5 atribi + 42 varyant, dekoup PNG transparan, vitrin
-  « Shift favorites », 3 paj legal, koupon FIRST15, backup cron chak jou, panèl
-  admin an koulè mak (san touche verifikasyon lisans ViserLab), 8 bànyè carousel
-  (**fòma natif 1284×345** — pa 1920×760, script la konprese vètikalman), epi
-  fich pwodwi a **an CSS sèlman** (`custom.css`, blòk delimite).
-  ⚠️ Metòd: toujou yon aksyon `scan_*` (lekti sèl) AVAN nenpòt ekriti — tèm nan
-  abiye `<span>` andedan (`.text-attribute`/`.color-attribute`), pa `<button>`,
-  e klas seleksyon an se `active`. Chak ekriti fè dump+backup anvan, verifye 200
-  apre, epi restore pou kont li si l echwe (`~/djounes-backups/`).
-  ⏳ Bezwen aksyon fondatè: Stripe+PayPal, SMTP, adrès/telefòn/imèl biwo US
-  (pou paj legal yo), Terms of Service, GA/Meta Pixel, chanje modpas admin.
+### 3.2 Hooks recommandés (`.claude/hooks/`)
+- **`pre-commit`** : bloque le commit si la couverture de tests descend sous **80%**
+- **`post-dependency-change`** : lance `composer audit` / `npm audit` automatiquement quand `composer.json` ou `package.json` change ; bloque si vulnérabilité critique détectée
+- **`pre-merge-ledger`** : refuse toute modification du module `PAY` qui écrit directement sur une table de solde au lieu de passer par le service de ledger double-entrée
 
-## 7. Done demo (pou teste)
-- MENU: `demo-menu` · PAY: `demo` · LINKS: `demo-links` · EVENT: `demo-concert` · BOOKING: `demo-booking`
-- LOYALTY token: `uvcudqvm9xsie6knrkhbdcok` · POS terminal id: `1`
-- CARTE TAGTOA (closed-loop): code `TAGDEMO` · PIN `1234` · solde 1000 G — teste sou
-  `/pay/demo` → « Carte TAGTOA » (tape/sezi kòd + PIN) oswa sou terminal staff event.
-- EVENT WALLET: tag NFC demo UID `TAGTOA-DEMO-TAG` (solde 1000 G, stand « Bar Demo ») sou
-  `demo-concert` → teste sou `/tagtoa/event/{id}/wallet/terminal` (tape UID a oswa tap NFC).
-- Teste lang: ajoute `?lang=ht|en|es|fr` sou nenpòt paj.
+### 3.3 Revue automatisée en CI/CD (GitHub Actions)
+```bash
+claude -p "Analyse ce diff. Signale les bugs, failles de sécurité, et violations des conventions TAGTOA (isolation tenant, ledger double-entrée)." 
+```
+À exécuter sur chaque pull request. Refuser le merge automatiquement si Claude signale une violation d'isolation tenant ou une écriture non sécurisée sur le ledger.
 
-## 8. Pyèj konnen (gotchas)
-- merge-plugin PA mèj composer modil sou `dump-autoload` sèl → PSR-4 enjekte nan
-  composer.json rasin VPS la (remote-deploy.sh fè l idempotan).
-- `role:admin|super_admin` (fondatè a se super_admin).
-- `route:list` kase sou VPS akoz yon GooglePlayService Biztap (pa pwoblèm TAGTOA).
-- Tès Unit = `PHPUnit\Framework\TestCase` pi (san Laravel) → klas teste yo dwe
-  tolerab (gade `Money`).
-- **PA JANM** mete `fn(...)=>[...]` (fonksyon flèch + tablo) andedan `@json(...)` oswa
-  lòt direktiv Blade — parser la kase (« Unclosed '[' ») e paj la crash an prod (PR #41).
-  Mete lojik la nan `@php ... @endphp` (san `use` — non konplè klas), pase yon varyab senp.
-  AVAN chak push vue: konpile ak vrè konpilatè Blade (illuminate/view) + `php -l` rezilta a.
+### 3.4 Debug à partir des erreurs production
+Quand une erreur ou un stack trace est fourni : remonter la trace, localiser la cause racine, proposer un correctif **et** un test de régression qui aurait dû l'attraper.
+
+---
+
+## 4. Tests — exigences minimales
+
+- Tests unitaires sur tout service métier (surtout `LedgerService`, `TenantScope`, `SyncResolver`)
+- Tests d'intégration sur chaque endpoint API par module
+- Tests offline/sync : simuler perte de connexion + résolution de conflit avant validation
+- Tests de charge avant toute mise en production d'un module `PAY`/`POS`
+- Vérifier les cas limites : tenant inexistant, solde négatif, double soumission, NFC lu deux fois
+
+---
+
+## 5. Standards de code
+
+- SOLID, architecture modulaire, composants réutilisables
+- Aucune régression : toute modification doit être testée contre les modules existants avant merge
+- Code documenté, prêt pour la production — jamais de prototype présenté comme final
+- Optimisation base de données obligatoire sur toute requête touchant plusieurs tenants
+
+---
+
+## 6. Rapport de complétion (fin de chaque module)
+
+Chaque module livré doit inclure :
+1. Résumé de ce qui a été implémenté
+2. Résultats de `/review` et `/security-review`
+3. Couverture de tests obtenue
+4. Risques restants ou dette technique identifiée
+5. Recommandation : prêt pour production / nécessite itération
+
+---
+
+## 7. Notes stratégiques
+
+TAGTOA est le véhicule commercial principal de l'écosystème GOVIBE. Toute décision technique doit être évaluée avec une perspective de **scalabilité à 5–10 ans** (des centaines à des millions d'utilisateurs), pas seulement pour le besoin immédiat.
