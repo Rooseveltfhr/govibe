@@ -224,11 +224,16 @@ jobs:
           verifier "/programmes"       "200 301 302" "programmes"
           verifier "/partenaires"      "200 301 302" "partenaires"
           verifier "/fiche-technique"  "200 301 302" "formulaire agent"
+          verifier "/paiement"         "200 301 302" "moyens de paiement"
+          verifier "/paiement/preuve"  "200 301 302" "envoi de preuve"
 
           echo "Contrôle d'accès"
           # 302 vers la connexion, ou 403. Un 200 signifierait que la prospection
           # commerciale est lisible par n'importe qui.
           verifier "/erp/fiches"       "302 301 403" "ERP protégé"
+          # Les preuves portent des captures de transactions : un 200 ici
+          # signifierait qu'elles sont consultables sans compte.
+          verifier "/erp/preuves"      "302 301 403" "preuves protégées"
 
           if [ "$ECHEC" -ne 0 ]; then
             echo "::error::Le déploiement est passé mais le site ne répond pas correctement."
