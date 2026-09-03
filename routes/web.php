@@ -29,10 +29,12 @@ use App\Http\Controllers\BootcampController;
 use App\Http\Controllers\PartenaireController;
 use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\FicheTechniqueController;
+use App\Http\Controllers\PreuvePaiementController;
 use App\Http\Controllers\ERP\PartenaireAdminController;
 use App\Http\Controllers\ERP\EvenementAdminController;
 use App\Http\Controllers\ERP\PasserellePaiementController;
 use App\Http\Controllers\ERP\FicheTechniqueAdminController;
+use App\Http\Controllers\ERP\PreuvePaiementAdminController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -72,6 +74,15 @@ Route::get('/fiche-technique/merci/{fiche}', [FicheTechniqueController::class, '
 
 // Public: Moyens de paiement
 Route::view('/paiement', 'paiement')->name('paiement');
+
+// Envoi de preuve de paiement. Le formulaire est public — un client qui paie
+// n'a pas de compte — donc l'envoi est limité en fréquence : chaque dépôt
+// écrit un fichier sur le disque.
+Route::get('/paiement/preuve', [PreuvePaiementController::class, 'create'])->name('paiement.preuve');
+Route::post('/paiement/preuve', [PreuvePaiementController::class, 'store'])
+    ->middleware('throttle:6,10')
+    ->name('paiement.preuve.store');
+Route::get('/paiement/preuve/merci', [PreuvePaiementController::class, 'merci'])->name('paiement.preuve.merci');
 
 // Public: Partenaires
 Route::get('/partenaires', [PartenaireController::class, 'index'])->name('partenaires');
@@ -280,6 +291,15 @@ Route::prefix('erp')->name('erp.')->group(function () {
             Route::post('/{passerelle}', [PasserellePaiementController::class, 'update'])->name('update');
             Route::delete('/{passerelle}/fichier', [PasserellePaiementController::class, 'destroyFichier'])->name('fichier.destroy');
             Route::delete('/{passerelle}', [PasserellePaiementController::class, 'destroy'])->name('destroy');
+        });
+
+        // ── Preuves de paiement envoyées par les clients ──
+        Route::prefix('preuves')->name('preuves.')->group(function () {
+            Route::get('/', [PreuvePaiementAdminController::class, 'index'])->name('index');
+            Route::get('/{preuve}', [PreuvePaiementAdminController::class, 'show'])->name('show');
+            Route::get('/{preuve}/fichier', [PreuvePaiementAdminController::class, 'fichier'])->name('fichier');
+            Route::patch('/{preuve}/statut', [PreuvePaiementAdminController::class, 'updateStatut'])->name('statut');
+            Route::delete('/{preuve}', [PreuvePaiementAdminController::class, 'destroy'])->name('destroy');
         });
 
         // ── Fiches techniques (prospection) ───────────────

@@ -19,6 +19,10 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- Clé propre aux tests : sans elle, tout test qui ouvre une session
+             échoue sur « No application encryption key has been specified ».
+             Elle ne chiffre que des données jetables en mémoire. -->
+        <env name="APP_KEY" value="base64:GvD1K1+5SraTElXxouR8BYM3CT7lpQJzwH+8FpkrvPQ="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>

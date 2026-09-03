@@ -188,6 +188,19 @@
                 <span class="label">Moyens de paiement</span>
             </a>
 
+            {{-- Le compteur ne s'affiche que s'il y a des preuves à traiter :
+                 un « 0 » permanent cesse vite d'être regardé. --}}
+            @php $preuvesEnAttente = \App\Models\PreuvePaiement::where('statut', 'recue')->count(); @endphp
+            <a href="{{ route('erp.preuves.index') }}" class="sidebar-link {{ request()->routeIs('erp.preuves.*') ? 'active' : '' }}">
+                <i class="bi bi-receipt-cutoff icon"></i>
+                <span class="label">
+                    Preuves de paiement
+                    @if ($preuvesEnAttente > 0)
+                        <span class="ml-1 text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5">{{ $preuvesEnAttente }}</span>
+                    @endif
+                </span>
+            </a>
+
             <a href="{{ route('erp.finance.index') }}" class="sidebar-link {{ request()->routeIs('erp.finance.*') ? 'active' : '' }}">
                 <i class="bi bi-graph-up-arrow icon"></i>
                 <span class="label">Finance</span>
