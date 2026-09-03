@@ -115,14 +115,33 @@
         </div>
     @endforeach
 
-    <p class="mp-apres">
-        Après le paiement, envoyez la preuve à
-        <a href="https://wa.me/50933988754" target="_blank" rel="noopener">+509 3398-8754</a>
-        ou à <a href="mailto:contact@govibeht.com">contact@govibeht.com</a> pour que votre place soit confirmée.
-    </p>
+    <div class="mp-apres-bloc">
+        <p class="mp-apres">
+            Après le paiement, envoyez la capture d'écran : c'est ce qui confirme votre place.
+        </p>
+        <a href="{{ route('paiement.preuve', array_filter(['montant' => $montant, 'motif' => $reference])) }}" class="mp-preuve">
+            <i class="fas fa-paper-plane"></i> Envoyer la preuve de paiement
+        </a>
+        <p class="mp-apres mp-apres-sec">
+            Ou directement à <a href="https://wa.me/50933988754" target="_blank" rel="noopener">+509 3398-8754</a>
+            ou <a href="mailto:contact@govibeht.com">contact@govibeht.com</a>.
+        </p>
+    </div>
 </div>
 
 <style>
+  .mp-apres-bloc {
+    margin-top: 1.4rem; padding-top: 1.3rem; border-top: 1px solid #f1f5f9; text-align: center;
+  }
+  .mp-preuve {
+    display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+    background: linear-gradient(135deg, #DC2626, #991b1b); color: #fff;
+    font-family: 'Anton', sans-serif; letter-spacing: .04em; font-size: 1rem;
+    padding: .82rem 1.7rem; border-radius: 50px; text-decoration: none; margin: .5rem 0 .7rem;
+  }
+  .mp-preuve:hover { opacity: .93; color: #fff; }
+  .mp-apres-sec { font-size: .82rem; color: #94a3b8; }
+  @media (max-width: 560px) { .mp-preuve { width: 100%; } }
   .mp-bloc {
     border: 1px solid #e5e7eb; border-radius: 18px; background: #fff;
     padding: 1.8rem; margin: 1.5rem 0;
