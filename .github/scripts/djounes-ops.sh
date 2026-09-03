@@ -285,6 +285,43 @@ case "$ACTION" in
     fi
     egrp
     ;;
+  scan_banner)
+    # Les huit diapositives du carrousel vivent dans frontends (banner.element).
+    # On lit leurs clés JSON et le chemin d'images attendu avant d'y toucher.
+    grp "Structure des diapositives de bannière"
+    if command -v mysql >/dev/null 2>&1 && [ -n "$DBU" ] && [ -n "$DBP" ]; then
+      CNF7=$(mktemp); chmod 600 "$CNF7"
+      printf '[client]\nuser=%s\npassword=%s\nhost=%s\n' "$DBU" "$DBP" "${DBH:-localhost}" > "$CNF7"
+      S7=$(printf '%s' "$DBN" | tr -cd 'A-Za-z0-9_')
+      echo "-- banner.content --"
+      mysql --defaults-extra-file="$CNF7" -N -e \
+        "SELECT data_values FROM \`$S7\`.frontends WHERE data_keys='banner.content';" 2>&1 | head -3
+      echo "-- banner.element : id + JSON --"
+      mysql --defaults-extra-file="$CNF7" -N -e \
+        "SELECT CONCAT(id,' | ',data_values) FROM \`$S7\`.frontends
+         WHERE data_keys='banner.element' ORDER BY id;" 2>&1 | head -12
+      rm -f "$CNF7"
+    fi
+    egrp
+
+    grp "Où la bannière est rendue"
+    grep -rn "banner.element\|banner.content" "$APPDIR/resources/views/templates/basic" 2>/dev/null \
+      | sed "s|$APPDIR/||" | head -12
+    echo "-- section banner du thème --"
+    for f in "$APPDIR/resources/views/templates/basic/sections/banner.blade.php" \
+             "$APPDIR/resources/views/templates/basic/partials/headers/"*.blade.php; do
+      [ -f "$f" ] && grep -ln "banner" "$f" | sed "s|$APPDIR/||"
+    done
+    egrp
+
+    grp "Chemin et taille d'image attendus"
+    grep -n -A3 "'banner'" "$APPDIR/app/Http/Helpers/helpers.php" 2>/dev/null | head -20
+    echo "-- fichiers présents --"
+    for d in "$DOCROOT/assets/images/frontend/banner" "$DOCROOT/assets/images/frontend"; do
+      [ -d "$d" ] && { echo "[${d#$DOCROOT/}]"; ls -1 "$d" 2>/dev/null | head -15; }
+    done
+    egrp
+    ;;
   scan_collection)
     # Les emplacements collection_1..7 sont déjà actifs sur l'accueil. Reste à
     # savoir sous quelle forme le thème attend product_ids et unique_key.
