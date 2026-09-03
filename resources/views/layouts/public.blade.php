@@ -295,6 +295,7 @@
         <ul class="gv-dropdown-menu">
           <li><a href="{{ route('services') }}#media"><i class="fas fa-bullhorn"></i> Media & Digital</a></li>
           <li><a href="{{ route('services') }}#dev"><i class="fas fa-code"></i> Développement & IA</a></li>
+          <li><a href="{{ route('agents-ia.index') }}"><i class="fas fa-robot"></i> Agents IA</a></li>
           <li><a href="{{ route('services') }}#academy-cat"><i class="fas fa-graduation-cap"></i> Academy & Formations</a></li>
           <li><a href="{{ route('services') }}#coworking-cat"><i class="fas fa-building"></i> Coworking Space</a></li>
           <li><a href="{{ route('services') }}#startup"><i class="fas fa-rocket"></i> Accompagnement Startups</a></li>

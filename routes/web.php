@@ -30,11 +30,13 @@ use App\Http\Controllers\PartenaireController;
 use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\FicheTechniqueController;
 use App\Http\Controllers\PreuvePaiementController;
+use App\Http\Controllers\AgentIaController;
 use App\Http\Controllers\ERP\PartenaireAdminController;
 use App\Http\Controllers\ERP\EvenementAdminController;
 use App\Http\Controllers\ERP\PasserellePaiementController;
 use App\Http\Controllers\ERP\FicheTechniqueAdminController;
 use App\Http\Controllers\ERP\PreuvePaiementAdminController;
+use App\Http\Controllers\ERP\AgentIaAdminController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -73,6 +75,14 @@ Route::post('/fiche-technique', [FicheTechniqueController::class, 'store'])->nam
 Route::get('/fiche-technique/merci/{fiche}', [FicheTechniqueController::class, 'merci'])->name('fiche-technique.merci');
 
 // Public: Moyens de paiement
+// Agents IA — page commerciale, demande de service et confirmation.
+Route::get('/agents-ia', [AgentIaController::class, 'index'])->name('agents-ia.index');
+Route::get('/agents-ia/demande', [AgentIaController::class, 'demande'])->name('agents-ia.demande');
+Route::post('/agents-ia/demande', [AgentIaController::class, 'store'])
+    ->middleware('throttle:10,10')
+    ->name('agents-ia.store');
+Route::get('/agents-ia/confirmation', [AgentIaController::class, 'confirmation'])->name('agents-ia.confirmation');
+
 Route::view('/paiement', 'paiement')->name('paiement');
 
 // Envoi de preuve de paiement. Le formulaire est public — un client qui paie
@@ -300,6 +310,18 @@ Route::prefix('erp')->name('erp.')->group(function () {
             Route::get('/{preuve}/fichier', [PreuvePaiementAdminController::class, 'fichier'])->name('fichier');
             Route::patch('/{preuve}/statut', [PreuvePaiementAdminController::class, 'updateStatut'])->name('statut');
             Route::delete('/{preuve}', [PreuvePaiementAdminController::class, 'destroy'])->name('destroy');
+        });
+
+        // ── Agents IA : catalogue et demandes ─────────────
+        Route::prefix('agents-ia')->name('agents-ia.')->group(function () {
+            Route::get('/', [AgentIaAdminController::class, 'demandes'])->name('demandes');
+            Route::get('/catalogue', [AgentIaAdminController::class, 'catalogue'])->name('catalogue');
+            Route::post('/catalogue', [AgentIaAdminController::class, 'store'])->name('store');
+            Route::put('/catalogue/{agent}', [AgentIaAdminController::class, 'update'])->name('update');
+            Route::delete('/catalogue/{agent}', [AgentIaAdminController::class, 'destroy'])->name('destroy');
+            Route::get('/{demande}', [AgentIaAdminController::class, 'demande'])->name('demande');
+            Route::patch('/{demande}', [AgentIaAdminController::class, 'updateDemande'])->name('demande.update');
+            Route::delete('/demandes/{demande}', [AgentIaAdminController::class, 'destroyDemande'])->name('demande.destroy');
         });
 
         // ── Fiches techniques (prospection) ───────────────
