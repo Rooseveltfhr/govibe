@@ -350,28 +350,14 @@ case "$ACTION" in
     # le gabarit entier, ce que le contrôleur lui passe, où le thème charge son
     # CSS, et comment les variantes sont choisies. Rien n'est deviné.
     TPL="$APPDIR/resources/views/templates/basic"
-    grp "Gabarit de la fiche produit (intégral)"
+    grp "Fiche produit : en-tête du gabarit"
     F="$TPL/product_details.blade.php"
     if [ -f "$F" ]; then
-      echo "== $(wc -l < "$F") lignes : ${F#$APPDIR/} =="
-      cat -n "$F"
+      echo "== $(wc -l < "$F") lignes : ${F#$APPDIR/} — 40 premières =="
+      sed -n '1,40p' "$F" | cat -n
     else
       echo "(product_details.blade.php absent)"
       ls -1 "$TPL"/*.blade.php 2>/dev/null | xargs -n1 basename 2>/dev/null | head -30
-    fi
-    egrp
-
-    grp "Partiels inclus par la fiche"
-    if [ -f "$F" ]; then
-      grep -oE "@(include|includeIf)\('[^']+'" "$F" | sed "s/.*'\(.*\)'/\1/" | sort -u | while read -r inc; do
-        P="$APPDIR/resources/views/$(printf '%s' "$inc" | tr '.' '/').blade.php"
-        if [ -f "$P" ]; then
-          echo "===== $inc ($(wc -l < "$P") lignes) ====="
-          cat -n "$P"
-        else
-          echo "===== $inc : fichier non trouvé ($P) ====="
-        fi
-      done
     fi
     egrp
 
@@ -403,6 +389,24 @@ case "$ACTION" in
     grep -rn "attribute_values\|variant" "$TPL" 2>/dev/null | sed "s|$APPDIR/||" | head -25
     echo "-- ajout au panier (route + JS) --"
     grep -n "add-to-cart\|addToCart\|cart.store\|cart/add" "$APPDIR/routes/web.php" 2>/dev/null | head -8
+    egrp
+
+    # En dernier, et intégral : c'est le bloc d'achat lui-même. « Template:: »
+    # est l'alias de namespace du thème actif, pas un dossier — il faut le
+    # résoudre vers templates/basic, sinon on cherche un fichier inexistant.
+    grp "Partiels inclus par la fiche (bloc d'achat — intégral)"
+    if [ -f "$F" ]; then
+      grep -oE "@(include|includeIf)\('[^']+'" "$F" | sed "s/.*'\(.*\)'/\1/" | sort -u | while read -r inc; do
+        REL=$(printf '%s' "$inc" | sed 's/^Template:://' | tr '.' '/')
+        for P in "$TPL/$REL.blade.php" "$APPDIR/resources/views/$REL.blade.php"; do
+          [ -f "$P" ] || continue
+          echo "===== $inc → ${P#$APPDIR/} ($(wc -l < "$P") lignes) ====="
+          cat -n "$P"
+          continue 2
+        done
+        echo "===== $inc : introuvable (essayé $TPL/$REL.blade.php) ====="
+      done
+    fi
     egrp
     ;;
   scan_accueil)
