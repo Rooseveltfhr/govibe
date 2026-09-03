@@ -3,6 +3,7 @@
 namespace Modules\AIProvider\Providers;
 
 use Illuminate\Contracts\Cache\Repository as Cache;
+use Modules\AIProvider\Console\ProvidersStatusCommand;
 use Modules\AIProvider\Console\SyncCatalogCommand;
 use Modules\AIProvider\Health\CircuitBreaker;
 use Modules\AIProvider\Health\ProviderMetrics;
@@ -26,6 +27,7 @@ class AIProviderServiceProvider extends ModuleServiceProvider
     /** @var string[] */
     protected array $commands = [
         SyncCatalogCommand::class,
+        ProvidersStatusCommand::class,
     ];
 
     public function register(): void
