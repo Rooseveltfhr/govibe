@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             TerritorySeeder::class,
             HistorySeeder::class,
+            EstablishmentSeeder::class,
         ]);
     }
 }

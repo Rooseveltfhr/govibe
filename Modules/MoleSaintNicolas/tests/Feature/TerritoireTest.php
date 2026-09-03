@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Territoire\Arrondissement;
 use App\Models\Territoire\Commune;
 use App\Models\Territoire\Department;
+use App\Models\Territoire\Localite;
 use App\Models\Territoire\SectionCommunale;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
@@ -50,6 +51,13 @@ class TerritoireTest extends TestCase
         $this->get("/territoire/{$this->commune->slug}")
             ->assertOk()
             ->assertSee('Mare-Rouge');
+    }
+
+    public function test_localite_can_be_created_under_a_section_communale(): void
+    {
+        $localite = Localite::create(['section_communale_id' => $this->section->id, 'name' => 'Bassin Bleu']);
+
+        $this->assertTrue($this->section->localites->contains($localite));
     }
 
     public function test_section_page_shows_placeholder_for_missing_info(): void

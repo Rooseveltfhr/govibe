@@ -12,7 +12,7 @@
                 en construction, module par module.
             </p>
             <div class="mt-10 flex flex-wrap gap-4">
-                <a href="#histoire" class="rounded-full bg-msn-terracotta-500 px-6 py-3 font-semibold text-white hover:bg-msn-terracotta-600">
+                <a href="{{ route('histoire.index') }}" class="rounded-full bg-msn-terracotta-500 px-6 py-3 font-semibold text-white hover:bg-msn-terracotta-600">
                     Découvrir Môle-Saint-Nicolas
                 </a>
                 <a href="{{ route('territoire.index') }}" class="rounded-full border border-msn-sand-200 px-6 py-3 font-semibold hover:bg-msn-sand-100/10">
@@ -44,13 +44,56 @@
         </div>
     </section>
 
+    <section id="sejour" class="border-b border-msn-sand-200 py-16">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Où séjourner ?</h2>
+            <p class="mt-2 text-msn-sea-700">Hôtels et hébergements à Môle-Saint-Nicolas.</p>
+
+            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                @forelse ($hotels as $hotel)
+                    <a href="{{ route('hotels.show', $hotel->slug) }}"
+                       class="block rounded-2xl border border-msn-sand-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+                        <h3 class="font-semibold text-msn-sea-900">{{ $hotel->name }}</h3>
+                        <p class="mt-1 text-sm text-msn-sea-700 line-clamp-2">{{ $hotel->description ?: '[Information à compléter]' }}</p>
+                    </a>
+                @empty
+                    <p class="text-msn-sea-700">[Information à compléter — aucun hôtel enregistré]</p>
+                @endforelse
+            </div>
+
+            <a href="{{ route('hotels.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
+                Voir tous les hôtels &rarr;
+            </a>
+        </div>
+    </section>
+
+    <section id="restaurants" class="border-b border-msn-sand-200 py-16">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Restaurants et bars</h2>
+            <p class="mt-2 text-msn-sea-700">Où manger et boire un verre à Môle-Saint-Nicolas.</p>
+
+            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                @forelse ($restaurants as $restaurant)
+                    <a href="{{ route('restaurants.show', $restaurant->slug) }}"
+                       class="block rounded-2xl border border-msn-sand-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+                        <h3 class="font-semibold text-msn-sea-900">{{ $restaurant->name }}</h3>
+                        <p class="mt-1 text-sm text-msn-sea-700 line-clamp-2">{{ $restaurant->description ?: '[Information à compléter]' }}</p>
+                    </a>
+                @empty
+                    <p class="text-msn-sea-700">[Information à compléter — aucun restaurant enregistré]</p>
+                @endforelse
+            </div>
+
+            <a href="{{ route('restaurants.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
+                Voir tous les restaurants &rarr;
+            </a>
+        </div>
+    </section>
+
     @php
         $sections = [
-            ['id' => 'histoire', 'title' => "Découvrir son histoire", 'note' => 'Timeline historique — Phase 2'],
             ['id' => 'sites-historiques', 'title' => 'Sites historiques', 'note' => 'Fiches détaillées + carte — Phase 2'],
             ['id' => 'centre-ville', 'title' => 'Centre-ville', 'note' => 'Phase 2'],
-            ['id' => 'sejour', 'title' => 'Où séjourner ?', 'note' => 'Hôtels et hébergements — Phase 3'],
-            ['id' => 'restaurants', 'title' => 'Restaurants', 'note' => 'Phase 3'],
             ['id' => 'explorer', 'title' => 'Activités et expériences', 'note' => 'Phase 3'],
             ['id' => 'evenements', 'title' => 'Événements', 'note' => 'Phase 5'],
             ['id' => 'actualites', 'title' => 'Dernières actualités', 'note' => 'Blog / News — Phase 5'],
