@@ -191,6 +191,17 @@
             {{-- Le compteur ne s'affiche que s'il y a des preuves à traiter :
                  un « 0 » permanent cesse vite d'être regardé. --}}
             @php $preuvesEnAttente = \App\Models\PreuvePaiement::where('statut', 'recue')->count(); @endphp
+            @php $demandesIa = \App\Models\DemandeAgentIa::atraiter()->count(); @endphp
+            <a href="{{ route('erp.agents-ia.demandes') }}" class="sidebar-link {{ request()->routeIs('erp.agents-ia.*') ? 'active' : '' }}">
+                <i class="bi bi-robot icon"></i>
+                <span class="label">
+                    Agents IA
+                    @if ($demandesIa > 0)
+                        <span class="ml-1 text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5">{{ $demandesIa }}</span>
+                    @endif
+                </span>
+            </a>
+
             <a href="{{ route('erp.preuves.index') }}" class="sidebar-link {{ request()->routeIs('erp.preuves.*') ? 'active' : '' }}">
                 <i class="bi bi-receipt-cutoff icon"></i>
                 <span class="label">
