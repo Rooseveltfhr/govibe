@@ -87,25 +87,34 @@ $slides = [
 $rows = Frontend::where('data_keys', 'banner.element')->orderBy('id')->get();
 echo "diapositives en base : " . $rows->count() . "\n";
 
-/* Chaque nouvelle image est ramenée à la taille de celle qu'elle remplace :
-   sinon la hauteur du carrousel change et la mise en page saute. */
-function adapter(string $dir, string $fichier, ?string $modele): void {
+/* Taille des diapositives du thème, relevée sur les visuels de démonstration
+   d'origine. C'est la géométrie pour laquelle le carrousel a été écrit, et la
+   seule dont on ait la preuve qu'elle s'affiche correctement : on y ramène
+   chaque image. Les visuels sont dessinés au double de ce format, donc la
+   réduction reste nette.
+
+   On ne déduit plus la cible de l'image remplacée : au deuxième passage cette
+   image est déjà l'une des nôtres, la cible deviendrait sa propre taille et
+   plus rien ne serait redimensionné. */
+const NATIF_L = 1284;
+const NATIF_H = 345;
+
+function adapter(string $dir, string $fichier): void {
     $src = "$dir/$fichier";
-    if (!is_file($src) || !$modele || !is_file("$dir/$modele")) return;
-    $ancien = @getimagesize("$dir/$modele");
+    if (!is_file($src)) return;
     $nouveau = @getimagesize($src);
-    if (!$ancien || !$nouveau) return;
-    if ($ancien[0] === $nouveau[0] && $ancien[1] === $nouveau[1]) {
-        echo "    taille déjà identique ({$ancien[0]}x{$ancien[1]})\n"; return;
+    if (!$nouveau) return;
+    if ($nouveau[0] === NATIF_L && $nouveau[1] === NATIF_H) {
+        echo "    déjà au format natif (" . NATIF_L . "x" . NATIF_H . ")\n"; return;
     }
     if (!function_exists('imagecreatefrompng')) { echo "    (GD absent, taille inchangée)\n"; return; }
     $im = @imagecreatefrompng($src);
     if (!$im) return;
-    $out = imagecreatetruecolor($ancien[0], $ancien[1]);
-    imagecopyresampled($out, $im, 0, 0, 0, 0, $ancien[0], $ancien[1], $nouveau[0], $nouveau[1]);
+    $out = imagecreatetruecolor(NATIF_L, NATIF_H);
+    imagecopyresampled($out, $im, 0, 0, 0, 0, NATIF_L, NATIF_H, $nouveau[0], $nouveau[1]);
     imagepng($out, $src, 8);
     imagedestroy($im); imagedestroy($out);
-    echo "    redimensionnée {$nouveau[0]}x{$nouveau[1]} → {$ancien[0]}x{$ancien[1]}\n";
+    echo "    redimensionnée {$nouveau[0]}x{$nouveau[1]} → " . NATIF_L . "x" . NATIF_H . "\n";
 }
 
 foreach ($rows as $i => $row) {
@@ -115,7 +124,7 @@ foreach ($rows as $i => $row) {
     if (!$data) { echo "  #{$row->id} : contenu illisible, ignorée\n"; continue; }
 
     $ancien = property_exists($data, 'slider') ? $data->slider : null;
-    adapter($dir, $fichier, $ancien);
+    adapter($dir, $fichier);
 
     // On ne touche que des clés déjà présentes.
     if (property_exists($data, 'slider')) $data->slider = $fichier;
