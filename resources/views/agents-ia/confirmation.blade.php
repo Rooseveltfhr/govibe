@@ -98,15 +98,6 @@
 
 @section('content')
 
-@php
-  $wa = 'https://wa.me/50933988754?text='.rawurlencode(
-      "Bonjour, je viens de demander un Agent IA sur govibeht.com.\n"
-      ."Référence : {$demande->reference}\n"
-      ."Agent : {$demande->agent_nom}\n"
-      ."Entreprise : {$demande->entreprise}"
-  );
-@endphp
-
 <section class="cf-sect">
   <div class="cf-card">
     <div class="cf-check"><i class="fas fa-check"></i></div>
@@ -197,21 +188,29 @@
       </ul>
     </div>
 
-    <div class="cf-bloc">
-      <h2>Nous contacter</h2>
-      <div class="cf-ligne"><span>WhatsApp</span><strong>+509 3398-8754</strong></div>
+    <div class="cf-bloc" style="border-color:rgba(37,211,102,.3);background:rgba(37,211,102,.07)">
+      <h2>Prévenez l'équipe</h2>
+      <p style="color:rgba(255,255,255,.72);font-size:.87rem;line-height:1.65;margin:0">
+        Votre demande est enregistrée. Le bouton WhatsApp ci-dessous ouvre une
+        conversation avec le message déjà écrit : envoyez-le pour que l'équipe
+        traite votre dossier sans attendre.
+      </p>
+      <div class="cf-ligne" style="margin-top:.7rem"><span>WhatsApp</span><strong>+509 3398-8754</strong></div>
       <div class="cf-ligne"><span>Email</span><strong>contact@govibeht.com</strong></div>
     </div>
 
     <div class="cf-actions">
+      {{-- Envoyer le message met la demande sous les yeux de l'équipe tout
+           de suite. La demande est déjà enregistrée : ce geste prévient,
+           il ne transporte pas la donnée. --}}
+      <a href="{{ $demande->lien_whatsapp }}" target="_blank" rel="noopener" class="cf-wa">
+        <i class="fab fa-whatsapp"></i> Envoyer ma demande sur WhatsApp
+      </a>
       @if (! $demande->sur_devis)
         <a href="{{ route('paiement.preuve', ['montant' => $demande->prix_installation, 'motif' => $demande->reference, 'moyen' => $demande->moyen_paiement]) }}" class="cf-btn">
           <i class="fas fa-paper-plane"></i> Envoyer ma preuve de paiement
         </a>
       @endif
-      <a href="{{ $wa }}" target="_blank" rel="noopener" class="cf-wa">
-        <i class="fab fa-whatsapp"></i> Contacter GOVIBE
-      </a>
       <a href="{{ route('home') }}" class="cf-ghost">
         <i class="fas fa-arrow-left"></i> Retour à GOVIBE
       </a>

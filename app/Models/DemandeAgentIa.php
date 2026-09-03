@@ -110,6 +110,54 @@ class DemandeAgentIa extends Model
         return AgentIa::volumesConversations()[$this->volume_conversations] ?? $this->volume_conversations;
     }
 
+    /** Numéro WhatsApp de l'équipe GOVIBE, au format attendu par wa.me. */
+    public const WHATSAPP = '50933988754';
+
+    /**
+     * Le message que le client envoie à GOVIBE depuis la confirmation.
+     *
+     * Aucun serveur ne peut écrire dans WhatsApp sans un numéro Cloud API :
+     * c'est donc le client qui pousse le message, en un geste, depuis un lien
+     * pré-rempli. La demande est déjà enregistrée à ce moment — le message
+     * prévient l'équipe, il ne porte pas la donnée.
+     */
+    public function getMessageWhatsappAttribute(): string
+    {
+        $lignes = [
+            'Bonjour, je viens de demander un Agent IA sur govibeht.com.',
+            '',
+            "Référence : {$this->reference}",
+            "Agent : {$this->agent_nom}",
+            "Entreprise : {$this->entreprise}",
+            "Responsable : {$this->responsable}",
+        ];
+
+        if ($this->telephone) {
+            $lignes[] = "Téléphone : {$this->telephone}";
+        }
+        if ($this->canal_lisible) {
+            $lignes[] = "Canal : {$this->canal_lisible}";
+        }
+        if ($this->sur_devis) {
+            $lignes[] = 'Tarification : sur devis';
+        } elseif ($this->prix_installation !== null) {
+            $lignes[] = 'Installation : '.$this->montantAffiche((float) $this->prix_installation);
+        }
+
+        // Le texte libre est tronqué : WhatsApp coupe les liens trop longs,
+        // et le détail complet attend déjà dans l'ERP.
+        if ($this->objectifs) {
+            $lignes[] = 'Objectif : '.Str::limit($this->objectifs, 180);
+        }
+
+        return implode("\n", $lignes);
+    }
+
+    public function getLienWhatsappAttribute(): string
+    {
+        return 'https://wa.me/'.self::WHATSAPP.'?text='.rawurlencode($this->message_whatsapp);
+    }
+
     public function scopeEnCours(Builder $query): Builder
     {
         return $query->whereNotIn('statut', ['termine']);

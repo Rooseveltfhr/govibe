@@ -145,6 +145,20 @@
   .dm-envoyer:hover { opacity: .93; }
   .dm-envoyer:disabled { opacity: .6; cursor: default; }
 
+  .dm-final { border-color: #fca5a5; }
+  .dm-final-recap {
+    text-align: center; margin: 0 0 .9rem; line-height: 1.5;
+  }
+  .dm-final-recap span { display: block; font-size: .78rem; color: #94a3b8; }
+  .dm-final-recap strong {
+    display: block; font-family: 'Anton', sans-serif; font-weight: 400;
+    font-size: 1.05rem; color: #0f172a; letter-spacing: .02em; margin: .1rem 0;
+  }
+  .dm-final-recap #dmPrixBas { color: #DC2626; font-weight: 600; }
+  .dm-final-note {
+    text-align: center; font-size: .78rem; color: #94a3b8;
+    line-height: 1.6; margin: .8rem 0 0;
+  }
   .dm-erreurs {
     background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px;
     padding: .95rem 1.15rem; margin-bottom: 1.2rem; color: #991b1b; font-size: .87rem;
@@ -352,6 +366,24 @@
           @endif
         </div>
       </div>
+
+      {{-- Le bouton du récapitulatif passe au-dessus du formulaire sur mobile :
+           sans ce bloc, le client arrive au bas du formulaire et ne trouve
+           rien pour envoyer. --}}
+      <div class="dm-bloc dm-final">
+        <div class="dm-bloc-corps">
+          <p class="dm-final-recap">
+            <span>Vous demandez</span>
+            <strong id="dmNomBas">{{ $choisi?->nom ?? 'un Agent IA' }}</strong>
+            <span id="dmPrixBas"></span>
+          </p>
+          <button type="submit" class="dm-envoyer" id="dmBoutonBas">Envoyer ma demande</button>
+          <p class="dm-final-note">
+            Vous recevrez une référence de suivi, les coordonnées de paiement
+            et un bouton pour transmettre votre demande sur WhatsApp.
+          </p>
+        </div>
+      </div>
     </div>
 
     {{-- Récapitulatif : ce que le client commande et ce qu'il règle. --}}
@@ -392,9 +424,12 @@
 {{-- JavaScript natif : Alpine n'est chargé que sur le layout ERP. --}}
 <script>
 (function () {
-  var form   = document.getElementById('dmForm');
-  var bouton = document.getElementById('dmBouton');
-  var nom    = document.getElementById('dmNom');
+  var form    = document.getElementById('dmForm');
+  var bouton  = document.getElementById('dmBouton');
+  var basBtn  = document.getElementById('dmBoutonBas');
+  var basNom  = document.getElementById('dmNomBas');
+  var basPrix = document.getElementById('dmPrixBas');
+  var nom     = document.getElementById('dmNom');
   var inst   = document.getElementById('dmInstallation');
   var mens   = document.getElementById('dmMensuel');
   var total  = document.getElementById('dmTotal');
@@ -424,6 +459,9 @@
       mens.textContent  = 'Sur devis';
       total.textContent = 'Sur devis';
       bouton.textContent = 'Demander mon devis';
+      basNom.textContent = d.nom;
+      basPrix.textContent = 'Sur devis';
+      basBtn.textContent = 'Demander mon devis';
       note.textContent = "GOVIBE étudie votre besoin et vous transmet un devis détaillé avant tout paiement.";
       return;
     }
@@ -436,6 +474,9 @@
     // Le mensuel démarre à la mise en ligne : il n'entre pas dans ce total.
     total.textContent = i || '—';
     bouton.textContent = 'Payer et demander mon Agent';
+    basNom.textContent = d.nom;
+    basPrix.textContent = i ? 'Installation : ' + i : '';
+    basBtn.textContent = 'Envoyer ma demande';
     note.textContent = noteBase;
   }
 
@@ -444,8 +485,10 @@
   });
 
   form.addEventListener('submit', function () {
-    bouton.disabled = true;
-    bouton.textContent = 'Envoi en cours...';
+    [bouton, basBtn].forEach(function (b) {
+      b.disabled = true;
+      b.textContent = 'Envoi en cours...';
+    });
   });
 
   rafraichir();
