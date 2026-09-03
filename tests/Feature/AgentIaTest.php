@@ -189,6 +189,68 @@ class AgentIaTest extends TestCase
         $this->get(route('agents-ia.confirmation'))->assertRedirect(route('agents-ia.index'));
     }
 
+    public function test_le_formulaire_porte_un_bouton_denvoi_a_la_fin(): void
+    {
+        // Sur mobile le récapitulatif passe au-dessus du formulaire : sans ce
+        // second bouton, le client arrive en bas et ne trouve rien.
+        $contenu = $this->get('/agents-ia/demande')->assertOk()->getContent();
+
+        $this->assertSame(
+            2, substr_count($contenu, 'type="submit"'),
+            'le formulaire doit offrir un bouton dans le récapitulatif et un à la fin'
+        );
+        $this->assertStringContainsString('Envoyer ma demande', $contenu);
+
+        // Le bouton de fin doit venir après le dernier champ du formulaire.
+        $this->assertGreaterThan(
+            strpos($contenu, 'name="moyen_paiement"'),
+            strpos($contenu, 'id="dmBoutonBas"'),
+            'le bouton de fin doit se trouver après les champs'
+        );
+    }
+
+    public function test_la_confirmation_offre_un_envoi_whatsapp_pre_rempli(): void
+    {
+        $this->post('/agents-ia/demande', $this->demande());
+        $d = DemandeAgentIa::sole();
+
+        $this->get(route('agents-ia.confirmation'))
+            ->assertOk()
+            ->assertSee('Envoyer ma demande sur WhatsApp')
+            ->assertSee('wa.me/50933988754', false);
+    }
+
+    public function test_le_message_whatsapp_porte_la_demande(): void
+    {
+        $this->post('/agents-ia/demande', $this->demande());
+        $d = DemandeAgentIa::sole();
+
+        $this->assertStringStartsWith('https://wa.me/50933988754?text=', $d->lien_whatsapp);
+
+        $texte = rawurldecode($d->lien_whatsapp);
+        foreach ([
+            $d->reference,
+            'Agent IA — Restaurant',
+            'Chez Tante Ana',
+            'Nadège Pierre',
+            '+509 3712 4455',
+            'WhatsApp + Site web',
+            '200 USD',
+            'Ne plus rater de réservation',
+        ] as $attendu) {
+            $this->assertStringContainsString($attendu, $texte);
+        }
+    }
+
+    public function test_le_message_whatsapp_dit_sur_devis_sans_montant(): void
+    {
+        $this->post('/agents-ia/demande', $this->demande(['agent' => 'personnalise']));
+        $texte = rawurldecode(DemandeAgentIa::sole()->lien_whatsapp);
+
+        $this->assertStringContainsString('sur devis', $texte);
+        $this->assertStringNotContainsString('Installation :', $texte);
+    }
+
     // ── ERP ──────────────────────────────────────────────
 
     public function test_lerp_est_protege(): void
