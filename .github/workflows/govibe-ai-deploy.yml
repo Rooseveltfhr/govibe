@@ -32,6 +32,10 @@ on:
         type: choice
         options: ["okenn", "openai", "anthropic", "gemini", "deepseek", "mistral", "openrouter", "huggingface"]
         default: "okenn"
+      set_voice_key:
+        description: "Ekri kle vwa a tou (secrets.LOUVIA_ELEVENLABS_KEY)"
+        type: boolean
+        default: false
 
 # De deplwaman ansanm ta pilonnen youn lòt (composer, migrate, cache).
 # Nou pa koupe youn k ap kouri: sa ta kite sit la an mentnans.
@@ -146,26 +150,50 @@ jobs:
       # pa nan `ps` sou sèvè a), ni nan yon jounal: sa ki afiche se non
       # varyab la sèlman. Etap sa a sote nèt si pa gen kle oswa si
       # ai_provider='okenn' — konsa yon deplwaman òdinè pa touche .env.
-      - name: Voye kle IA a (si genyen)
-        if: ${{ inputs.action == 'deploy' && inputs.ai_provider != 'okenn' }}
+      - name: Voye kle yo (si genyen)
+        if: ${{ inputs.action == 'deploy' && (inputs.ai_provider != 'okenn' || inputs.set_voice_key) }}
         env:
           DOMAIN: ${{ steps.paths.outputs.domain }}
           AI_PROVIDER: ${{ inputs.ai_provider }}
           AI_KEY: ${{ secrets.LOUVIA_AI_KEY }}
+          SET_VOICE: ${{ inputs.set_voice_key }}
+          VOICE_KEY: ${{ secrets.LOUVIA_ELEVENLABS_KEY }}
+          VOICE_ID: ${{ secrets.LOUVIA_ELEVENLABS_VOICE_ID }}
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          umask 077
+          : > /tmp/louvia-ai.env
 
-          if [ -z "${AI_KEY:-}" ]; then
-            echo "::error::inputs.ai_provider='$AI_PROVIDER' men secret LOUVIA_AI_KEY la vid."
-            echo "Ajoute l nan Settings > Secrets and variables > Actions, epi relanse."
-            exit 1
+          # Kle chat la — se li ki fè ajan an reponn.
+          if [ "$AI_PROVIDER" != "okenn" ]; then
+            if [ -z "${AI_KEY:-}" ]; then
+              echo "::error::inputs.ai_provider='$AI_PROVIDER' men secret LOUVIA_AI_KEY la vid."
+              echo "Ajoute l nan Settings > Secrets and variables > Actions, epi relanse."
+              exit 1
+            fi
+            VAR="$(echo "$AI_PROVIDER" | tr '[:lower:]' '[:upper:]')_API_KEY"
+            printf '%s=%s\n' "$VAR" "$AI_KEY" >> /tmp/louvia-ai.env
+            echo "Varyab: $VAR (valè a pa afiche)"
           fi
 
-          VAR="$(echo "$AI_PROVIDER" | tr '[:lower:]' '[:upper:]')_API_KEY"
-          echo "Varyab ki pral ekri nan .env: $VAR (valè a pa afiche)"
+          # Kle vwa a — se li ki fè ajan an PALE. San li ajan an reponn
+          # kanmenm, alekri: vwa a se yon anplis, pa yon kondisyon.
+          if [ "$SET_VOICE" = "true" ]; then
+            if [ -z "${VOICE_KEY:-}" ]; then
+              echo "::error::set_voice_key=true men secret LOUVIA_ELEVENLABS_KEY la vid."
+              exit 1
+            fi
+            printf 'ELEVENLABS_API_KEY=%s\n' "$VOICE_KEY" >> /tmp/louvia-ai.env
+            echo "Varyab: ELEVENLABS_API_KEY (valè a pa afiche)"
 
-          umask 077
-          printf '%s=%s\n' "$VAR" "$AI_KEY" > /tmp/louvia-ai.env
+            # Vwa ki pral pale a. Opsyonèl: san li konektè a pran vwa
+            # multileng ElevenLabs bay pa defo a.
+            if [ -n "${VOICE_ID:-}" ]; then
+              printf 'ELEVENLABS_VOICE_ID=%s\n' "$VOICE_ID" >> /tmp/louvia-ai.env
+              echo "Varyab: ELEVENLABS_VOICE_ID"
+            fi
+          fi
+
           scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
             /tmp/louvia-ai.env \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$DOMAIN/laravel/.ai-key.pending"
@@ -257,16 +285,17 @@ jobs:
           # fichye a menm si sed la echwe — li pa dwe rete sou disk.
           AI_APPLIED=0
           if [ -f .ai-key.pending ]; then
-            AI_VAR="$(cut -d= -f1 < .ai-key.pending)"
-            if [ -n "$AI_VAR" ]; then
+            while IFS= read -r AI_LINE; do
+              AI_VAR="${AI_LINE%%=*}"
+              [ -n "$AI_VAR" ] && [ "$AI_VAR" != "$AI_LINE" ] || continue
               grep -v "^${AI_VAR}=" .env > .env.next 2>/dev/null || cp .env .env.next
-              cat .ai-key.pending >> .env.next
+              printf '%s\n' "$AI_LINE" >> .env.next
               mv -f .env.next .env
-              echo "==> Kle IA ekri nan .env ($AI_VAR)"
+              echo "==> Ekri nan .env: $AI_VAR"
               AI_APPLIED=1
-            else
-              echo "::warning::.ai-key.pending malfòme — nou inyore l."
-            fi
+            done < .ai-key.pending
+
+            [ "$AI_APPLIED" = "1" ] || echo "::warning::.ai-key.pending malfòme — nou inyore l."
             rm -f .ai-key.pending .env.next
           fi
 
