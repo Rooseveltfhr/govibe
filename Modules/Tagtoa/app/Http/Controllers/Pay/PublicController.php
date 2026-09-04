@@ -7,12 +7,14 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Api\ApiPayment;
 use Modules\Tagtoa\App\Models\Pay\PaymentMethod;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Models\Pay\PaymentProof;
 use Modules\Tagtoa\App\Notifications\PayProofReceived;
+use Modules\Tagtoa\App\Services\Pay\MerchantMethods;
 
 /**
  * TAGTOA Pay — page publique + soumission de preuve.
@@ -26,14 +28,19 @@ class PublicController extends Controller
     {
         $page = Cache::remember("tagtoa:pay:show:$alias", self::PUBLIC_CACHE_TTL, function () use ($alias) {
             $page = PaymentPage::where('alias', $alias)->where('is_active', true)
-                ->with(['activeMethods', 'vcard'])->firstOrFail();
+                ->where('is_library', false) // page technique : jamais publique
+                ->with('vcard')->firstOrFail();
 
             $page->incrementQuietly('views');
 
             return $page;
         });
 
-        return view('tagtoa::pay.show', ['page' => $page, 'methods' => $page->activeMethods]);
+        // Les moyens viennent du MARCHAND (configurés une fois), pas de la page.
+        return view('tagtoa::pay.show', [
+            'page'    => $page,
+            'methods' => app(MerchantMethods::class)->active($page->tenant_id),
+        ]);
     }
 
     /**
@@ -43,13 +50,13 @@ class PublicController extends Controller
      */
     public function apiCheckout(string $reference): View
     {
-        $payment = ApiPayment::where('reference', $reference)->with('page.activeMethods')->firstOrFail();
+        $payment = ApiPayment::where('reference', $reference)->with('page')->firstOrFail();
         $page = $payment->page;
         abort_unless($page && $page->is_active, 404);
 
         return view('tagtoa::pay.show', [
             'page'       => $page,
-            'methods'    => $page->activeMethods,
+            'methods'    => app(MerchantMethods::class)->active($page->tenant_id),
             'apiPayment' => $payment,
         ]);
     }
@@ -60,8 +67,13 @@ class PublicController extends Controller
      */
     public function checkout(Request $request, string $alias, int $method): RedirectResponse
     {
-        $page = PaymentPage::where('alias', $alias)->where('is_active', true)->firstOrFail();
-        $m = $page->activeMethods()->whereKey($method)->firstOrFail();
+        $page = PaymentPage::where('alias', $alias)->where('is_active', true)
+            ->where('is_library', false)->firstOrFail();
+
+        // La méthode doit appartenir au marchand de CETTE page : un identifiant
+        // venu d'un autre marchand ne doit jamais être payable ici.
+        $m = app(MerchantMethods::class)->active($page->tenant_id)->firstWhere('id', (int) $method);
+        abort_unless($m, 404);
 
         $gateway = \Modules\Tagtoa\App\Support\PaymentGateway::driver($m->type);
         // Prix fixe → imposé côté serveur (anti-fraude) ; sinon le payeur choisit.
@@ -136,7 +148,8 @@ class PublicController extends Controller
         \Modules\Tagtoa\App\Models\Pay\PaymentProof::firstOrCreate(
             ['reference' => $res['txn']->reference, 'payment_page_id' => $page->id],
             [
-                'payment_method_id' => $page->activeMethods()->where('type', 'tagtoa_card')->value('id'),
+                'payment_method_id' => app(MerchantMethods::class)->active($page->tenant_id)
+                    ->firstWhere('type', 'tagtoa_card')?->id,
                 'payer_name'        => $card->holder_name ?: __('Carte TAGTOA'),
                 'payer_phone'       => $card->holder_phone,
                 'amount'            => $amount,
@@ -159,7 +172,7 @@ class PublicController extends Controller
         $data = $request->validate([
             'payment_method_id' => [
                 'required', 'integer',
-                fn ($a, $v, $fail) => $page->activeMethods()->whereKey($v)->exists() ?: $fail(__('Méthode invalide.')),
+                Rule::in(app(MerchantMethods::class)->active($page->tenant_id)->pluck('id')->all()),
             ],
             'payer_name'  => ['required', 'string', 'max:120'],
             'payer_phone' => ['nullable', 'string', 'max:40'],

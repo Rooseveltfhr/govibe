@@ -52,8 +52,15 @@
 
     {{-- ----- Catégories & produits ----- --}}
     <div class="card">
-        <div class="h-row"><h2>{{ __('Catégories & produits') }}</h2><button type="button" class="btn btn-d btn-sm" onclick="addCat()"><i class="fa-solid fa-plus"></i> {{ __('Catégorie') }}</button></div>
-        <p style="color:var(--muted);font-size:13px;margin-top:-8px">{{ __('Organisez vos produits & services par catégorie (Entrées, Plats, Boissons, Services…).') }}</p>
+        <div class="h-row">
+            <h2>{{ __('Catégories &') }} <span class="tt-nouns">{{ __('Produits') }}</span></h2>
+            <button type="button" class="btn btn-d btn-sm" onclick="addCat()"><i class="fa-solid fa-plus"></i> {{ __('Catégorie') }}</button>
+        </div>
+        <p style="color:var(--muted);font-size:13px;margin-top:-8px">
+            {{ __('Le formulaire suit le type d\'établissement choisi plus haut : un hôtel décrit des chambres, un bar des boissons, un restaurant des plats.') }}
+        </p>
+        {{-- Catégories proposées pour ce métier : un raccourci, jamais imposé. --}}
+        <div id="catpresets" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:4px"></div>
         <div id="cats"></div>
     </div>
 
@@ -69,7 +76,7 @@
             <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.catblock').remove()"><i class="fa-solid fa-trash"></i></button>
         </div>
         <div class="items" style="margin-top:10px"></div>
-        <button type="button" class="btn btn-o btn-sm" onclick="addItem(this.closest('.catblock'))" style="margin-top:6px"><i class="fa-solid fa-plus"></i> {{ __('Ajouter un produit') }}</button>
+        <button type="button" class="btn btn-o btn-sm tt-additem" onclick="addItem(this.closest('.catblock'))" style="margin-top:6px"><i class="fa-solid fa-plus"></i> {{ __('Ajouter') }}</button>
     </div>
 </template>
 
@@ -78,8 +85,8 @@
     <div class="itemrow" data-ci="CIDX" data-ii="IIDX" style="background:#fff;border:1px solid var(--bd);border-radius:11px;padding:10px;margin-bottom:8px">
         <div style="display:flex;gap:8px;align-items:center">
             <input name="cats[CIDX][items][IIDX][emoji]" class="inp" placeholder="🍔" style="max-width:56px;text-align:center">
-            <input name="cats[CIDX][items][IIDX][name]" class="inp" placeholder="{{ __('Nom du produit / service') }}">
-            <input name="cats[CIDX][items][IIDX][price]" class="inp" type="number" step="0.01" min="0" placeholder="{{ __('Prix') }}" style="max-width:110px">
+            <input name="cats[CIDX][items][IIDX][name]" class="inp tt-itemname" placeholder="{{ __('Nom') }}">
+            <input name="cats[CIDX][items][IIDX][price]" class="inp tt-price" type="number" step="0.01" min="0" placeholder="{{ __('Prix') }}" style="max-width:130px">
             <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.itemrow').remove()"><i class="fa-solid fa-trash"></i></button>
         </div>
         <input name="cats[CIDX][items][IIDX][description]" class="inp" placeholder="{{ __('Description (optionnel)') }}" style="margin-top:8px">
@@ -94,6 +101,8 @@
             <label class="switch" style="flex:0"><input type="hidden" name="cats[CIDX][items][IIDX][is_available]" value="0"><input type="checkbox" name="cats[CIDX][items][IIDX][is_available]" value="1" checked> {{ __('Disponible') }}</label>
             <label class="switch" style="flex:0"><input type="checkbox" name="cats[CIDX][items][IIDX][is_featured]" value="1"> {{ __('Mis en avant') }}</label>
         </div>
+        {{-- Champs propres au métier, injectés selon le type d'établissement. --}}
+        <div class="specs"></div>
         <div class="options" style="margin-top:8px"></div>
         <button type="button" class="btn btn-o btn-sm" onclick="addOption(this.closest('.itemrow'))" style="margin-top:6px"><i class="fa-solid fa-plus"></i> {{ __('Option (taille, extra…)') }}</button>
     </div>
@@ -122,9 +131,145 @@
     </div>
 </template>
 
+<style>
+    /* Champs métier : une grille dense qui reste lisible sur téléphone. */
+    .specgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:10px;
+              padding-top:10px;border-top:1px dashed var(--bd)}
+    .specfld .lbl{margin-top:0;font-size:12.5px}
+    .tagwrap{display:flex;flex-wrap:wrap;gap:6px}
+    .tag input{position:absolute;opacity:0;width:0;height:0}
+    .tag span{display:inline-block;border:1.5px solid var(--bd);border-radius:999px;padding:5px 11px;
+              font-size:12.5px;cursor:pointer;transition:.14s;user-select:none}
+    .tag input:checked + span{border-color:#2cb809;background:rgba(44,184,9,.09);color:#0e5f44;font-weight:600}
+    .tag input:focus-visible + span{outline:2px solid #2cb809;outline-offset:2px}
+</style>
 @push('scripts')
 <script>
 var cIdx = 0;
+
+/* ------------------------------------------------------------------
+   Le formulaire suit le métier.
+   Les profils viennent du serveur (BusinessProfile) : le navigateur ne fait
+   que les rendre. Ce qui sera réellement enregistré est de toute façon revalidé
+   côté serveur contre le même profil — le JS est un confort, pas une garantie.
+   ------------------------------------------------------------------ */
+var PROFILES = @json(\Modules\Tagtoa\App\Support\Menu\BusinessProfile::PROFILES);
+
+function currentProfile(){
+    var sel = document.querySelector('select[name="type"]');
+    var t = sel ? sel.value : 'other';
+    return PROFILES[t] || PROFILES['other'];
+}
+
+function esc(v){
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+}
+
+/* Rend les champs métier d'UN article. `values` = ce qui est déjà enregistré. */
+function renderSpecs(row, values){
+    var box = row.querySelector('.specs');
+    if (!box) { return; }
+    var ci = row.getAttribute('data-ci'), ii = row.getAttribute('data-ii');
+    var fields = currentProfile().fields || {};
+    values = values || {};
+
+    var html = '';
+    Object.keys(fields).forEach(function(key){
+        var f = fields[key];
+        var base = 'cats['+ci+'][items]['+ii+'][specs]['+key+']';
+        var v = values[key];
+        html += '<div class="specfld"><label class="lbl">'+esc(f.label)
+             + (f.unit ? ' <span style="font-weight:400;color:var(--muted)">('+esc(f.unit)+')</span>' : '')
+             + '</label>';
+
+        if (f.type === 'number'){
+            html += '<input class="inp" type="number" step="any" name="'+base+'"'
+                 + (f.min != null ? ' min="'+esc(f.min)+'"' : '')
+                 + (f.max != null ? ' max="'+esc(f.max)+'"' : '')
+                 + ' value="'+esc(v != null ? v : '')+'">';
+        } else if (f.type === 'select'){
+            html += '<select class="sel" name="'+base+'"><option value="">—</option>';
+            (f.options || []).forEach(function(o){
+                html += '<option value="'+esc(o)+'"'+(v === o ? ' selected' : '')+'>'+esc(o)+'</option>';
+            });
+            html += '</select>';
+        } else if (f.type === 'tags'){
+            var chosen = Array.isArray(v) ? v : [];
+            html += '<div class="tagwrap">';
+            (f.options || []).forEach(function(o){
+                html += '<label class="tag"><input type="checkbox" name="'+base+'[]" value="'+esc(o)+'"'
+                     + (chosen.indexOf(o) !== -1 ? ' checked' : '')+'><span>'+esc(o)+'</span></label>';
+            });
+            html += '</div>';
+        } else if (f.type === 'bool'){
+            html += '<label class="switch"><input type="checkbox" name="'+base+'" value="1"'
+                 + (v ? ' checked' : '')+'> '+esc(f.label)+'</label>';
+        } else {
+            html += '<input class="inp" name="'+base+'" maxlength="'+esc(f.max || 120)+'" value="'+esc(v != null ? v : '')+'">';
+        }
+        html += '</div>';
+    });
+
+    box.innerHTML = html ? '<div class="specgrid">'+html+'</div>' : '';
+}
+
+/* Ce que l'utilisateur a saisi dans les champs métier d'un article. */
+function readSpecs(row){
+    var out = {};
+    row.querySelectorAll('.specs [name]').forEach(function(el){
+        var m = el.name.match(/\[specs\]\[([^\]]+)\]/);
+        if (!m) { return; }
+        var key = m[1];
+        if (el.type === 'checkbox'){
+            if (el.name.slice(-2) === '[]'){
+                if (el.checked){ (out[key] = out[key] || []).push(el.value); }
+            } else if (el.checked){ out[key] = true; }
+        } else if (el.value !== ''){ out[key] = el.value; }
+    });
+    return out;
+}
+
+/* Changement de type : on re-rend tout en gardant ce qui a un sens dans le
+   nouveau métier (une capacité de chambre n'a plus de place dans un restaurant,
+   mais la valeur reste en base tant que l'article n'est pas ré-enregistré). */
+function applyProfile(){
+    var p = currentProfile();
+
+    document.querySelectorAll('.tt-nouns').forEach(function(el){ el.textContent = p.nouns; });
+    document.querySelectorAll('.tt-itemname').forEach(function(el){ el.placeholder = 'Nom — ' + p.noun; });
+    document.querySelectorAll('.tt-price').forEach(function(el){ el.placeholder = p.price_hint; });
+    document.querySelectorAll('.tt-additem').forEach(function(el){
+        el.innerHTML = '<i class="fa-solid fa-plus"></i> ' + p.noun;
+    });
+
+    document.querySelectorAll('.itemrow').forEach(function(row){ renderSpecs(row, readSpecs(row)); });
+    renderPresets();
+}
+
+/* Catégories proposées pour ce métier — un clic les ajoute, rien n'est imposé. */
+function renderPresets(){
+    var box = document.getElementById('catpresets');
+    if (!box) { return; }
+    var existing = Array.prototype.map.call(
+        document.querySelectorAll('#cats [name$="[name]"].inp'),
+        function(el){ return (el.value || '').toLowerCase().trim(); }
+    );
+    box.innerHTML = '';
+    (currentProfile().categories || []).forEach(function(name){
+        if (existing.indexOf(name.toLowerCase()) !== -1) { return; }
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'btn btn-o btn-sm'; b.style.flex = '0';
+        b.innerHTML = '<i class="fa-solid fa-plus"></i> ' + esc(name);
+        b.onclick = function(){
+            var block = addCat({ name: name });
+            addItem(block);
+            renderPresets();
+        };
+        box.appendChild(b);
+    });
+}
 
 function previewItemImage(input){
     var row = input.closest('.itemrow');
@@ -198,6 +343,7 @@ function addItem(catEl, d){
         }
         (d.options || []).forEach(function(o){ addOption(row, o); });
     }
+    renderSpecs(row, d ? d.specs : null);
     return row;
 }
 
@@ -224,6 +370,7 @@ function addCat(d){
                 'id' => $i->id, 'name' => $i->name, 'emoji' => $i->emoji, 'price' => $i->price,
                 'description' => $i->description, 'badge' => $i->badge, 'is_available' => $i->is_available,
                 'is_featured' => $i->is_featured, 'stock' => $i->stock, 'image_url' => $i->image_url,
+                'specs' => $i->specs ?: (object) [],
                 'options' => $i->options->map(fn ($o) => [
                     'id' => $o->id, 'name' => $o->name, 'required' => $o->required, 'multiple' => $o->multiple,
                     'choices' => $o->choices->map(fn ($ch) => ['id' => $ch->id, 'label' => $ch->label, 'price_delta' => $ch->price_delta])->values(),
@@ -236,6 +383,11 @@ var existing = @json($catData);
 
 if (existing.length){ existing.forEach(addCat); }
 else { var c = addCat(); addItem(c); }
+
+// Le formulaire suit le type dès qu'on en change, sans recharger la page.
+var typeSel = document.querySelector('select[name="type"]');
+if (typeSel){ typeSel.addEventListener('change', applyProfile); }
+applyProfile();
 </script>
 @endpush
 @endsection

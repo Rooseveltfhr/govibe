@@ -108,6 +108,13 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     Route::get('/start', [\Modules\Tagtoa\App\Http\Controllers\Hub\OnboardingController::class, 'index'])->name('tagtoa.start');
     Route::post('/start', [\Modules\Tagtoa\App\Http\Controllers\Hub\OnboardingController::class, 'store'])->name('tagtoa.start.store');
 
+    // PAY — moyens de paiement du marchand, configurés une seule fois.
+    // Hors du groupe « dashboard » : ils ne dépendent d'aucun lien, d'où un nom
+    // court (tagtoa.pay.methods) et une déclaration AVANT /pay/{id} pour que le
+    // segment « methods » ne soit jamais capturé comme identifiant de lien.
+    Route::get('/pay/methods', [\Modules\Tagtoa\App\Http\Controllers\Pay\MethodsController::class, 'index'])->name('tagtoa.pay.methods');
+    Route::put('/pay/methods', [\Modules\Tagtoa\App\Http\Controllers\Pay\MethodsController::class, 'update'])->name('tagtoa.pay.methods.update');
+
     // PAY
     Route::prefix('pay')->name('tagtoa.pay.dashboard.')->group(function () {
         Route::get('/', [PayDashboard::class, 'index'])->name('index');
@@ -117,6 +124,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::put('/{id}', [PayDashboard::class, 'update'])->name('update');
         Route::delete('/{id}', [PayDashboard::class, 'destroy'])->name('destroy');
         Route::get('/{id}/proofs', [PayDashboard::class, 'proofs'])->name('proofs');
+        Route::get('/{id}/share', [PayDashboard::class, 'share'])->name('share');
         Route::get('/proofs/{id}/image', [PayDashboard::class, 'proofImage'])->name('proof.image');
         Route::post('/proofs/{id}/approve', [PayDashboard::class, 'approveProof'])->name('proofs.approve');
         Route::post('/proofs/{id}/reject', [PayDashboard::class, 'rejectProof'])->name('proofs.reject');

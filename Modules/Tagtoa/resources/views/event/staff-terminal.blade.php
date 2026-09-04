@@ -123,9 +123,9 @@
                 <select id="slPay" onchange="togglePayCard()">
                     <option value="Espèces">{{ __('Espèces (cash)') }}</option>
                     <option value="Carte TAGTOA">{{ __('Carte TAGTOA (closed-loop)') }}</option>
-                    @foreach($payMethods as $pm)<option value="{{ $pm->label }}">{{ $pm->label }}</option>@endforeach
+                    @foreach($payMethods as $pm)<option value="{{ $pm->display_label }}">{{ $pm->display_label }}</option>@endforeach
                 </select>
-                @if($payMethods->isEmpty())<div class="nfc" style="text-align:left">{{ __('Astuce : configurez vos moyens dans TAGTOA Pay et liez la page à l\'événement.') }}</div>@endif
+                @if($payMethods->isEmpty())<div class="nfc" style="text-align:left">{{ __('Astuce : configurez vos moyens une fois dans TAGTOA Pay — ils s\'appliqueront ici aussi.') }}</div>@endif
                 <div id="slCardPay" style="display:none;background:rgba(44,184,9,.06);border-radius:12px;padding:12px;margin-top:8px">
                     <div class="nfc" style="text-align:left;margin-bottom:8px"><i class="fa-solid fa-id-card"></i> {{ __('Le participant paie avec sa carte prépayée TAGTOA (tap + PIN).') }}</div>
                     <div style="display:flex;gap:8px"><input class="inp" id="slPayUid" autocomplete="off" placeholder="{{ __('UID carte TAGTOA') }}" style="flex:1;margin-top:0"><button class="btn btn-nfc" id="slPayNfcBtn" type="button" style="margin-top:0;flex:0"><i class="fa-solid fa-wifi"></i></button></div>

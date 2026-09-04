@@ -60,10 +60,14 @@ class TagtoaDemoSeeder extends Seeder
             ['tagtoa_card', 'Carte TAGTOA'],
         ];
         $needsProof = ['moncash', 'natcash', 'unibank', 'sogebank', 'bnc', 'zelle', 'cashapp', 'paypal', 'usdt', 'btc', 'eth'];
+        // Les moyens appartiennent au MARCHAND, pas au lien : on les pose sur sa
+        // bibliothèque, d'où TOUS ses liens de démo les reprennent.
+        $library = app(\Modules\Tagtoa\App\Services\Pay\MerchantMethods::class)->library($pay->tenant_id);
         foreach ($demoMethods as $i => [$type, $acct]) {
             PaymentMethod::updateOrCreate(
-                ['payment_page_id' => $pay->id, 'type' => $type],
-                ['account_holder' => 'Lakou Lounge', 'account_number' => $acct, 'requires_proof' => in_array($type, $needsProof, true), 'is_active' => true, 'sort' => $i]
+                ['payment_page_id' => $library->id, 'type' => $type],
+                ['tenant_id' => $pay->tenant_id, 'account_holder' => 'Lakou Lounge', 'account_number' => $acct,
+                 'requires_proof' => in_array($type, $needsProof, true), 'is_active' => true, 'sort' => $i]
             );
         }
 

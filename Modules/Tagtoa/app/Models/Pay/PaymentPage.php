@@ -15,12 +15,22 @@ class PaymentPage extends Model
 {
     protected $table = 'tagtoa_payment_pages';
 
-    protected $fillable = [
-        'vcard_id', 'tenant_id', 'title', 'alias', 'description',
-        'default_currency', 'amount', 'is_active', 'views',
+    /** Un lien facture un client, ou reçoit un don. */
+    public const TYPE_INVOICE  = 'invoice';
+    public const TYPE_DONATION = 'donation';
+
+    public const TYPES = [
+        self::TYPE_INVOICE  => 'Facture / paiement',
+        self::TYPE_DONATION => 'Don / soutien',
     ];
 
-    protected $casts = ['is_active' => 'boolean', 'views' => 'integer', 'amount' => 'decimal:2'];
+    protected $fillable = [
+        'vcard_id', 'tenant_id', 'title', 'type', 'alias', 'description',
+        'default_currency', 'amount', 'is_active', 'is_library', 'views',
+    ];
+
+    protected $casts = ['is_active' => 'boolean',
+        'is_library' => 'boolean', 'views' => 'integer', 'amount' => 'decimal:2'];
 
     /** Prix fixe imposé ? (montant renseigné et > 0). */
     public function hasFixedAmount(): bool
@@ -77,14 +87,14 @@ class PaymentPage extends Model
         return $this->belongsTo(Vcard::class, 'vcard_id');
     }
 
+    /**
+     * Méthodes portées par CETTE page. Depuis le passage des moyens au niveau
+     * marchand, seule la page « bibliothèque » en porte : pour afficher ce que
+     * verra un client, passer par MerchantMethods, jamais par cette relation.
+     */
     public function methods(): HasMany
     {
         return $this->hasMany(PaymentMethod::class, 'payment_page_id')->orderBy('sort');
-    }
-
-    public function activeMethods(): HasMany
-    {
-        return $this->methods()->where('is_active', true);
     }
 
     public function proofs(): HasMany

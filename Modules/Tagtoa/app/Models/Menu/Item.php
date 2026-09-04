@@ -16,10 +16,13 @@ class Item extends Model
 
     protected $fillable = [
         'menu_id', 'category_id', 'name', 'description', 'price', 'image_path',
-        'emoji', 'badge', 'is_available', 'is_featured', 'stock', 'sort',
+        'emoji', 'badge', 'specs', 'is_available', 'is_featured', 'stock', 'sort',
     ];
 
     protected $casts = [
+        // Champs propres au métier (capacité d'une chambre, degré d'alcool,
+        // temps de préparation…). Toujours écrits via BusinessProfile::sanitize.
+        'specs'        => 'array',
         'price'        => 'decimal:2',
         'is_available' => 'boolean',
         'is_featured'  => 'boolean',
