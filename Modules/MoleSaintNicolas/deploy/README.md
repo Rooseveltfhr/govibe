@@ -5,7 +5,7 @@ les secrets `VPS_*` de TAGTOA/GOVIBE ici — ce module a son propre jeu de secre
 
 ## Pré-requis côté serveur (à vérifier une fois, dans le panneau DirectAdmin)
 
-1. **PHP 8.3+** sélectionné pour le domaine (sélecteur PHP DirectAdmin).
+1. **PHP 8.4+** sélectionné pour le domaine (sélecteur PHP DirectAdmin — Laravel 13/Symfony 8 l'exigent réellement, malgré la borne `^8.3` qui apparaissait dans composer.json avant vérification du lock file).
 2. **Une base MySQL** créée pour l'app, avec un utilisateur dédié.
 3. **Accès SSH** activé pour le compte (souvent un port différent du panneau `:2222` — à
    confirmer auprès de l'hébergeur/support DirectAdmin ; `2222` est le panneau web, pas SSH).

@@ -8,7 +8,7 @@ Projet **client**, hébergé indépendamment de l'infrastructure GOVIBE.
 
 ## Stack
 
-Laravel 13 / PHP 8.3, Livewire 4, Alpine.js, Tailwind CSS 4, MySQL (prod) / SQLite (dev),
+Laravel 13 / PHP 8.4, Livewire 4, Alpine.js, Tailwind CSS 4, MySQL (prod) / SQLite (dev),
 spatie/laravel-permission pour les rôles.
 
 ## Installation locale

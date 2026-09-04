@@ -6,7 +6,7 @@
     "keywords": ["laravel", "tourisme", "haiti", "cms"],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": "^8.4",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0",
         "livewire/livewire": "^4.4",
