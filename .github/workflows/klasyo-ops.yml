@@ -1,0 +1,39 @@
+name: Klasyo.org VPS ops
+
+# Connexion au VPS (mêmes secrets que le deploy TAGTOA) pour inspecter/gérer
+# le domaine klasyo.org, hébergé sur le même serveur que tagtoa.com.
+# - Déclenché sur push de la branche de travail (itération rapide sans merge)
+# - Ou manuellement (workflow_dispatch) une fois sur main
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/klasyo-org-vps-connection-n4zjyg"]
+    paths:
+      - ".github/workflows/klasyo-ops.yml"
+      - ".github/scripts/klasyo-run.sh"
+
+concurrency:
+  group: klasyo-ops
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Run klasyo.org operation on VPS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh-keyscan -p "$PORT" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run operation script
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            'bash -s' < .github/scripts/klasyo-run.sh
