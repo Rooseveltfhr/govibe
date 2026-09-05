@@ -32,7 +32,7 @@ les secrets `VPS_*` de TAGTOA/GOVIBE ici — ce module a son propre jeu de secre
 | `MSN_VPS_PORT` | port SSH réel (à confirmer — probablement pas `2222`, qui est le panneau DirectAdmin) |
 | `MSN_VPS_USER` | utilisateur SSH (`molesain` ou équivalent) |
 | `MSN_VPS_APP_PATH` | `<BASE>` tel que défini ci-dessus |
-| `MSN_VPS_SSH_KEY` | clé privée dédiée au déploiement (voir génération ci-dessous) |
+| `MSN_VPS_SSH_KEY` | clé privée dédiée, encodée en **base64 sur une seule ligne** (voir génération ci-dessous) |
 
 ## Générer la clé de déploiement (une fois, sur le serveur)
 
@@ -40,8 +40,14 @@ les secrets `VPS_*` de TAGTOA/GOVIBE ici — ce module a son propre jeu de secre
 ssh-keygen -t ed25519 -f ~/.ssh/msn_deploy -N "" -C "molesaintnicolas-ci"
 cat ~/.ssh/msn_deploy.pub >> ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
-cat ~/.ssh/msn_deploy   # coller tout le contenu dans le secret MSN_VPS_SSH_KEY
+base64 -w0 ~/.ssh/msn_deploy   # coller CETTE ligne (une seule) dans le secret MSN_VPS_SSH_KEY
 ```
+
+⚠️ Ne pas coller le bloc `-----BEGIN OPENSSH PRIVATE KEY-----...` multi-lignes tel quel dans
+le secret : un copier-coller depuis un mobile corrompt facilement les sauts de ligne/tirets,
+ce qui casse la clé côté runner (`Load key: error in libcrypto`). Le base64 sur une ligne est
+purement alphanumérique — bien plus robuste au copier-coller. Le workflow décode
+automatiquement (`base64 -d`) avant utilisation.
 
 ## Premier déploiement (setup manuel, une seule fois)
 

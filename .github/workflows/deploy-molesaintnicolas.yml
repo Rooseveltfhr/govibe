@@ -47,10 +47,16 @@ jobs:
 
       - name: Rsync vers la release
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.MSN_VPS_SSH_KEY }}
+          # MSN_VPS_SSH_KEY est la clé privée encodée en base64 sur UNE seule
+          # ligne (au lieu du bloc PEM multi-lignes) : un copier-coller mobile
+          # d'un bloc "-----BEGIN...-----" corrompt facilement les sauts de
+          # ligne/tirets ("Load key: error in libcrypto" côté runner). Le
+          # base64 tient sur une ligne, alphanumérique, bien plus robuste au
+          # copier-coller. Générer avec : base64 -w0 chemin/vers/cle_privee
+          SSH_PRIVATE_KEY_B64: ${{ secrets.MSN_VPS_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          echo "$SSH_PRIVATE_KEY_B64" | base64 -d > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "${{ secrets.MSN_VPS_PORT }}" "${{ secrets.MSN_VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
