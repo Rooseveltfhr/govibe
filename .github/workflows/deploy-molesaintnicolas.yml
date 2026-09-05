@@ -56,7 +56,7 @@ jobs:
           SSH_PRIVATE_KEY_B64: ${{ secrets.MSN_VPS_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY_B64" | base64 -d > ~/.ssh/deploy_key
+          echo "$SSH_PRIVATE_KEY_B64" | tr -d '[:space:]' | base64 -d -i > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "${{ secrets.MSN_VPS_PORT }}" "${{ secrets.MSN_VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
