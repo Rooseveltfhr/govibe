@@ -205,17 +205,34 @@ Hub dashboard: `/tagtoa/home` (PA `/tagtoa` — li antre an konfli ak vcard `{al
   `127.0.0.1`. Yon `curl --resolve …:127.0.0.1` tonbe sou vhost catch-all la epi
   bay « webserver is functioning normally » menm lè sit la byen mache. Tès ki fè
   lwa a se tès **piblik** la, epi li dwe egzije siyati `LOUVIA` nan kontni an.
-- **Faz 0 ✅** skeleton + Core + i18n fr/ht/en/es · **Faz 1 ✅** AIProvider (7 konektè),
-  AIRouter (failover, circuit breaker), API konpatib OpenAI · **Ajan ✅**
-  `AgentDefinition`, `ConfirmationPolicy`, 3 modèl sektè, `AgentBuilder`,
-  vwa→tèks (Whisper) · **Entèfas ✅** katalòg `/agents`, bouton Demo ak Kreye,
-  tab `agents`. **140 tès Pest.**
+- **Faz 0 ✅** skeleton + Core + i18n fr/ht/en/es · **Faz 1 ✅** AIProvider
+  (8 konektè: OpenAI, Anthropic, Gemini, DeepSeek, Mistral, OpenRouter,
+  HuggingFace, **ElevenLabs**), AIRouter (failover, circuit breaker), API
+  konpatib OpenAI · **Ajan ✅** `AgentDefinition`, `ConfirmationPolicy`,
+  `Conversation` (memwa), `AgentRuntime`, `HaitianCurrency` (goud↔dola ayisyen),
+  **6 modèl** (3 ajan: restoran/klinik/lekòl · 3 chatbot: sipò/sit entènèt/
+  akèy WhatsApp) · **Entèfas ✅** paj akèy `/`, katalòg `/agents`, kreyasyon,
+  demo **chat + apèl**, kòmand `/komande`, chat sipò `/sipo`. 5 tab
+  (`ai_providers`, `ai_models`, `ai_requests`, `agents`, `agent_orders`).
+  **194 tès Pest.**
+- **Entèfas: fon blan, tèks nwa, bouton vèt**, tit an **Anton**, meni sou kote ki
+  louvri SAN JavaScript (checkbox kache), mobil dabò.
+- **Frontyè ElevenLabs = opsyon C** (gade `docs/govibe-ai/adr/ADR-002-frontiere-elevenlabs.md`):
+  vwa a lakay yo (TTS + Scribe), jijman an lakay nou (konfimasyon, memwa, router,
+  règ lajan). Ajan ConvAI ki òganize lakay yo rezève pou kanal telefòn nan, epi
+  li rete limite ak zouti lekti toutotan zouti l yo pa branche sou webhook nou yo.
+  ⚠️ Schema `POST /v1/convai/agents/create` PA verifye: `elevenlabs.io` bloke nan
+  sandbox la. Bezwen swa kò rekèt la kopye depi dokimantasyon an, swa kle a.
 - ⚠️ **Pa gen otantifikasyon**: nenpòt moun ki gen URL la ka kreye yon ajan epi
   wè konesans biznis lòt moun. Phase 1 (Identity: kont, òganizasyon, RBAC,
   izolasyon tenan) dwe fèmen sa a anvan yon vrè machann antre.
-- ⚠️ **Pa gen kle IA sou sèvè a** → bouton Demo a di « pa gen founisè konfigire »
-  olye li bay yon repons. Yon sèl varyab anviwònman.
+- ⚠️ **Pa gen kle sou sèvè a** → Demo a ak chat sipò a di « pa gen founisè
+  konfigire ». Kle yo antre pa secrets GitHub epi deplwaman an ekri yo nan `.env`:
+  `LOUVIA_AI_KEY` (+ input `ai_provider`) pou tèks, `LOUVIA_ELEVENLABS_KEY`
+  (+ input `set_voice_key=true`) ak `LOUVIA_ELEVENLABS_VOICE_ID` pou vwa.
+  `php artisan govibe:providers` di eta a sou sèvè a san li pa ekri yon kle.
 - Achitekti MVP (10 desizyon, sa pou koupe, plan Phase 1):
   https://claude.ai/code/artifact/9d47ec31-f7b9-400a-9a13-a252be3c00b9
+- Aperçu vizyèl ekran yo: https://claude.ai/code/artifact/29c69c4b-87c3-4658-8ab0-b2073ab76736
 - ⚠️ Sandbox sa a: api.github.com bloke → dist composer echwe; enstale ak
   `env -u GITHUB_TOKEN -u GH_TOKEN COMPOSER_PROCESS_TIMEOUT=900 composer install --prefer-source`.
