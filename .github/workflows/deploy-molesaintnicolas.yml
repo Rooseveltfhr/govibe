@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Build + rsync release + bascule
+    name: Build + rsync + migrate
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -40,12 +40,7 @@ jobs:
           npm ci
           npm run build
 
-      - name: Résoudre la cible SSH
-        id: target
-        run: |
-          echo "release=$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_OUTPUT"
-
-      - name: Rsync vers la release
+      - name: Rsync vers le serveur + migrate
         env:
           # MSN_VPS_SSH_KEY est la clé privée encodée en base64 sur UNE seule
           # ligne (au lieu du bloc PEM multi-lignes) : un copier-coller mobile
@@ -60,17 +55,16 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "${{ secrets.MSN_VPS_PORT }}" "${{ secrets.MSN_VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          RELEASE="${{ steps.target.outputs.release }}"
           REMOTE_BASE="${{ secrets.MSN_VPS_APP_PATH }}"
           REMOTE="${{ secrets.MSN_VPS_USER }}@${{ secrets.MSN_VPS_HOST }}"
 
           ssh -i ~/.ssh/deploy_key -p "${{ secrets.MSN_VPS_PORT }}" -o StrictHostKeyChecking=no "$REMOTE" \
-            "mkdir -p $REMOTE_BASE/releases/$RELEASE"
+            "mkdir -p $REMOTE_BASE/app"
 
           rsync -az --delete \
             -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.MSN_VPS_PORT }} -o StrictHostKeyChecking=no" \
             --exclude ".env" --exclude "storage" --exclude "tests" --exclude ".git" \
-            ./ "$REMOTE:$REMOTE_BASE/releases/$RELEASE/"
+            ./ "$REMOTE:$REMOTE_BASE/app/"
 
           ssh -i ~/.ssh/deploy_key -p "${{ secrets.MSN_VPS_PORT }}" -o StrictHostKeyChecking=no "$REMOTE" \
-            "bash $REMOTE_BASE/releases/$RELEASE/deploy/remote-deploy.sh $REMOTE_BASE $RELEASE"
+            "bash $REMOTE_BASE/app/deploy/remote-deploy.sh $REMOTE_BASE"
