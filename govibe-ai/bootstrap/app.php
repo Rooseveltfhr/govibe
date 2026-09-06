@@ -21,7 +21,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // `api/*` reponn an JSON menm si kliyan an pa mande sa — se yon API.
+        // Men `expectsJson()` dwe rete tou: paj yo gen endpwen JSON pa yo
+        // (vwa demo a, chat sipò a) andeyò `api/*`. San dezyèm kondisyon an,
+        // yon erè validasyon sou youn nan yo voye yon redireksyon HTML bay
+        // yon `fetch()` ki t ap tann JSON — epi paj la tonbe an silans.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
     })->create();

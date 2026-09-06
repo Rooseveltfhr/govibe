@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'LOUVIA' }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&display=swap">
     <style>
         /* Fon blan, tèks nwa, bouton vèt. Gri yo sèvi sèlman pou liy ak
            tèks segondè — yo pa yon dezyèm fon. */
@@ -26,6 +29,8 @@
             --warn-line: #ead9ac;
             --danger: #9b1c1c;
             --radius: 6px;
+            --display: "Anton", "Arial Narrow", Impact, system-ui, sans-serif;
+            --topbar-h: 56px;
         }
         * { box-sizing: border-box; }
         html { -webkit-text-size-adjust: 100%; }
@@ -40,19 +45,69 @@
         a { color: var(--accent); text-decoration: none; }
         a:hover { text-decoration: underline; }
 
-        /* ---- Chapo ---- */
-        .topbar { background: var(--surface); border-bottom: 1px solid var(--line); }
+        /* ---- Chapo + meni sou kote ----
+           Drawer la mache SAN JavaScript: yon checkbox kache pote eta a.
+           Se enpòtan sou telefòn — si JS la pa chaje, meni an ap louvri
+           kanmenm. */
+        .topbar {
+            background: var(--surface); border-bottom: 1px solid var(--line);
+            position: sticky; top: 0; z-index: 30;
+        }
         .topbar .inner {
-            max-width: 960px; margin: 0 auto; padding: .85rem 1.25rem;
-            display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
+            max-width: 1180px; margin: 0 auto; padding: 0 1rem;
+            height: var(--topbar-h); display: flex; align-items: center; gap: .75rem;
         }
         .topbar .brand {
-            font-size: 1.05rem; font-weight: 650; letter-spacing: .08em;
+            font-size: 1.05rem; font-weight: 700; letter-spacing: .1em;
             color: var(--ink); text-decoration: none;
         }
         .topbar .brand:hover { text-decoration: none; }
-        .topbar .sub { color: var(--muted); font-size: .85rem; }
-        .topbar nav { margin-left: auto; font-size: .88rem; }
+        .topbar .sub { color: var(--muted); font-size: .85rem; display: none; }
+        .topbar .spacer { margin-left: auto; }
+        .topbar .cta { font-size: .86rem; padding: .38rem .8rem; }
+
+        .nav-toggle { position: absolute; opacity: 0; pointer-events: none; }
+        .burger {
+            width: 40px; height: 40px; flex: none; border-radius: var(--radius);
+            border: 1px solid var(--line-strong); background: var(--surface);
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--accent);
+        }
+        .burger:hover { background: var(--accent-soft); }
+        .burger svg { width: 20px; height: 20px; fill: currentColor; }
+        .nav-toggle:focus-visible + .burger { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        .drawer {
+            position: fixed; inset: 0 auto 0 0; width: min(84vw, 300px); z-index: 50;
+            background: var(--surface); border-right: 1px solid var(--line);
+            transform: translateX(-102%); transition: transform .22s ease;
+            display: flex; flex-direction: column; padding: 1rem 1rem 2rem; gap: .15rem;
+            overflow-y: auto;
+        }
+        .scrim {
+            position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, .35);
+            opacity: 0; pointer-events: none; transition: opacity .22s ease;
+        }
+        .nav-toggle:checked ~ .drawer { transform: none; }
+        .nav-toggle:checked ~ .scrim { opacity: 1; pointer-events: auto; }
+        .drawer .head { display: flex; align-items: center; margin-bottom: .75rem; }
+        .drawer .head .brand { font-size: 1rem; font-weight: 700; letter-spacing: .1em; }
+        .drawer .close { margin-left: auto; }
+        .drawer a.item {
+            padding: .6rem .55rem; border-radius: var(--radius); color: var(--ink);
+            text-decoration: none; font-size: .95rem; font-weight: 500;
+        }
+        .drawer a.item:hover { background: var(--accent-soft); color: var(--accent); text-decoration: none; }
+        .drawer .group {
+            margin: 1rem 0 .3rem; padding: 0 .55rem; font-size: .72rem; font-weight: 650;
+            letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .drawer, .scrim { transition: none; }
+        }
+        @media (min-width: 720px) {
+            .topbar .sub { display: inline; }
+        }
 
         /* ---- Kò paj la ---- */
         .wrap { max-width: 960px; margin: 0 auto; padding: 1.75rem 1.25rem 4rem; }
@@ -154,6 +209,25 @@
             outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
         }
         textarea { min-height: 72px; resize: vertical; }
+        select {
+            width: 100%; padding: .5rem .65rem; border-radius: var(--radius);
+            border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+            font-family: inherit; font-size: .95rem;
+        }
+        select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+        /* Chwa yo se gwo sib, pa ti kare: paj la ap viv sou telefòn. */
+        .choices { display: flex; flex-direction: column; gap: .5rem; margin-top: .4rem; }
+        .choice {
+            display: flex; gap: .65rem; align-items: flex-start; margin: 0;
+            border: 1px solid var(--line-strong); border-radius: var(--radius);
+            padding: .7rem .8rem; cursor: pointer; font-weight: 400; color: var(--ink);
+        }
+        .choice:hover { border-color: var(--accent); background: var(--accent-soft); }
+        .choice input { margin: .25rem 0 0; accent-color: var(--accent); flex: none; }
+        .choice strong { display: block; font-weight: 600; font-size: .95rem; }
+        .choice small { display: block; color: var(--muted); font-size: .86rem; margin-top: .1rem; }
+        .choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
         fieldset { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
                    padding: .25rem 1.15rem 1.25rem; margin: 0 0 1.25rem; }
         legend { font-size: .78rem; font-weight: 650; text-transform: uppercase; letter-spacing: .07em;
@@ -196,20 +270,52 @@
     </style>
 </head>
 <body>
+<input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="{{ __('Menu') }}">
+
+<aside class="drawer" aria-label="{{ __('Menu') }}">
+    <div class="head">
+        <span class="brand">LOUVIA</span>
+        <label for="nav-toggle" class="btn close">{{ __('Fermer') }}</label>
+    </div>
+    <a class="item" href="{{ route('home') }}">{{ __('Accueil') }}</a>
+    <a class="item" href="{{ route('home') }}#chatbots">{{ __('Chatbots et assistants') }}</a>
+    <a class="item" href="{{ route('home') }}#agents">{{ __('Agents IA') }}</a>
+    <a class="item" href="{{ route('home') }}#catalogue">{{ __('Tous les modèles') }}</a>
+    <a class="item" href="{{ route('home') }}#integrations">{{ __('Intégrations') }}</a>
+    <div class="group">{{ __('Votre espace') }}</div>
+    <a class="item" href="{{ route('agents.index') }}">{{ __('Vos agents') }}</a>
+    <a class="item" href="{{ route('orders.create') }}">{{ __('Commander un agent') }}</a>
+    <a class="item" href="{{ route('home') }}#support">{{ __('Support') }}</a>
+</aside>
+<label for="nav-toggle" class="scrim" aria-hidden="true"></label>
+
 <div class="topbar">
     <div class="inner">
-        <a class="brand" href="{{ route('agents.index') }}">LOUVIA</a>
+        <label for="nav-toggle" class="burger" title="{{ __('Menu') }}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+        </label>
+        <a class="brand" href="{{ route('home') }}">LOUVIA</a>
         <span class="sub">{{ __('Agents IA pour votre entreprise') }}</span>
-        <nav><a href="{{ route('agents.index') }}">{{ __('Modèles') }}</a></nav>
+        <span class="spacer"></span>
+        <a class="btn btn-primary cta" href="{{ route('orders.create') }}">{{ __('Commander') }}</a>
     </div>
 </div>
 
-<div class="wrap">
-    @if (session('status'))
-        <div class="note ok">{{ session('status') }}</div>
-    @endif
+{{ $head ?? '' }}
 
+@if (($bare ?? false) === true)
+    @if (session('status'))
+        <div class="wrap" style="padding-bottom:0"><div class="note ok">{{ session('status') }}</div></div>
+    @endif
     {{ $slot }}
-</div>
+@else
+    <div class="wrap">
+        @if (session('status'))
+            <div class="note ok">{{ session('status') }}</div>
+        @endif
+
+        {{ $slot }}
+    </div>
+@endif
 </body>
 </html>

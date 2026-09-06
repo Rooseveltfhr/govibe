@@ -31,6 +31,7 @@ class AgentTemplateRegistry
      * @param  callable(string, string, array<string, mixed>, list<string>, list<string>, ?string): AgentDefinition  $factory
      * @param  callable(string): list<string>  $sampleQuestions
      * @param  list<string>  $capabilities
+     * @param  array<string, string>  $knowledgeFields
      */
     public function register(
         string $sector,
@@ -39,10 +40,26 @@ class AgentTemplateRegistry
         callable $factory,
         callable $sampleQuestions,
         array $capabilities = [],
+        string $kind = TemplateDescriptor::KIND_AGENT,
+        array $knowledgeFields = [],
     ): void {
         $this->templates[$sector] = new TemplateDescriptor(
-            $sector, $label, $description, $factory, $sampleQuestions, $capabilities,
+            $sector, $label, $description, $factory, $sampleQuestions,
+            $capabilities, $kind, $knowledgeFields,
         );
+    }
+
+    /**
+     * Katalòg la filtre pa kalite — se sa de blòk paj akèy la sèvi avè l.
+     *
+     * @return list<TemplateDescriptor>
+     */
+    public function ofKind(string $kind): array
+    {
+        return array_values(array_filter(
+            $this->all(),
+            static fn (TemplateDescriptor $t): bool => $t->kind === $kind,
+        ));
     }
 
     public function has(string $sector): bool
@@ -113,6 +130,10 @@ class AgentTemplateRegistry
                 'Mande adrès ak yon repè anvan yon livrezon',
                 'Konfime chak kòmand anvan li anrejistre l',
             ],
+            knowledgeFields: [
+                'Menu' => 'menu', 'Horaires' => 'horaires', 'Adresse' => 'adresse',
+                'Livraison' => 'livraison', 'Paiement' => 'paiement',
+            ],
         );
 
         $this->register(
@@ -127,6 +148,10 @@ class AgentTemplateRegistry
                 'Pa janm bay dyagnostik ni preskripsyon',
                 'Pase bay yon moun lè li pa sèten',
             ],
+            knowledgeFields: [
+                'Services' => 'services', 'Horaires' => 'horaires',
+                'Adresse' => 'adresse', 'Tarifs' => 'tarifs',
+            ],
         );
 
         $this->register(
@@ -140,6 +165,76 @@ class AgentTemplateRegistry
                 'Bay frè lekòl la jan direksyon an mete yo',
                 'Pran randevou ak direksyon an',
                 'Pa janm envante yon frè ni yon dat',
+            ],
+            knowledgeFields: [
+                'Programmes' => 'programmes', 'Horaires' => 'horaires',
+                'Adresse' => 'adresse', 'Frais' => 'frais',
+            ],
+        );
+
+        $this->registerChatbots();
+    }
+
+    /**
+     * Chatbot yo: yo reponn, yo pa aji. Yo pataje menm baz konsiy lan; sa
+     * ki chanje se misyon an ak chan konesans lan.
+     */
+    private function registerChatbots(): void
+    {
+        $this->register(
+            sector: 'support',
+            label: 'Sipò kliyan',
+            description: 'Reponn kesyon kliyan yo poze pi souvan, 24h sou 24.',
+            factory: ChatbotTemplate::maker('support', 'Ou se asistan sipò yon biznis. Travay ou se reponn kesyon kliyan yo poze pi souvan.'),
+            sampleQuestions: ChatbotTemplate::sampleQuestions(...),
+            capabilities: [
+                'Reponn kesyon ki repete yo, san fatig',
+                'Bay orè, adrès, pri ak règleman biznis lan',
+                'Di klèman lè li pa konnen',
+                'Pase kliyan an bay yon moun lè sa nesesè',
+            ],
+            kind: TemplateDescriptor::KIND_CHATBOT,
+            knowledgeFields: [
+                'Questions fréquentes' => 'faq', 'Horaires' => 'horaires',
+                'Adresse' => 'adresse', 'Contact' => 'contact',
+            ],
+        );
+
+        $this->register(
+            sector: 'website',
+            label: 'Asistan sit entènèt',
+            description: 'Yon bwat chat sou sit ou: li akeyi vizitè epi li reponn.',
+            factory: ChatbotTemplate::maker('website', 'Ou se asistan ki sou sit entènèt yon biznis. Travay ou se akeyi vizitè yo epi reponn kesyon yo sou sa biznis lan ofri.'),
+            sampleQuestions: ChatbotTemplate::sampleQuestions(...),
+            capabilities: [
+                'Akeyi chak vizitè sou sit la',
+                'Eksplike sèvis ak pri yo',
+                'Kolekte kesyon ki mande yon moun',
+                'Travay nan kat lang: kreyòl, franse, anglè, panyòl',
+            ],
+            kind: TemplateDescriptor::KIND_CHATBOT,
+            knowledgeFields: [
+                'Services' => 'services', 'Tarifs' => 'tarifs',
+                'Horaires' => 'horaires', 'Contact' => 'contact',
+            ],
+        );
+
+        $this->register(
+            sector: 'whatsapp',
+            label: 'Akèy WhatsApp',
+            description: 'Premye repons lan sou WhatsApp, menm lè ou okipe.',
+            factory: ChatbotTemplate::maker('whatsapp', 'Ou se premye repons yon biznis sou WhatsApp. Travay ou se akeyi moun nan touswit epi reponn kesyon senp yo.'),
+            sampleQuestions: ChatbotTemplate::sampleQuestions(...),
+            capabilities: [
+                'Reponn touswit, menm lè biznis lan fèmen',
+                'Bay enfòmasyon debaz yo san tann',
+                'Prepare mesaj la pou moun k ap pran l apre a',
+                'Pa janm pwomèt yon bagay li pa ka fè',
+            ],
+            kind: TemplateDescriptor::KIND_CHATBOT,
+            knowledgeFields: [
+                'Message de bienvenue' => 'bienvenue', 'Services' => 'services',
+                'Horaires' => 'horaires', 'Contact' => 'contact',
             ],
         );
     }

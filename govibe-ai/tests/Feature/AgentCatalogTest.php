@@ -48,8 +48,8 @@ it('says on each card what the agent actually does', function () {
     }
 });
 
-it('sends the site root to the catalogue', function () {
-    $this->get('/')->assertRedirect('/agents');
+it('links the catalogue from the site root', function () {
+    $this->get('/')->assertOk()->assertSee(route('agents.index'));
 });
 
 it('offers a create form whose fields match the sector', function () {
