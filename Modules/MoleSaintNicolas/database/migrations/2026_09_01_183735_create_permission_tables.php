@@ -25,8 +25,11 @@ return new class extends Migration
          */
         Schema::create($tableNames['permissions'], static function (Blueprint $table) {
             $table->id(); // permission id
-            $table->string('name');
-            $table->string('guard_name');
+            // Longueur explicite (au lieu du défaut) : cet hébergement mutualisé
+            // limite les clés d'index à 1000 octets ; en utf8mb4, deux colonnes
+            // string() par défaut dans un même unique() dépassent cette limite.
+            $table->string('name', 100);
+            $table->string('guard_name', 100);
             $table->timestamps();
 
             $table->unique(['name', 'guard_name']);
@@ -41,8 +44,8 @@ return new class extends Migration
                 $table->unsignedBigInteger($columnNames['team_foreign_key'])->nullable();
                 $table->index($columnNames['team_foreign_key'], 'roles_team_foreign_key_index');
             }
-            $table->string('name');
-            $table->string('guard_name');
+            $table->string('name', 100);
+            $table->string('guard_name', 100);
             $table->timestamps();
             if ($teams || config('permission.testing')) {
                 $table->unique([$columnNames['team_foreign_key'], 'name', 'guard_name']);

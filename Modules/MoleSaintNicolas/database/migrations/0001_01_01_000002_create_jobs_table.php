@@ -37,8 +37,13 @@ return new class extends Migration
         Schema::create('failed_jobs', function (Blueprint $table) {
             $table->id();
             $table->string('uuid')->unique();
-            $table->string('connection');
-            $table->string('queue');
+            // Longueur explicite (au lieu du défaut 191) : cet hébergement mutualisé
+            // limite les clés d'index à 1000 octets, et un index composé sur trois
+            // colonnes à 191 caractères en utf8mb4 (764 octets chacune) le dépasse.
+            // "connection"/"queue" ne contiennent que de courts identifiants
+            // (database, redis, sync…), donc 100 caractères suffit largement.
+            $table->string('connection', 100);
+            $table->string('queue', 100);
             $table->longText('payload');
             $table->longText('exception');
             $table->timestamp('failed_at')->useCurrent();
