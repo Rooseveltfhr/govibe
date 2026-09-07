@@ -69,4 +69,25 @@ class AdminAuthTest extends TestCase
         $response->assertSessionHasErrors('email');
         $this->assertGuest();
     }
+
+    public function test_login_is_rate_limited_after_too_many_attempts(): void
+    {
+        $admin = User::factory()->create(['password' => 'correct-password']);
+        $admin->assignRole('admin');
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->post('/admin/login', ['email' => $admin->email, 'password' => 'wrong']);
+        }
+
+        $this->post('/admin/login', ['email' => $admin->email, 'password' => 'wrong'])
+            ->assertStatus(429);
+    }
+
+    public function test_responses_include_basic_security_headers(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertHeader('X-Content-Type-Options', 'nosniff');
+        $response->assertHeader('X-Frame-Options', 'SAMEORIGIN');
+    }
 }

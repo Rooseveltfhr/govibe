@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\Histoire\HistoricalPeriodController as AdminHisto
 use App\Http\Controllers\Admin\Histoire\HistoricalSiteController as AdminHistoricalSiteController;
 use App\Http\Controllers\Admin\PageController as AdminPageController;
 use App\Http\Controllers\Admin\PostController as AdminPostController;
+use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Admin\ProjectCommentController as AdminProjectCommentController;
 use App\Http\Controllers\Admin\Territoire\CommuneController as AdminCommuneController;
 use App\Http\Controllers\Admin\Territoire\SectionCommunaleController as AdminSectionCommunaleController;
@@ -71,12 +72,15 @@ Route::get('/mentions-legales', [PageController::class, 'legal'])->name('pages.l
 // Admin — auth
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
     // Admin — zone protégée
     Route::middleware(['auth', 'role:super_admin|admin|editor|moderator'])->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+        Route::get('/profil', [AdminProfileController::class, 'edit'])->name('profile.edit');
+        Route::put('/profil', [AdminProfileController::class, 'update'])->name('profile.update');
 
         Route::prefix('territoire')->name('territoire.')->group(function () {
             Route::resource('communes', AdminCommuneController::class)

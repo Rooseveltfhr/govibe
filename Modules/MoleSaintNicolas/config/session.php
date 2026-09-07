@@ -169,7 +169,12 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // Sécurisé automatiquement en production (APP_ENV=production, servi en
+    // HTTPS) sans dépendre d'une variable d'environnement supplémentaire
+    // que le client devrait ajouter manuellement sur le serveur.
+    // (app()->environment() ne peut pas être appelé ici : les fichiers de
+    // config sont chargés avant que le conteneur ne soit prêt à le résoudre.)
+    'secure' => env('SESSION_SECURE_COOKIE', env('APP_ENV') === 'production'),
 
     /*
     |--------------------------------------------------------------------------
