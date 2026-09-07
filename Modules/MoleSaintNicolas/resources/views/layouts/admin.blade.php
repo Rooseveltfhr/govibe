@@ -26,6 +26,7 @@
                 <a href="{{ route('admin.posts.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Actualités</a>
                 <a href="{{ route('admin.projets.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Projets</a>
                 <a href="{{ route('admin.pages.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Pages</a>
+                <a href="{{ route('admin.messages.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Messages</a>
                 <a href="{{ route('admin.profile.edit') }}" class="ml-auto text-msn-sea-700 hover:text-msn-sea-900">Mon compte</a>
             </div>
         </nav>

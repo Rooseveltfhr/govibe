@@ -16,6 +16,8 @@
             ['route' => 'etablissements.index', 'label' => 'Établissements'],
             ['route' => 'actualites.index', 'label' => 'Actualités'],
             ['route' => 'projets.index', 'label' => 'Projets communautaires'],
+            ['route' => 'pages.about', 'label' => 'À propos'],
+            ['route' => 'contact.show', 'label' => 'Contact'],
         ];
     @endphp
 
@@ -25,10 +27,10 @@
                 Môle-Saint-Nicolas
             </a>
 
-            <div class="hidden items-center gap-6 text-sm md:flex">
+            <div class="hidden items-center gap-6 overflow-x-auto text-sm md:flex">
                 @foreach ($navLinks as $link)
                     <a href="{{ route($link['route']) }}"
-                       class="{{ request()->routeIs($link['route']) ? 'text-msn-gold-400' : 'hover:text-msn-gold-400' }}">
+                       class="whitespace-nowrap {{ request()->routeIs($link['route']) ? 'text-msn-gold-400' : 'hover:text-msn-gold-400' }}">
                         {{ $link['label'] }}
                     </a>
                 @endforeach

@@ -67,6 +67,7 @@ php artisan serve
 **Hors plan initial (ajouté à la demande du client)**
 - [x] Projets communautaires (`CommunityProject`) + avis visiteurs modérés avant publication — `/projets`
 - [x] Espace admin "Mon compte" (changement de mot de passe), throttle login, cookie de session sécurisé en production, en-têtes de sécurité de base
+- [x] Page "À propos" et page "Contact" (`ContactMessage`, formulaire → notification email admin) rattachées au menu principal — `/a-propos`, `/contact`, CRUD lecture/suppression `/admin/messages`
 
 **À noter**
 - Aucune vraie photo n'est encore hébergée pour les entités sans upload dédié (établissements, sites historiques, activités) :

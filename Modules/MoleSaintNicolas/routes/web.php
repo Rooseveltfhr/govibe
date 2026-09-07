@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ActivityController as AdminActivityController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\CommunityProjectController as AdminCommunityProjectController;
+use App\Http\Controllers\Admin\ContactMessageController as AdminContactMessageController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\Etablissements\EstablishmentController as AdminEstablishmentController;
 use App\Http\Controllers\Admin\Etablissements\ReservationController as AdminReservationController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CarteController;
 use App\Http\Controllers\CentreVilleController;
 use App\Http\Controllers\CommunityProjectController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\EstablishmentController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\GalerieController;
@@ -88,6 +90,9 @@ Route::get('/galerie', [GalerieController::class, 'index'])->name('galerie.index
 
 Route::get('/a-propos', [PageController::class, 'about'])->name('pages.about');
 Route::get('/mentions-legales', [PageController::class, 'legal'])->name('pages.legal');
+
+Route::get('/contact', [ContactController::class, 'show'])->name('contact.show');
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1')->name('contact.store');
 
 // Admin — auth
 Route::prefix('admin')->name('admin.')->group(function () {
@@ -166,6 +171,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/ajouter', [AdminPhotoController::class, 'create'])->name('create');
             Route::post('/', [AdminPhotoController::class, 'store'])->name('store');
             Route::delete('/{photo}', [AdminPhotoController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('messages')->name('messages.')->group(function () {
+            Route::get('/', [AdminContactMessageController::class, 'index'])->name('index');
+            Route::put('/{message}/lu', [AdminContactMessageController::class, 'markRead'])->name('markRead');
+            Route::delete('/{message}', [AdminContactMessageController::class, 'destroy'])->name('destroy');
         });
     });
 });
