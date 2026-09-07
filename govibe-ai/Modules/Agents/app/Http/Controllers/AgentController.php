@@ -268,7 +268,9 @@ class AgentController extends Controller
 
         if ($request->boolean('speak')) {
             try {
-                $spokenAudio = $this->speech->speak($outcome->reply->text, $language)->toDataUri();
+                $spokenAudio = $this->speech
+                    ->speak($outcome->reply->text, $language, $agentModel?->voice_id)
+                    ->toDataUri();
             } catch (NoProviderAvailableException|ProviderException $e) {
                 $spokenAudio = null;
             }

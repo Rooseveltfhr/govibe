@@ -42,6 +42,17 @@
         </table>
     @endif
 
+    <h2>{{ __('Voix') }}</h2>
+    <table>
+        <tr>
+            <td>{{ __('Voix de cet agent') }}</td>
+            <td>{{ $agent->voice_id ?: __('Voix par défaut') }}</td>
+        </tr>
+    </table>
+    <div class="row" style="margin-top:.8rem">
+        <a class="btn" href="{{ route('agents.voice.edit', $agent) }}">{{ __('Choisir ou enregistrer une voix') }}</a>
+    </div>
+
     <h2>{{ __('Sécurité') }}</h2>
     <table>
         <tr>

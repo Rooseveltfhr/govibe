@@ -22,11 +22,12 @@ use Modules\Agents\Templates\AgentTemplateRegistry;
  * @property list<string>|null $channels
  * @property list<string>|null $languages
  * @property string|null $handoff_to
+ * @property string|null $voice_id
  */
 class Agent extends Model
 {
     protected $fillable = [
-        'key', 'name', 'sector', 'knowledge', 'channels', 'languages', 'handoff_to',
+        'key', 'name', 'sector', 'knowledge', 'channels', 'languages', 'handoff_to', 'voice_id',
     ];
 
     /** @return array<string, string> */

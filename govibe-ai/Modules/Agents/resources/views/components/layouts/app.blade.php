@@ -227,6 +227,8 @@
         .choice input { margin: .25rem 0 0; accent-color: var(--accent); flex: none; }
         .choice strong { display: block; font-weight: 600; font-size: .95rem; }
         .choice small { display: block; color: var(--muted); font-size: .86rem; margin-top: .1rem; }
+        .choice audio { display: block; margin-top: .45rem; height: 32px; max-width: 260px; }
+        input[type=file] { font-family: inherit; font-size: .92rem; }
         .choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
         fieldset { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
                    padding: .25rem 1.15rem 1.25rem; margin: 0 0 1.25rem; }

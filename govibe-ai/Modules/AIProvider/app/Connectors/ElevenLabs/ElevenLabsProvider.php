@@ -7,10 +7,12 @@ use Illuminate\Support\Facades\Http;
 use Modules\AIProvider\Connectors\BaseProvider;
 use Modules\AIProvider\Contracts\SupportsSpeech;
 use Modules\AIProvider\Contracts\SupportsTranscription;
+use Modules\AIProvider\Contracts\SupportsVoiceLibrary;
 use Modules\AIProvider\DTO\SpeechRequest;
 use Modules\AIProvider\DTO\SpeechResponse;
 use Modules\AIProvider\DTO\TranscriptionRequest;
 use Modules\AIProvider\DTO\TranscriptionResponse;
+use Modules\AIProvider\DTO\VoiceDescriptor;
 use Modules\AIProvider\Exceptions\ProviderException;
 
 /**
@@ -27,7 +29,7 @@ use Modules\AIProvider\Exceptions\ProviderException;
  * pral konfime chak chan. Si yon chan pa matche, se isit la pou korije l —
  * pa gen okenn lòt kote nan sistèm nan ki konnen fòma ElevenLabs.
  */
-class ElevenLabsProvider extends BaseProvider implements SupportsSpeech, SupportsTranscription
+class ElevenLabsProvider extends BaseProvider implements SupportsSpeech, SupportsTranscription, SupportsVoiceLibrary
 {
     /** Vwa multileng ElevenLabs bay pa defo (« Rachel »). */
     public const DEFAULT_VOICE = '21m00Tcm4TlvDq8ikWAM';
@@ -62,6 +64,122 @@ class ElevenLabsProvider extends BaseProvider implements SupportsSpeech, Support
         $voice = $this->config['voice_id'] ?? '';
 
         return is_string($voice) && trim($voice) !== '' ? trim($voice) : self::DEFAULT_VOICE;
+    }
+
+    /**
+     * Bibliyotèk vwa kont lan — vwa ElevenLabs bay yo AK vwa ou anrejistre.
+     *
+     * Se yon lekti san kò rekèt: sèl bagay ki ka chanje se non chan yo nan
+     * repons lan, epi analiz la tolerab (yon chan ki manke pa fè lis la
+     * tonbe). Se poutèt sa metòd sa a ka viv san mwen verifye l ak yon vrè
+     * kle, kontrèman ak kreyasyon yon ajan ConvAI.
+     *
+     * @return list<VoiceDescriptor>
+     */
+    public function voices(): array
+    {
+        try {
+            $response = Http::baseUrl($this->baseUrl())
+                ->withHeaders(['xi-api-key' => $this->apiKey()])
+                ->timeout($this->timeout())
+                ->connectTimeout(10)
+                ->acceptJson()
+                ->get('/voices');
+        } catch (ConnectionException $e) {
+            throw new ProviderException(
+                sprintf('Connexion impossible à %s : %s', $this->key(), $e->getMessage()),
+                $this->key(),
+                true,
+                null,
+                $e,
+            );
+        }
+
+        if ($response->failed()) {
+            throw ProviderException::fromHttpStatus($this->key(), $response->status(), $response->body());
+        }
+
+        /** @var array<string, mixed> $data */
+        $data = $response->json() ?? [];
+        $voices = [];
+
+        foreach ((array) ($data['voices'] ?? []) as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $voice = VoiceDescriptor::fromArray($entry, $this->key());
+
+            if ($voice !== null) {
+                $voices[] = $voice;
+            }
+        }
+
+        return $voices;
+    }
+
+    /**
+     * Anrejistre yon vwa nouvo apati echantiyon odyo (klonaj).
+     *
+     * ⚠️ Kò rekèt sa a (`POST /v1/voices/add`, multipart `name` + `files`)
+     * ekri dapre dokimantasyon piblik la; li poko kouri kont yon vrè kle.
+     * Si yon chan pa matche, se ISIT LA pou korije l — okenn lòt kote nan
+     * sistèm nan pa konnen fòma ElevenLabs.
+     *
+     * @param  list<string>  $samplePaths
+     */
+    public function addVoice(string $name, array $samplePaths, ?string $description = null): VoiceDescriptor
+    {
+        if ($samplePaths === []) {
+            throw new ProviderException('Pa gen okenn echantiyon odyo pou kreye vwa a.', $this->key());
+        }
+
+        $request = Http::baseUrl($this->baseUrl())
+            ->withHeaders(['xi-api-key' => $this->apiKey()])
+            ->timeout($this->timeout())
+            ->connectTimeout(10);
+
+        foreach ($samplePaths as $path) {
+            $request = $request->attach('files', file_get_contents($path) ?: '', basename($path));
+        }
+
+        try {
+            $response = $request->post('/voices/add', array_filter([
+                'name' => $name,
+                'description' => $description,
+            ]));
+        } catch (ConnectionException $e) {
+            throw new ProviderException(
+                sprintf('Connexion impossible à %s : %s', $this->key(), $e->getMessage()),
+                $this->key(),
+                true,
+                null,
+                $e,
+            );
+        }
+
+        if ($response->failed()) {
+            throw ProviderException::fromHttpStatus($this->key(), $response->status(), $response->body());
+        }
+
+        /** @var array<string, mixed> $data */
+        $data = $response->json() ?? [];
+
+        $voice = VoiceDescriptor::fromArray([
+            'voice_id' => $data['voice_id'] ?? null,
+            'name' => $name,
+            'category' => VoiceDescriptor::CLONED,
+            'description' => $description,
+        ], $this->key());
+
+        if ($voice === null) {
+            throw new ProviderException(
+                'ElevenLabs pa retounen okenn voice_id apre kreyasyon vwa a.',
+                $this->key(),
+            );
+        }
+
+        return $voice;
     }
 
     public function speak(SpeechRequest $request): SpeechResponse
