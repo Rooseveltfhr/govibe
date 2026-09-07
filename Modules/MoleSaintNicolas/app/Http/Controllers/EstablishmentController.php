@@ -6,6 +6,13 @@ use App\Models\Etablissements\Establishment;
 
 class EstablishmentController extends Controller
 {
+    public function all()
+    {
+        $establishments = Establishment::orderBy('name')->get();
+
+        return view('etablissements.all', compact('establishments'));
+    }
+
     public function hotels()
     {
         $establishments = Establishment::type('hotel')->orderBy('name')->get();

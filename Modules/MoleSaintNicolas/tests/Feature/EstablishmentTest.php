@@ -31,6 +31,19 @@ class EstablishmentTest extends TestCase
         $response->assertOk()->assertSee('Boukan Guinguette')->assertDontSee('Chez Ti Marie');
     }
 
+    public function test_unified_establishments_index_lists_all_types(): void
+    {
+        Establishment::create(['type' => 'hotel', 'name' => 'Boukan Guinguette']);
+        Establishment::create(['type' => 'restaurant', 'name' => 'Chez Ti Marie']);
+        Establishment::create(['type' => 'bar', 'name' => 'Le Comptoir']);
+
+        $this->get(route('etablissements.index'))
+            ->assertOk()
+            ->assertSee('Boukan Guinguette')
+            ->assertSee('Chez Ti Marie')
+            ->assertSee('Le Comptoir');
+    }
+
     public function test_restaurants_index_lists_restaurants_and_bars(): void
     {
         Establishment::create(['type' => 'hotel', 'name' => 'Boukan Guinguette']);

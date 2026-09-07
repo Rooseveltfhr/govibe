@@ -43,17 +43,24 @@ php artisan serve
 - [x] CRUD admin (Communes, Sections communales) — `/admin/territoire/{communes,sections}`
 - [x] Pages publiques dynamiques `/territoire`, `/territoire/{commune}`, `/territoire/{commune}/{section}`
 - [x] Histoire : périodes, événements, personnages (`/histoire`) + CRUD admin
-- [x] Données réelles seedées (`TerritorySeeder`, `HistorySeeder`) : sourcées, marquées `needs_review` — à vérifier sur place avant de marquer "vérifié"
-- [ ] Sites historiques (fiches dédiées), Centre-ville, Carte interactive → reste de la Phase 2
+- [x] Lieux historiques (`HistoricalSite`) : liste + fiche détaillée avec carte, CRUD admin — `/lieux-historiques`
+- [x] Carte interactive (Leaflet + OpenStreetMap) — `/carte`, agrège communes/lieux historiques/établissements géolocalisés
+- [x] Données réelles seedées (`TerritorySeeder`, `HistorySeeder`, `HistoricalSiteSeeder`) : sourcées, marquées `needs_review` — à vérifier sur place avant de marquer "vérifié"
+- [ ] Centre-ville → reste de la Phase 2
 
 **Phase 3 — Tourisme**
-- [x] Hôtels/Restaurants/Bars (`Establishment`) : listes `/hotels`, `/restaurants` + fiches détaillées, CRUD admin
+- [x] Hôtels/Restaurants/Bars (`Establishment`) : listes `/hotels`, `/restaurants`, `/etablissements` (vue unifiée) + fiches détaillées, CRUD admin
 - [x] Demandes de réservation visiteur → notification admin par email (`Booking`, sans paiement en ligne — conforme au MVP)
 - [ ] Explorer / Activités → reste de la Phase 3
 
-**Phase 4-5 — à venir**
-- [ ] Booking : confirmation/disponibilité avancée
-- [ ] Blog/News, Événements, Galerie
+**Phase 5 (partiel) — Contenu**
+- [x] Actualités (`Post`) : liste + article, publication différée (`published_at`), CRUD admin — `/actualites`
+- [ ] Événements, Galerie photos → reste de la Phase 5
+
+**À noter**
+- Aucune vraie photo n'est encore hébergée : un composant `<x-photo-placeholder>` (SVG, pas de dépendance externe) marque
+  visuellement chaque emplacement en attendant que l'admin ajoute les images réelles — jamais une photo générique présentée
+  comme si elle montrait le lieu réel.
 
 ## Tests
 

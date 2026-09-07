@@ -56,6 +56,18 @@ class TerritorySeeder extends Seeder
 
         $moleCommune = Commune::where('slug', 'mole-saint-nicolas')->firstOrFail();
 
+        // Coordonnées du bourg (fait géographique public, pas une donnée
+        // commerciale) — seedées une seule fois, jamais réécrites après (un
+        // ajustement fait depuis l'admin ne doit pas être écrasé au prochain
+        // déploiement, voir remote-deploy.sh qui relance ce seeder à chaque fois).
+        if ($moleCommune->lat === null) {
+            $moleCommune->update([
+                'lat' => 19.8047,
+                'lng' => -73.3778,
+                'source_note' => $moleCommune->source_note.' Coordonnées approximatives du bourg — à affiner.',
+            ]);
+        }
+
         foreach (['Côtes de Fer', 'Mare-Rouge', 'Damé'] as $name) {
             SectionCommunale::firstOrCreate(
                 ['commune_id' => $moleCommune->id, 'slug' => Str::slug($name)],

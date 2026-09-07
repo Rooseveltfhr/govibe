@@ -7,15 +7,14 @@
     <meta name="description" content="@yield('meta_description', "Môle-Saint-Nicolas, Haïti : histoire, territoire, sites historiques, hébergements et activités touristiques.")">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-msn-sand-100 text-msn-sea-950 font-sans antialiased">
+<body class="bg-msn-sea-950 text-msn-sand-100 font-sans antialiased">
     @php
         $navLinks = [
-            ['route' => 'home', 'label' => 'Accueil'],
             ['route' => 'histoire.index', 'label' => 'Histoire'],
-            ['route' => 'territoire.index', 'label' => 'Territoire'],
-            ['route' => 'hotels.index', 'label' => 'Où séjourner'],
-            ['route' => 'restaurants.index', 'label' => 'Restaurants'],
-            ['route' => 'pages.about', 'label' => 'À propos'],
+            ['route' => 'lieux-historiques.index', 'label' => 'Lieux historiques'],
+            ['route' => 'territoire.index', 'label' => 'Sections communales'],
+            ['route' => 'etablissements.index', 'label' => 'Établissements'],
+            ['route' => 'actualites.index', 'label' => 'Actualités'],
         ];
     @endphp
 
@@ -83,6 +82,7 @@
             <div>
                 <p class="text-sm font-semibold uppercase tracking-wide text-msn-gold-400">Informations</p>
                 <ul class="mt-4 space-y-2 text-sm">
+                    <li><a href="{{ route('carte.index') }}" class="hover:text-msn-gold-400">Carte interactive</a></li>
                     <li><a href="{{ route('pages.about') }}" class="hover:text-msn-gold-400">À propos de la plateforme</a></li>
                     <li><a href="{{ route('pages.legal') }}" class="hover:text-msn-gold-400">Mentions légales</a></li>
                     <li><a href="{{ route('admin.login') }}" class="hover:text-msn-gold-400">Espace administrateur</a></li>
@@ -106,5 +106,7 @@
             </div>
         </div>
     </footer>
+
+    @stack('scripts')
 </body>
 </html>

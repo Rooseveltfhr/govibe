@@ -7,14 +7,19 @@ use App\Http\Controllers\Admin\Etablissements\ReservationController as AdminRese
 use App\Http\Controllers\Admin\Histoire\HistoricalEventController as AdminHistoricalEventController;
 use App\Http\Controllers\Admin\Histoire\HistoricalFigureController as AdminHistoricalFigureController;
 use App\Http\Controllers\Admin\Histoire\HistoricalPeriodController as AdminHistoricalPeriodController;
-use App\Http\Controllers\Admin\Territoire\CommuneController as AdminCommuneController;
+use App\Http\Controllers\Admin\Histoire\HistoricalSiteController as AdminHistoricalSiteController;
 use App\Http\Controllers\Admin\PageController as AdminPageController;
+use App\Http\Controllers\Admin\PostController as AdminPostController;
+use App\Http\Controllers\Admin\Territoire\CommuneController as AdminCommuneController;
 use App\Http\Controllers\Admin\Territoire\SectionCommunaleController as AdminSectionCommunaleController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\CarteController;
 use App\Http\Controllers\EstablishmentController;
 use App\Http\Controllers\HistoireController;
+use App\Http\Controllers\HistoricalSiteController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\PostController;
 use App\Http\Controllers\TerritoireController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,18 +28,31 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::get('/histoire', [HistoireController::class, 'index'])->name('histoire.index');
 
+Route::prefix('lieux-historiques')->name('lieux-historiques.')->group(function () {
+    Route::get('/', [HistoricalSiteController::class, 'index'])->name('index');
+    Route::get('/{slug}', [HistoricalSiteController::class, 'show'])->name('show');
+});
+
 Route::prefix('territoire')->name('territoire.')->group(function () {
     Route::get('/', [TerritoireController::class, 'index'])->name('index');
     Route::get('/{commune}', [TerritoireController::class, 'commune'])->name('commune');
     Route::get('/{commune}/{section}', [TerritoireController::class, 'section'])->name('section');
 });
 
+Route::get('/etablissements', [EstablishmentController::class, 'all'])->name('etablissements.index');
 Route::get('/hotels', [EstablishmentController::class, 'hotels'])->name('hotels.index');
 Route::get('/hotels/{slug}', [EstablishmentController::class, 'showHotel'])->name('hotels.show');
 Route::get('/restaurants', [EstablishmentController::class, 'restaurants'])->name('restaurants.index');
 Route::get('/restaurants/{slug}', [EstablishmentController::class, 'showRestaurant'])->name('restaurants.show');
 
 Route::post('/etablissements/{establishment}/reservations', [BookingController::class, 'store'])->name('bookings.store');
+
+Route::prefix('actualites')->name('actualites.')->group(function () {
+    Route::get('/', [PostController::class, 'index'])->name('index');
+    Route::get('/{slug}', [PostController::class, 'show'])->name('show');
+});
+
+Route::get('/carte', [CarteController::class, 'index'])->name('carte.index');
 
 Route::get('/a-propos', [PageController::class, 'about'])->name('pages.about');
 Route::get('/mentions-legales', [PageController::class, 'legal'])->name('pages.legal');
@@ -68,6 +86,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::resource('figures', AdminHistoricalFigureController::class)
                 ->except('show')
                 ->parameters(['figures' => 'figure']);
+            Route::resource('sites', AdminHistoricalSiteController::class)
+                ->except('show')
+                ->parameters(['sites' => 'site']);
         });
 
         Route::resource('etablissements', AdminEstablishmentController::class)
@@ -77,6 +98,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('pages', AdminPageController::class)
             ->except('show')
             ->parameters(['pages' => 'page']);
+
+        Route::resource('posts', AdminPostController::class)
+            ->except('show')
+            ->parameters(['posts' => 'post']);
 
         Route::prefix('reservations')->name('reservations.')->group(function () {
             Route::get('/', [AdminReservationController::class, 'index'])->name('index');

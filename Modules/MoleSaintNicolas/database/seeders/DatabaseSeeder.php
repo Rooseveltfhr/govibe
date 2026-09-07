@@ -16,8 +16,10 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             TerritorySeeder::class,
             HistorySeeder::class,
+            HistoricalSiteSeeder::class,
             EstablishmentSeeder::class,
             PageSeeder::class,
+            PostSeeder::class,
         ]);
     }
 }

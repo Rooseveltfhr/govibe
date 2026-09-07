@@ -1,14 +1,15 @@
 @extends('layouts.public')
 
-@section('title', $page->title.' — Môle-Saint-Nicolas')
-@section('meta_description', $page->meta_description ?: $page->title)
+@section('title', $post->title.' — Môle-Saint-Nicolas')
+@section('meta_description', $post->excerpt ?: $post->title)
 
 @section('content')
     <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="flex flex-wrap items-center gap-3">
-            <h1 class="text-3xl font-bold text-msn-sand-100 sm:text-4xl">{{ $page->title }}</h1>
-            <x-content-status-badge :status="$page->content_status" />
+            <h1 class="text-3xl font-bold text-msn-sand-100 sm:text-4xl">{{ $post->title }}</h1>
+            <x-content-status-badge :status="$post->content_status" />
         </div>
+        <p class="mt-1 text-xs uppercase tracking-wide text-msn-sand-200/70">{{ $post->published_at->format('d/m/Y') }}</p>
 
         <div class="mt-8 space-y-4 text-msn-sand-200
                     [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-msn-sand-100
@@ -16,7 +17,11 @@
                     [&_p]:leading-relaxed
                     [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-6
                     [&_a]:font-semibold [&_a]:text-msn-terracotta-500 [&_a]:hover:underline">
-            {!! $page->body !!}
+            {!! $post->body !!}
         </div>
+
+        <a href="{{ route('actualites.index') }}" class="mt-8 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
+            &larr; Toutes les actualités
+        </a>
     </div>
 @endsection
