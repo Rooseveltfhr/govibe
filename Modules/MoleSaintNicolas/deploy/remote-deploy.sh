@@ -30,7 +30,21 @@ cd "$APP"
 mkdir -p storage/app/public storage/framework/cache/data storage/framework/sessions \
   storage/framework/testing storage/framework/views storage/logs
 
-php artisan migrate --force || { echo "MIGRATE_FAIL"; exit 1; }
+# Bootstrap : le tout premier déploiement peut laisser des tables orphelines
+# côté serveur si un run précédent a échoué en cours de migration (une table
+# créée dans un fichier de migration multi-tables sans que la ligne
+# `migrations` correspondante soit enregistrée — "table already exists" au
+# run suivant). Un sentinel dans storage/ (persistant, exclu du rsync)
+# distingue ce cas ponctuel des déploiements suivants : une fois franchi,
+# on repasse en migrate --force normal, qui ne touche jamais aux données.
+BOOTSTRAP_FLAG="storage/.bootstrapped"
+if [ ! -f "$BOOTSTRAP_FLAG" ]; then
+  echo "==> Premier déploiement détecté : réinitialisation + seed"
+  php artisan migrate:fresh --force --seed || { echo "MIGRATE_FAIL"; exit 1; }
+  touch "$BOOTSTRAP_FLAG"
+else
+  php artisan migrate --force || { echo "MIGRATE_FAIL"; exit 1; }
+fi
 
 php artisan config:cache
 php artisan route:cache
