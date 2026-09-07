@@ -185,3 +185,33 @@ it('speaks the demo answer with the voice chosen for that agent', function () {
 
     Http::assertSent(fn (Request $r): bool => str_ends_with($r->url(), '/text-to-speech/mine-1'));
 });
+
+// ── Verifikasyon sou sèvè a ──────────────────────────────────────────────
+
+// Konektè a pa ka teste kont vrè API a depi sandbox devlopman an
+// (elevenlabs.io bloke). Kòmand sa a se chemen verifikasyon an: li kouri
+// sou sèvè a, ak vrè kle a, epi li di sa API a reponn.
+it('lists the voices from the server, and never prints a key', function () {
+    useVoiceLibrary();
+    fakeVoicesResponse();
+
+    $this->artisan('govibe:voices')
+        ->expectsOutputToContain('mine-1')
+        ->doesntExpectOutputToContain('xi-test')
+        ->assertExitCode(0);
+});
+
+it('fails loudly when the voice API answers with a shape we cannot read', function () {
+    useVoiceLibrary();
+    Http::fake(['api.elevenlabs.io/*' => Http::response(['unexpected' => true])]);
+
+    $this->artisan('govibe:voices')
+        ->expectsOutputToContain('pa bay okenn vwa')
+        ->assertExitCode(1);
+});
+
+it('fails when no voice key is configured at all', function () {
+    useVoiceLibrary(withKey: false);
+
+    $this->artisan('govibe:voices')->assertExitCode(1);
+});

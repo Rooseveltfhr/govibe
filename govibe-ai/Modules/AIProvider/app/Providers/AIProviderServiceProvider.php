@@ -5,6 +5,7 @@ namespace Modules\AIProvider\Providers;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Modules\AIProvider\Console\ProvidersStatusCommand;
 use Modules\AIProvider\Console\SyncCatalogCommand;
+use Modules\AIProvider\Console\VoicesCommand;
 use Modules\AIProvider\Health\CircuitBreaker;
 use Modules\AIProvider\Health\ProviderMetrics;
 use Modules\AIProvider\Registry\ModelCatalog;
@@ -28,6 +29,7 @@ class AIProviderServiceProvider extends ModuleServiceProvider
     protected array $commands = [
         SyncCatalogCommand::class,
         ProvidersStatusCommand::class,
+        VoicesCommand::class,
     ];
 
     public function register(): void
