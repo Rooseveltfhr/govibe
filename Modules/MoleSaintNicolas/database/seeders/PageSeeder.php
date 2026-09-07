@@ -91,5 +91,24 @@ class PageSeeder extends Seeder
                 'source_note' => 'Modèle standard de mentions légales — les champs identitaires doivent être complétés et validés par le client.',
             ]
         );
+
+        Page::firstOrCreate(
+            ['slug' => 'centre-ville'],
+            [
+                'title' => 'Centre-ville',
+                'meta_description' => 'Le centre-ville de Môle-Saint-Nicolas : à quoi ressemble-t-il, que peut-on y trouver.',
+                'body' => <<<'HTML'
+                    <p>[Information à compléter — description du centre-ville : rues principales, marché, place publique, bâtiments notables]</p>
+
+                    <h2>Comment s'y rendre</h2>
+                    <p>[Information à compléter]</p>
+
+                    <h2>Ce qu'on y trouve</h2>
+                    <p>[Information à compléter — commerces, services publics, points de repère]</p>
+                    HTML,
+                'content_status' => 'needs_review',
+                'source_note' => 'Page créée vide (brief §6, "Centre-ville — page dédiée") — contenu à rédiger par l\'équipe éditoriale locale, aucune description physique n\'étant vérifiée à ce stade.',
+            ]
+        );
     }
 }

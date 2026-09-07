@@ -182,9 +182,18 @@
         </div>
     </section>
 
+    <section id="centre-ville" class="border-t border-msn-sand-200 py-16">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Centre-ville</h2>
+            <p class="mt-3 text-msn-sea-700">Découvrir le cœur de Môle-Saint-Nicolas.</p>
+            <a href="{{ route('centre-ville.index') }}" class="mt-4 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
+                Voir la page centre-ville &rarr;
+            </a>
+        </div>
+    </section>
+
     @php
         $sections = [
-            ['id' => 'centre-ville', 'title' => 'Centre-ville', 'note' => 'Phase 2'],
             ['id' => 'explorer', 'title' => 'Activités et expériences', 'note' => 'Phase 3'],
             ['id' => 'evenements', 'title' => 'Événements', 'note' => 'Phase 5'],
             ['id' => 'galerie', 'title' => 'Galerie photos', 'note' => 'Phase 5'],

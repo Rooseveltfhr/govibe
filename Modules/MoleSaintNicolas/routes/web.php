@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\Territoire\CommuneController as AdminCommuneContr
 use App\Http\Controllers\Admin\Territoire\SectionCommunaleController as AdminSectionCommunaleController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CarteController;
+use App\Http\Controllers\CentreVilleController;
 use App\Http\Controllers\CommunityProjectController;
 use App\Http\Controllers\EstablishmentController;
 use App\Http\Controllers\HistoireController;
@@ -65,6 +66,7 @@ Route::prefix('projets')->name('projets.')->group(function () {
 });
 
 Route::get('/carte', [CarteController::class, 'index'])->name('carte.index');
+Route::get('/centre-ville', [CentreVilleController::class, 'index'])->name('centre-ville.index');
 
 Route::get('/a-propos', [PageController::class, 'about'])->name('pages.about');
 Route::get('/mentions-legales', [PageController::class, 'legal'])->name('pages.legal');
