@@ -39,12 +39,18 @@ mkdir -p storage/app/public storage/framework/cache/data storage/framework/sessi
 # on repasse en migrate --force normal, qui ne touche jamais aux données.
 BOOTSTRAP_FLAG="storage/.bootstrapped"
 if [ ! -f "$BOOTSTRAP_FLAG" ]; then
-  echo "==> Premier déploiement détecté : réinitialisation + seed"
-  php artisan migrate:fresh --force --seed || { echo "MIGRATE_FAIL"; exit 1; }
+  echo "==> Premier déploiement détecté : réinitialisation"
+  php artisan migrate:fresh --force || { echo "MIGRATE_FAIL"; exit 1; }
   touch "$BOOTSTRAP_FLAG"
 else
   php artisan migrate --force || { echo "MIGRATE_FAIL"; exit 1; }
 fi
+
+# Tous les seeders utilisent firstOrCreate/updateOrCreate : les relancer à
+# chaque déploiement est sans danger (aucun doublon) et permet au nouveau
+# contenu de départ (ex. une page statique ajoutée) d'apparaître en prod
+# sans étape manuelle.
+php artisan db:seed --force || { echo "SEED_FAIL"; exit 1; }
 
 php artisan config:cache
 php artisan route:cache

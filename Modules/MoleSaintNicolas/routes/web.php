@@ -8,11 +8,13 @@ use App\Http\Controllers\Admin\Histoire\HistoricalEventController as AdminHistor
 use App\Http\Controllers\Admin\Histoire\HistoricalFigureController as AdminHistoricalFigureController;
 use App\Http\Controllers\Admin\Histoire\HistoricalPeriodController as AdminHistoricalPeriodController;
 use App\Http\Controllers\Admin\Territoire\CommuneController as AdminCommuneController;
+use App\Http\Controllers\Admin\PageController as AdminPageController;
 use App\Http\Controllers\Admin\Territoire\SectionCommunaleController as AdminSectionCommunaleController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\EstablishmentController;
 use App\Http\Controllers\HistoireController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\PageController;
 use App\Http\Controllers\TerritoireController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,6 +35,9 @@ Route::get('/restaurants', [EstablishmentController::class, 'restaurants'])->nam
 Route::get('/restaurants/{slug}', [EstablishmentController::class, 'showRestaurant'])->name('restaurants.show');
 
 Route::post('/etablissements/{establishment}/reservations', [BookingController::class, 'store'])->name('bookings.store');
+
+Route::get('/a-propos', [PageController::class, 'about'])->name('pages.about');
+Route::get('/mentions-legales', [PageController::class, 'legal'])->name('pages.legal');
 
 // Admin — auth
 Route::prefix('admin')->name('admin.')->group(function () {
@@ -68,6 +73,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('etablissements', AdminEstablishmentController::class)
             ->except('show')
             ->parameters(['etablissements' => 'etablissement']);
+
+        Route::resource('pages', AdminPageController::class)
+            ->except('show')
+            ->parameters(['pages' => 'page']);
 
         Route::prefix('reservations')->name('reservations.')->group(function () {
             Route::get('/', [AdminReservationController::class, 'index'])->name('index');

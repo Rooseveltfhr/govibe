@@ -19,6 +19,7 @@
                 <a href="{{ route('admin.histoire.figures.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Personnages</a>
                 <a href="{{ route('admin.etablissements.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Établissements</a>
                 <a href="{{ route('admin.reservations.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Réservations</a>
+                <a href="{{ route('admin.pages.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Pages</a>
             </div>
         </nav>
     @endauth

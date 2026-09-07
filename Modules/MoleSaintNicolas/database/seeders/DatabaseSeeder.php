@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             TerritorySeeder::class,
             HistorySeeder::class,
             EstablishmentSeeder::class,
+            PageSeeder::class,
         ]);
     }
 }

@@ -32,18 +32,28 @@ php artisan serve
 - [x] Rôles (`super_admin`, `admin`, `editor`, `moderator`, `partner`) via spatie/laravel-permission
 - [x] Authentification admin (`/admin/login`) + dashboard protégé par rôle (`/admin`)
 - [x] Design system de base (palette mer/patrimoine, Tailwind, layouts public/admin)
+- [x] Navigation complète (menu desktop + menu mobile Alpine.js) et footer professionnel (navigation, informations, contact, mentions légales)
+- [x] Pages statiques CMS (`Page` : à propos, mentions légales) — `/a-propos`, `/mentions-legales`, CRUD `/admin/pages`
 - [x] Homepage avec structure des sections prévues par le brief (contenu à venir phase par phase)
+- [x] Déploiement en production (DirectAdmin, CI GitHub Actions — voir `deploy/README.md`)
 
-**Phase 2 — Territoire (en cours)**
+**Phase 2 — Territoire & Histoire**
 - [x] Modèles + migrations : `Department` → `Arrondissement` → `Commune` → `SectionCommunale` → `Localite`
 - [x] Statut de contenu (`verified`/`submitted`/`needs_review`) avec traçabilité (`created_by`, `verified_by`, `verified_at`)
 - [x] CRUD admin (Communes, Sections communales) — `/admin/territoire/{communes,sections}`
 - [x] Pages publiques dynamiques `/territoire`, `/territoire/{commune}`, `/territoire/{commune}/{section}`
-- [x] Données réelles seedées (`TerritorySeeder`) : structure administrative sourcée (Wikipedia), marquée `needs_review` — à vérifier sur place avant de la marquer "vérifiée"
-- [ ] Histoire, Sites historiques, Centre-ville, Carte interactive → reste de la Phase 2
-- [ ] Hôtels, Restaurants, Explorer → Phase 3
-- [ ] Booking → Phase 4
-- [ ] Blog/News, Événements, Galerie → Phase 5
+- [x] Histoire : périodes, événements, personnages (`/histoire`) + CRUD admin
+- [x] Données réelles seedées (`TerritorySeeder`, `HistorySeeder`) : sourcées, marquées `needs_review` — à vérifier sur place avant de marquer "vérifié"
+- [ ] Sites historiques (fiches dédiées), Centre-ville, Carte interactive → reste de la Phase 2
+
+**Phase 3 — Tourisme**
+- [x] Hôtels/Restaurants/Bars (`Establishment`) : listes `/hotels`, `/restaurants` + fiches détaillées, CRUD admin
+- [x] Demandes de réservation visiteur → notification admin par email (`Booking`, sans paiement en ligne — conforme au MVP)
+- [ ] Explorer / Activités → reste de la Phase 3
+
+**Phase 4-5 — à venir**
+- [ ] Booking : confirmation/disponibilité avancée
+- [ ] Blog/News, Événements, Galerie
 
 ## Tests
 
