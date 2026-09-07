@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             EstablishmentSeeder::class,
             PageSeeder::class,
             PostSeeder::class,
+            CommunityProjectSeeder::class,
         ]);
     }
 }
