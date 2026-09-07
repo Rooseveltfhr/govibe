@@ -192,20 +192,71 @@
         </div>
     </section>
 
-    @php
-        $sections = [
-            ['id' => 'explorer', 'title' => 'Activités et expériences', 'note' => 'Phase 3'],
-            ['id' => 'evenements', 'title' => 'Événements', 'note' => 'Phase 5'],
-            ['id' => 'galerie', 'title' => 'Galerie photos', 'note' => 'Phase 5'],
-        ];
-    @endphp
+    <section id="explorer" class="border-t border-msn-sand-200 py-16">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Activités et expériences</h2>
+            <p class="mt-2 text-msn-sea-700">Explorer Môle-Saint-Nicolas autrement.</p>
 
-    @foreach ($sections as $section)
-        <section id="{{ $section['id'] }}" class="border-t border-msn-sand-200 py-16">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">{{ $section['title'] }}</h2>
-                <p class="mt-3 text-msn-sea-700">[Contenu à compléter — {{ $section['note'] }}]</p>
+            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                @forelse ($activities as $activity)
+                    <a href="{{ route('explorer.show', $activity->slug) }}"
+                       class="block overflow-hidden rounded-2xl border border-msn-sand-200 bg-white shadow-sm transition hover:shadow-md">
+                        <x-photo-placeholder icon="map" class="h-28 w-full" />
+                        <div class="p-5">
+                            <h3 class="font-semibold text-msn-sea-900">{{ $activity->title }}</h3>
+                            <p class="mt-1 text-sm text-msn-sea-700 line-clamp-2">{{ $activity->description }}</p>
+                        </div>
+                    </a>
+                @empty
+                    <p class="text-msn-sea-700">[Information à compléter — aucune activité enregistrée]</p>
+                @endforelse
             </div>
-        </section>
-    @endforeach
+
+            <a href="{{ route('explorer.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
+                Voir toutes les activités &rarr;
+            </a>
+        </div>
+    </section>
+
+    <section id="evenements" class="border-t border-msn-sand-200 py-16">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Événements</h2>
+
+            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                @forelse ($events as $event)
+                    <a href="{{ route('evenements.show', $event->slug) }}"
+                       class="block rounded-2xl border border-msn-sand-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+                        <h3 class="font-semibold text-msn-sea-900">{{ $event->title }}</h3>
+                        <p class="mt-1 text-xs uppercase tracking-wide text-msn-sea-700/70">{{ $event->starts_at->format('d/m/Y') }}</p>
+                        <p class="mt-2 text-sm text-msn-sea-700 line-clamp-2">{{ $event->description }}</p>
+                    </a>
+                @empty
+                    <p class="text-msn-sea-700">[Contenu à compléter — aucun événement enregistré pour l'instant]</p>
+                @endforelse
+            </div>
+
+            <a href="{{ route('evenements.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
+                Voir tous les événements &rarr;
+            </a>
+        </div>
+    </section>
+
+    <section id="galerie" class="border-t border-msn-sand-200 py-16">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Galerie photos</h2>
+
+            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                @forelse ($photos as $photo)
+                    <img src="{{ $photo->url }}" alt="{{ $photo->title ?: 'Môle-Saint-Nicolas' }}"
+                         class="h-32 w-full rounded-2xl border border-msn-sand-200 object-cover" loading="lazy">
+                @empty
+                    <p class="col-span-full text-msn-sea-700">[Information à compléter — aucune photo ajoutée pour l'instant]</p>
+                @endforelse
+            </div>
+
+            <a href="{{ route('galerie.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
+                Voir la galerie complète &rarr;
+            </a>
+        </div>
+    </section>
 @endsection

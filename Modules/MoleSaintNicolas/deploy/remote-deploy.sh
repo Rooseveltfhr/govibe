@@ -52,6 +52,10 @@ fi
 # sans étape manuelle.
 php artisan db:seed --force || { echo "SEED_FAIL"; exit 1; }
 
+# Lien public/storage -> storage/app/public (photos de la galerie). Sans
+# effet si le lien existe déjà — sûr à relancer à chaque déploiement.
+php artisan storage:link || true
+
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache

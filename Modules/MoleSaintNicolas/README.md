@@ -46,21 +46,35 @@ php artisan serve
 - [x] Lieux historiques (`HistoricalSite`) : liste + fiche détaillée avec carte, CRUD admin — `/lieux-historiques`
 - [x] Carte interactive (Leaflet + OpenStreetMap) — `/carte`, agrège communes/lieux historiques/établissements géolocalisés
 - [x] Données réelles seedées (`TerritorySeeder`, `HistorySeeder`, `HistoricalSiteSeeder`) : sourcées, marquées `needs_review` — à vérifier sur place avant de marquer "vérifié"
-- [ ] Centre-ville → reste de la Phase 2
+- [x] Centre-ville (`/centre-ville`) : page dédiée réutilisant le modèle `Page`, avec carte si la commune a des coordonnées
+
+**Phase 2 terminée.**
 
 **Phase 3 — Tourisme**
 - [x] Hôtels/Restaurants/Bars (`Establishment`) : listes `/hotels`, `/restaurants`, `/etablissements` (vue unifiée) + fiches détaillées, CRUD admin
 - [x] Demandes de réservation visiteur → notification admin par email (`Booking`, sans paiement en ligne — conforme au MVP)
-- [ ] Explorer / Activités → reste de la Phase 3
+- [x] Explorer / Activités (`Activity`) : liste + fiche, contact direct (téléphone/WhatsApp, lien `wa.me`), sans réservation en ligne — `/explorer`
 
-**Phase 5 (partiel) — Contenu**
+**Phase 3 terminée.**
+
+**Phase 5 — Contenu**
 - [x] Actualités (`Post`) : liste + article, publication différée (`published_at`), CRUD admin — `/actualites`
-- [ ] Événements, Galerie photos → reste de la Phase 5
+- [x] Événements (`Event`) : agenda public/passé, CRUD admin — `/evenements`
+- [x] Galerie photos (`Photo`) : upload admin réel (validation type/taille, `storage:link`), filtrable par catégorie — `/galerie`
+
+**Phase 5 terminée.**
+
+**Hors plan initial (ajouté à la demande du client)**
+- [x] Projets communautaires (`CommunityProject`) + avis visiteurs modérés avant publication — `/projets`
+- [x] Espace admin "Mon compte" (changement de mot de passe), throttle login, cookie de session sécurisé en production, en-têtes de sécurité de base
 
 **À noter**
-- Aucune vraie photo n'est encore hébergée : un composant `<x-photo-placeholder>` (SVG, pas de dépendance externe) marque
-  visuellement chaque emplacement en attendant que l'admin ajoute les images réelles — jamais une photo générique présentée
-  comme si elle montrait le lieu réel.
+- Aucune vraie photo n'est encore hébergée pour les entités sans upload dédié (établissements, sites historiques, activités) :
+  un composant `<x-photo-placeholder>` (SVG, pas de dépendance externe) marque visuellement chaque emplacement en attendant
+  que l'admin ajoute les images réelles — jamais une photo générique présentée comme si elle montrait le lieu réel. La
+  galerie, elle, accepte déjà de vraies photos via Admin → Galerie.
+- Reste hors MVP (Phase 6, brief §14) : espace partenaires en libre-service, avis utilisateurs sur les établissements,
+  multilingue actif, paiement en ligne.
 
 ## Tests
 

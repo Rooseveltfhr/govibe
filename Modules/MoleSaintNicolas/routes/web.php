@@ -1,25 +1,31 @@
 <?php
 
+use App\Http\Controllers\Admin\ActivityController as AdminActivityController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\CommunityProjectController as AdminCommunityProjectController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\Etablissements\EstablishmentController as AdminEstablishmentController;
 use App\Http\Controllers\Admin\Etablissements\ReservationController as AdminReservationController;
+use App\Http\Controllers\Admin\EventController as AdminEventController;
 use App\Http\Controllers\Admin\Histoire\HistoricalEventController as AdminHistoricalEventController;
 use App\Http\Controllers\Admin\Histoire\HistoricalFigureController as AdminHistoricalFigureController;
 use App\Http\Controllers\Admin\Histoire\HistoricalPeriodController as AdminHistoricalPeriodController;
 use App\Http\Controllers\Admin\Histoire\HistoricalSiteController as AdminHistoricalSiteController;
 use App\Http\Controllers\Admin\PageController as AdminPageController;
+use App\Http\Controllers\Admin\PhotoController as AdminPhotoController;
 use App\Http\Controllers\Admin\PostController as AdminPostController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Admin\ProjectCommentController as AdminProjectCommentController;
 use App\Http\Controllers\Admin\Territoire\CommuneController as AdminCommuneController;
 use App\Http\Controllers\Admin\Territoire\SectionCommunaleController as AdminSectionCommunaleController;
+use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CarteController;
 use App\Http\Controllers\CentreVilleController;
 use App\Http\Controllers\CommunityProjectController;
 use App\Http\Controllers\EstablishmentController;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\GalerieController;
 use App\Http\Controllers\HistoireController;
 use App\Http\Controllers\HistoricalSiteController;
 use App\Http\Controllers\HomeController;
@@ -67,6 +73,18 @@ Route::prefix('projets')->name('projets.')->group(function () {
 
 Route::get('/carte', [CarteController::class, 'index'])->name('carte.index');
 Route::get('/centre-ville', [CentreVilleController::class, 'index'])->name('centre-ville.index');
+
+Route::prefix('explorer')->name('explorer.')->group(function () {
+    Route::get('/', [ActivityController::class, 'index'])->name('index');
+    Route::get('/{slug}', [ActivityController::class, 'show'])->name('show');
+});
+
+Route::prefix('evenements')->name('evenements.')->group(function () {
+    Route::get('/', [EventController::class, 'index'])->name('index');
+    Route::get('/{slug}', [EventController::class, 'show'])->name('show');
+});
+
+Route::get('/galerie', [GalerieController::class, 'index'])->name('galerie.index');
 
 Route::get('/a-propos', [PageController::class, 'about'])->name('pages.about');
 Route::get('/mentions-legales', [PageController::class, 'legal'])->name('pages.legal');
@@ -133,6 +151,21 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::prefix('reservations')->name('reservations.')->group(function () {
             Route::get('/', [AdminReservationController::class, 'index'])->name('index');
             Route::put('/{reservation}', [AdminReservationController::class, 'update'])->name('update');
+        });
+
+        Route::resource('explorer', AdminActivityController::class)
+            ->except('show')
+            ->parameters(['explorer' => 'activity']);
+
+        Route::resource('evenements', AdminEventController::class)
+            ->except('show')
+            ->parameters(['evenements' => 'event']);
+
+        Route::prefix('galerie')->name('galerie.')->group(function () {
+            Route::get('/', [AdminPhotoController::class, 'index'])->name('index');
+            Route::get('/ajouter', [AdminPhotoController::class, 'create'])->name('create');
+            Route::post('/', [AdminPhotoController::class, 'store'])->name('store');
+            Route::delete('/{photo}', [AdminPhotoController::class, 'destroy'])->name('destroy');
         });
     });
 });
