@@ -5,8 +5,8 @@
 
 @section('content')
     <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
-        <h1 class="text-3xl font-bold text-msn-sea-900 sm:text-4xl">Carte interactive</h1>
-        <p class="mt-3 text-msn-sea-700">
+        <h1 class="text-3xl font-bold text-msn-ink-900 sm:text-4xl">Carte interactive</h1>
+        <p class="mt-3 text-msn-ink-700">
             Communes, lieux historiques et établissements géolocalisés — la carte se remplit au
             fur et à mesure que les coordonnées sont confirmées par l'équipe éditoriale.
         </p>
@@ -16,7 +16,7 @@
         </div>
 
         @if ($markers->isEmpty())
-            <p class="mt-4 text-sm text-msn-sea-700">
+            <p class="mt-4 text-sm text-msn-ink-700">
                 [Information à compléter — aucune coordonnée confirmée pour l'instant. La carte est
                 centrée sur Môle-Saint-Nicolas.]
             </p>

@@ -8,7 +8,7 @@
     ];
 @endphp
 
-<div {{ $attributes->merge(['class' => 'flex flex-col items-center justify-center gap-2 border-2 border-dashed border-msn-sand-200 bg-msn-sand-100 text-msn-sea-700']) }}>
+<div {{ $attributes->merge(['class' => 'flex flex-col items-center justify-center gap-2 border-2 border-dashed border-msn-sand-200 bg-msn-sand-100 text-msn-ink-700']) }}>
     <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="{{ $icons[$icon] ?? $icons['image'] }}" />
     </svg>

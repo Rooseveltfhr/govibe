@@ -46,8 +46,8 @@
 
     <section id="lieux-historiques" class="border-b border-msn-sand-200 py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Lieux historiques</h2>
-            <p class="mt-2 text-msn-sea-700">Forts, monuments et sites du patrimoine.</p>
+            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Lieux historiques</h2>
+            <p class="mt-2 text-msn-ink-700">Forts, monuments et sites du patrimoine.</p>
 
             <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @forelse ($sites as $site)
@@ -55,12 +55,12 @@
                        class="block overflow-hidden rounded-2xl border border-msn-sand-200 bg-white shadow-sm transition hover:shadow-md">
                         <x-photo-placeholder icon="landmark" class="h-28 w-full" />
                         <div class="p-5">
-                            <h3 class="font-semibold text-msn-sea-900">{{ $site->name }}</h3>
-                            <p class="mt-1 text-sm text-msn-sea-700 line-clamp-2">{{ $site->description ?: '[Information à compléter]' }}</p>
+                            <h3 class="font-semibold text-msn-ink-900">{{ $site->name }}</h3>
+                            <p class="mt-1 text-sm text-msn-ink-700 line-clamp-2">{{ $site->description ?: '[Information à compléter]' }}</p>
                         </div>
                     </a>
                 @empty
-                    <p class="text-msn-sea-700">[Information à compléter — aucun lieu historique enregistré]</p>
+                    <p class="text-msn-ink-700">[Information à compléter — aucun lieu historique enregistré]</p>
                 @endforelse
             </div>
 
@@ -72,17 +72,17 @@
 
     <section id="territoire" class="border-b border-msn-sand-200 py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Territoire et sections communales</h2>
-            <p class="mt-2 text-msn-sea-700">L'arrondissement de {{ $arrondissement?->name ?? 'Môle-Saint-Nicolas' }} et ses communes.</p>
+            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Territoire et sections communales</h2>
+            <p class="mt-2 text-msn-ink-700">L'arrondissement de {{ $arrondissement?->name ?? 'Môle-Saint-Nicolas' }} et ses communes.</p>
 
             <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 @forelse ($arrondissement?->communes ?? [] as $commune)
                     <a href="{{ route('territoire.commune', $commune->slug) }}"
                        class="block rounded-2xl border border-msn-sand-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-                        <h3 class="font-semibold text-msn-sea-900">{{ $commune->name }}</h3>
+                        <h3 class="font-semibold text-msn-ink-900">{{ $commune->name }}</h3>
                     </a>
                 @empty
-                    <p class="text-msn-sea-700">[Information à compléter]</p>
+                    <p class="text-msn-ink-700">[Information à compléter]</p>
                 @endforelse
             </div>
 
@@ -94,8 +94,8 @@
 
     <section id="sejour" class="border-b border-msn-sand-200 py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Où séjourner ?</h2>
-            <p class="mt-2 text-msn-sea-700">Hôtels et hébergements à Môle-Saint-Nicolas.</p>
+            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Où séjourner ?</h2>
+            <p class="mt-2 text-msn-ink-700">Hôtels et hébergements à Môle-Saint-Nicolas.</p>
 
             <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @forelse ($hotels as $hotel)
@@ -103,12 +103,12 @@
                        class="block overflow-hidden rounded-2xl border border-msn-sand-200 bg-white shadow-sm transition hover:shadow-md">
                         <x-photo-placeholder class="h-28 w-full" />
                         <div class="p-5">
-                            <h3 class="font-semibold text-msn-sea-900">{{ $hotel->name }}</h3>
-                            <p class="mt-1 text-sm text-msn-sea-700 line-clamp-2">{{ $hotel->description ?: '[Information à compléter]' }}</p>
+                            <h3 class="font-semibold text-msn-ink-900">{{ $hotel->name }}</h3>
+                            <p class="mt-1 text-sm text-msn-ink-700 line-clamp-2">{{ $hotel->description ?: '[Information à compléter]' }}</p>
                         </div>
                     </a>
                 @empty
-                    <p class="text-msn-sea-700">[Information à compléter — aucun hôtel enregistré]</p>
+                    <p class="text-msn-ink-700">[Information à compléter — aucun hôtel enregistré]</p>
                 @endforelse
             </div>
 
@@ -120,8 +120,8 @@
 
     <section id="restaurants" class="border-b border-msn-sand-200 py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Restaurants et bars</h2>
-            <p class="mt-2 text-msn-sea-700">Où manger et boire un verre à Môle-Saint-Nicolas.</p>
+            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Restaurants et bars</h2>
+            <p class="mt-2 text-msn-ink-700">Où manger et boire un verre à Môle-Saint-Nicolas.</p>
 
             <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @forelse ($restaurants as $restaurant)
@@ -129,12 +129,12 @@
                        class="block overflow-hidden rounded-2xl border border-msn-sand-200 bg-white shadow-sm transition hover:shadow-md">
                         <x-photo-placeholder class="h-28 w-full" />
                         <div class="p-5">
-                            <h3 class="font-semibold text-msn-sea-900">{{ $restaurant->name }}</h3>
-                            <p class="mt-1 text-sm text-msn-sea-700 line-clamp-2">{{ $restaurant->description ?: '[Information à compléter]' }}</p>
+                            <h3 class="font-semibold text-msn-ink-900">{{ $restaurant->name }}</h3>
+                            <p class="mt-1 text-sm text-msn-ink-700 line-clamp-2">{{ $restaurant->description ?: '[Information à compléter]' }}</p>
                         </div>
                     </a>
                 @empty
-                    <p class="text-msn-sea-700">[Information à compléter — aucun restaurant enregistré]</p>
+                    <p class="text-msn-ink-700">[Information à compléter — aucun restaurant enregistré]</p>
                 @endforelse
             </div>
 
@@ -146,18 +146,18 @@
 
     <section id="actualites" class="border-b border-msn-sand-200 py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Dernières actualités</h2>
+            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Dernières actualités</h2>
 
             <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @forelse ($posts as $post)
                     <a href="{{ route('actualites.show', $post->slug) }}"
                        class="block rounded-2xl border border-msn-sand-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-                        <h3 class="font-semibold text-msn-sea-900">{{ $post->title }}</h3>
-                        <p class="mt-1 text-xs uppercase tracking-wide text-msn-sea-700/70">{{ $post->published_at->format('d/m/Y') }}</p>
-                        <p class="mt-2 text-sm text-msn-sea-700 line-clamp-2">{{ $post->excerpt ?: '[Information à compléter]' }}</p>
+                        <h3 class="font-semibold text-msn-ink-900">{{ $post->title }}</h3>
+                        <p class="mt-1 text-xs uppercase tracking-wide text-msn-ink-700/70">{{ $post->published_at->format('d/m/Y') }}</p>
+                        <p class="mt-2 text-sm text-msn-ink-700 line-clamp-2">{{ $post->excerpt ?: '[Information à compléter]' }}</p>
                     </a>
                 @empty
-                    <p class="text-msn-sea-700">[Contenu à compléter — aucun article publié pour l'instant]</p>
+                    <p class="text-msn-ink-700">[Contenu à compléter — aucun article publié pour l'instant]</p>
                 @endforelse
             </div>
 
@@ -169,8 +169,8 @@
 
     <section id="carte" class="py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Carte interactive</h2>
-            <p class="mt-2 text-msn-sea-700">Communes, lieux historiques et établissements géolocalisés.</p>
+            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Carte interactive</h2>
+            <p class="mt-2 text-msn-ink-700">Communes, lieux historiques et établissements géolocalisés.</p>
 
             <div class="mt-6">
                 <x-leaflet-map :markers="[]" class="h-72 w-full" />
@@ -184,8 +184,8 @@
 
     <section id="centre-ville" class="border-t border-msn-sand-200 py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Centre-ville</h2>
-            <p class="mt-3 text-msn-sea-700">Découvrir le cœur de Môle-Saint-Nicolas.</p>
+            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Centre-ville</h2>
+            <p class="mt-3 text-msn-ink-700">Découvrir le cœur de Môle-Saint-Nicolas.</p>
             <a href="{{ route('centre-ville.index') }}" class="mt-4 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
                 Voir la page centre-ville &rarr;
             </a>
@@ -194,8 +194,8 @@
 
     <section id="explorer" class="border-t border-msn-sand-200 py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Activités et expériences</h2>
-            <p class="mt-2 text-msn-sea-700">Explorer Môle-Saint-Nicolas autrement.</p>
+            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Activités et expériences</h2>
+            <p class="mt-2 text-msn-ink-700">Explorer Môle-Saint-Nicolas autrement.</p>
 
             <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @forelse ($activities as $activity)
@@ -203,12 +203,12 @@
                        class="block overflow-hidden rounded-2xl border border-msn-sand-200 bg-white shadow-sm transition hover:shadow-md">
                         <x-photo-placeholder icon="map" class="h-28 w-full" />
                         <div class="p-5">
-                            <h3 class="font-semibold text-msn-sea-900">{{ $activity->title }}</h3>
-                            <p class="mt-1 text-sm text-msn-sea-700 line-clamp-2">{{ $activity->description }}</p>
+                            <h3 class="font-semibold text-msn-ink-900">{{ $activity->title }}</h3>
+                            <p class="mt-1 text-sm text-msn-ink-700 line-clamp-2">{{ $activity->description }}</p>
                         </div>
                     </a>
                 @empty
-                    <p class="text-msn-sea-700">[Information à compléter — aucune activité enregistrée]</p>
+                    <p class="text-msn-ink-700">[Information à compléter — aucune activité enregistrée]</p>
                 @endforelse
             </div>
 
@@ -220,18 +220,18 @@
 
     <section id="evenements" class="border-t border-msn-sand-200 py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Événements</h2>
+            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Événements</h2>
 
             <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @forelse ($events as $event)
                     <a href="{{ route('evenements.show', $event->slug) }}"
                        class="block rounded-2xl border border-msn-sand-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-                        <h3 class="font-semibold text-msn-sea-900">{{ $event->title }}</h3>
-                        <p class="mt-1 text-xs uppercase tracking-wide text-msn-sea-700/70">{{ $event->starts_at->format('d/m/Y') }}</p>
-                        <p class="mt-2 text-sm text-msn-sea-700 line-clamp-2">{{ $event->description }}</p>
+                        <h3 class="font-semibold text-msn-ink-900">{{ $event->title }}</h3>
+                        <p class="mt-1 text-xs uppercase tracking-wide text-msn-ink-700/70">{{ $event->starts_at->format('d/m/Y') }}</p>
+                        <p class="mt-2 text-sm text-msn-ink-700 line-clamp-2">{{ $event->description }}</p>
                     </a>
                 @empty
-                    <p class="text-msn-sea-700">[Contenu à compléter — aucun événement enregistré pour l'instant]</p>
+                    <p class="text-msn-ink-700">[Contenu à compléter — aucun événement enregistré pour l'instant]</p>
                 @endforelse
             </div>
 
@@ -243,14 +243,14 @@
 
     <section id="galerie" class="border-t border-msn-sand-200 py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-sea-900 sm:text-3xl">Galerie photos</h2>
+            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Galerie photos</h2>
 
             <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 @forelse ($photos as $photo)
                     <img src="{{ $photo->url }}" alt="{{ $photo->title ?: 'Môle-Saint-Nicolas' }}"
                          class="h-32 w-full rounded-2xl border border-msn-sand-200 object-cover" loading="lazy">
                 @empty
-                    <p class="col-span-full text-msn-sea-700">[Information à compléter — aucune photo ajoutée pour l'instant]</p>
+                    <p class="col-span-full text-msn-ink-700">[Information à compléter — aucune photo ajoutée pour l'instant]</p>
                 @endforelse
             </div>
 

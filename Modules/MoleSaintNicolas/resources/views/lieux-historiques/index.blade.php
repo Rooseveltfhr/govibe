@@ -5,8 +5,8 @@
 
 @section('content')
     <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
-        <h1 class="text-3xl font-bold text-msn-sea-900 sm:text-4xl">Lieux historiques</h1>
-        <p class="mt-3 text-msn-sea-700">
+        <h1 class="text-3xl font-bold text-msn-ink-900 sm:text-4xl">Lieux historiques</h1>
+        <p class="mt-3 text-msn-ink-700">
             Forts, monuments et sites du patrimoine de Môle-Saint-Nicolas.
         </p>
 
@@ -17,19 +17,19 @@
                     <x-photo-placeholder icon="landmark" class="h-32 w-full" />
                     <div class="p-6">
                         <div class="flex items-center justify-between gap-2">
-                            <h2 class="font-semibold text-msn-sea-900">{{ $site->name }}</h2>
+                            <h2 class="font-semibold text-msn-ink-900">{{ $site->name }}</h2>
                             <x-content-status-badge :status="$site->content_status" />
                         </div>
                         @if ($site->category)
                             <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-msn-terracotta-500">{{ $site->category }}</p>
                         @endif
-                        <p class="mt-2 text-sm text-msn-sea-700 line-clamp-2">
+                        <p class="mt-2 text-sm text-msn-ink-700 line-clamp-2">
                             {{ $site->description ?: '[Information à compléter]' }}
                         </p>
                     </div>
                 </a>
             @empty
-                <p class="text-msn-sea-700">[Information à compléter — aucun lieu historique enregistré]</p>
+                <p class="text-msn-ink-700">[Information à compléter — aucun lieu historique enregistré]</p>
             @endforelse
         </div>
     </div>

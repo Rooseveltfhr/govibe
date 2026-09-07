@@ -20,6 +20,12 @@
     --color-msn-terracotta-500: #c96a3e;
     --color-msn-terracotta-600: #a8532e;
     --color-msn-gold-400: #d4a94f;
+
+    /* Texte du corps du site (fond blanc) : noir/gris foncé "normal",
+       demandé par le client — distinct de --color-msn-sea-900, qui reste le
+       bleu marine utilisé comme fond (header/hero/footer). */
+    --color-msn-ink-900: #111827;
+    --color-msn-ink-700: #374151;
 }
 
 @keyframes hero-fade-up {
