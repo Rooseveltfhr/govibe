@@ -6,14 +6,14 @@
 @section('content')
     <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
         <div class="flex flex-wrap items-center gap-3">
-            <h1 class="text-3xl font-bold text-msn-sand-100 sm:text-4xl">{{ $post->title }}</h1>
+            <h1 class="text-3xl font-bold text-msn-sea-900 sm:text-4xl">{{ $post->title }}</h1>
             <x-content-status-badge :status="$post->content_status" />
         </div>
-        <p class="mt-1 text-xs uppercase tracking-wide text-msn-sand-200/70">{{ $post->published_at->format('d/m/Y') }}</p>
+        <p class="mt-1 text-xs uppercase tracking-wide text-msn-sea-700/70">{{ $post->published_at->format('d/m/Y') }}</p>
 
-        <div class="mt-8 space-y-4 text-msn-sand-200
-                    [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-msn-sand-100
-                    [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-msn-sand-100
+        <div class="mt-8 space-y-4 text-msn-sea-700
+                    [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-msn-sea-900
+                    [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-msn-sea-900
                     [&_p]:leading-relaxed
                     [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-6
                     [&_a]:font-semibold [&_a]:text-msn-terracotta-500 [&_a]:hover:underline">

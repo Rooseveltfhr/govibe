@@ -4,14 +4,14 @@
 
 @section('content')
     <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
-        <h1 class="text-3xl font-bold text-msn-sand-100 sm:text-4xl">{{ $title }}</h1>
+        <h1 class="text-3xl font-bold text-msn-sea-900 sm:text-4xl">{{ $title }}</h1>
 
         <div class="mt-8 grid gap-4 sm:grid-cols-2">
             @forelse ($establishments as $establishment)
                 <a href="{{ route($typeSlug === 'hotels' ? 'hotels.show' : 'restaurants.show', $establishment->slug) }}"
-                   class="block rounded-2xl border border-msn-sea-700 bg-msn-sea-900 p-6 shadow-sm transition hover:shadow-md">
+                   class="block rounded-2xl border border-msn-sand-200 bg-white p-6 shadow-sm transition hover:shadow-md">
                     <div class="flex items-center justify-between gap-2">
-                        <h2 class="font-semibold text-msn-sand-100">{{ $establishment->name }}</h2>
+                        <h2 class="font-semibold text-msn-sea-900">{{ $establishment->name }}</h2>
                         <x-content-status-badge :status="$establishment->content_status" />
                     </div>
                     @if ($establishment->type !== 'hotel')
@@ -20,15 +20,15 @@
                             @if ($establishment->cuisine_type) · {{ $establishment->cuisine_type }} @endif
                         </p>
                     @endif
-                    <p class="mt-2 text-sm text-msn-sand-200 line-clamp-2">
+                    <p class="mt-2 text-sm text-msn-sea-700 line-clamp-2">
                         {{ $establishment->description ?: '[Information à compléter]' }}
                     </p>
                     @if ($establishment->price_range)
-                        <p class="mt-2 text-sm font-semibold text-msn-sand-100">{{ $establishment->price_range }}</p>
+                        <p class="mt-2 text-sm font-semibold text-msn-sea-900">{{ $establishment->price_range }}</p>
                     @endif
                 </a>
             @empty
-                <p class="text-msn-sand-200">[Information à compléter — aucun établissement enregistré]</p>
+                <p class="text-msn-sea-700">[Information à compléter — aucun établissement enregistré]</p>
             @endforelse
         </div>
     </div>

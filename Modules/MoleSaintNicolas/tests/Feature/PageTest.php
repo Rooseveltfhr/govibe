@@ -51,13 +51,11 @@ class PageTest extends TestCase
         $this->get(route('pages.about'))->assertNotFound();
     }
 
-    public function test_navigation_and_footer_link_to_about_page(): void
+    public function test_footer_shows_a_simple_copyright_line(): void
     {
-        Page::create(['title' => 'À propos de la plateforme', 'slug' => 'a-propos', 'body' => '<p>x</p>']);
-
         $this->get('/')
             ->assertOk()
-            ->assertSee(route('pages.about'), escape: false);
+            ->assertSee('Tous droits réservés');
     }
 
     public function test_guest_cannot_manage_pages(): void

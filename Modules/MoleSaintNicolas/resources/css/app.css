@@ -18,3 +18,19 @@
     --color-msn-terracotta-600: #a8532e;
     --color-msn-gold-400: #d4a94f;
 }
+
+@keyframes hero-fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hero-fade-up {
+    opacity: 0;
+    animation: hero-fade-up 0.7s ease-out forwards;
+}

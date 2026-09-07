@@ -4,7 +4,7 @@
     $mapId = 'map-'.\Illuminate\Support\Str::random(8);
 @endphp
 
-<div id="{{ $mapId }}" {{ $attributes->merge(['class' => 'h-96 w-full rounded-2xl border border-msn-sea-700']) }}></div>
+<div id="{{ $mapId }}" {{ $attributes->merge(['class' => 'h-96 w-full rounded-2xl border border-msn-sand-200']) }}></div>
 
 {{-- Pas de hash d'intégrité (SRI) ici : un hash figé dans le code et non
      vérifiable dans cet environnement, s'il devient incorrect (changement
