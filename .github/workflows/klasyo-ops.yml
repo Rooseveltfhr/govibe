@@ -34,6 +34,20 @@ jobs:
       - name: Run operation script
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
-          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            'bash -s' < .github/scripts/klasyo-run.sh
+          # Le VPS (firewall Imunify360) peut refuser/dropper par intermittence les IP des runners.
+          # On réessaie plusieurs fois avec un ConnectTimeout court et un backoff.
+          attempt=0; max=5; rc=1
+          while [ "$attempt" -lt "$max" ]; do
+            attempt=$((attempt+1))
+            echo "== Tentative SSH $attempt/$max =="
+            ssh -i ~/.ssh/id_deploy -p "$PORT" \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=25 -o ConnectionAttempts=3 \
+              -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+              "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+              'bash -s' < .github/scripts/klasyo-run.sh && { rc=0; break; }
+            rc=$?
+            echo "   échec (rc=$rc) — nouvelle tentative dans $((attempt*20))s"
+            sleep $((attempt*20))
+          done
+          exit $rc
