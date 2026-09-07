@@ -12,8 +12,11 @@
     --color-msn-sea-900: #0a3345;
     --color-msn-sea-700: #115373;
     --color-msn-sea-500: #1c7ba3;
-    --color-msn-sand-100: #faf5ec;
-    --color-msn-sand-200: #f2e6d0;
+    /* Blanc pur (le nom "sand" reste pour ne pas devoir renommer chaque usage) :
+       le client a explicitement demandé un fond blanc "normal", pas la teinte
+       crème d'origine — un site pro standard, pas un fond coloré partout. */
+    --color-msn-sand-100: #ffffff;
+    --color-msn-sand-200: #e7e9ec;
     --color-msn-terracotta-500: #c96a3e;
     --color-msn-terracotta-600: #a8532e;
     --color-msn-gold-400: #d4a94f;
