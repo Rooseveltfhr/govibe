@@ -15,6 +15,7 @@
             ['route' => 'territoire.index', 'label' => 'Sections communales'],
             ['route' => 'etablissements.index', 'label' => 'Établissements'],
             ['route' => 'actualites.index', 'label' => 'Actualités'],
+            ['route' => 'projets.index', 'label' => 'Projets communautaires'],
         ];
     @endphp
 

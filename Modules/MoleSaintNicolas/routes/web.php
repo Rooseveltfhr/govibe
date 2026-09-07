@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\CommunityProjectController as AdminCommunityProjectController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\Etablissements\EstablishmentController as AdminEstablishmentController;
 use App\Http\Controllers\Admin\Etablissements\ReservationController as AdminReservationController;
@@ -10,10 +11,12 @@ use App\Http\Controllers\Admin\Histoire\HistoricalPeriodController as AdminHisto
 use App\Http\Controllers\Admin\Histoire\HistoricalSiteController as AdminHistoricalSiteController;
 use App\Http\Controllers\Admin\PageController as AdminPageController;
 use App\Http\Controllers\Admin\PostController as AdminPostController;
+use App\Http\Controllers\Admin\ProjectCommentController as AdminProjectCommentController;
 use App\Http\Controllers\Admin\Territoire\CommuneController as AdminCommuneController;
 use App\Http\Controllers\Admin\Territoire\SectionCommunaleController as AdminSectionCommunaleController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CarteController;
+use App\Http\Controllers\CommunityProjectController;
 use App\Http\Controllers\EstablishmentController;
 use App\Http\Controllers\HistoireController;
 use App\Http\Controllers\HistoricalSiteController;
@@ -50,6 +53,14 @@ Route::post('/etablissements/{establishment}/reservations', [BookingController::
 Route::prefix('actualites')->name('actualites.')->group(function () {
     Route::get('/', [PostController::class, 'index'])->name('index');
     Route::get('/{slug}', [PostController::class, 'show'])->name('show');
+});
+
+Route::prefix('projets')->name('projets.')->group(function () {
+    Route::get('/', [CommunityProjectController::class, 'index'])->name('index');
+    Route::get('/{slug}', [CommunityProjectController::class, 'show'])->name('show');
+    Route::post('/{slug}/commentaires', [CommunityProjectController::class, 'storeComment'])
+        ->middleware('throttle:5,1')
+        ->name('comments.store');
 });
 
 Route::get('/carte', [CarteController::class, 'index'])->name('carte.index');
@@ -102,6 +113,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('posts', AdminPostController::class)
             ->except('show')
             ->parameters(['posts' => 'post']);
+
+        Route::resource('projets', AdminCommunityProjectController::class)
+            ->except('show')
+            ->parameters(['projets' => 'projet']);
+
+        Route::prefix('projets/commentaires')->name('projets.comments.')->group(function () {
+            Route::get('/', [AdminProjectCommentController::class, 'index'])->name('index');
+            Route::put('/{comment}/approuver', [AdminProjectCommentController::class, 'approve'])->name('approve');
+            Route::delete('/{comment}', [AdminProjectCommentController::class, 'destroy'])->name('destroy');
+        });
 
         Route::prefix('reservations')->name('reservations.')->group(function () {
             Route::get('/', [AdminReservationController::class, 'index'])->name('index');

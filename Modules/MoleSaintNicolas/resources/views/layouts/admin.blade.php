@@ -21,6 +21,7 @@
                 <a href="{{ route('admin.etablissements.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Établissements</a>
                 <a href="{{ route('admin.reservations.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Réservations</a>
                 <a href="{{ route('admin.posts.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Actualités</a>
+                <a href="{{ route('admin.projets.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Projets</a>
                 <a href="{{ route('admin.pages.index') }}" class="text-msn-sea-700 hover:text-msn-sea-900">Pages</a>
             </div>
         </nav>
