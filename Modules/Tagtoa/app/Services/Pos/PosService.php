@@ -19,8 +19,12 @@ class PosService
 
     public function recordSale(Terminal $terminal, array $payload): Sale
     {
+        // Idempotence limitée à CETTE caisse. La recherche était globale : une
+        // caisse qui numérote « 1 » ou « vente-42 » retrouvait alors la vente
+        // d'un AUTRE commerce, sa propre vente n'était jamais enregistrée, et la
+        // référence du voisin lui était renvoyée.
         $uuid = $payload['client_uuid'] ?? null;
-        if ($uuid && $existing = Sale::where('client_uuid', $uuid)->first()) {
+        if ($uuid && $existing = $terminal->sales()->where('client_uuid', $uuid)->first()) {
             return $existing;
         }
 
