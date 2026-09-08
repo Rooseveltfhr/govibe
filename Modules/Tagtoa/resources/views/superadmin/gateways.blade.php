@@ -150,6 +150,20 @@
                                     <span class="pill g" style="font-size:10.5px">{{ __('prête') }}</span>
                                 @endif
                             </span>
+                            {{-- Moyens qu'un second fournisseur peut aussi traiter :
+                                 la carte bancaire passe par PayPal ou par Stripe. --}}
+                            @if(count($alternatives[$type] ?? []) > 1)
+                                <div style="margin-top:7px;display:flex;align-items:center;gap:7px">
+                                    <span style="color:var(--muted);font-size:12px">{{ __('Traité par') }}</span>
+                                    <select class="sel" name="gateways[{{ $type }}][driver]" style="max-width:150px;font-size:13px;padding:5px 9px">
+                                        @foreach($alternatives[$type] as $d)
+                                            <option value="{{ $d }}" @selected(($meta['driver'] ?? null) === $d)>
+                                                {{ $drivers[$d]['label'] ?? ucfirst($d) }}{{ ($drivers[$d]['ready'] ?? false) ? '' : ' — '.__('clés manquantes') }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @endif
                         </td>
                         <td>
                             @if($isAuto)

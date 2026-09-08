@@ -51,8 +51,8 @@ Classification dans `app/Support/PaymentGateway.php`.
 | Type méthode | Mode | Driver |
 |---|---|---|
 | moncash | auto | moncash |
-| paypal | auto | paypal |
-| card | auto | stripe |
+| paypal | auto | **paypal** |
+| card (VISA/Mastercard) | auto | **paypal** (Stripe au choix — voir ci-dessous) |
 | usdt / usdc / btc / eth | auto | coinpayments |
 | natcash, zelle, cashapp, unibank, sogebank, capitalbank, bnc, … | manuel | — |
 
@@ -62,6 +62,40 @@ Classification dans `app/Support/PaymentGateway.php`.
 > client envoie une preuve). Le jour où la documentation officielle est
 > obtenue, un driver s'ajoute comme les autres et la méthode bascule seule en
 > automatique, sans que le marchand ait quoi que ce soit à refaire.
+
+## PayPal traite PayPal ET la carte bancaire
+
+Le client voit **deux entrées** dans la liste — « PayPal » et « Carte bancaire »
+— et les deux sont réglées par PayPal, avec **un seul jeu d'identifiants**.
+
+La différence est réelle pour le client : l'entrée « Carte bancaire » ouvre
+directement le formulaire carte de PayPal (`application_context.landing_page =
+BILLING`), au lieu de l'écran de connexion. Sans cela, un client sans compte
+PayPal croirait qu'il ne peut pas payer — alors que PayPal accepte les cartes
+sans compte.
+
+### Changer le fournisseur de la carte
+
+`/tagtoa/admin/gateways` → ligne « Carte » → **Traité par** : PayPal ou Stripe.
+
+Stripe reste utile : il accepte le **peso dominicain (DOP)** que PayPal refuse,
+et sert de réserve si un compte PayPal est bloqué. Le choix est contraint par
+`PaymentGateway::ALTERNATIVES` : aucune valeur postée ne peut devenir un nom de
+driver arbitraire.
+
+> **Devises.** Ni PayPal ni Stripe ne traitent la **gourde (HTG)**. Un lien en
+> HTG retombe proprement sur le paiement manuel. La carte ne fonctionne qu'en
+> USD, EUR, CAD, GBP, AUD, MXN, BRL, JPY, CHF (+ DOP via Stripe).
+
+### Venmo — pas disponible par ce chemin
+
+Venmo est bien une source de fonds PayPal, mais elle **n'apparaît jamais dans le
+flux par redirection** utilisé ici. Elle exige le SDK JavaScript de PayPal, un
+compte marchand **américain** avec Venmo activé, et un acheteur **aux
+États-Unis**. Venmo reste donc en **manuel** : le client envoie une preuve.
+
+Le jour où ces trois conditions sont réunies, l'ajout se fait comme les autres
+passerelles — sans rien changer pour le marchand.
 
 ## Identifiants (secrets) — à définir en .env / GitHub secrets
 > NE JAMAIS committer ces valeurs. Tant qu'elles sont absentes, la méthode

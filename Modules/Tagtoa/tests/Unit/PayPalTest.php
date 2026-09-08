@@ -51,4 +51,31 @@ class PayPalTest extends TestCase
         $this->assertStringContainsString('sandbox', PayPal::apiBase('sandbox'));
         $this->assertSame('https://api-m.paypal.com', PayPal::apiBase('live'));
     }
+
+    /* ------------------------------------------------------------------
+       Deux entrées, un seul fournisseur.
+       TAGTOA propose « PayPal » et « Carte bancaire » séparément ; les deux
+       sont traitées par PayPal. Sans distinction, le client sans compte
+       PayPal tomberait sur un écran de connexion et croirait qu'il ne peut
+       pas payer — alors que PayPal accepte les cartes sans compte.
+       ------------------------------------------------------------------ */
+
+    public function test_the_card_entry_opens_the_card_form_not_the_login_screen(): void
+    {
+        $this->assertSame('BILLING', PayPal::landingPage('card'));
+    }
+
+    public function test_the_paypal_entry_lets_paypal_decide(): void
+    {
+        $this->assertSame('NO_PREFERENCE', PayPal::landingPage('paypal'));
+    }
+
+    public function test_an_unknown_or_missing_method_never_forces_the_card_form(): void
+    {
+        // Un paiement venu d'un autre chemin (commande MENU, POS…) ne doit pas
+        // se retrouver bloqué sur le formulaire carte.
+        $this->assertSame('NO_PREFERENCE', PayPal::landingPage(null));
+        $this->assertSame('NO_PREFERENCE', PayPal::landingPage('moncash'));
+        $this->assertSame('NO_PREFERENCE', PayPal::landingPage(''));
+    }
 }

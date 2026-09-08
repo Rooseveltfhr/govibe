@@ -75,7 +75,9 @@ class PublicController extends Controller
         $m = app(MerchantMethods::class)->active($page->tenant_id)->firstWhere('id', (int) $method);
         abort_unless($m, 404);
 
-        $gateway = \Modules\Tagtoa\App\Support\PaymentGateway::driver($m->type);
+        // Driver effectif (réglage super-admin compris) : la carte bancaire peut
+        // être traitée par PayPal ou par Stripe selon le choix du fondateur.
+        $gateway = \Modules\Tagtoa\App\Support\Pay\GatewayCatalog::driverFor($m->type);
         // Prix fixe → imposé côté serveur (anti-fraude) ; sinon le payeur choisit.
         $amount = $page->hasFixedAmount() ? (float) $page->amount : round((float) $request->input('amount', 0), 2);
 

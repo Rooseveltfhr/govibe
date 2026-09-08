@@ -122,4 +122,57 @@ class GatewayCatalogTest extends TestCase
         $this->assertArrayHasKey('bizarre', $split['manual']);
         $this->assertSame([], $split['auto']);
     }
+
+    /* ------------------------------------------------------------------
+       Qui traite la carte bancaire.
+       Par défaut PayPal — le client paie par carte sans compte PayPal, et
+       TAGTOA n'a qu'un fournisseur à contractualiser. Stripe reste
+       sélectionnable : il accepte le peso dominicain que PayPal refuse.
+       ------------------------------------------------------------------ */
+
+    public function test_the_card_is_processed_by_paypal_by_default(): void
+    {
+        $merged = GatewayCatalog::merge(
+            ['card' => ['driver' => 'paypal', 'mode' => 'auto']],
+            []
+        );
+
+        $this->assertSame('paypal', $merged['card']['driver']);
+    }
+
+    public function test_the_founder_can_switch_the_card_to_stripe(): void
+    {
+        $merged = GatewayCatalog::merge(
+            ['card' => ['driver' => 'paypal', 'mode' => 'auto']],
+            ['card' => ['driver' => 'stripe']]
+        );
+
+        $this->assertSame('stripe', $merged['card']['driver']);
+    }
+
+    public function test_a_driver_outside_the_whitelist_is_refused(): void
+    {
+        // Sans cette barrière, une valeur postée deviendrait un nom de driver.
+        foreach (['moncash', 'attaquant', '', null] as $bad) {
+            $merged = GatewayCatalog::merge(
+                ['card' => ['driver' => 'paypal', 'mode' => 'auto']],
+                ['card' => ['driver' => $bad]]
+            );
+
+            $this->assertSame('paypal', $merged['card']['driver'],
+                'Un driver hors liste blanche doit retomber sur le driver déclaré.');
+        }
+    }
+
+    public function test_a_gateway_with_no_alternative_keeps_its_driver(): void
+    {
+        // MonCash n'a qu'un fournisseur possible : aucun réglage ne doit
+        // pouvoir le détourner.
+        $merged = GatewayCatalog::merge(
+            ['moncash' => ['driver' => 'moncash', 'mode' => 'auto']],
+            ['moncash' => ['driver' => 'stripe']]
+        );
+
+        $this->assertSame('moncash', $merged['moncash']['driver']);
+    }
 }
