@@ -27,6 +27,15 @@ on:
         description: "Sou-domèn sib"
         type: string
         default: "louvia.govibeht.com"
+      ai_provider:
+        description: "Founisè pou kle secrets.LOUVIA_AI_KEY la (kite 'okenn' si pa gen kle)"
+        type: choice
+        options: ["okenn", "openai", "anthropic", "gemini", "deepseek", "mistral", "openrouter", "huggingface"]
+        default: "okenn"
+      set_voice_key:
+        description: "Ekri kle vwa a tou (secrets.LOUVIA_ELEVENLABS_KEY)"
+        type: boolean
+        default: false
 
 # De deplwaman ansanm ta pilonnen youn lòt (composer, migrate, cache).
 # Nou pa koupe youn k ap kouri: sa ta kite sit la an mentnans.
@@ -136,6 +145,60 @@ jobs:
             govibe-ai/ \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$DOMAIN/laravel/"
 
+      # Kle IA a: li soti nan yon secret GitHub epi li ale dirèkteman sou
+      # sèvè a nan yon fichye. Li pa janm parèt nan yon liy kòmand (kidonk
+      # pa nan `ps` sou sèvè a), ni nan yon jounal: sa ki afiche se non
+      # varyab la sèlman. Etap sa a sote nèt si pa gen kle oswa si
+      # ai_provider='okenn' — konsa yon deplwaman òdinè pa touche .env.
+      - name: Voye kle yo (si genyen)
+        if: ${{ inputs.action == 'deploy' && (inputs.ai_provider != 'okenn' || inputs.set_voice_key) }}
+        env:
+          DOMAIN: ${{ steps.paths.outputs.domain }}
+          AI_PROVIDER: ${{ inputs.ai_provider }}
+          AI_KEY: ${{ secrets.LOUVIA_AI_KEY }}
+          SET_VOICE: ${{ inputs.set_voice_key }}
+          VOICE_KEY: ${{ secrets.LOUVIA_ELEVENLABS_KEY }}
+          VOICE_ID: ${{ secrets.LOUVIA_ELEVENLABS_VOICE_ID }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          umask 077
+          : > /tmp/louvia-ai.env
+
+          # Kle chat la — se li ki fè ajan an reponn.
+          if [ "$AI_PROVIDER" != "okenn" ]; then
+            if [ -z "${AI_KEY:-}" ]; then
+              echo "::error::inputs.ai_provider='$AI_PROVIDER' men secret LOUVIA_AI_KEY la vid."
+              echo "Ajoute l nan Settings > Secrets and variables > Actions, epi relanse."
+              exit 1
+            fi
+            VAR="$(echo "$AI_PROVIDER" | tr '[:lower:]' '[:upper:]')_API_KEY"
+            printf '%s=%s\n' "$VAR" "$AI_KEY" >> /tmp/louvia-ai.env
+            echo "Varyab: $VAR (valè a pa afiche)"
+          fi
+
+          # Kle vwa a — se li ki fè ajan an PALE. San li ajan an reponn
+          # kanmenm, alekri: vwa a se yon anplis, pa yon kondisyon.
+          if [ "$SET_VOICE" = "true" ]; then
+            if [ -z "${VOICE_KEY:-}" ]; then
+              echo "::error::set_voice_key=true men secret LOUVIA_ELEVENLABS_KEY la vid."
+              exit 1
+            fi
+            printf 'ELEVENLABS_API_KEY=%s\n' "$VOICE_KEY" >> /tmp/louvia-ai.env
+            echo "Varyab: ELEVENLABS_API_KEY (valè a pa afiche)"
+
+            # Vwa ki pral pale a. Opsyonèl: san li konektè a pran vwa
+            # multileng ElevenLabs bay pa defo a.
+            if [ -n "${VOICE_ID:-}" ]; then
+              printf 'ELEVENLABS_VOICE_ID=%s\n' "$VOICE_ID" >> /tmp/louvia-ai.env
+              echo "Varyab: ELEVENLABS_VOICE_ID"
+            fi
+          fi
+
+          scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
+            /tmp/louvia-ai.env \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$DOMAIN/laravel/.ai-key.pending"
+          rm -f /tmp/louvia-ai.env
+
       - name: Enstale, migre, pibliye
         if: ${{ inputs.action == 'deploy' }}
         env:
@@ -217,6 +280,25 @@ jobs:
           else
             echo "APP_URL=https://$SUBDOMAIN" >> .env
           fi
+          # --- Kle IA a, si etap anvan an te depoze youn. Nou ranplase liy
+          # lan si li deja la (yon kle ki chanje dwe pran), epi nou efase
+          # fichye a menm si sed la echwe — li pa dwe rete sou disk.
+          AI_APPLIED=0
+          if [ -f .ai-key.pending ]; then
+            while IFS= read -r AI_LINE; do
+              AI_VAR="${AI_LINE%%=*}"
+              [ -n "$AI_VAR" ] && [ "$AI_VAR" != "$AI_LINE" ] || continue
+              grep -v "^${AI_VAR}=" .env > .env.next 2>/dev/null || cp .env .env.next
+              printf '%s\n' "$AI_LINE" >> .env.next
+              mv -f .env.next .env
+              echo "==> Ekri nan .env: $AI_VAR"
+              AI_APPLIED=1
+            done < .ai-key.pending
+
+            [ "$AI_APPLIED" = "1" ] || echo "::warning::.ai-key.pending malfòme — nou inyore l."
+            rm -f .ai-key.pending .env.next
+          fi
+
           chmod 600 .env
 
           # SQLite: ase pou premye vèsyon an, epi zewo kredansyèl pou fè fwit.
@@ -256,6 +338,19 @@ jobs:
           "$PHP_BIN" artisan view:cache   >/dev/null 2>&1 || true
 
           chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+
+          # --- Founisè IA: nou di eta a chak deplwaman (kòmand lan pa janm
+          # ekri yon kle). Si nou fèk ekri yon kle epi eta a toujou zewo,
+          # se yon echèk: sinon nou ta dekouvri sa sou paj demo a.
+          echo "==> Founisè IA"
+          "$PHP_BIN" artisan govibe:providers
+          PROVIDERS_RC=$?
+
+          if [ "$AI_APPLIED" = "1" ] && [ "$PROVIDERS_RC" != "0" ]; then
+            echo "::error::Kle a ekri nan .env men okenn founisè pa konfigire."
+            echo "Verifye ke ai_provider a matche ak kalite kle a (egzanp: yon kle sk-... se openai)."
+            exit 1
+          fi
 
           # --- Docroot: SÈLMAN asset piblik + yon index.php ki boote ../laravel.
           echo "==> Docroot"
