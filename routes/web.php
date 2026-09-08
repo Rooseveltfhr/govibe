@@ -31,12 +31,14 @@ use App\Http\Controllers\EvenementController;
 use App\Http\Controllers\FicheTechniqueController;
 use App\Http\Controllers\PreuvePaiementController;
 use App\Http\Controllers\AgentIaController;
+use App\Http\Controllers\SessionFormationController;
 use App\Http\Controllers\ERP\PartenaireAdminController;
 use App\Http\Controllers\ERP\EvenementAdminController;
 use App\Http\Controllers\ERP\PasserellePaiementController;
 use App\Http\Controllers\ERP\FicheTechniqueAdminController;
 use App\Http\Controllers\ERP\PreuvePaiementAdminController;
 use App\Http\Controllers\ERP\AgentIaAdminController;
+use App\Http\Controllers\ERP\InscriptionSessionController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -75,6 +77,14 @@ Route::post('/fiche-technique', [FicheTechniqueController::class, 'store'])->nam
 Route::get('/fiche-technique/merci/{fiche}', [FicheTechniqueController::class, 'merci'])->name('fiche-technique.merci');
 
 // Public: Moyens de paiement
+// Formations payantes à inscription courte. L'URL porte le slug pour que la
+// publicité pointe sur une adresse lisible : /formation/formation-ai
+Route::get('/formation/{formation}', [SessionFormationController::class, 'show'])->name('formations.show');
+Route::post('/formation/{formation}', [SessionFormationController::class, 'store'])
+    ->middleware('throttle:10,10')
+    ->name('formations.store');
+Route::get('/formation/{formation}/merci', [SessionFormationController::class, 'merci'])->name('formations.merci');
+
 // Agents IA — page commerciale, demande de service et confirmation.
 Route::get('/agents-ia', [AgentIaController::class, 'index'])->name('agents-ia.index');
 Route::get('/agents-ia/demande', [AgentIaController::class, 'demande'])->name('agents-ia.demande');
@@ -310,6 +320,16 @@ Route::prefix('erp')->name('erp.')->group(function () {
             Route::get('/{preuve}/fichier', [PreuvePaiementAdminController::class, 'fichier'])->name('fichier');
             Route::patch('/{preuve}/statut', [PreuvePaiementAdminController::class, 'updateStatut'])->name('statut');
             Route::delete('/{preuve}', [PreuvePaiementAdminController::class, 'destroy'])->name('destroy');
+        });
+
+        // ── Inscriptions aux formations payantes ──────────
+        Route::prefix('formations')->name('formations.')->group(function () {
+            Route::get('/', [InscriptionSessionController::class, 'index'])->name('index');
+            Route::get('/export', [InscriptionSessionController::class, 'export'])->name('export');
+            Route::get('/{inscription}', [InscriptionSessionController::class, 'show'])->name('show');
+            Route::get('/{inscription}/fichier', [InscriptionSessionController::class, 'fichier'])->name('fichier');
+            Route::patch('/{inscription}', [InscriptionSessionController::class, 'update'])->name('update');
+            Route::delete('/{inscription}', [InscriptionSessionController::class, 'destroy'])->name('destroy');
         });
 
         // ── Agents IA : catalogue et demandes ─────────────
