@@ -5,12 +5,15 @@ namespace Modules\Tagtoa\App\Models\Card;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Tagtoa\App\Support\Money;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA CARD — ligne IMMUABLE du grand livre d'une carte (recharge/débit/remb.).
  */
 class CardTxn extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_card_txns';
 
     protected $fillable = [

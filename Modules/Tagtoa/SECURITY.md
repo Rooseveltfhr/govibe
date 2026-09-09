@@ -3,6 +3,61 @@
 Revue ciblée du module `Modules/Tagtoa` (app multi-tenant manipulant de l'argent).
 3 problèmes identifiés et **corrigés** ; reste documenté ci-dessous.
 
+## Isolation entre commerces — par construction (septembre 2026)
+
+L'isolation ne repose plus sur la mémoire du développeur.
+
+**Avant.** Aucune portée automatique dans le projet. Chaque requête, dans 28
+contrôleurs, devait penser à écrire `where('tenant_id', …)`. Un seul oubli
+exposait les données d'un commerce à un autre — et c'est arrivé : la page
+d'accueil affichait à chaque marchand les compteurs de toute la plateforme.
+
+**Après.** Le trait `Support/BelongsToTenant` est posé sur les **27 modèles**
+qui portent un commerce. Il fait trois choses :
+
+| | |
+|---|---|
+| Lecture | limitée au commerce courant, sans que la requête le demande |
+| Création | `tenant_id` rempli automatiquement — sauf s'il est déjà posé |
+| Sortie | uniquement par un appel **explicite** à `allTenants()` |
+
+### Ce qui n'est volontairement pas couvert
+
+La portée ne s'applique pas quand **aucun commerce n'est en session** : page
+publique visitée par un client, webhook d'une passerelle, commande console,
+test. C'est délibéré — une page publique doit être lisible par un inconnu, et
+elle est toujours atteinte par un **alias unique**, jamais par une liste.
+
+La faute que ce trait empêche est celle du tableau de bord, où le commerce
+**est** connu et où l'oubli d'un filtre montre les données du voisin.
+
+### Les sorties délibérées
+
+Trois endroits sortent de l'isolation, chacun pour une raison écrite dans le
+fichier :
+
+- `SuperAdminService` — revenu global du fondateur (lecture seule, route
+  réservée `role:super_admin`) ;
+- `CardCreditService` — le fondateur crédite un **autre** commerce que le sien ;
+  sans cette sortie, une attribution créait une ligne en double ;
+- `SuperAdmin\CardCreditController` — la liste des crédits de tous les commerces.
+
+Un test (`TenantScopeCoverageTest`) **échoue si une quatrième sortie apparaît**
+ailleurs, et échoue aussi si un nouveau modèle portant un commerce oublie le
+trait. C'est ce qui rend l'isolation « par construction » plutôt que par
+discipline : elle ne peut plus se perdre au prochain modèle.
+
+### Vérifié par des tests, pas par lecture
+
+`TenantIsolationTest` ouvre une **vraie session marchande** — sans quoi la
+portée ne s'active pas et les tests passeraient pour de mauvaises raisons. Il
+couvre : la requête qui a oublié son filtre, l'identifiant deviné du voisin, le
+remplissage automatique, la valeur délibérée jamais écrasée, la page publique
+qui reste ouverte, la vue plateforme du fondateur, et la jointure entre deux
+tables portant chacune un `tenant_id`.
+
+---
+
 ## Corrigés
 
 ### 1. Stored XSS — page Pay publique (HIGH, confiance 8/10)

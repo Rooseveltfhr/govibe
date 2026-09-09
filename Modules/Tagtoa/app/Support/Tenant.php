@@ -8,6 +8,9 @@ namespace Modules\Tagtoa\App\Support;
  */
 class Tenant
 {
+    /** Nom de la portée automatique posée par BelongsToTenant. */
+    public const SCOPE = 'tagtoa_tenant';
+
     /** Identifiant du tenant courant (stancl/tenancy via helper Biztap). */
     public static function id(): ?string
     {

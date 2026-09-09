@@ -6,12 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA MENU — commande client (capturée en base).
  */
 class Order extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_menu_orders';
 
     /** Cycle de vie d'une commande. */

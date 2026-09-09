@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA BOOKING — page de réservation (salon, clinique, consultant, coach…).
@@ -16,6 +17,8 @@ use Modules\Tagtoa\App\Models\Pay\PaymentPage;
  */
 class BookingPage extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_booking_pages';
 
     public const THEMES = ['light', 'dark'];

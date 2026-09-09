@@ -3,12 +3,15 @@
 namespace Modules\Tagtoa\App\Models\Billing;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA Billing — modèle de revenu (par tenant ou défaut plateforme).
  */
 class RevenueSetting extends Model
 {
+    use BelongsToTenant;
+
     public const MODEL_SUBSCRIPTION = 'subscription';
     public const MODEL_COMMISSION   = 'commission';
     public const MODEL_BOTH         = 'both';

@@ -6,12 +6,15 @@ use App\Models\Vcard;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA POS — caisse / terminal.
  */
 class Terminal extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_pos_terminals';
 
     protected $fillable = ['vcard_id', 'tenant_id', 'name', 'currency', 'is_active'];

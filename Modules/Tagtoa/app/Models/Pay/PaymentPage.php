@@ -7,12 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA Pay — page de paiement publique (tagtoa.com/pay/{alias}).
  */
 class PaymentPage extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_payment_pages';
 
     /** Un lien facture un client, ou reçoit un don. */

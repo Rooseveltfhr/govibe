@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA MENU — menu digital d'un établissement (tagtoa.com/menu/{alias}).
@@ -17,6 +18,8 @@ use Modules\Tagtoa\App\Models\Pay\PaymentPage;
  */
 class Menu extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_menus';
 
     /** Types d'établissement : label + icône FA. */

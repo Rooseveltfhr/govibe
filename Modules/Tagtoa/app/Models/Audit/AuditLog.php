@@ -3,12 +3,15 @@
 namespace Modules\Tagtoa\App\Models\Audit;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA AUDIT — entrée du journal d'actions (création seule, pas d'update).
  */
 class AuditLog extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_audit_logs';
 
     public $timestamps = false; // seul created_at est renseigné

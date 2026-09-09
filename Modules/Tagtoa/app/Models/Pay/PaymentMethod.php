@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 use Modules\Tagtoa\App\Support\GatewayManager;
 use Modules\Tagtoa\App\Support\PaymentGateway;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA Pay — méthode de paiement d'une page. QR stocké en fichier (qr_path),
@@ -14,6 +15,8 @@ use Modules\Tagtoa\App\Support\PaymentGateway;
  */
 class PaymentMethod extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_payment_methods';
 
     protected $fillable = [

@@ -9,12 +9,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA Links — page Linktree-style (tagtoa.com/links/{alias}).
  */
 class LinkPage extends Model
 {
+    use BelongsToTenant;
+
     public const THEMES = ['dark', 'light', 'blue'];
 
     protected $table = 'tagtoa_link_pages';

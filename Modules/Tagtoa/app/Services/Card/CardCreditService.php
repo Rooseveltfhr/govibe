@@ -14,11 +14,18 @@ use Modules\Tagtoa\App\Models\Card\CardCredit;
  */
 class CardCreditService
 {
+    /*
+     * Ce service reçoit TOUJOURS le commerce concerné en paramètre : le
+     * fondateur accorde des crédits à un AUTRE commerce que le sien. Les
+     * requêtes sortent donc explicitement de la portée automatique (allTenants)
+     * et se limitent au tenant passé en argument — sans quoi une attribution
+     * créerait une ligne en double au lieu de créditer la bonne.
+     */
     /** Crédits achetés disponibles (granted - used). Tolérant. */
     public function available(?string $tenantId): int
     {
         try {
-            $row = CardCredit::where('tenant_id', (string) $tenantId)->first();
+            $row = CardCredit::allTenants()->where('tenant_id', (string) $tenantId)->first();
 
             return $row ? (int) $row->available : 0;
         } catch (\Throwable $e) {
@@ -32,8 +39,8 @@ class CardCreditService
         $qty = max(1, $qty);
 
         return DB::transaction(function () use ($tenantId, $qty) {
-            $row = CardCredit::firstOrCreate(['tenant_id' => (string) $tenantId], ['granted' => 0, 'used' => 0]);
-            $row = CardCredit::whereKey($row->id)->lockForUpdate()->first();
+            $row = CardCredit::allTenants()->firstOrCreate(['tenant_id' => (string) $tenantId], ['granted' => 0, 'used' => 0]);
+            $row = CardCredit::allTenants()->whereKey($row->id)->lockForUpdate()->first();
             $row->update(['granted' => (int) $row->granted + $qty]);
 
             return (int) $row->fresh()->available;
@@ -46,7 +53,7 @@ class CardCreditService
         $qty = max(1, $qty);
 
         return (bool) DB::transaction(function () use ($tenantId, $qty) {
-            $row = CardCredit::where('tenant_id', (string) $tenantId)->lockForUpdate()->first();
+            $row = CardCredit::allTenants()->where('tenant_id', (string) $tenantId)->lockForUpdate()->first();
             if (! $row || $row->available < $qty) {
                 return false;
             }
