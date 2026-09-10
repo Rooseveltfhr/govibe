@@ -1,0 +1,197 @@
+name: MoviSend — Diagnostic & déploiement (demomovisend.govibeht.com)
+
+# demomovisend.govibeht.com vit sur le MÊME VPS que tagtoa.com et govibeht.com,
+# juste un autre dossier de domaine. On réutilise les secrets SSH déjà en place
+# (VPS_HOST/VPS_USER/VPS_SSH_KEY/VPS_PORT) — aucun nouveau secret requis.
+#
+# L'app déployée est un produit Laravel (CodeCanyon "Remito — Online Money
+# Transfer Solution") qu'on rebrande en MoviSend. Ce workflow est LECTURE
+# SEULE sauf pour mode=deploy_file.
+#
+# mode=diagnose      : localise le docroot, liste son contenu.
+# mode=explore       : arborescence resources/views (2 niveaux), routes/web.php,
+#                       occurrences de "Remito"/"remito" (CHEMINS seulement),
+#                       ligne 'name' de config/app.php.
+# mode=fetch_file     : récupère UN fichier (chemin relatif au docroot, via
+#                       relative_path) comme artefact — jamais affiché dans le
+#                       log (évite la corruption par le masquage de secrets).
+# mode=deploy_file    : publie un fichier local du dépôt (deploy_local_path)
+#                       vers un chemin relatif distant (deploy_remote_path),
+#                       avec sauvegarde horodatée de l'ancien fichier.
+# mode=snapshot        : PAS de SSH — le runner GitHub (qui a un accès internet
+#                       normal, contrairement à cette session Claude dont le
+#                       proxy réseau bloque demomovisend.govibeht.com) télécharge
+#                       la page d'accueil PUBLIQUE en direct et l'imprime en
+#                       base64 dans le log, pour voir le HTML réellement rendu
+#                       (contenu dynamique du page-builder déjà résolu).
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "diagnose | explore | fetch_file | deploy_file | snapshot"
+        type: choice
+        options: [diagnose, explore, fetch_file, deploy_file, snapshot]
+        default: diagnose
+      relative_path:
+        description: "fetch_file : chemin relatif au docroot du fichier à récupérer"
+        type: string
+        default: ""
+      deploy_local_path:
+        description: "deploy_file : chemin LOCAL (dans ce dépôt) du fichier à publier"
+        type: string
+        default: ""
+      deploy_remote_path:
+        description: "deploy_file : chemin RELATIF au docroot où publier le fichier"
+        type: string
+        default: ""
+
+concurrency:
+  group: movisend-home
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: SSH VPS — ${{ inputs.mode }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        if: ${{ inputs.mode != 'snapshot' }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh-keyscan -p "$PORT" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Resolve docroot
+        id: docroot
+        if: ${{ inputs.mode != 'snapshot' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          D=$(ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            'ls -d /home/*/domains/demomovisend.govibeht.com "$HOME"/domains/demomovisend.govibeht.com 2>/dev/null | head -1')
+          [ -n "$D" ] || { echo "::error::Dossier de domaine introuvable."; exit 1; }
+          PUB=$(ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "[ -d '$D/public_html' ] && echo '$D/public_html' || echo '$D'")
+          echo "docroot résolu: $PUB"
+          echo "path=$PUB" >> "$GITHUB_OUTPUT"
+
+      - name: Diagnose (lecture seule)
+        if: ${{ inputs.mode == 'diagnose' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          echo "::group::Contenu docroot ($PUB)"
+          ls -la "$PUB" 2>/dev/null
+          echo "::endgroup::"
+          for f in index.html index.php home.html home.php; do
+            if [ -f "$PUB/$f" ]; then
+              echo "::group::Contenu de $PUB/$f"
+              cat "$PUB/$f"
+              echo "::endgroup::"
+            fi
+          done
+          EOSSH
+
+      - name: Explore (lecture seule — structure de l'app)
+        if: ${{ inputs.mode == 'explore' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          echo "::group::config/app.php — 'name' (branding actuel)"
+          grep -n "'name'" "$PUB/config/app.php" 2>/dev/null | head -3
+          echo "::endgroup::"
+
+          echo "::group::.env — APP_NAME (valeur non sensible)"
+          grep -E "^APP_NAME=" "$PUB/.env" 2>/dev/null
+          echo "::endgroup::"
+
+          echo "::group::routes/web.php (routes publiques)"
+          cat "$PUB/routes/web.php" 2>/dev/null | head -200
+          echo "::endgroup::"
+
+          echo "::group::Arborescence resources/views/themes/light (6 niveaux — thème public)"
+          find "$PUB/resources/views/themes/light" -maxdepth 6 2>/dev/null | sed "s|^$PUB/||" | sort
+          echo "::endgroup::"
+
+          echo "::group::Arborescence assets/ (CSS/JS/images du thème, 3 niveaux, sans vendor/node_modules)"
+          find "$PUB/assets" -maxdepth 3 -not -path "*/vendor/*" -not -path "*/node_modules/*" 2>/dev/null | sed "s|^$PUB/||" | sort
+          echo "::endgroup::"
+
+          echo "::group::Occurrences de 'remito' (CHEMINS seulement, jamais le contenu)"
+          grep -rli "remito" "$PUB/resources" "$PUB/config" "$PUB/assets" "$PUB/routes" "$PUB/README.md" "$PUB/composer.json" 2>/dev/null \
+            | grep -v "/vendor/" | sed "s|^$PUB/||" | sort
+          echo "::endgroup::"
+          EOSSH
+
+      - name: Fetch file (artefact — jamais affiché dans le log)
+        if: ${{ inputs.mode == 'fetch_file' && inputs.relative_path != '' }}
+        env:
+          RELATIVE_PATH: ${{ inputs.relative_path }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' RP='$RELATIVE_PATH' bash -s" <<'EOSSH' > fetched-file
+          cat "$PUB/$RP"
+          EOSSH
+
+      - name: Upload fetched file as artifact
+        if: ${{ inputs.mode == 'fetch_file' && inputs.relative_path != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fetched-file
+          path: fetched-file
+          retention-days: 1
+
+      - name: Print fetched file to log (base64 — évite toute corruption par le masquage de secrets)
+        if: ${{ inputs.mode == 'fetch_file' && inputs.relative_path != '' }}
+        run: |
+          echo "::group::fetched-file (base64)"
+          base64 -w0 fetched-file
+          echo ""
+          echo "::endgroup::"
+
+      - name: Deploy file (publie + sauvegarde l'ancien)
+        if: ${{ inputs.mode == 'deploy_file' && inputs.deploy_local_path != '' && inputs.deploy_remote_path != '' }}
+        env:
+          REMOTE_PATH: ${{ inputs.deploy_remote_path }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ inputs.deploy_local_path }}" \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/movisend-deploy-upload"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' RP='$REMOTE_PATH' bash -s" <<'EOSSH'
+          set -uo pipefail
+          TARGET="$PUB/$RP"
+          mkdir -p "$(dirname "$TARGET")"
+          [ -f "$TARGET" ] && cp "$TARGET" "$TARGET.bak.$(date +%Y%m%d%H%M%S)" || true
+          mv /tmp/movisend-deploy-upload "$TARGET"
+          echo "Déployé: $TARGET"
+          EOSSH
+
+      - name: Snapshot (page publique en direct — aucun SSH, aucun secret)
+        if: ${{ inputs.mode == 'snapshot' }}
+        run: |
+          set -uo pipefail
+          echo "::group::HTTP headers"
+          curl -sS -D - -o /dev/null --max-time 20 "https://demomovisend.govibeht.com/" || true
+          echo "::endgroup::"
+
+          curl -sS --max-time 20 "https://demomovisend.govibeht.com/" -o page.html || true
+          echo "::group::page.html (base64)"
+          base64 -w0 page.html 2>/dev/null || echo "(vide ou échec)"
+          echo ""
+          echo "::endgroup::"
