@@ -11,6 +11,11 @@
 <form method="POST" action="{{ route('tagtoa.pos.products.save',$terminal->id) }}">
     @csrf
     <div class="card">
+        <p style="color:var(--muted);font-size:13px;margin:-4px 0 10px">
+            <i class="fa-solid fa-circle-info"></i>
+            {{ __('Ce catalogue est celui du commerce : toutes vos caisses y vendent les mêmes articles.') }}
+            {{ __('Enregistrer ne supprime jamais un article — décochez pour le retirer de la vente, ou utilisez la corbeille.') }}
+        </p>
         <button type="button" class="btn btn-d btn-sm" onclick="addP()"><i class="fa-solid fa-plus"></i> {{ __('Ajouter un produit') }}</button>
         <div id="plist" style="margin-top:12px"></div>
     </div>
@@ -25,14 +30,36 @@
         <input name="products[IDX][stock]" type="number" class="inp" placeholder="{{ __('Stock') }}" style="max-width:90px">
         <input name="products[IDX][color]" type="color" value="#2cb809" style="width:42px;height:42px;border:1px solid var(--bd);border-radius:8px">
         <label class="switch" style="flex:0"><input type="checkbox" name="products[IDX][is_active]" value="1" checked></label>
-        <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.prow').remove()"><i class="fa-solid fa-trash"></i></button>
+        <button type="button" class="btn btn-o btn-sm delrow" style="flex:0;color:var(--red)"
+                title="{{ __('Supprimer du catalogue') }}"><i class="fa-solid fa-trash"></i></button>
     </div>
 </template>
+{{-- Supprimer est un acte à part, jamais un effet de bord de l'enregistrement. --}}
+<form id="delform" method="POST" style="display:none">@csrf @method('DELETE')</form>
+
 @push('scripts')
 <script>
+var DEL_URL = "{{ url('/tagtoa/pos/'.$terminal->id.'/products') }}";
 var pIdx=0;
+
+/* Ligne jamais enregistrée → on l'enlève de l'écran.
+   Article déjà au catalogue → suppression serveur, confirmée. */
+function delRow(btn){
+    var row = btn.closest('.prow');
+    var id  = row.querySelector('input[name$="[id]"]');
+    var nom = (row.querySelector('[name$="[name]"]').value || '').trim();
+
+    if (!id || !id.value){ row.remove(); return; }
+
+    if (!confirm("{{ __('Supprimer définitivement cet article du catalogue de toutes vos caisses ?') }}\n\n" + nom)) return;
+
+    var f = document.getElementById('delform');
+    f.action = DEL_URL + '/' + id.value;
+    f.submit();
+}
 function addP(d){var h=document.getElementById('ptpl').innerHTML.replace(/IDX/g,pIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('plist').appendChild(r);
     if(d){r.querySelector('[name$="[emoji]"]').value=d.emoji||'';r.querySelector('[name$="[name]"]').value=d.name||'';r.querySelector('[name$="[price]"]').value=d.price||'';r.querySelector('[name$="[stock]"]').value=d.stock==null?'':d.stock;r.querySelector('[name$="[color]"]').value=d.color||'#2cb809';r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;var i=document.createElement('input');i.type='hidden';i.name='products['+pIdx+'][id]';i.value=d.id;r.appendChild(i);}
+    r.querySelector('.delrow').addEventListener('click', function(){ delRow(this); });
     pIdx++;}
 @php
     $productData = $terminal->products->map(fn ($p) => ['id' => $p->id, 'emoji' => $p->emoji, 'name' => $p->name, 'price' => $p->price, 'stock' => $p->stock, 'color' => $p->color, 'is_active' => $p->is_active])->values();

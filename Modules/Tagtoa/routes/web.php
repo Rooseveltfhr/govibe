@@ -248,6 +248,10 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/report', [PosController::class, 'report'])->name('report');
         Route::get('/{id}/products', [PosController::class, 'products'])->name('products');
         Route::post('/{id}/products', [PosController::class, 'saveProducts'])->name('products.save');
+        // Supprimer un article est une action à part : enregistrer le catalogue
+        // ne supprime plus rien (le catalogue est partagé par toutes les caisses).
+        Route::delete('/{id}/products/{productId}', [PosController::class, 'destroyProduct'])
+            ->whereNumber(['id', 'productId'])->name('products.destroy');
         // PWA (installable + offline)
         Route::get('/sw.js', [PosController::class, 'serviceWorker'])->name('sw');
         Route::get('/icon.svg', [PosController::class, 'icon'])->name('icon');

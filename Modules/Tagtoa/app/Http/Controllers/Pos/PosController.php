@@ -134,11 +134,40 @@ class PosController extends Controller
             $p = app(PosCatalog::class)->save($terminal, $attrs, ! empty($row['id']) ? (int) $row['id'] : null);
             $keep[] = $p->id;
         }
-        // Retire du catalogue DU COMMERCE ce que le formulaire ne contient plus.
-        app(PosCatalog::class)->query($terminal->tenant_id)
-            ->whereNotIn('id', $keep ?: [0])->delete();
 
+        // ENREGISTRER NE SUPPRIME JAMAIS.
+        // Le formulaire effaçait auparavant tout article absent de l'envoi. Le
+        // catalogue étant désormais partagé par toutes les caisses, un envoi
+        // partiel — connexion coupée, deux personnes qui modifient en même
+        // temps, un navigateur qui ne poste pas tout — effaçait les articles de
+        // TOUT le commerce. Supprimer est maintenant une action à part.
         return back()->with('success', __('Produits enregistrés.'));
+    }
+
+    /**
+     * Supprime UN article du catalogue — acte délibéré du patron.
+     *
+     * Une caisse ne supprime rien : le caissier vend, rend un article à un
+     * client et retire une ligne du panier en cours, mais le catalogue est celui
+     * du commerce. Pour retirer un article de la vente sans le perdre, il existe
+     * l'interrupteur « actif » : l'historique et le stock restent intacts.
+     */
+    public function destroyProduct(int $id, int $productId): RedirectResponse
+    {
+        $terminal = $this->own($id);
+
+        $product = app(PosCatalog::class)->find($terminal->tenant_id, $productId);
+        abort_unless($product, 404);
+
+        $nom = $product->name;
+        $product->delete();
+
+        // Les ventes déjà encaissées gardent le nom et le prix de l'article :
+        // supprimer un produit ne réécrit aucun historique.
+        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)
+            ->log('pos.product_deleted', null, $nom);
+
+        return back()->with('success', __('Article supprimé du catalogue.').' ('.$nom.')');
     }
 
     /* ---------- PWA (installable + offline) ---------- */
