@@ -239,6 +239,12 @@ jobs:
           verifier "/erp/preuves"      "302 301 403" "preuves protégées"
           verifier "/erp/agents-ia"    "302 301 403" "demandes IA protégées"
           verifier "/erp/formations"   "302 301 403" "inscriptions protégées"
+          # Le portail client : la page de connexion doit répondre, le reste
+          # rediriger. Un 200 sur /portail voudrait dire que les factures d'un
+          # client sont lisibles sans compte.
+          verifier "/portail/connexion" "200 301 302" "connexion portail"
+          verifier "/portail"          "302 301 403" "portail protégé"
+          verifier "/portail/factures" "302 301 403" "factures protégées"
 
           if [ "$ECHEC" -ne 0 ]; then
             echo "::error::Le déploiement est passé mais le site ne répond pas correctement."
