@@ -32,6 +32,7 @@ use App\Http\Controllers\FicheTechniqueController;
 use App\Http\Controllers\PreuvePaiementController;
 use App\Http\Controllers\AgentIaController;
 use App\Http\Controllers\SessionFormationController;
+use App\Http\Controllers\PaiementRetourController;
 use App\Http\Controllers\Portail\AuthController as PortailAuthController;
 use App\Http\Controllers\Portail\TableauBordController as PortailTableauBordController;
 use App\Http\Controllers\ERP\PartenaireAdminController;
@@ -41,6 +42,7 @@ use App\Http\Controllers\ERP\FicheTechniqueAdminController;
 use App\Http\Controllers\ERP\PreuvePaiementAdminController;
 use App\Http\Controllers\ERP\AgentIaAdminController;
 use App\Http\Controllers\ERP\InscriptionSessionController;
+use App\Http\Controllers\ERP\PaiementAdminController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -79,6 +81,15 @@ Route::post('/fiche-technique', [FicheTechniqueController::class, 'store'])->nam
 Route::get('/fiche-technique/merci/{fiche}', [FicheTechniqueController::class, 'merci'])->name('fiche-technique.merci');
 
 // Public: Moyens de paiement
+// Retour et notification de passerelle. Aucune donnée n'est lue dans ces
+// requêtes : le paiement est retrouvé par son identifiant interne, puis le
+// verdict est redemandé à la passerelle.
+Route::get('/paiement/retour/{paiement}', [PaiementRetourController::class, 'retour'])
+    ->middleware('throttle:30,1')->name('paiement.retour');
+Route::post('/paiement/notification/{paiement}', [PaiementRetourController::class, 'notification'])
+    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+    ->middleware('throttle:60,1')->name('paiement.notification');
+
 // Formations payantes à inscription courte. L'URL porte le slug pour que la
 // publicité pointe sur une adresse lisible : /formation/formation-ai
 Route::get('/formation/{formation}', [SessionFormationController::class, 'show'])->name('formations.show');
@@ -352,6 +363,18 @@ Route::prefix('erp')->name('erp.')->middleware('app')->group(function () {
             Route::post('/{passerelle}', [PasserellePaiementController::class, 'update'])->name('update');
             Route::delete('/{passerelle}/fichier', [PasserellePaiementController::class, 'destroyFichier'])->name('fichier.destroy');
             Route::delete('/{passerelle}', [PasserellePaiementController::class, 'destroy'])->name('destroy');
+        });
+
+        // ── Transactions et configuration des passerelles ─
+        Route::prefix('transactions')->name('transactions.')->group(function () {
+            Route::get('/', [PaiementAdminController::class, 'index'])->name('index');
+            Route::get('/configuration', [PaiementAdminController::class, 'configuration'])->name('configuration');
+            Route::post('/configuration/{passerelle}', [PaiementAdminController::class, 'configurer'])->name('configurer');
+            Route::post('/taux', [PaiementAdminController::class, 'enregistrerTaux'])->name('taux');
+            Route::get('/{paiement}', [PaiementAdminController::class, 'show'])->name('show');
+            Route::post('/{paiement}/reverifier', [PaiementAdminController::class, 'reverifier'])->name('reverifier');
+            Route::post('/{paiement}/approuver', [PaiementAdminController::class, 'approuver'])->name('approuver');
+            Route::post('/{paiement}/rejeter', [PaiementAdminController::class, 'rejeter'])->name('rejeter');
         });
 
         // ── Preuves de paiement envoyées par les clients ──
