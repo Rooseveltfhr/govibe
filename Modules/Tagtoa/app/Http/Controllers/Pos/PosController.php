@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Pos\Sale;
+use Modules\Tagtoa\App\Services\Pos\PosCatalog;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Services\Pos\PosService;
 use Modules\Tagtoa\App\Support\EnforcesPlan;
@@ -46,9 +47,9 @@ class PosController extends Controller
 
     public function register(int $id): View
     {
-        $terminal = $this->own($id, ['activeProducts']);
+        $terminal = $this->own($id);
 
-        return view('tagtoa::pos.register', ['terminal' => $terminal, 'products' => $terminal->activeProducts, 'methods' => Sale::METHODS]);
+        return view('tagtoa::pos.register', ['terminal' => $terminal, 'products' => app(PosCatalog::class)->active($terminal->tenant_id), 'methods' => Sale::METHODS]);
     }
 
     public function sale(Request $request, int $id): JsonResponse
@@ -129,11 +130,13 @@ class PosController extends Controller
                 'is_active' => ! empty($row['is_active']),
                 'sort'      => (int) ($row['sort'] ?? $i),
             ];
-            $p = ! empty($row['id']) ? $terminal->products()->whereKey($row['id'])->first() : null;
-            $p ? $p->update($attrs) : $p = $terminal->products()->create($attrs);
+            // Catalogue du COMMERCE : l'article est partagé par toutes ses caisses.
+            $p = app(PosCatalog::class)->save($terminal, $attrs, ! empty($row['id']) ? (int) $row['id'] : null);
             $keep[] = $p->id;
         }
-        $terminal->products()->whereNotIn('id', $keep ?: [0])->delete();
+        // Retire du catalogue DU COMMERCE ce que le formulaire ne contient plus.
+        app(PosCatalog::class)->query($terminal->tenant_id)
+            ->whereNotIn('id', $keep ?: [0])->delete();
 
         return back()->with('success', __('Produits enregistrés.'));
     }

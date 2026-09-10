@@ -21,6 +21,10 @@ abstract class TestCase extends BaseTestCase
             'driver'   => 'sqlite',
             'database' => ':memory:',
             'prefix'   => '',
+            // SQLite ignore les clés étrangères par défaut : sans cette ligne,
+            // un test « la suppression n'emporte pas les données liées »
+            // passerait alors que la production, elle, supprimerait en cascade.
+            'foreign_key_constraints' => true,
         ]);
         // Clé fixe (déterministe) : Crypt/Hash exigent une clé d'app valide.
         $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('t', 32)));

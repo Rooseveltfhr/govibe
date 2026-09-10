@@ -13,8 +13,10 @@ use Modules\Tagtoa\App\Services\Billing\RevenueService;
  */
 class PosService
 {
-    public function __construct(protected RevenueService $revenue)
-    {
+    public function __construct(
+        protected RevenueService $revenue,
+        protected PosCatalog $catalog,
+    ) {
     }
 
     public function recordSale(Terminal $terminal, array $payload): Sale
@@ -40,8 +42,10 @@ class PosService
             $subtotal = 0;
             foreach ($items as $it) {
                 $qty = max(1, (int) ($it['qty'] ?? 1));
+                // Catalogue du COMMERCE : un article saisi sur une autre caisse
+                // du même commerce doit se vendre ici aussi.
                 $product = ! empty($it['product_id'])
-                    ? $terminal->products()->whereKey($it['product_id'])->first()
+                    ? $this->catalog->find($terminal->tenant_id, (int) $it['product_id'])
                     : null;
                 $price = $product ? (float) $product->price : (float) ($it['price'] ?? 0);
                 $name  = $product ? $product->name : (string) ($it['name'] ?? 'Article');
