@@ -112,16 +112,16 @@ jobs:
           cat "$PUB/routes/web.php" 2>/dev/null | head -200
           echo "::endgroup::"
 
-          echo "::group::Arborescence resources/views (3 niveaux)"
-          find "$PUB/resources/views" -maxdepth 3 2>/dev/null | sed "s|^$PUB/||" | sort
+          echo "::group::Arborescence resources/views/themes/light (6 niveaux — thème public)"
+          find "$PUB/resources/views/themes/light" -maxdepth 6 2>/dev/null | sed "s|^$PUB/||" | sort
           echo "::endgroup::"
 
-          echo "::group::Arborescence public/ (CSS/JS/images, 2 niveaux, sans vendor)"
-          find "$PUB/public" -maxdepth 2 -not -path "*/vendor/*" 2>/dev/null | sed "s|^$PUB/||" | sort
+          echo "::group::Arborescence assets/ (CSS/JS/images du thème, 3 niveaux, sans vendor/node_modules)"
+          find "$PUB/assets" -maxdepth 3 -not -path "*/vendor/*" -not -path "*/node_modules/*" 2>/dev/null | sed "s|^$PUB/||" | sort
           echo "::endgroup::"
 
           echo "::group::Occurrences de 'remito' (CHEMINS seulement, jamais le contenu)"
-          grep -rli "remito" "$PUB/resources" "$PUB/config" "$PUB/public" "$PUB/routes" 2>/dev/null \
+          grep -rli "remito" "$PUB/resources" "$PUB/config" "$PUB/assets" "$PUB/routes" "$PUB/README.md" "$PUB/composer.json" 2>/dev/null \
             | grep -v "/vendor/" | sed "s|^$PUB/||" | sort
           echo "::endgroup::"
           EOSSH
