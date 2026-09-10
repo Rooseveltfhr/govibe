@@ -146,6 +146,14 @@ jobs:
           path: fetched-file
           retention-days: 1
 
+      - name: Print fetched file to log (base64 — évite toute corruption par le masquage de secrets)
+        if: ${{ inputs.mode == 'fetch_file' && inputs.relative_path != '' }}
+        run: |
+          echo "::group::fetched-file (base64)"
+          base64 -w0 fetched-file
+          echo ""
+          echo "::endgroup::"
+
       - name: Deploy file (publie + sauvegarde l'ancien)
         if: ${{ inputs.mode == 'deploy_file' && inputs.deploy_local_path != '' && inputs.deploy_remote_path != '' }}
         env:
