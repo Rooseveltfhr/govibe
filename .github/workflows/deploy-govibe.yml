@@ -245,6 +245,10 @@ jobs:
           verifier "/portail/connexion" "200 301 302" "connexion portail"
           verifier "/portail"          "302 301 403" "portail protégé"
           verifier "/portail/factures" "302 301 403" "factures protégées"
+          # La configuration des passerelles porte les clés API : un 200 ici
+          # voudrait dire qu'elles sont atteignables sans compte.
+          verifier "/erp/transactions" "302 301 403" "transactions protégées"
+          verifier "/erp/transactions/configuration" "302 301 403" "clés API protégées"
 
           if [ "$ECHEC" -ne 0 ]; then
             echo "::error::Le déploiement est passé mais le site ne répond pas correctement."
