@@ -12,7 +12,7 @@ class InscriptionSession extends Model
     protected $table = 'inscriptions_session';
 
     protected $fillable = [
-        'reference', 'session_formation_id', 'nom_complet', 'whatsapp', 'mode',
+        'reference', 'session_formation_id', 'nom_complet', 'whatsapp', 'mode', 'client_id',
         'montant', 'devise', 'moyen_paiement', 'moyen_paiement_nom',
         'fichier', 'fichier_nom_origine', 'fichier_taille', 'fichier_mime',
         'statut', 'commentaire_admin', 'verifiee_par', 'verifiee_le', 'ip',

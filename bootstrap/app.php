@@ -13,8 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'admin' => \App\Http\Middleware\AdminMiddleware::class,
-            'erp'   => \App\Http\Middleware\ERPMiddleware::class,
+            'admin'  => \App\Http\Middleware\AdminMiddleware::class,
+            'erp'    => \App\Http\Middleware\ERPMiddleware::class,
+            'client' => \App\Http\Middleware\AuthentifieClient::class,
+            'app'    => \App\Http\Middleware\DomaineApplication::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

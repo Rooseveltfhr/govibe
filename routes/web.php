@@ -32,6 +32,8 @@ use App\Http\Controllers\FicheTechniqueController;
 use App\Http\Controllers\PreuvePaiementController;
 use App\Http\Controllers\AgentIaController;
 use App\Http\Controllers\SessionFormationController;
+use App\Http\Controllers\Portail\AuthController as PortailAuthController;
+use App\Http\Controllers\Portail\TableauBordController as PortailTableauBordController;
 use App\Http\Controllers\ERP\PartenaireAdminController;
 use App\Http\Controllers\ERP\EvenementAdminController;
 use App\Http\Controllers\ERP\PasserellePaiementController;
@@ -140,7 +142,46 @@ Route::prefix('admin')->name('admin.')->group(function () {
 // ═══════════════════════════════════════════════════════════
 //  ERP — GOVIBE Innovation Hub
 // ═══════════════════════════════════════════════════════════
-Route::prefix('erp')->name('erp.')->group(function () {
+/*
+|--------------------------------------------------------------------------
+| Portail client — app.govibeht.com
+|--------------------------------------------------------------------------
+|
+| Espace où un client retrouve ses services, ses commandes et ses factures,
+| toutes unités d'affaires confondues. Garde « client », distincte de celle
+| du personnel : une erreur d'habilitation ici ne peut pas ouvrir l'ERP.
+|
+| Le middleware « app » n'isole réellement que lorsque GOVIBE_DOMAINE_APP est
+| renseigné ; avant, tout répond comme aujourd'hui.
+|
+*/
+Route::prefix('portail')->name('portail.')->middleware('app')->group(function () {
+
+    // Invité : deux tentatives par minute suffisent à une personne réelle et
+    // rendent le balayage d'identifiants inutilisable.
+    Route::middleware('guest:client')->group(function () {
+        Route::get('/connexion', [PortailAuthController::class, 'formulaireConnexion'])->name('connexion');
+        Route::post('/connexion', [PortailAuthController::class, 'connexion'])
+            ->middleware('throttle:10,1')->name('connexion.post');
+        Route::get('/inscription', [PortailAuthController::class, 'formulaireInscription'])->name('inscription');
+        Route::post('/inscription', [PortailAuthController::class, 'inscription'])
+            ->middleware('throttle:5,10')->name('inscription.post');
+    });
+
+    Route::get('/verification/{jeton}', [PortailAuthController::class, 'verifier'])
+        ->middleware('throttle:10,10')->name('verification');
+    Route::get('/verification', [PortailAuthController::class, 'attenteVerification'])->name('verification.attente');
+    Route::post('/deconnexion', [PortailAuthController::class, 'deconnexion'])->name('deconnexion');
+
+    // Espace authentifié : compte actif et adresse vérifiée.
+    Route::middleware('client')->group(function () {
+        Route::get('/', [PortailTableauBordController::class, 'index'])->name('tableau-bord');
+        Route::get('/services', [PortailTableauBordController::class, 'services'])->name('services');
+        Route::get('/factures', [PortailTableauBordController::class, 'factures'])->name('factures');
+    });
+});
+
+Route::prefix('erp')->name('erp.')->middleware('app')->group(function () {
 
     // Auth
     Route::get('/login', [ERPAuthController::class, 'showLogin'])->name('login');

@@ -42,6 +42,13 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Garde du portail client, séparée de celle du personnel : une erreur
+        // d'habilitation côté portail ne peut pas ouvrir l'ERP.
+        'client' => [
+            'driver' => 'session',
+            'provider' => 'comptes_portail',
+        ],
     ],
 
     /*
@@ -65,6 +72,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'comptes_portail' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\ComptePortail::class,
         ],
 
         // 'users' => [
@@ -93,6 +105,13 @@ return [
     */
 
     'passwords' => [
+        'comptes_portail' => [
+            'provider' => 'comptes_portail',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+
         'users' => [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
