@@ -12,7 +12,7 @@ class DemandeAgentIa extends Model
     protected $table = 'demandes_agent_ia';
 
     protected $fillable = [
-        'reference', 'agent_ia_id', 'agent_nom',
+        'reference', 'agent_ia_id', 'agent_nom', 'client_id',
         'prix_installation', 'prix_mensuel', 'devise', 'sur_devis',
         'entreprise', 'responsable', 'email', 'telephone', 'secteur',
         'pays', 'ville', 'site_web',
