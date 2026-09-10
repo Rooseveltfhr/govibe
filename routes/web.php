@@ -43,6 +43,7 @@ use App\Http\Controllers\ERP\PreuvePaiementAdminController;
 use App\Http\Controllers\ERP\AgentIaAdminController;
 use App\Http\Controllers\ERP\InscriptionSessionController;
 use App\Http\Controllers\ERP\PaiementAdminController;
+use App\Http\Controllers\ERP\AbonnementAdminController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -363,6 +364,20 @@ Route::prefix('erp')->name('erp.')->middleware('app')->group(function () {
             Route::post('/{passerelle}', [PasserellePaiementController::class, 'update'])->name('update');
             Route::delete('/{passerelle}/fichier', [PasserellePaiementController::class, 'destroyFichier'])->name('fichier.destroy');
             Route::delete('/{passerelle}', [PasserellePaiementController::class, 'destroy'])->name('destroy');
+        });
+
+        // ── Abonnements et catalogue de plans ─────────────
+        Route::prefix('abonnements')->name('abonnements.')->group(function () {
+            Route::get('/', [AbonnementAdminController::class, 'index'])->name('index');
+            Route::post('/', [AbonnementAdminController::class, 'souscrire'])->name('souscrire');
+            Route::get('/plans', [AbonnementAdminController::class, 'plans'])->name('plans');
+            Route::post('/plans', [AbonnementAdminController::class, 'storePlan'])->name('plans.store');
+            Route::put('/plans/{plan}', [AbonnementAdminController::class, 'updatePlan'])->name('plans.update');
+            Route::delete('/plans/{plan}', [AbonnementAdminController::class, 'destroyPlan'])->name('plans.destroy');
+            Route::get('/{abonnement}', [AbonnementAdminController::class, 'show'])->name('show');
+            Route::post('/{abonnement}/facturer', [AbonnementAdminController::class, 'facturer'])->name('facturer');
+            Route::patch('/{abonnement}/statut', [AbonnementAdminController::class, 'changerStatut'])->name('statut');
+            Route::post('/{abonnement}/resilier', [AbonnementAdminController::class, 'resilier'])->name('resilier');
         });
 
         // ── Transactions et configuration des passerelles ─

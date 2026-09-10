@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portail;
 
 use App\Http\Controllers\Controller;
+use App\Models\Abonnement;
 use App\Models\Booking;
 use App\Models\DemandeAgentIa;
 use App\Models\InscriptionSession;
@@ -59,6 +60,22 @@ class TableauBordController extends Controller
      */
     private function servicesDuClient(int $clientId): array
     {
+        $abonnements = Abonnement::where('client_id', $clientId)->latest()->get()
+            ->map(fn ($a) => [
+                'unite' => 'Abonnements',
+                'icone' => 'fa-arrows-rotate',
+                'titre' => $a->plan_nom,
+                'detail' => $a->cycle_libelle.' · '.number_format($a->montant_ttc, 2, ',', ' ').' '.$a->devise,
+                'statut' => $a->statut_libelle,
+                'etat' => match ($a->statut) {
+                    'actif', 'essai' => 'actif',
+                    'resilie', 'expire' => 'termine',
+                    default => 'en_cours',
+                },
+                'date' => $a->created_at,
+                'reference' => $a->reference,
+            ]);
+
         $agents = DemandeAgentIa::where('client_id', $clientId)->latest()->get()
             ->map(fn ($d) => [
                 'unite' => 'Agents IA',
@@ -95,7 +112,7 @@ class TableauBordController extends Controller
                 'reference' => $b->reference,
             ]);
 
-        return $agents->concat($formations)->concat($reservations)
+        return $abonnements->concat($agents)->concat($formations)->concat($reservations)
             ->sortByDesc('date')->values()->all();
     }
 }

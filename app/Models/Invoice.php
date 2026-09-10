@@ -14,6 +14,13 @@ class Invoice extends Model
     protected $fillable = [
         'reference',
         'client_id',
+        'abonnement_id',
+        'periode_debut',
+        'periode_fin',
+        'devise',
+        'taux_change',
+        'montant_converti',
+        'devise_convertie',
         'project_id',
         'booking_id',
         'subtotal',
@@ -41,12 +48,21 @@ class Invoice extends Model
             'issued_date' => 'date',
             'due_date' => 'date',
             'paid_at' => 'datetime',
+            'periode_debut' => 'date',
+            'periode_fin' => 'date',
+            'taux_change' => 'decimal:6',
+            'montant_converti' => 'decimal:2',
         ];
     }
 
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function abonnement(): BelongsTo
+    {
+        return $this->belongsTo(Abonnement::class);
     }
 
     public function project(): BelongsTo
