@@ -18,13 +18,19 @@ name: MoviSend — Diagnostic & déploiement (demomovisend.govibeht.com)
 # mode=deploy_file    : publie un fichier local du dépôt (deploy_local_path)
 #                       vers un chemin relatif distant (deploy_remote_path),
 #                       avec sauvegarde horodatée de l'ancien fichier.
+# mode=snapshot        : PAS de SSH — le runner GitHub (qui a un accès internet
+#                       normal, contrairement à cette session Claude dont le
+#                       proxy réseau bloque demomovisend.govibeht.com) télécharge
+#                       la page d'accueil PUBLIQUE en direct et l'imprime en
+#                       base64 dans le log, pour voir le HTML réellement rendu
+#                       (contenu dynamique du page-builder déjà résolu).
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "diagnose | explore | fetch_file | deploy_file"
+        description: "diagnose | explore | fetch_file | deploy_file | snapshot"
         type: choice
-        options: [diagnose, explore, fetch_file, deploy_file]
+        options: [diagnose, explore, fetch_file, deploy_file, snapshot]
         default: diagnose
       relative_path:
         description: "fetch_file : chemin relatif au docroot du fichier à récupérer"
@@ -51,6 +57,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup SSH key
+        if: ${{ inputs.mode != 'snapshot' }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
@@ -60,6 +67,7 @@ jobs:
 
       - name: Resolve docroot
         id: docroot
+        if: ${{ inputs.mode != 'snapshot' }}
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
           D=$(ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
@@ -173,3 +181,17 @@ jobs:
           mv /tmp/movisend-deploy-upload "$TARGET"
           echo "Déployé: $TARGET"
           EOSSH
+
+      - name: Snapshot (page publique en direct — aucun SSH, aucun secret)
+        if: ${{ inputs.mode == 'snapshot' }}
+        run: |
+          set -uo pipefail
+          echo "::group::HTTP headers"
+          curl -sS -D - -o /dev/null --max-time 20 "https://demomovisend.govibeht.com/" || true
+          echo "::endgroup::"
+
+          curl -sS --max-time 20 "https://demomovisend.govibeht.com/" -o page.html || true
+          echo "::group::page.html (base64)"
+          base64 -w0 page.html 2>/dev/null || echo "(vide ou échec)"
+          echo ""
+          echo "::endgroup::"
