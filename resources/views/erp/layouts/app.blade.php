@@ -190,6 +190,17 @@
 
             {{-- Le compteur ne s'affiche que s'il y a des preuves à traiter :
                  un « 0 » permanent cesse vite d'être regardé. --}}
+            @php $abonnementsImpayes = \App\Models\Abonnement::whereIn('statut', ['en_retard', 'suspendu'])->count(); @endphp
+            <a href="{{ route('erp.abonnements.index') }}" class="sidebar-link {{ request()->routeIs('erp.abonnements.*') ? 'active' : '' }}">
+                <i class="bi bi-arrow-repeat icon"></i>
+                <span class="label">
+                    Abonnements
+                    @if ($abonnementsImpayes > 0)
+                        <span class="ml-1 text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5">{{ $abonnementsImpayes }}</span>
+                    @endif
+                </span>
+            </a>
+
             @php $paiementsAvalider = \App\Models\Paiement::averifier()->count(); @endphp
             <a href="{{ route('erp.transactions.index') }}" class="sidebar-link {{ request()->routeIs('erp.transactions.*') ? 'active' : '' }}">
                 <i class="bi bi-arrow-left-right icon"></i>

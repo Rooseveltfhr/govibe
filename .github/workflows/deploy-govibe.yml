@@ -249,6 +249,7 @@ jobs:
           # voudrait dire qu'elles sont atteignables sans compte.
           verifier "/erp/transactions" "302 301 403" "transactions protégées"
           verifier "/erp/transactions/configuration" "302 301 403" "clés API protégées"
+          verifier "/erp/abonnements" "302 301 403" "abonnements protégés"
 
           if [ "$ECHEC" -ne 0 ]; then
             echo "::error::Le déploiement est passé mais le site ne répond pas correctement."
