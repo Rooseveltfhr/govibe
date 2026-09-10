@@ -1,0 +1,101 @@
+name: MoviSend — Diagnostic & déploiement page d'accueil
+
+# demomovisend.govibeht.com vit sur le MÊME VPS que tagtoa.com et govibeht.com,
+# juste un autre dossier de domaine. On réutilise les secrets SSH déjà en place
+# (VPS_HOST/VPS_USER/VPS_SSH_KEY/VPS_PORT) — aucun nouveau secret requis.
+#
+# mode=diagnose (lecture seule) : localise le docroot du domaine, liste son
+#   contenu, et affiche le fichier d'accueil trouvé (pour savoir quoi modifier).
+# mode=deploy : publie public/movisend/home.html vers le docroot distant.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "diagnose (lecture seule) ou deploy (publie public/movisend/home.html)"
+        type: choice
+        options: [diagnose, deploy]
+        default: diagnose
+
+concurrency:
+  group: movisend-home
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: SSH VPS — ${{ inputs.mode }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh-keyscan -p "$PORT" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Diagnose (lecture seule)
+        if: ${{ inputs.mode == 'diagnose' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" 'bash -s' <<'EOSSH'
+          set -uo pipefail
+          echo "::group::Localisation du domaine"
+          D=$(ls -d /home/*/domains/demomovisend.govibeht.com "$HOME"/domains/demomovisend.govibeht.com 2>/dev/null | head -1)
+          echo "domaine: ${D:-INTROUVABLE}"
+          echo "::endgroup::"
+          [ -n "$D" ] || { echo "::error::Dossier de domaine introuvable — voir la liste ci-dessous."; ls -d /home/*/domains/*/ "$HOME"/domains/*/ 2>/dev/null; exit 1; }
+
+          echo "::group::Contenu du dossier de domaine"
+          ls -la "$D" 2>/dev/null
+          echo "::endgroup::"
+
+          PUB="$D/public_html"
+          [ -d "$PUB" ] || PUB="$D"
+          echo "::group::Contenu docroot ($PUB)"
+          ls -la "$PUB" 2>/dev/null
+          echo "::endgroup::"
+
+          echo "::group::Fichier(s) d'accueil détecté(s)"
+          for f in index.html index.php home.html home.php; do
+            [ -f "$PUB/$f" ] && echo "TROUVÉ: $PUB/$f ($(wc -l < "$PUB/$f") lignes)"
+          done
+          echo "::endgroup::"
+
+          for f in index.html index.php home.html home.php; do
+            if [ -f "$PUB/$f" ]; then
+              echo "::group::Contenu de $PUB/$f"
+              cat "$PUB/$f"
+              echo "::endgroup::"
+            fi
+          done
+          EOSSH
+
+      - name: Deploy (publie la nouvelle page)
+        if: ${{ inputs.mode == 'deploy' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          D=$(ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            'ls -d /home/*/domains/demomovisend.govibeht.com "$HOME"/domains/demomovisend.govibeht.com 2>/dev/null | head -1')
+          [ -n "$D" ] || { echo "::error::Dossier de domaine introuvable."; exit 1; }
+          echo "domaine résolu: $D"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "[ -d '$D/public_html' ] && echo '$D/public_html' || echo '$D'" > /tmp/pub_path.txt
+          PUB=$(cat /tmp/pub_path.txt)
+          echo "docroot résolu: $PUB"
+          cp public/movisend/home.html /tmp/movisend-home-deploy.html
+          scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
+            /tmp/movisend-home-deploy.html \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$PUB/index.html.new"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "bash -s" <<EOSSH
+          set -uo pipefail
+          PUB="$PUB"
+          [ -f "\$PUB/index.html" ] && cp "\$PUB/index.html" "\$PUB/index.html.bak.\$(date +%Y%m%d%H%M%S)" || true
+          mv "\$PUB/index.html.new" "\$PUB/index.html"
+          echo "Déployé: \$PUB/index.html"
+          EOSSH
