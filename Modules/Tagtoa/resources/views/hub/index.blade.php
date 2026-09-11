@@ -10,6 +10,21 @@
     <i class="fa-solid fa-arrow-right"></i>
 </a>
 @endif
+{{-- Le commerce n'est pas encore déclaré : c'est ce qui permet à TAGTOA de
+     parler le langage du métier (chambres pour un hôtel, boissons pour un bar)
+     et de tenir plusieurs commerces sur un même compte. --}}
+@if(!empty($sansCommerce))
+<a href="{{ route('tagtoa.business.create') }}" class="card"
+   style="display:flex;align-items:center;gap:14px;border-left:4px solid #2cb809;text-decoration:none;color:inherit;margin-bottom:16px">
+    <i class="fa-solid fa-shop" style="font-size:22px;color:#2cb809"></i>
+    <div style="flex:1">
+        <b style="font-family:var(--fh,sans-serif)">{{ __('Parlez-nous de votre commerce') }}</b>
+        <div style="color:var(--muted);font-size:13.5px">{{ __('Une minute, une seule fois — ensuite tout TAGTOA s\'adapte à votre métier.') }}</div>
+    </div>
+    <i class="fa-solid fa-arrow-right" style="color:var(--muted)"></i>
+</a>
+@endif
+
 @if(!empty($isNew))
 {{-- Hero onboarding : marchand sans aucune ressource --}}
 <div class="card" style="background:var(--blk);color:#fff;border:0;display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:20px">

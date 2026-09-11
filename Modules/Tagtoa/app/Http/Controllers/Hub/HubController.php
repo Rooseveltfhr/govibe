@@ -42,7 +42,12 @@ class HubController extends Controller
             // rôle indisponible → pas de lien (comportement sûr)
         }
 
-        return view('tagtoa::hub.index', compact('stats', 'isNew', 'isSuperAdmin'));
+        // A-t-il déclaré son commerce ? Tant que non, TAGTOA ne peut pas
+        // s'adapter à son métier — on le lui propose plutôt que de le deviner.
+        $sansCommerce = ! app(\Modules\Tagtoa\App\Services\Business\BusinessService::class)
+            ->hasAny(Tenant::account());
+
+        return view('tagtoa::hub.index', compact('stats', 'isNew', 'isSuperAdmin', 'sansCommerce'));
     }
 
     /**

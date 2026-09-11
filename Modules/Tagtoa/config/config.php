@@ -182,7 +182,7 @@ return [
     | imprimés ou des cartes de fidélité ne perd rien.
     |
     | Rallumer un module = ajouter sa clé ici. Clés disponibles :
-    |   menu, pos, event, pay, staff, analytics, customers, reviews, qr, plan,
+    |   menu, pos, event, pay, business, staff, analytics, customers, reviews, qr, plan,
     |   site, store, cards, loyalty, links, booking, billing, audit
     */
     'modules_enabled' => \Modules\Tagtoa\App\Support\DashboardModules::DEFAULT_ENABLED,

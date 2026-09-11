@@ -238,6 +238,16 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/staff/sales/export', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'exportSales'])->name('staff.sales.export');
     });
 
+    // MON COMMERCE — le déclarer, le modifier, passer de l'un à l'autre.
+    Route::prefix('business')->name('tagtoa.business.')->group(function () {
+        Route::get('/', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'index'])->name('index');
+        Route::get('/new', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'create'])->name('create');
+        Route::post('/', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'update'])->name('update');
+        Route::post('/{id}/switch', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'switch'])->name('switch');
+    });
+
     // ÉQUIPE — les gens qui tiennent les caisses du commerce.
     Route::prefix('staff')->name('tagtoa.staff.')->group(function () {
         Route::get('/', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'index'])->name('index');
