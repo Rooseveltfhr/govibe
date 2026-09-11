@@ -3,10 +3,12 @@
 namespace Modules\Tagtoa\App\Services\Pos;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Tagtoa\App\Models\Menu\Item as MenuItem;
 use Modules\Tagtoa\App\Models\Pos\Sale;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
+use Modules\Tagtoa\App\Support\Pos\CatalogRef;
 
 /**
  * TAGTOA POS — enregistrement des ventes (atomique, idempotent, offline-sync)
@@ -41,23 +43,27 @@ class PosService
             $items    = $payload['items'] ?? [];
             $discount = max(0, (float) ($payload['discount'] ?? 0));
 
-            // Sécurité financière : pré-résoudre chaque ligne. Pour un produit du
-            // catalogue (appartenant à CE terminal), on impose le prix/nom du SERVEUR
-            // — jamais le prix envoyé par le client (anti-tampering). Les articles
-            // ad-hoc (sans product_id) gardent le prix saisi par le caissier.
+            // Sécurité financière : chaque ligne est pré-résolue dans le
+            // catalogue du COMMERCE — boutons de la caisse ET articles du menu.
+            // Le prix et le nom viennent TOUJOURS du serveur, jamais de ce que
+            // la caisse a envoyé. Les articles au pied levé (sans référence)
+            // gardent le prix saisi par le caissier : c'est le cas du « divers ».
             $lines = [];
             $subtotal = 0;
             foreach ($items as $it) {
                 $qty = max(1, (int) ($it['qty'] ?? 1));
-                // Catalogue du COMMERCE : un article saisi sur une autre caisse
-                // du même commerce doit se vendre ici aussi.
-                $product = ! empty($it['product_id'])
-                    ? $this->catalog->find($terminal->tenant_id, (int) $it['product_id'])
+
+                // « menu:7 » ou « pos:7 ». Les caisses déjà installées envoient
+                // encore un identifiant nu, compris comme un bouton de caisse.
+                $ref = $it['ref'] ?? $it['product_id'] ?? null;
+                $article = $ref !== null && $ref !== ''
+                    ? $this->catalog->resolve($terminal->tenant_id, $ref)
                     : null;
-                $price = $product ? (float) $product->price : (float) ($it['price'] ?? 0);
-                $name  = $product ? $product->name : (string) ($it['name'] ?? 'Article');
+
+                $price = $article ? (float) $article->price : (float) ($it['price'] ?? 0);
+                $name  = $article ? $article->name : (string) ($it['name'] ?? 'Article');
                 $subtotal += $price * $qty;
-                $lines[] = [$product, $name, $price, $qty];
+                $lines[] = [$article, $name, $price, $qty];
             }
             $total = max(0, $subtotal - $discount);
 
@@ -75,17 +81,24 @@ class PosService
                 'sold_at'        => now(),
             ]);
 
-            foreach ($lines as [$product, $name, $price, $qty]) {
+            foreach ($lines as [$article, $name, $price, $qty]) {
+                // La ligne dit de QUEL catalogue vient l'article : le plat n°7
+                // et le bouton n°7 sont deux choses différentes.
                 $sale->items()->create([
-                    'product_id' => $product?->id,
+                    'product_id' => $article?->id,
+                    'source'     => $article instanceof MenuItem
+                        ? CatalogRef::SOURCE_MENU
+                        : CatalogRef::SOURCE_POS,
                     'name'       => $name,
                     'price'      => $price,
                     'qty'        => $qty,
                     'line_total' => $price * $qty,
                 ]);
 
-                if ($product && $product->stock !== null) {
-                    $product->decrement('stock', $qty);
+                // UN SEUL STOCK : vendre un plat au comptoir retire du même
+                // stock qu'une commande passée par QR.
+                if ($article && $article->stock !== null) {
+                    $article->decrement('stock', $qty);
                 }
             }
 

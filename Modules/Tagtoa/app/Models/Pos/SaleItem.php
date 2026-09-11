@@ -12,7 +12,7 @@ class SaleItem extends Model
 {
     protected $table = 'tagtoa_pos_sale_items';
 
-    protected $fillable = ['sale_id', 'product_id', 'name', 'price', 'qty', 'line_total'];
+    protected $fillable = ['sale_id', 'product_id', 'source', 'name', 'price', 'qty', 'line_total'];
 
     protected $casts = ['price' => 'decimal:2', 'qty' => 'integer', 'line_total' => 'decimal:2'];
 

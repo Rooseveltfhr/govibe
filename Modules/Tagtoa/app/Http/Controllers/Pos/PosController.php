@@ -54,7 +54,9 @@ class PosController extends Controller
 
         return view('tagtoa::pos.register', [
             'terminal' => $terminal,
-            'products' => app(PosCatalog::class)->active($terminal->tenant_id),
+            // Boutons de la caisse ET articles du menu du commerce : le
+            // marchand saisit un plat une fois et le vend aussi au comptoir.
+            'sellable' => app(PosCatalog::class)->sellable($terminal->tenant_id),
             'methods'  => Sale::METHODS,
             // Employé au poste, et faut-il en demander un ? Tant que le commerce
             // n'a créé personne, la caisse fonctionne comme avant.
@@ -71,6 +73,9 @@ class PosController extends Controller
             'items.*.name'       => ['required', 'string', 'max:120'],
             'items.*.price'      => ['required', 'numeric', 'min:0'],
             'items.*.qty'        => ['required', 'integer', 'min:1'],
+            // « menu:7 » / « pos:7 ». `product_id` reste accepté : une caisse
+            // déjà installée ne doit pas s'arrêter de vendre à la mise à jour.
+            'items.*.ref'        => ['nullable', 'string', 'max:30'],
             'items.*.product_id' => ['nullable', 'integer'],
             'discount'           => ['nullable', 'numeric', 'min:0'],
             'payments'           => ['nullable', 'array'],

@@ -38,6 +38,9 @@
 </head>
 <body data-terminal="{{ $terminal->id }}" data-currency="{{ $terminal->currency }}">
     <style>
+        .grid .p{position:relative}
+        .grid .p .st{position:absolute;top:5px;right:7px;background:rgba(0,0,0,.34);color:#fff;
+               border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700}
         .who{width:30px;height:30px;border-radius:50%;background:var(--blue);color:#fff;
              display:inline-flex;align-items:center;justify-content:center;
              font:700 12px var(--fh,sans-serif);flex:0 0 30px}
@@ -79,8 +82,18 @@
             </div>
         @endif
         <div class="grid" id="grid">
-            @foreach($products as $p)
-                <button class="p" style="background:{{ $p->color }}" onclick="add({{ $p->id }},'{{ addslashes($p->name) }}',{{ $p->price }})"><span class="em">{{ $p->emoji ?: '🛒' }}</span><span>{{ $p->name }}</span><span class="pr">{{ number_format($p->price,2) }}</span></button>
+            {{-- Boutons de la caisse ET articles du menu du commerce. Chaque
+                 article porte sa référence d'origine (« menu:7 », « pos:7 ») :
+                 le plat n°7 et le bouton n°7 sont deux choses différentes. --}}
+            @foreach($sellable as $a)
+                <button class="p" style="background:{{ $a['color'] }}"
+                        data-ref="{{ $a['ref'] }}" data-name="{{ $a['name'] }}" data-price="{{ $a['price'] }}"
+                        @if($a['group']) title="{{ $a['group'] }}" @endif>
+                    <span class="em">{{ $a['emoji'] ?: ($a['source'] === 'menu' ? '🍽️' : '🛒') }}</span>
+                    <span>{{ $a['name'] }}</span>
+                    <span class="pr">{{ number_format($a['price'], 2) }}</span>
+                    @if($a['stock'] !== null)<span class="st">{{ $a['stock'] }}</span>@endif
+                </button>
             @endforeach
         </div>
         <div class="cart">
@@ -111,12 +124,17 @@
 var T=document.body.dataset.terminal,CUR=document.body.dataset.currency,CSRF=document.querySelector('meta[name=csrf-token]').content;
 var SALE_URL="{{ route('tagtoa.pos.sale',$terminal->id) }}",SYNC_URL="{{ route('tagtoa.pos.sync',$terminal->id) }}",QKEY='tagtoa_pos_q_'+T;
 var cart={},method='cash';
-function add(id,name,price){if(!cart[id])cart[id]={product_id:id,name:name,price:price,qty:0};cart[id].qty++;beep('add');render();}
+/* Panier indexé par RÉFÉRENCE : sans cela, le plat n°7 et le bouton n°7
+   partageraient la même ligne et l'un écraserait l'autre. */
+function add(ref,name,price){if(!cart[ref])cart[ref]={ref:ref,name:name,price:price,qty:0};cart[ref].qty++;beep('add');render();}
+document.querySelectorAll('.grid .p').forEach(function(b){
+    b.addEventListener('click',function(){add(this.dataset.ref,this.dataset.name,parseFloat(this.dataset.price));});
+});
 function chg(id,d){if(cart[id]){cart[id].qty+=d;if(cart[id].qty<=0)delete cart[id];render();}}
 function sub(){var s=0;for(var k in cart)s+=cart[k].price*cart[k].qty;return s;}
 function total(){return Math.max(0,sub()-(parseFloat(document.getElementById('disc').value)||0));}
 function render(){var L=document.getElementById('lines'),ks=Object.keys(cart);
-    L.innerHTML=ks.length?ks.map(function(k){var c=cart[k];return '<div class="ln"><div class="nm">'+c.name+'<small>'+c.price.toFixed(2)+'</small></div><div class="q"><button onclick="chg('+k+',-1)">−</button> '+c.qty+' <button onclick="chg('+k+',1)">+</button></div></div>';}).join(''):'<p style="color:#999;padding:14px;font-size:14px">{{ __('Touchez un produit') }}</p>';
+    L.innerHTML=ks.length?ks.map(function(k){var c=cart[k];return '<div class="ln"><div class="nm">'+c.name+'<small>'+c.price.toFixed(2)+'</small></div><div class="q"><button onclick="chg(\''+k+'\',-1)">−</button> '+c.qty+' <button onclick="chg(\''+k+'\',1)">+</button></div></div>';}).join(''):'<p style="color:#999;padding:14px;font-size:14px">{{ __('Touchez un produit') }}</p>';
     document.getElementById('sub').textContent=sub().toFixed(2);document.getElementById('tot').textContent=total().toFixed(2);document.getElementById('pt').textContent=total().toFixed(2);document.getElementById('paybtn').disabled=!ks.length;
     var sb=document.getElementById('splitbox'),on=document.getElementById('splitchk').checked;sb.style.display=on?'block':'none';if(on&&!sb.innerHTML)sb.innerHTML='{{ __('MonCash') }}: <input type="number" id="sp1" value="0"> · {{ __('Cash') }}: <input type="number" id="sp2" value="0">';}
 function pickM(m,el){method=m;document.querySelectorAll('.m').forEach(function(x){x.classList.remove('on');});el.classList.add('on');}
