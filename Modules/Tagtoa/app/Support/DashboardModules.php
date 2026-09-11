@@ -19,7 +19,7 @@ class DashboardModules
     /** Modules mis en avant par défaut. Le reste existe mais reste discret. */
     public const DEFAULT_ENABLED = [
         'menu', 'pos', 'event', 'pay',
-        'analytics', 'customers', 'reviews', 'qr', 'plan',
+        'staff', 'analytics', 'customers', 'reviews', 'qr', 'plan',
     ];
 
     /**
@@ -61,6 +61,10 @@ class DashboardModules
         'qr' => [
             'label' => 'QR & Partage', 'icon' => 'fa-qrcode', 'group' => 'account',
             'desc'  => 'QR codes de vos pages publiques et affiches à imprimer.',
+        ],
+        'staff' => [
+            'label' => 'Équipe', 'icon' => 'fa-users-gear', 'group' => 'account',
+            'desc'  => 'Les personnes qui tiennent vos caisses : rôle, code d\'accès, ce que chacune peut faire.',
         ],
         'plan' => [
             'label' => 'Abonnement', 'icon' => 'fa-crown', 'group' => 'account',

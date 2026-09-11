@@ -117,4 +117,21 @@ class StaffAccessTest extends TestCase
         $this->assertGreaterThan($gerant, $patron);
         $this->assertGreaterThan($caissier, $gerant);
     }
+
+    public function test_every_right_is_said_in_words_the_owner_understands(): void
+    {
+        // La fiche de chaque personne affiche ses droits. Un droit sans libellé
+        // s'afficherait en clé technique (« catalog.delete ») sur l'écran du
+        // patron.
+        foreach (StaffAccess::ABILITIES as $ability) {
+            $this->assertArrayHasKey($ability, StaffAccess::ABILITY_LABELS,
+                "Le droit « $ability » n'a pas de libellé lisible.");
+            $this->assertNotSame($ability, StaffAccess::label($ability));
+        }
+    }
+
+    public function test_an_unknown_right_falls_back_to_its_key_rather_than_crashing(): void
+    {
+        $this->assertSame('inconnu.xyz', StaffAccess::label('inconnu.xyz'));
+    }
 }

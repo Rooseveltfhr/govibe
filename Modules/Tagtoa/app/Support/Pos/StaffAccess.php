@@ -54,6 +54,31 @@ class StaffAccess
         'settings',         // réglages du commerce
     ];
 
+    /**
+     * Le même droit, dit comme le patron le comprend. Affiché sur la fiche de
+     * chaque personne pour qu'il voie d'un coup d'œil ce qu'il vient d'accorder.
+     */
+    public const ABILITY_LABELS = [
+        'sell'           => 'Encaisser',
+        'cart.remove'    => 'Retirer du panier',
+        'sale.refund'    => 'Rembourser',
+        'sales.own'      => 'Voir ses ventes',
+        'sales.till'     => 'Voir sa caisse',
+        'sales.all'      => 'Voir toutes les caisses',
+        'discount'       => 'Faire une remise',
+        'catalog.view'   => 'Voir le catalogue',
+        'catalog.edit'   => 'Modifier le catalogue',
+        'catalog.delete' => 'Supprimer au catalogue',
+        'staff.manage'   => 'Gérer l\'équipe',
+        'settings'       => 'Réglages',
+    ];
+
+    /** Libellé lisible d'un droit, ou le droit lui-même s'il est inconnu. */
+    public static function label(string $ability): string
+    {
+        return self::ABILITY_LABELS[$ability] ?? $ability;
+    }
+
     /** Ce que chaque rôle peut faire. Le patron n'est pas listé : il peut tout. */
     private const GRANTS = [
         self::ROLE_MANAGER => [

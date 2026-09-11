@@ -238,6 +238,15 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/staff/sales/export', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'exportSales'])->name('staff.sales.export');
     });
 
+    // ÉQUIPE — les gens qui tiennent les caisses du commerce.
+    Route::prefix('staff')->name('tagtoa.staff.')->group(function () {
+        Route::get('/', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'index'])->name('index');
+        Route::post('/', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'store'])->name('store');
+        Route::put('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'update'])->whereNumber('id')->name('update');
+        Route::post('/{id}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'toggle'])->whereNumber('id')->name('toggle');
+        Route::delete('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'destroy'])->whereNumber('id')->name('destroy');
+    });
+
     // POS
     Route::prefix('pos')->name('tagtoa.pos.')->group(function () {
         Route::get('/', [PosController::class, 'index'])->name('index');
