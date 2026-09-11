@@ -8,7 +8,10 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Pos\Sale;
+use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Pos\PosCatalog;
+use Modules\Tagtoa\App\Services\Pos\PosSales;
+use Modules\Tagtoa\App\Services\Staff\StaffService;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Services\Pos\PosService;
 use Modules\Tagtoa\App\Support\EnforcesPlan;
@@ -49,7 +52,15 @@ class PosController extends Controller
     {
         $terminal = $this->own($id);
 
-        return view('tagtoa::pos.register', ['terminal' => $terminal, 'products' => app(PosCatalog::class)->active($terminal->tenant_id), 'methods' => Sale::METHODS]);
+        return view('tagtoa::pos.register', [
+            'terminal' => $terminal,
+            'products' => app(PosCatalog::class)->active($terminal->tenant_id),
+            'methods'  => Sale::METHODS,
+            // Employé au poste, et faut-il en demander un ? Tant que le commerce
+            // n'a créé personne, la caisse fonctionne comme avant.
+            'staff'      => $this->currentStaff($terminal),
+            'hasStaff'   => Staff::where('tenant_id', $terminal->tenant_id)->where('is_active', true)->exists(),
+        ]);
     }
 
     public function sale(Request $request, int $id): JsonResponse
@@ -67,7 +78,7 @@ class PosController extends Controller
             'client_uuid'        => ['nullable', 'string', 'max:64'],
         ]);
 
-        $sale = $this->service->recordSale($terminal, $data);
+        $sale = $this->service->recordSale($terminal, $data, $this->currentStaff($terminal));
 
         return response()->json(['ok' => true, 'reference' => $sale->reference, 'total' => (float) $sale->total]);
     }
@@ -75,10 +86,15 @@ class PosController extends Controller
     public function sync(Request $request, int $id): JsonResponse
     {
         $terminal = $this->own($id);
+        // Employé au poste au moment de la REPRISE. La caisse hors-ligne rejoue
+        // ses ventes dès le retour du réseau, donc en pratique la même personne
+        // — et si le poste a été fermé entre-temps, la vente revient au patron
+        // plutôt que d'être attribuée à qui a repris le comptoir.
+        $staff = $this->currentStaff($terminal);
         $results = [];
         foreach ($request->input('sales', []) as $payload) {
             try {
-                $sale = $this->service->recordSale($terminal, $payload);
+                $sale = $this->service->recordSale($terminal, $payload, $staff);
                 $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => true, 'reference' => $sale->reference];
             } catch (\Throwable $e) {
                 $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => false, 'error' => $e->getMessage()];
@@ -92,7 +108,16 @@ class PosController extends Controller
     {
         $terminal = $this->own($id);
         $date = $request->date('date') ?: now();
-        $sales = $terminal->sales()->whereDate('sold_at', $date)->where('status', 1)->latest()->get();
+
+        // Ce que la personne au poste a le DROIT de voir. Le tableau de bord est
+        // celui du patron : sans employé connecté, la vue reste complète.
+        $staff = $this->currentStaff($terminal);
+        $visibles = $staff
+            ? app(PosSales::class)->visibleTo($staff, $terminal)
+            : app(PosSales::class)->forOwner($terminal->tenant_id, $terminal);
+
+        $sales = (clone $visibles)->whereDate('sold_at', $date)->where('status', 1)
+            ->with('staff')->latest()->get();
 
         $byMethod = [];
         foreach ($sales as $s) {
@@ -103,7 +128,15 @@ class PosController extends Controller
         }
         $z = ['date' => $date->format('Y-m-d'), 'count' => $sales->count(), 'total' => $sales->sum('total'), 'by_method' => $byMethod];
 
-        return view('tagtoa::pos.report', compact('terminal', 'sales', 'z'));
+        // « Qui a encaissé combien » — n'a de sens que pour qui voit plus que
+        // ses propres ventes.
+        $byCashier = $staff && $staff->salesScope() === 'own'
+            ? []
+            : app(PosSales::class)->byCashier(
+                (clone $visibles)->whereDate('sold_at', $date)->where('status', 1)
+            );
+
+        return view('tagtoa::pos.report', compact('terminal', 'sales', 'z', 'staff', 'byCashier'));
     }
 
     public function products(int $id): View
@@ -168,6 +201,53 @@ class PosController extends Controller
             ->log('pos.product_deleted', null, $nom);
 
         return back()->with('success', __('Article supprimé du catalogue.').' ('.$nom.')');
+    }
+
+
+    /* ---------- Qui tient la caisse ---------- */
+
+    /**
+     * Employé connecté SUR CETTE CAISSE, ou null.
+     *
+     * La session ne garde qu'un identifiant : l'employé est relu en base à
+     * chaque requête, pour qu'une désactivation ferme la caisse immédiatement
+     * plutôt qu'à la prochaine connexion.
+     */
+    protected function currentStaff(Terminal $terminal): ?Staff
+    {
+        $id = session('tagtoa_pos_staff.'.$terminal->id);
+
+        return $id
+            ? Staff::where('tenant_id', $terminal->tenant_id)->where('is_active', true)->find($id)
+            : null;
+    }
+
+    /** Ouvre le poste après vérification du code. */
+    public function staffLogin(Request $request, int $id): RedirectResponse
+    {
+        $terminal = $this->own($id);
+        $data = $request->validate(['pin' => ['required', 'string', 'max:20']]);
+
+        $staff = app(StaffService::class)->authenticate($terminal->tenant_id, $data['pin'], $terminal->id);
+
+        if (! $staff) {
+            // Message volontairement identique pour un code faux et pour un
+            // employé désactivé : ne rien apprendre à qui essaie des codes.
+            return back()->with('error', __('Code incorrect.'));
+        }
+
+        session(['tagtoa_pos_staff.'.$terminal->id => $staff->id]);
+
+        return back()->with('success', __('Bonjour :nom.', ['nom' => $staff->name]));
+    }
+
+    /** Ferme le poste (fin de service, ou relève par un collègue). */
+    public function staffLogout(int $id): RedirectResponse
+    {
+        $terminal = $this->own($id);
+        session()->forget('tagtoa_pos_staff.'.$terminal->id);
+
+        return back()->with('success', __('Poste fermé.'));
     }
 
     /* ---------- PWA (installable + offline) ---------- */

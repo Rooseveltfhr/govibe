@@ -5,6 +5,7 @@ namespace Modules\Tagtoa\App\Services\Pos;
 use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Pos\Sale;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
+use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
 
 /**
@@ -19,7 +20,13 @@ class PosService
     ) {
     }
 
-    public function recordSale(Terminal $terminal, array $payload): Sale
+    /**
+     * Enregistre une vente.
+     *
+     * `$staff` est facultatif : un commerce qui n'a pas encore créé d'employé
+     * vend exactement comme avant, et la vente est alors celle du patron.
+     */
+    public function recordSale(Terminal $terminal, array $payload, ?Staff $staff = null): Sale
     {
         // Idempotence limitée à CETTE caisse. La recherche était globale : une
         // caisse qui numérote « 1 » ou « vente-42 » retrouvait alors la vente
@@ -30,7 +37,7 @@ class PosService
             return $existing;
         }
 
-        return DB::transaction(function () use ($terminal, $payload, $uuid) {
+        return DB::transaction(function () use ($terminal, $payload, $uuid, $staff) {
             $items    = $payload['items'] ?? [];
             $discount = max(0, (float) ($payload['discount'] ?? 0));
 
@@ -62,6 +69,7 @@ class PosService
                 'currency'       => $terminal->currency,
                 'payments'       => $payload['payments'] ?? [['method' => 'cash', 'amount' => $total]],
                 'customer_phone' => $payload['customer_phone'] ?? null,
+                'staff_id'       => $staff?->id,
                 'client_uuid'    => $uuid,
                 'status'         => 1,
                 'sold_at'        => now(),

@@ -37,8 +37,47 @@
     </style>
 </head>
 <body data-terminal="{{ $terminal->id }}" data-currency="{{ $terminal->currency }}">
+    <style>
+        .who{width:30px;height:30px;border-radius:50%;background:var(--blue);color:#fff;
+             display:inline-flex;align-items:center;justify-content:center;
+             font:700 12px var(--fh,sans-serif);flex:0 0 30px}
+        .poste{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+               padding:9px 12px;background:#fff;border-bottom:1px solid var(--bd);font-size:14px}
+        .poste form{display:flex;align-items:center;gap:8px;margin:0}
+        .poste label{color:#666;font-size:13px}
+        .poste input{width:96px;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;
+                     font-size:17px;letter-spacing:.3em;text-align:center}
+        .poste button{padding:9px 15px;border:0;border-radius:8px;background:var(--blue);
+                      color:#fff;font-weight:600;font-size:14px;cursor:pointer}
+        .poste .err{color:var(--red);font-weight:600;font-size:13px}
+    </style>
     <div class="app">
-        <div class="top"><i class="fa-solid fa-cash-register" style="color:var(--blue)"></i><h1>{{ $terminal->name }}</h1><button id="installBtn" class="net" style="display:none;border:0;cursor:pointer;background:var(--blue)" title="{{ __('Installer l\'application') }}"><i class="fa-solid fa-download"></i> {{ __('Installer') }}</button><span class="net" id="net">●</span><a href="{{ route('tagtoa.pos.report',$terminal->id) }}"><i class="fa-solid fa-chart-simple"></i></a></div>
+        <div class="top"><i class="fa-solid fa-cash-register" style="color:var(--blue)"></i><h1>{{ $terminal->name }}</h1><button id="installBtn" class="net" style="display:none;border:0;cursor:pointer;background:var(--blue)" title="{{ __('Installer l\'application') }}"><i class="fa-solid fa-download"></i> {{ __('Installer') }}</button><span class="net" id="net">●</span>
+            @if($staff)
+                <span class="who" title="{{ $staff->role_label }}">{{ $staff->initials }}</span>
+            @endif
+            <a href="{{ route('tagtoa.pos.report',$terminal->id) }}"><i class="fa-solid fa-chart-simple"></i></a></div>
+
+        {{-- Qui tient la caisse. Tant que le commerce n'a créé aucun employé,
+             ce bandeau n'apparaît pas et la caisse fonctionne comme avant. --}}
+        @if($hasStaff)
+            <div class="poste">
+                @if($staff)
+                    <span><b>{{ $staff->name }}</b> · {{ $staff->role_label }}</span>
+                    <form method="POST" action="{{ route('tagtoa.pos.staff.logout',$terminal->id) }}">@csrf
+                        <button type="submit">{{ __('Fermer le poste') }}</button>
+                    </form>
+                @else
+                    <form method="POST" action="{{ route('tagtoa.pos.staff.login',$terminal->id) }}">@csrf
+                        <label for="pin">{{ __('Votre code') }}</label>
+                        <input id="pin" name="pin" type="password" inputmode="numeric" autocomplete="off"
+                               maxlength="6" pattern="[0-9]*" placeholder="••••" required>
+                        <button type="submit">{{ __('Ouvrir') }}</button>
+                    </form>
+                @endif
+                @if(session('error'))<span class="err">{{ session('error') }}</span>@endif
+            </div>
+        @endif
         <div class="grid" id="grid">
             @foreach($products as $p)
                 <button class="p" style="background:{{ $p->color }}" onclick="add({{ $p->id }},'{{ addslashes($p->name) }}',{{ $p->price }})"><span class="em">{{ $p->emoji ?: '🛒' }}</span><span>{{ $p->name }}</span><span class="pr">{{ number_format($p->price,2) }}</span></button>

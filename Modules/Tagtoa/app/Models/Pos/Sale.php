@@ -22,7 +22,7 @@ class Sale extends Model
     protected $table = 'tagtoa_pos_sales';
 
     protected $fillable = [
-        'terminal_id', 'reference', 'subtotal', 'discount', 'total', 'currency',
+        'terminal_id', 'staff_id', 'reference', 'subtotal', 'discount', 'total', 'currency',
         'payments', 'customer_phone', 'client_uuid', 'status', 'sold_at',
     ];
 
@@ -34,6 +34,24 @@ class Sale extends Model
     public function terminal(): BelongsTo
     {
         return $this->belongsTo(Terminal::class, 'terminal_id');
+    }
+
+    /**
+     * Caissier qui a encaissé. Facultatif : les ventes d'avant n'en ont pas, et
+     * un commerce sans employé vend sous le seul nom du patron.
+     *
+     * La vente SURVIT au départ de l'employé (nullOnDelete) : une recette
+     * appartient au commerce, pas à la personne qui l'a encaissée.
+     */
+    public function staff(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\Tagtoa\App\Models\Staff\Staff::class, 'staff_id');
+    }
+
+    /** Nom à afficher dans un rapport, même si l'employé a quitté le commerce. */
+    public function getCashierNameAttribute(): string
+    {
+        return $this->staff?->name ?: __('Patron');
     }
 
     public function items(): HasMany

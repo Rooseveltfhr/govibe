@@ -243,6 +243,10 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/', [PosController::class, 'index'])->name('index');
         Route::post('/', [PosController::class, 'store'])->name('store');
         Route::get('/{id}/register', [PosController::class, 'register'])->name('register');
+        // Qui tient la caisse : ouverture et fermeture de poste par code.
+        Route::post('/{id}/staff/login', [PosController::class, 'staffLogin'])
+            ->middleware('throttle:10,1')->name('staff.login');
+        Route::post('/{id}/staff/logout', [PosController::class, 'staffLogout'])->name('staff.logout');
         Route::post('/{id}/sale', [PosController::class, 'sale'])->name('sale');
         Route::post('/{id}/sync', [PosController::class, 'sync'])->name('sync');
         Route::get('/{id}/report', [PosController::class, 'report'])->name('report');
