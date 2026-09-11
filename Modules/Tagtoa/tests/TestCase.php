@@ -36,6 +36,21 @@ abstract class TestCase extends BaseTestCase
         $app['config']->set('tagtoa', require __DIR__.'/../config/config.php');
     }
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Tenant::id() garde le commerce courant en cache pour la durée d'une
+        // requête. Sans ce vidage, le premier test fixerait le commerce de tous
+        // les suivants et la suite passerait pour de mauvaises raisons.
+        \Modules\Tagtoa\App\Support\Tenant::flush();
+    }
+
+    protected function tearDown(): void
+    {
+        \Modules\Tagtoa\App\Support\Tenant::flush();
+        parent::tearDown();
+    }
+
     protected function defineDatabaseMigrations(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../Database/migrations');
