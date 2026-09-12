@@ -78,7 +78,7 @@ class PosSellsMenuTest extends TestCase
             'items' => [['ref' => CatalogRef::make('menu', $griot->id), 'qty' => 3]],
         ]);
 
-        $this->assertSame(7, $griot->fresh()->stock, 'Vendre au comptoir doit retirer du stock du menu.');
+        $this->assertSame(7.0, $griot->fresh()->stock, 'Vendre au comptoir doit retirer du stock du menu.');
     }
 
     public function test_dish_seven_and_button_seven_are_never_confused(): void
@@ -92,8 +92,8 @@ class PosSellsMenuTest extends TestCase
             'items' => [['ref' => CatalogRef::make('menu', $plat->id), 'qty' => 1]],
         ]);
 
-        $this->assertSame(9, $plat->fresh()->stock, 'Le plat doit baisser…');
-        $this->assertSame(100, $bouton->fresh()->stock, '…et le bouton ne doit pas bouger.');
+        $this->assertSame(9.0, $plat->fresh()->stock, 'Le plat doit baisser…');
+        $this->assertSame(100.0, $bouton->fresh()->stock, '…et le bouton ne doit pas bouger.');
     }
 
     public function test_each_sale_line_says_which_catalogue_it_came_from(): void
@@ -127,7 +127,7 @@ class PosSellsMenuTest extends TestCase
 
         $this->assertEquals(10.0, (float) $vente->total);
         $this->assertSame('Divers', $vente->items->first()->name);
-        $this->assertSame(50, $biere->fresh()->stock, 'Le stock du voisin ne doit pas bouger.');
+        $this->assertSame(50.0, $biere->fresh()->stock, 'Le stock du voisin ne doit pas bouger.');
     }
 
     public function test_a_dish_the_kitchen_no_longer_has_is_not_offered(): void
@@ -161,7 +161,7 @@ class PosSellsMenuTest extends TestCase
         ]);
 
         $this->assertEquals(50.0, (float) $vente->total);
-        $this->assertSame(98, $bouton->fresh()->stock);
+        $this->assertSame(98.0, $bouton->fresh()->stock);
         $this->assertSame('pos', $vente->items->first()->source);
     }
 
@@ -187,6 +187,6 @@ class PosSellsMenuTest extends TestCase
             $this->assertEquals(1.0, (float) $vente->total, "« $bidon » ne doit désigner aucun article.");
         }
 
-        $this->assertSame(100, $bouton->fresh()->stock);
+        $this->assertSame(100.0, $bouton->fresh()->stock);
     }
 }

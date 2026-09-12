@@ -56,7 +56,7 @@ class PosCatalogTest extends TestCase
 
         // Le prix vient du catalogue (imposé côté serveur), pas du client.
         $this->assertEquals(150.0, (float) $vente->total);
-        $this->assertSame(8, $coca->fresh()->stock, 'Le stock du catalogue partagé doit bouger.');
+        $this->assertSame(8.0, $coca->fresh()->stock, 'Le stock du catalogue partagé doit bouger.');
         // Et la vente dit bien SUR QUELLE caisse elle a eu lieu.
         $this->assertSame($terrasse->id, $vente->terminal_id);
     }
@@ -182,7 +182,7 @@ class PosCatalogTest extends TestCase
 
         $this->assertSame([], app(PosCatalog::class)->active('t-1')->pluck('name')->all());
         $this->assertCount(1, app(PosCatalog::class)->all('t-1'));
-        $this->assertSame(12, $coca->fresh()->stock);
+        $this->assertSame(12.0, $coca->fresh()->stock);
     }
 
     public function test_deleting_an_item_leaves_past_sales_untouched(): void

@@ -97,10 +97,37 @@
                 <label class="switch removeimgwrap" style="flex:0;display:none"><input type="checkbox" name="cats[CIDX][items][IIDX][remove_image]" value="1"> {{ __('Retirer') }}</label>
             </div>
             <input name="cats[CIDX][items][IIDX][badge]" class="inp" placeholder="{{ __('Badge: Nouveau, Promo…') }}" style="max-width:200px">
-            <input name="cats[CIDX][items][IIDX][stock]" class="inp" type="number" min="0" placeholder="{{ __('Stock (vide = illimité)') }}" style="max-width:170px" title="{{ __('Laisser vide pour ne pas suivre le stock') }}">
+            {{-- Stock décimal : un plat peut se vendre à la livre (griot, poisson). --}}
+            <input name="cats[CIDX][items][IIDX][stock]" class="inp" type="number" step="0.001" min="0" placeholder="{{ __('Stock (vide = illimité)') }}" style="max-width:170px" title="{{ __('Laisser vide pour ne pas suivre le stock') }}">
             <label class="switch" style="flex:0"><input type="hidden" name="cats[CIDX][items][IIDX][is_available]" value="0"><input type="checkbox" name="cats[CIDX][items][IIDX][is_available]" value="1" checked> {{ __('Disponible') }}</label>
             <label class="switch" style="flex:0"><input type="checkbox" name="cats[CIDX][items][IIDX][is_featured]" value="1"> {{ __('Mis en avant') }}</label>
         </div>
+        {{-- Gestion : coût matière, unité, seuil, référence. Replié par défaut —
+             un restaurant qui veut seulement afficher sa carte ne doit pas le
+             subir ; celui qui veut savoir ce que chaque plat lui rapporte le
+             déplie une fois. --}}
+        <button type="button" class="btn btn-o btn-sm togdet" style="margin-top:8px">
+            <i class="fa-solid fa-sliders"></i> {{ __('Coût & gestion') }}
+        </button>
+        <div class="itemdet" hidden style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)">
+            <label style="font-size:12px;color:var(--muted)">{{ __('Coût matière') }}
+                <input name="cats[CIDX][items][IIDX][cost_price]" class="inp" type="number" step="0.01" min="0" placeholder="{{ __('non renseigné') }}" style="max-width:130px">
+            </label>
+            <label style="font-size:12px;color:var(--muted)">{{ __('Unité') }}
+                <select name="cats[CIDX][items][IIDX][unit]" class="inp" style="max-width:130px">
+                    @foreach (\Modules\Tagtoa\App\Support\Catalog\Pricing::UNITS as $cle => $u)
+                        <option value="{{ $cle }}">{{ __($u['label']) }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label style="font-size:12px;color:var(--muted)">{{ __('Alerte sous') }}
+                <input name="cats[CIDX][items][IIDX][low_stock_threshold]" class="inp" type="number" step="0.001" min="0" placeholder="5" style="max-width:110px">
+            </label>
+            <label style="font-size:12px;color:var(--muted)">{{ __('Référence (SKU)') }}
+                <input name="cats[CIDX][items][IIDX][sku]" class="inp" maxlength="60" style="max-width:140px">
+            </label>
+        </div>
+
         {{-- Champs propres au métier, injectés selon le type d'établissement. --}}
         <div class="specs"></div>
         <div class="options" style="margin-top:8px"></div>
@@ -333,6 +360,10 @@ function addItem(catEl, d){
         row.querySelector('[name$="[description]"]').value = d.description || '';
         row.querySelector('[name$="[badge]"]').value = d.badge || '';
         row.querySelector('[name$="[stock]"]').value = (d.stock != null ? d.stock : '');
+        row.querySelector('[name$="[cost_price]"]').value = (d.cost_price != null ? d.cost_price : '');
+        row.querySelector('[name$="[unit]"]').value = d.unit || 'piece';
+        row.querySelector('[name$="[low_stock_threshold]"]').value = (d.low_stock_threshold != null ? d.low_stock_threshold : '');
+        row.querySelector('[name$="[sku]"]').value = d.sku || '';
         row.querySelector('input[type=checkbox][name$="[is_available]"]').checked = d.is_available !== false;
         row.querySelector('[name$="[is_featured]"]').checked = !!d.is_featured;
         var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][items]['+ii+'][id]'; h.value=d.id; row.appendChild(h);
@@ -343,6 +374,9 @@ function addItem(catEl, d){
         }
         (d.options || []).forEach(function(o){ addOption(row, o); });
     }
+    row.querySelector('.togdet').addEventListener('click', function(){
+        var det = row.querySelector('.itemdet'); det.hidden = !det.hidden;
+    });
     renderSpecs(row, d ? d.specs : null);
     return row;
 }
@@ -370,6 +404,8 @@ function addCat(d){
                 'id' => $i->id, 'name' => $i->name, 'emoji' => $i->emoji, 'price' => $i->price,
                 'description' => $i->description, 'badge' => $i->badge, 'is_available' => $i->is_available,
                 'is_featured' => $i->is_featured, 'stock' => $i->stock, 'image_url' => $i->image_url,
+                'cost_price' => $i->cost_price, 'unit' => $i->unit_key,
+                'low_stock_threshold' => $i->low_stock_threshold, 'sku' => $i->sku,
                 'specs' => $i->specs ?: (object) [],
                 'options' => $i->options->map(fn ($o) => [
                     'id' => $o->id, 'name' => $o->name, 'required' => $o->required, 'multiple' => $o->multiple,

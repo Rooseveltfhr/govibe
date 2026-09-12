@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Pos\Sale;
 use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Pos\PosCatalog;
 use Modules\Tagtoa\App\Services\Pos\PosSales;
 use Modules\Tagtoa\App\Services\Staff\StaffService;
+use Modules\Tagtoa\App\Support\Catalog\Pricing;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Services\Pos\PosService;
 use Modules\Tagtoa\App\Support\EnforcesPlan;
@@ -154,6 +156,23 @@ class PosController extends Controller
     public function saveProducts(Request $request, int $id): RedirectResponse
     {
         $terminal = $this->own($id);
+
+        // Le formulaire n'était pas validé : un prix négatif, un stock
+        // aberrant ou une unité inventée entraient tels quels dans la base et
+        // ressortaient au moment d'encaisser.
+        $request->validate([
+            'products'                       => ['array', 'max:500'],
+            'products.*.name'                => ['nullable', 'string', 'max:120'],
+            'products.*.price'               => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'products.*.cost_price'          => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'products.*.stock'               => ['nullable', 'numeric', 'min:-999999', 'max:999999999'],
+            'products.*.low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'products.*.unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
+            'products.*.sku'                 => ['nullable', 'string', 'max:60'],
+            'products.*.emoji'               => ['nullable', 'string', 'max:16'],
+            'products.*.color'               => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+        ]);
+
         $keep = [];
         foreach ($request->input('products', []) as $i => $row) {
             if (empty($row['name'])) {
@@ -164,9 +183,21 @@ class PosController extends Controller
                 'price'     => (float) ($row['price'] ?? 0),
                 'emoji'     => $row['emoji'] ?? null,
                 'color'     => $row['color'] ?? '#2cb809',
-                'stock'     => ($row['stock'] ?? '') === '' ? null : (int) $row['stock'],
+                // Stock DÉCIMAL : le riz se compte à la mamit, la viande à la
+                // livre. Un cast entier ferait disparaître une demi-livre à
+                // chaque enregistrement.
+                'stock'     => $this->nombreOuNull($row['stock'] ?? null),
                 'is_active' => ! empty($row['is_active']),
                 'sort'      => (int) ($row['sort'] ?? $i),
+
+                // Volet commercial : ce qui permet enfin de dire au marchand
+                // combien il GAGNE, et pas seulement combien il encaisse.
+                // Le coût reste null quand il n'est pas renseigné — « 0 »
+                // laisserait croire que la marge est totale.
+                'cost_price'          => $this->nombreOuNull($row['cost_price'] ?? null),
+                'unit'                => Pricing::unit($row['unit'] ?? null),
+                'low_stock_threshold' => $this->nombreOuNull($row['low_stock_threshold'] ?? null),
+                'sku'                 => trim((string) ($row['sku'] ?? '')) ?: null,
             ];
             // Catalogue du COMMERCE : l'article est partagé par toutes ses caisses.
             $p = app(PosCatalog::class)->save($terminal, $attrs, ! empty($row['id']) ? (int) $row['id'] : null);
@@ -180,6 +211,12 @@ class PosController extends Controller
         // temps, un navigateur qui ne poste pas tout — effaçait les articles de
         // TOUT le commerce. Supprimer est maintenant une action à part.
         return back()->with('success', __('Produits enregistrés.'));
+    }
+
+    /** Champ numérique laissé vide = « non renseigné », pas « zéro ». */
+    private function nombreOuNull(mixed $valeur): ?float
+    {
+        return ($valeur === null || $valeur === '') ? null : (float) $valeur;
     }
 
     /**

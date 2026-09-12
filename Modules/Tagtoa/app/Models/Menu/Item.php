@@ -6,16 +6,18 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
+use Modules\Tagtoa\App\Support\Catalog\HasCommercialFields;
 
 /**
  * TAGTOA MENU — produit ou service vendu (appartient à une catégorie).
  */
 class Item extends Model
 {
+    use HasCommercialFields;
     protected $table = 'tagtoa_menu_items';
 
     protected $fillable = [
-        'menu_id', 'category_id', 'name', 'description', 'price', 'image_path',
+        'menu_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'image_path',
         'emoji', 'badge', 'specs', 'is_available', 'is_featured', 'stock', 'sort',
     ];
 
@@ -24,9 +26,12 @@ class Item extends Model
         // temps de préparation…). Toujours écrits via BusinessProfile::sanitize.
         'specs'        => 'array',
         'price'        => 'decimal:2',
+        'cost_price'   => 'decimal:2',
+        // Quantités décimales — même règle que côté caisse (StockService).
+        'low_stock_threshold' => 'float',
         'is_available' => 'boolean',
         'is_featured'  => 'boolean',
-        'stock'        => 'integer',
+        'stock'        => 'float',
         'sort'         => 'integer',
     ];
 

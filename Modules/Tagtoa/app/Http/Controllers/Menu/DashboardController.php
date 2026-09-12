@@ -17,6 +17,7 @@ use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Services\Menu\MenuOrderService;
 use Modules\Tagtoa\App\Support\Locale;
 use Modules\Tagtoa\App\Support\Menu\BusinessProfile;
+use Modules\Tagtoa\App\Support\Catalog\Pricing;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -29,8 +30,9 @@ class DashboardController extends Controller
     public function index(): View
     {
         $menus = Menu::where('tenant_id', Tenant::id())
-            ->withCount(['items', 'categories', 'items as low_stock_count' => fn ($q) => $q->whereNotNull('stock')
-                ->where('stock', '<=', \Modules\Tagtoa\App\Services\Inventory\StockService::LOW_THRESHOLD)])
+            // Une seule règle « stock faible » dans tout TAGTOA : celle de
+            // l'article quand le commerce l'a réglée, le plancher commun sinon.
+            ->withCount(['items', 'categories', 'items as low_stock_count' => fn ($q) => $q->lowStock()])
             ->latest()->paginate(12);
 
         return view('tagtoa::menu.index', compact('menus'));
@@ -78,7 +80,9 @@ $data = $this->validateMenu($request);
     {
         $menu = $this->own($id);
         $data = $this->validateMenu($request, $menu->id);
-        $data['alias'] = $data['alias'] ?: $menu->alias;
+        // Champ absent de l'envoi : on garde l'alias existant plutôt que de
+        // planter. Une clé manquante ne doit jamais rendre une page blanche.
+        $data['alias'] = ($data['alias'] ?? null) ?: $menu->alias;
         $menu->fill($data);
         $this->handleUploads($menu, $request);
         $menu->save();
@@ -147,6 +151,11 @@ $data = $this->validateMenu($request);
 
     protected function validateMenu(Request $request, ?int $ignoreId = null): array
     {
+        // Le contenu est contrôlé ICI, donc AVANT que le menu ne soit
+        // enregistré : sinon un plat refusé laisserait l'en-tête déjà écrit et
+        // le marchand verrait une erreur sur un menu à moitié modifié.
+        $this->validateContent($request);
+
         $ownVcardIds = $this->vcards()->pluck('id')->all();
         $ownPayIds   = $this->payPages()->pluck('id')->all();
 
@@ -170,6 +179,43 @@ $data = $this->validateMenu($request);
             'logo'             => ['nullable', 'image', 'max:2048'],
             'cover'            => ['nullable', 'image', 'max:4096'],
         ]);
+    }
+
+    /**
+     * Catégories et articles du formulaire imbriqué.
+     *
+     * Ces champs n'étaient pas validés : un prix négatif, un stock aberrant ou
+     * une unité inventée entraient tels quels en base et ressortaient au
+     * moment d'encaisser au comptoir — la caisse vend le menu depuis B-3.
+     */
+    protected function validateContent(Request $request): void
+    {
+        $request->validate([
+            'cats'                               => ['array', 'max:200'],
+            'cats.*.name'                        => ['nullable', 'string', 'max:120'],
+            'cats.*.items'                       => ['array', 'max:500'],
+            'cats.*.items.*.name'                => ['nullable', 'string', 'max:160'],
+            'cats.*.items.*.price'               => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'cats.*.items.*.cost_price'          => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'cats.*.items.*.stock'               => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'cats.*.items.*.low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'cats.*.items.*.unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
+            'cats.*.items.*.sku'                 => ['nullable', 'string', 'max:60'],
+            'cats.*.items.*.description'         => ['nullable', 'string', 'max:600'],
+            'cats.*.items.*.badge'               => ['nullable', 'string', 'max:60'],
+        ]);
+    }
+
+    /** Champ numérique laissé vide = « non renseigné », pas « zéro ». */
+    private function nombreOuNull(mixed $valeur, ?float $minimum = null): ?float
+    {
+        if ($valeur === null || $valeur === '') {
+            return null;
+        }
+
+        $nombre = (float) $valeur;
+
+        return $minimum === null ? $nombre : max($minimum, $nombre);
     }
 
     /**
@@ -216,8 +262,20 @@ $data = $this->validateMenu($request);
                         'specs'        => BusinessProfile::sanitize($menu->type, $it['specs'] ?? null),
                         'is_featured'  => ! empty($it['is_featured']),
                         'is_available' => ! isset($it['is_available']) ? true : (bool) $it['is_available'],
-                        'stock'        => (! isset($it['stock']) || $it['stock'] === '') ? null : max(0, (int) $it['stock']),
+                        // Stock DÉCIMAL : le griot se vend à la livre, le riz à
+                        // la mamit. Un cast entier effaçait une demi-livre à
+                        // chaque enregistrement du menu.
+                        'stock'        => $this->nombreOuNull($it['stock'] ?? null, 0),
                         'sort'         => (int) $ii,
+
+                        // Coût matière, unité, seuil, référence — même volet
+                        // commercial que la caisse (un seul catalogue depuis B-3).
+                        // Le coût reste null quand il n'est pas renseigné :
+                        // « 0 » ferait croire que la marge est totale.
+                        'cost_price'          => $this->nombreOuNull($it['cost_price'] ?? null, 0),
+                        'unit'                => Pricing::unit($it['unit'] ?? null),
+                        'low_stock_threshold' => $this->nombreOuNull($it['low_stock_threshold'] ?? null, 0),
+                        'sku'                 => trim((string) ($it['sku'] ?? '')) ?: null,
                     ];
                     $item = ! empty($it['id']) ? $cat->items()->whereKey($it['id'])->first() : null;
 

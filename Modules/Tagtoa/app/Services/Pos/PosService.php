@@ -8,6 +8,7 @@ use Modules\Tagtoa\App\Models\Pos\Sale;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
+use Modules\Tagtoa\App\Support\Catalog\Pricing;
 use Modules\Tagtoa\App\Support\Pos\CatalogRef;
 
 /**
@@ -51,8 +52,6 @@ class PosService
             $lines = [];
             $subtotal = 0;
             foreach ($items as $it) {
-                $qty = max(1, (int) ($it['qty'] ?? 1));
-
                 // « menu:7 » ou « pos:7 ». Les caisses déjà installées envoient
                 // encore un identifiant nu, compris comme un bouton de caisse.
                 $ref = $it['ref'] ?? $it['product_id'] ?? null;
@@ -60,10 +59,29 @@ class PosService
                     ? $this->catalog->resolve($terminal->tenant_id, $ref)
                     : null;
 
+                // La quantité suit l'UNITÉ de l'article : 2,5 livres de riz
+                // restent 2,5, alors qu'un article à la pièce est ramené à
+                // l'entier. Arrondir à l'entier partout ferait payer au client
+                // moins que ce qu'il emporte, à chaque vente au poids.
+                $unit = $article?->unit;
+                $qty  = Pricing::normalizeQty($unit, (float) ($it['qty'] ?? 1));
+                if ($qty <= 0) {
+                    continue; // une ligne à zéro n'est pas une vente
+                }
+
                 $price = $article ? (float) $article->price : (float) ($it['price'] ?? 0);
                 $name  = $article ? $article->name : (string) ($it['name'] ?? 'Article');
-                $subtotal += $price * $qty;
-                $lines[] = [$article, $name, $price, $qty];
+
+                // Coût du JOUR de la vente, figé sur la ligne : sans lui, le
+                // profit d'un mois passé se recalculerait avec le prix d'achat
+                // d'aujourd'hui et bougerait tout seul après coup.
+                $cost = $article && $article->cost_price !== null
+                    ? (float) $article->cost_price
+                    : null;
+
+                $ligneTotal = Pricing::lineTotal($unit, $price, $qty);
+                $subtotal += $ligneTotal;
+                $lines[] = [$article, $name, $price, $cost, $qty, $ligneTotal];
             }
             $total = max(0, $subtotal - $discount);
 
@@ -81,7 +99,7 @@ class PosService
                 'sold_at'        => now(),
             ]);
 
-            foreach ($lines as [$article, $name, $price, $qty]) {
+            foreach ($lines as [$article, $name, $price, $cost, $qty, $ligneTotal]) {
                 // La ligne dit de QUEL catalogue vient l'article : le plat n°7
                 // et le bouton n°7 sont deux choses différentes.
                 $sale->items()->create([
@@ -91,8 +109,9 @@ class PosService
                         : CatalogRef::SOURCE_POS,
                     'name'       => $name,
                     'price'      => $price,
+                    'cost_price' => $cost,
                     'qty'        => $qty,
-                    'line_total' => $price * $qty,
+                    'line_total' => $ligneTotal,
                 ]);
 
                 // UN SEUL STOCK : vendre un plat au comptoir retire du même
