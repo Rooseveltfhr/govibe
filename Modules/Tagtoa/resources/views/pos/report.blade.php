@@ -9,11 +9,48 @@
     <form method="GET" style="display:flex;gap:8px"><input class="inp" type="date" name="date" value="{{ $z['date'] }}"><button class="btn btn-o btn-sm">{{ __('Voir') }}</button></form>
 </div>
 
+@if($staff && $staff->salesScope() !== 'all')
+    <div class="card" style="margin-top:12px;border-left:4px solid var(--blue);padding:12px 14px">
+        <i class="fa-solid fa-circle-info" style="color:var(--blue-deep)"></i>
+        {{ $staff->salesScope() === 'own'
+            ? __('Vous voyez vos propres ventes.')
+            : __('Vous voyez les ventes de cette caisse.') }}
+        <span style="color:var(--muted)">{{ __('Le patron voit l\'ensemble des caisses.') }}</span>
+    </div>
+@endif
+
 <div class="grid g3">
     <div class="stat"><div class="ic"><i class="fa-solid fa-receipt"></i></div><div class="v">{{ $z['count'] }}</div><div class="k">{{ __('Ventes') }}</div></div>
     <div class="stat"><div class="ic" style="background:#eafaf3;color:#0e5f44"><i class="fa-solid fa-sack-dollar"></i></div><div class="v">{{ number_format($z['total'],2) }}</div><div class="k">{{ __('Total') }} ({{ $terminal->currency }})</div></div>
     <div class="stat"><div class="ic"><i class="fa-solid fa-credit-card"></i></div><div class="v">{{ count($z['by_method']) }}</div><div class="k">{{ __('Méthodes') }}</div></div>
 </div>
+
+{{-- Qui a encaissé combien. Le patron voit toutes ses caisses ; un gérant
+     voit la sienne ; un caissier ne voit que ses ventes, et ce bloc disparaît
+     puisqu'il n'aurait qu'une seule ligne : la sienne. --}}
+@if($byCashier)
+<div class="card" style="margin-top:16px">
+    <div class="h-row"><h2>{{ __('Par caissier') }}</h2></div>
+    <div class="tw" style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:14.5px">
+            <thead><tr>
+                <th style="text-align:left;padding:9px 12px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em">{{ __('Caissier') }}</th>
+                <th style="text-align:right;padding:9px 12px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em">{{ __('Ventes') }}</th>
+                <th style="text-align:right;padding:9px 12px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em">{{ __('Total') }}</th>
+            </tr></thead>
+            <tbody>
+            @foreach($byCashier as $nom => $ligne)
+                <tr style="border-top:1px solid var(--bd)">
+                    <td style="padding:11px 12px;font-weight:600">{{ $nom }}</td>
+                    <td style="padding:11px 12px;text-align:right;font-variant-numeric:tabular-nums">{{ $ligne['count'] }}</td>
+                    <td style="padding:11px 12px;text-align:right;font-variant-numeric:tabular-nums">{{ number_format($ligne['total'],2) }} {{ $terminal->currency }}</td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
 
 @if($z['by_method'])
 <div class="card" style="margin-top:16px">
@@ -30,8 +67,8 @@
         <div class="empty"><i class="fa-regular fa-receipt"></i>{{ __('Aucune vente.') }}</div>
     @else
         <table>
-            <thead><tr><th>{{ __('Réf') }}</th><th>{{ __('Total') }}</th><th>{{ __('Paiement') }}</th><th>{{ __('Heure') }}</th></tr></thead>
-            <tbody>@foreach($sales as $s)<tr><td><b>{{ $s->reference }}</b></td><td>{{ number_format($s->total,2) }}</td><td style="text-transform:capitalize">{{ collect($s->payments)->pluck('method')->implode(', ') }}</td><td style="color:var(--muted)">{{ optional($s->sold_at)->format('H:i') }}</td></tr>@endforeach</tbody>
+            <thead><tr><th>{{ __('Réf') }}</th><th>{{ __('Caissier') }}</th><th>{{ __('Total') }}</th><th>{{ __('Paiement') }}</th><th>{{ __('Heure') }}</th></tr></thead>
+            <tbody>@foreach($sales as $s)<tr><td><b>{{ $s->reference }}</b></td><td>{{ $s->cashier_name }}</td><td>{{ number_format($s->total,2) }}</td><td style="text-transform:capitalize">{{ collect($s->payments)->pluck('method')->implode(', ') }}</td><td style="color:var(--muted)">{{ optional($s->sold_at)->format('H:i') }}</td></tr>@endforeach</tbody>
         </table>
     @endif
 </div>

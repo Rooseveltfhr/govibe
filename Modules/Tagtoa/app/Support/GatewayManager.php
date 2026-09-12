@@ -78,7 +78,9 @@ class GatewayManager
     /** Le type de méthode peut-il être réglé en ligne MAINTENANT ? */
     public static function onlineAvailable(string $type): bool
     {
-        $driver = PaymentGateway::driver($type);
+        // Le driver effectif, pas le déclaré : le fondateur peut avoir choisi
+        // PayPal ou Stripe pour la carte bancaire.
+        $driver = \Modules\Tagtoa\App\Support\Pay\GatewayCatalog::driverFor($type);
 
         return $driver !== null && self::enabled($driver);
     }

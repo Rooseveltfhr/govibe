@@ -12,9 +12,9 @@ class SaleItem extends Model
 {
     protected $table = 'tagtoa_pos_sale_items';
 
-    protected $fillable = ['sale_id', 'product_id', 'name', 'price', 'qty', 'line_total'];
+    protected $fillable = ['sale_id', 'product_id', 'source', 'name', 'price', 'cost_price', 'qty', 'line_total'];
 
-    protected $casts = ['price' => 'decimal:2', 'qty' => 'integer', 'line_total' => 'decimal:2'];
+    protected $casts = ['price' => 'decimal:2', 'cost_price' => 'decimal:2', 'qty' => 'float', 'line_total' => 'decimal:2'];
 
     public function sale(): BelongsTo
     {

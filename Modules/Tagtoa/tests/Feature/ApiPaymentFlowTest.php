@@ -41,9 +41,12 @@ class ApiPaymentFlowTest extends TestCase
             'tenant_id' => $tenant, 'alias' => $alias, 'title' => 'Boutique',
             'default_currency' => 'HTG', 'is_active' => true,
         ]);
+        // Les moyens appartiennent au MARCHAND (configurés une fois), pas au lien.
         PaymentMethod::create([
-            'payment_page_id' => $page->id, 'type' => 'moncash',
-            'account_number' => '+509 3000 0000', 'requires_proof' => true, 'is_active' => true,
+            'payment_page_id' => app(\Modules\Tagtoa\App\Services\Pay\MerchantMethods::class)->library($tenant)->id,
+            'tenant_id'       => $tenant,
+            'type'            => 'moncash',
+            'account_number'  => '+509 3000 0000', 'requires_proof' => true, 'is_active' => true,
         ]);
 
         return $page;
@@ -146,7 +149,7 @@ class ApiPaymentFlowTest extends TestCase
     public function test_exposed_methods_never_leak_merchant_account_details(): void
     {
         $this->pageWithMethod();
-        $page = PaymentPage::where('alias', 'boutique')->with('activeMethods')->first();
+        $page = PaymentPage::where('alias', 'boutique')->first();
 
         $methods = app(ApiPaymentService::class)->methodsFor($page);
 

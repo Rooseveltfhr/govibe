@@ -5,6 +5,7 @@ namespace Modules\Tagtoa\App\Models\Api;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Tagtoa\App\Support\Api\ApiToken;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA API — clé d'accès développeur. Le secret n'est jamais lisible :
@@ -12,6 +13,8 @@ use Modules\Tagtoa\App\Support\Api\ApiToken;
  */
 class ApiKey extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_api_keys';
 
     protected $fillable = [

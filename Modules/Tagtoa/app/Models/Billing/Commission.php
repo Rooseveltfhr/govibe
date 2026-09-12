@@ -3,12 +3,15 @@
 namespace Modules\Tagtoa\App\Models\Billing;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA Billing — commission prélevée sur une vente marchand.
  */
 class Commission extends Model
 {
+    use BelongsToTenant;
+
     public const STATUS_VOID    = 0;
     public const STATUS_ACCRUED = 1;
     public const STATUS_SETTLED = 2;

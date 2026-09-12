@@ -7,7 +7,9 @@ use Modules\Tagtoa\App\Models\Loyalty\Card;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Menu\Order;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
+use Modules\Tagtoa\App\Services\Inventory\StockLedger;
 use Modules\Tagtoa\App\Services\Inventory\StockService;
+use Modules\Tagtoa\App\Support\Inventory\MovementType;
 use Modules\Tagtoa\App\Services\Loyalty\LoyaltyCardService;
 use Modules\Tagtoa\App\Services\Notifications\NotificationService;
 use Modules\Tagtoa\App\Support\Menu\ItemOptionPricing;
@@ -102,10 +104,13 @@ class MenuOrderService
                     'selected_options' => $l['options'] ?: null,
                 ]);
 
-                // Décrémente le stock suivi (null = illimité, ignoré).
-                if ($l['item']->stock !== null) {
-                    $l['item']->decrement('stock', $l['qty']);
-                }
+                // Le stock passe par le journal, jamais par une écriture
+                // directe : sinon le commerce verrait le chiffre baisser sans
+                // pouvoir dire quelle commande l'a fait baisser.
+                app(StockLedger::class)->remove(
+                    $l['item'], (float) $l['qty'], MovementType::SALE,
+                    ['origin_type' => 'menu_order', 'origin_id' => $order->id]
+                );
             }
 
             return $order;

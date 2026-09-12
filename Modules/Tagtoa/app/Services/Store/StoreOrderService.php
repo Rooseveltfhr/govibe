@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Store\Order;
 use Modules\Tagtoa\App\Models\Store\Store;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
+use Modules\Tagtoa\App\Services\Inventory\StockLedger;
 use Modules\Tagtoa\App\Services\Inventory\StockService;
+use Modules\Tagtoa\App\Support\Inventory\MovementType;
 use Modules\Tagtoa\App\Services\Notifications\NotificationService;
 use Modules\Tagtoa\App\Support\Store\Cart;
 
@@ -77,9 +79,15 @@ class StoreOrderService
                     'qty'        => $l['qty'],
                     'line_total' => $l['line_total'],
                 ]);
+                // Le stock de la boutique passe par le journal comme celui de
+                // la caisse : le marchand doit pouvoir dire quelle commande a
+                // fait baisser quel article.
                 $p = $products->get($l['id']);
-                if ($p && $p->stock !== null) {
-                    $p->decrement('stock', $l['qty']);
+                if ($p) {
+                    app(StockLedger::class)->remove(
+                        $p, (float) $l['qty'], MovementType::SALE,
+                        ['origin_type' => 'store_order', 'origin_id' => $order->id]
+                    );
                 }
             }
 

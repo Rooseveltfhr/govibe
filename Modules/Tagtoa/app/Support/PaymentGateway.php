@@ -47,7 +47,7 @@ class PaymentGateway
         'wise'        => ['mode' => self::MODE_MANUAL, 'kind' => 'wallet', 'color' => '#9FE870', 'driver' => null],
         // International (API)
         'paypal'      => ['mode' => self::MODE_AUTO,   'kind' => 'wallet', 'color' => '#003087', 'driver' => 'paypal'],
-        'card'        => ['mode' => self::MODE_AUTO,   'kind' => 'card',   'color' => '#1A1F71', 'driver' => 'stripe'],
+        'card'        => ['mode' => self::MODE_AUTO,   'kind' => 'card',   'color' => '#1A1F71', 'driver' => 'paypal'],
         'bank_intl'   => ['mode' => self::MODE_MANUAL, 'kind' => 'bank',   'color' => '#444444', 'driver' => null],
         // Crypto (API CoinPayments)
         'usdt'        => ['mode' => self::MODE_AUTO,   'kind' => 'crypto', 'color' => '#26A17B', 'driver' => 'coinpayments'],
@@ -59,6 +59,30 @@ class PaymentGateway
         // TAGTOA
         'tagtoa_card' => ['mode' => self::MODE_MANUAL, 'kind' => 'card', 'color' => '#2cb809', 'driver' => null],
     ];
+
+    /**
+     * Drivers autorisés par type, quand plusieurs peuvent traiter le même moyen.
+     *
+     * La carte bancaire est traitée par PayPal (défaut : le client paie par carte
+     * sans avoir de compte PayPal) ; Stripe reste disponible, notamment parce
+     * qu'il accepte le peso dominicain que PayPal refuse.
+     *
+     * Cette liste est une BARRIÈRE : le réglage super-admin ne peut choisir que
+     * dedans, donc aucune chaîne arbitraire ne devient un nom de driver.
+     */
+    public const ALTERNATIVES = [
+        'card' => ['paypal', 'stripe'],
+    ];
+
+    /** Le driver $driver est-il autorisé pour le type $type ? PUR. */
+    public static function allowsDriver(string $type, ?string $driver): bool
+    {
+        if ($driver === null || $driver === '') {
+            return false;
+        }
+
+        return in_array($driver, self::ALTERNATIVES[$type] ?? [], true);
+    }
 
     private const DEFAULT = ['mode' => self::MODE_MANUAL, 'kind' => 'other', 'color' => '#2cb809', 'driver' => null];
 
@@ -75,6 +99,14 @@ class PaymentGateway
         return (self::GATEWAYS[$type]['mode'] ?? self::MODE_MANUAL) === self::MODE_AUTO;
     }
 
+    /**
+     * Driver DÉCLARÉ pour ce type — sans le réglage super-admin.
+     *
+     * Pour savoir qui traite réellement le paiement, passer par
+     * GatewayCatalog::driverFor() : le super-admin peut avoir choisi une
+     * alternative (voir ALTERNATIVES). Cette méthode reste pure et sans base de
+     * données, donc testable sans Laravel.
+     */
     public static function driver(string $type): ?string
     {
         return self::GATEWAYS[$type]['driver'] ?? null;

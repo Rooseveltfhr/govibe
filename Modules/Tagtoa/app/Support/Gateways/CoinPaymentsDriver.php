@@ -72,9 +72,9 @@ class CoinPaymentsDriver implements GatewayDriver
             'txid'    => $txn->gateway_ref,
         ]);
 
-        return $result && array_key_exists('status', $result)
-            ? CoinPayments::mapStatus($result['status'])
-            : 'pending';
+        // resolve() vérifie le statut ET le montant reçu : un paiement partiel ne
+        // peut pas marquer la commande payée.
+        return $result ? CoinPayments::resolve($result) : 'pending';
     }
 
     /** Appel signé HMAC à l'API CoinPayments. Retourne result[] ou null. */

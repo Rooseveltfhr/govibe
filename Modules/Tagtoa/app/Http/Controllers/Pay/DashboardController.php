@@ -15,7 +15,6 @@ use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Models\Pay\PaymentProof;
 use Modules\Tagtoa\App\Services\Api\ApiPaymentService;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Modules\Tagtoa\App\Support\Pay\GatewayCatalog;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -28,7 +27,8 @@ class DashboardController extends Controller
     public function index(): View
     {
         $pages = PaymentPage::where('tenant_id', Tenant::id())
-            ->withCount(['methods', 'proofs'])
+            ->where('is_library', false) // page technique : jamais listée
+            ->withCount('proofs')
             ->latest()->paginate(12);
 
         return view('tagtoa::pay.dashboard.index', compact('pages'));
@@ -37,9 +37,8 @@ class DashboardController extends Controller
     public function create(): View
     {
         return view('tagtoa::pay.dashboard.form', [
-            'page'    => new PaymentPage(),
-            'vcards'  => $this->vcards(),
-            'catalog' => GatewayCatalog::split(GatewayCatalog::forMerchant()),
+            'page'   => new PaymentPage(['type' => PaymentPage::TYPE_INVOICE]),
+            'vcards' => $this->vcards(),
         ]);
     }
 
@@ -54,19 +53,16 @@ $data = $this->validatePage($request);
         $page->tenant_id = Tenant::id();
         $page->alias = $data['alias'] ?: PaymentPage::generateAlias($data['title'] ?? 'pay');
         $page->save();
-        $this->syncMethods($page, $request);
 
-        return redirect()->route('tagtoa.pay.dashboard.edit', $page->id)->with('success', __('Page créée.'));
+        return redirect()->route('tagtoa.pay.dashboard.share', $page->id)
+            ->with('success', __('Lien créé. Partagez-le à votre client.'));
     }
 
     public function edit(int $id): View
     {
-        $page = $this->ownPage($id, ['methods']);
-
         return view('tagtoa::pay.dashboard.form', [
-            'page'    => $page,
-            'vcards'  => $this->vcards(),
-            'catalog' => GatewayCatalog::split(GatewayCatalog::forMerchant()),
+            'page'   => $this->ownPage($id),
+            'vcards' => $this->vcards(),
         ]);
     }
 
@@ -76,9 +72,8 @@ $data = $this->validatePage($request);
         $data = $this->validatePage($request, $page->id);
         $data['alias'] = $data['alias'] ?: $page->alias;
         $page->update($data);
-        $this->syncMethods($page, $request);
 
-        return back()->with('success', __('Page mise à jour.'));
+        return back()->with('success', __('Lien mis à jour.'));
     }
 
     public function destroy(int $id): RedirectResponse
@@ -141,7 +136,8 @@ $data = $this->validatePage($request);
 
     protected function ownPage(int $id, array $with = []): PaymentPage
     {
-        return PaymentPage::with($with)->where('tenant_id', Tenant::id())->findOrFail($id);
+        return PaymentPage::with($with)->where('tenant_id', Tenant::id())
+            ->where('is_library', false)->findOrFail($id);
     }
 
     protected function validatePage(Request $request, ?int $ignoreId = null): array
@@ -151,99 +147,22 @@ $data = $this->validatePage($request);
         return $request->validate([
             'vcard_id'         => ['nullable', 'integer', Rule::in($ownVcardIds)],
             'title'            => ['nullable', 'string', 'max:160'],
+            'type'             => ['nullable', Rule::in(array_keys(PaymentPage::TYPES))],
             'alias'            => ['nullable', 'string', 'max:120', 'alpha_dash',
                                    'unique:tagtoa_payment_pages,alias'.($ignoreId ? ','.$ignoreId : '')],
             'description'      => ['nullable', 'string', 'max:1000'],
-            'default_currency' => ['nullable', 'string', 'max:10'],
+            // Devise contrainte au catalogue : une devise inconnue casserait
+            // le formatage des montants sur la page publique.
+            'default_currency' => ['nullable', Rule::in(array_keys(\Modules\Tagtoa\App\Support\Money::currencies()))],
             'amount'           => ['nullable', 'numeric', 'min:0', 'max:99999999'], // prix fixe (vide = libre)
             'is_active'        => ['nullable', 'boolean'],
         ]);
     }
 
-    /**
-     * Synchronise les méthodes depuis le CATALOGUE (formulaire indexé par clé de
-     * passerelle : methods[moncash][…], pas par index numérique).
-     *
-     * Sécurité : toute entrée est validée. Les clés inconnues du catalogue sont
-     * écartées AVANT toute écriture (le `type` n'est donc jamais une chaîne
-     * libre), et les images sont contraintes en type + taille.
-     *
-     * Désactiver une passerelle ne supprime PAS la ligne : on passe `is_active`
-     * à faux et le marchand retrouve ses coordonnées s'il la réactive.
-     */
-    protected function syncMethods(PaymentPage $page, Request $request): void
+    /** Écran de partage d'un lien : copier, WhatsApp, QR. */
+    public function share(int $id): View
     {
-        $catalog = GatewayCatalog::forMerchant();
-        $order   = array_flip(array_keys($catalog));
-
-        $rows = $request->input('methods', []);
-        if (! is_array($rows)) {
-            return;
-        }
-        // Anti-injection : on ne garde que des passerelles réellement au catalogue.
-        $rows = array_intersect_key($rows, $catalog);
-
-        $rules = [];
-        foreach (array_keys($rows) as $type) {
-            $rules["methods.$type.label"]          = ['nullable', 'string', 'max:120'];
-            $rules["methods.$type.account_holder"] = ['nullable', 'string', 'max:160'];
-            $rules["methods.$type.institution"]    = ['nullable', 'string', 'max:160'];
-            $rules["methods.$type.account_number"] = ['nullable', 'string', 'max:190'];
-            $rules["methods.$type.instructions"]   = ['nullable', 'string', 'max:1000'];
-            $rules["methods.$type.qr"]             = ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'];
-            $rules["methods.$type.logo"]           = ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1024'];
-        }
-        if ($rules) {
-            $request->validate($rules);
-        }
-
-        DB::transaction(function () use ($page, $rows, $request, $catalog, $order) {
-            $existing = $page->methods()->get()->keyBy('type');
-
-            foreach ($rows as $type => $row) {
-                $row     = is_array($row) ? $row : [];
-                $meta    = $catalog[$type];
-                $enabled = ! empty($row['enabled']);
-                $current = $existing->get($type);
-
-                $hasDetails = filled($row['account_number'] ?? null)
-                    || filled($row['account_holder'] ?? null)
-                    || filled($row['instructions'] ?? null)
-                    || $request->hasFile("methods.$type.qr");
-
-                // Jamais activée, aucune coordonnée saisie, aucune ligne existante :
-                // inutile de créer une ligne vide.
-                if (! $enabled && ! $current && ! $hasDetails) {
-                    continue;
-                }
-
-                $attrs = [
-                    'type'           => $type,
-                    'label'          => $row['label'] ?? null,
-                    'account_holder' => $row['account_holder'] ?? null,
-                    'institution'    => $row['institution'] ?? null,
-                    'account_number' => $row['account_number'] ?? null,
-                    'instructions'   => $row['instructions'] ?? null,
-                    // Une passerelle réellement branchée en API encaisse toute seule :
-                    // pas de preuve à réclamer au client. Sinon, preuve obligatoire.
-                    'requires_proof' => ! $meta['online_ready'],
-                    'is_active'      => $enabled,
-                    'sort'           => (int) ($order[$type] ?? 0),
-                ];
-
-                $current ? $current->update($attrs) : $current = $page->methods()->create($attrs);
-
-                if ($request->hasFile("methods.$type.qr")) {
-                    $current->update(['qr_path' => $request->file("methods.$type.qr")->store('tagtoa/pay-qr', 'public')]);
-                }
-                if ($request->hasFile("methods.$type.logo")) {
-                    $current->update(['logo_path' => $request->file("methods.$type.logo")->store('tagtoa/pay-logos', 'public')]);
-                }
-            }
-
-            // Purge les lignes dont la passerelle a disparu du registre.
-            $page->methods()->whereNotIn('type', array_keys($catalog))->delete();
-        });
+        return view('tagtoa::pay.dashboard.share', ['page' => $this->ownPage($id)]);
     }
 
     protected function vcards()

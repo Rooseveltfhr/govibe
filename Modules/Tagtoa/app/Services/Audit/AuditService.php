@@ -36,6 +36,9 @@ class AuditService
         'card.charged'      => 'Paiement par carte TAGTOA',
         'card.status'       => 'Statut carte TAGTOA modifié',
         'card.credits_granted' => 'Crédits carte accordés',
+        'pos.product_deleted' => 'Article supprimé du catalogue',
+        'menu.item_deleted'   => 'Article supprimé du menu',
+        'menu.category_deleted' => 'Catégorie du menu supprimée',
         'event_staff_deleted' => 'Staff terrain supprimé',
         'event_tickets_imported' => 'Billets pré-imprimés importés',
     ];

@@ -108,6 +108,13 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     Route::get('/start', [\Modules\Tagtoa\App\Http\Controllers\Hub\OnboardingController::class, 'index'])->name('tagtoa.start');
     Route::post('/start', [\Modules\Tagtoa\App\Http\Controllers\Hub\OnboardingController::class, 'store'])->name('tagtoa.start.store');
 
+    // PAY — moyens de paiement du marchand, configurés une seule fois.
+    // Hors du groupe « dashboard » : ils ne dépendent d'aucun lien, d'où un nom
+    // court (tagtoa.pay.methods) et une déclaration AVANT /pay/{id} pour que le
+    // segment « methods » ne soit jamais capturé comme identifiant de lien.
+    Route::get('/pay/methods', [\Modules\Tagtoa\App\Http\Controllers\Pay\MethodsController::class, 'index'])->name('tagtoa.pay.methods');
+    Route::put('/pay/methods', [\Modules\Tagtoa\App\Http\Controllers\Pay\MethodsController::class, 'update'])->name('tagtoa.pay.methods.update');
+
     // PAY
     Route::prefix('pay')->name('tagtoa.pay.dashboard.')->group(function () {
         Route::get('/', [PayDashboard::class, 'index'])->name('index');
@@ -117,6 +124,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::put('/{id}', [PayDashboard::class, 'update'])->name('update');
         Route::delete('/{id}', [PayDashboard::class, 'destroy'])->name('destroy');
         Route::get('/{id}/proofs', [PayDashboard::class, 'proofs'])->name('proofs');
+        Route::get('/{id}/share', [PayDashboard::class, 'share'])->name('share');
         Route::get('/proofs/{id}/image', [PayDashboard::class, 'proofImage'])->name('proof.image');
         Route::post('/proofs/{id}/approve', [PayDashboard::class, 'approveProof'])->name('proofs.approve');
         Route::post('/proofs/{id}/reject', [PayDashboard::class, 'rejectProof'])->name('proofs.reject');
@@ -154,6 +162,13 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/edit', [MenuDashboard::class, 'edit'])->name('edit');
         Route::put('/{id}', [MenuDashboard::class, 'update'])->name('update');
         Route::delete('/{id}', [MenuDashboard::class, 'destroy'])->name('destroy');
+
+        // Supprimer est un acte à part, jamais un effet de bord de
+        // l'enregistrement — même règle qu'au comptoir (0.1b).
+        Route::delete('/{id}/items/{itemId}', [MenuDashboard::class, 'destroyItem'])
+            ->whereNumber(['id', 'itemId'])->name('items.destroy');
+        Route::delete('/{id}/categories/{categoryId}', [MenuDashboard::class, 'destroyCategory'])
+            ->whereNumber(['id', 'categoryId'])->name('categories.destroy');
         Route::get('/{id}/orders', [MenuDashboard::class, 'orders'])->name('orders');
         Route::post('/orders/{order}/status', [MenuDashboard::class, 'setStatus'])->name('orders.status');
         Route::post('/orders/{order}/paid', [MenuDashboard::class, 'markPaid'])->name('orders.paid');
@@ -230,16 +245,43 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/staff/sales/export', [\Modules\Tagtoa\App\Http\Controllers\Event\StaffController::class, 'exportSales'])->name('staff.sales.export');
     });
 
+    // MON COMMERCE — le déclarer, le modifier, passer de l'un à l'autre.
+    Route::prefix('business')->name('tagtoa.business.')->group(function () {
+        Route::get('/', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'index'])->name('index');
+        Route::get('/new', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'create'])->name('create');
+        Route::post('/', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'update'])->name('update');
+        Route::post('/{id}/switch', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'switch'])->name('switch');
+    });
+
+    // ÉQUIPE — les gens qui tiennent les caisses du commerce.
+    Route::prefix('staff')->name('tagtoa.staff.')->group(function () {
+        Route::get('/', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'index'])->name('index');
+        Route::post('/', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'store'])->name('store');
+        Route::put('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'update'])->whereNumber('id')->name('update');
+        Route::post('/{id}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'toggle'])->whereNumber('id')->name('toggle');
+        Route::delete('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'destroy'])->whereNumber('id')->name('destroy');
+    });
+
     // POS
     Route::prefix('pos')->name('tagtoa.pos.')->group(function () {
         Route::get('/', [PosController::class, 'index'])->name('index');
         Route::post('/', [PosController::class, 'store'])->name('store');
         Route::get('/{id}/register', [PosController::class, 'register'])->name('register');
+        // Qui tient la caisse : ouverture et fermeture de poste par code.
+        Route::post('/{id}/staff/login', [PosController::class, 'staffLogin'])
+            ->middleware('throttle:10,1')->name('staff.login');
+        Route::post('/{id}/staff/logout', [PosController::class, 'staffLogout'])->name('staff.logout');
         Route::post('/{id}/sale', [PosController::class, 'sale'])->name('sale');
         Route::post('/{id}/sync', [PosController::class, 'sync'])->name('sync');
         Route::get('/{id}/report', [PosController::class, 'report'])->name('report');
         Route::get('/{id}/products', [PosController::class, 'products'])->name('products');
         Route::post('/{id}/products', [PosController::class, 'saveProducts'])->name('products.save');
+        // Supprimer un article est une action à part : enregistrer le catalogue
+        // ne supprime plus rien (le catalogue est partagé par toutes les caisses).
+        Route::delete('/{id}/products/{productId}', [PosController::class, 'destroyProduct'])
+            ->whereNumber(['id', 'productId'])->name('products.destroy');
         // PWA (installable + offline)
         Route::get('/sw.js', [PosController::class, 'serviceWorker'])->name('sw');
         Route::get('/icon.svg', [PosController::class, 'icon'])->name('icon');

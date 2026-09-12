@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA STORE — boutique en ligne (tagtoa.com/store/{alias}).
@@ -16,6 +17,8 @@ use Modules\Tagtoa\App\Models\Pay\PaymentPage;
  */
 class Store extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_stores';
 
     protected $fillable = [

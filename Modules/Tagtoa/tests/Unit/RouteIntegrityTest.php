@@ -59,4 +59,21 @@ class RouteIntegrityTest extends TestCase
             "Routes tagtoa.* utilisées mais NON définies dans routes/web.php (500 en prod) :\n"
             .implode("\n", array_map(fn ($m) => "  - $m", $missing)));
     }
+
+    /**
+     * Chaque module mis en avant dans le tableau de bord doit avoir une URL
+     * réellement servie. Un lien mort dans le menu est pire qu'un module
+     * masqué : le marchand clique et tombe sur une erreur.
+     */
+    public function test_every_promoted_module_has_a_route(): void
+    {
+        $routes = (string) file_get_contents(__DIR__.'/../../routes/web.php');
+
+        foreach (\Modules\Tagtoa\App\Support\DashboardModules::enabled() as $key => $m) {
+            $served = str_contains($routes, "prefix('$key')")
+                || str_contains($routes, "Route::get('/$key'");
+
+            $this->assertTrue($served, "Module « $key » mis en avant mais aucune route ne sert {$m['url']}.");
+        }
+    }
 }

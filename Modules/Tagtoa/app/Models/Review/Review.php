@@ -4,12 +4,15 @@ namespace Modules\Tagtoa\App\Models\Review;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA REVIEWS — avis client attaché à une ressource publique.
  */
 class Review extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_reviews';
 
     public const STATUSES = ['pending', 'approved', 'rejected'];

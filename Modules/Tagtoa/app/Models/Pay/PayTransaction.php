@@ -4,12 +4,15 @@ namespace Modules\Tagtoa\App\Models\Pay;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA PAY — transaction de paiement en ligne (passerelle API).
  */
 class PayTransaction extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_pay_transactions';
 
     public const STATUS_PENDING = 'pending';

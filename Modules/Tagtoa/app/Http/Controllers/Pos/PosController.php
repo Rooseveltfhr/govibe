@@ -6,8 +6,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Pos\Sale;
+use Modules\Tagtoa\App\Models\Staff\Staff;
+use Modules\Tagtoa\App\Services\Pos\PosCatalog;
+use Modules\Tagtoa\App\Services\Pos\PosSales;
+use Modules\Tagtoa\App\Services\Staff\StaffService;
+use Modules\Tagtoa\App\Support\Catalog\Pricing;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Services\Pos\PosService;
 use Modules\Tagtoa\App\Support\EnforcesPlan;
@@ -46,9 +52,19 @@ class PosController extends Controller
 
     public function register(int $id): View
     {
-        $terminal = $this->own($id, ['activeProducts']);
+        $terminal = $this->own($id);
 
-        return view('tagtoa::pos.register', ['terminal' => $terminal, 'products' => $terminal->activeProducts, 'methods' => Sale::METHODS]);
+        return view('tagtoa::pos.register', [
+            'terminal' => $terminal,
+            // Boutons de la caisse ET articles du menu du commerce : le
+            // marchand saisit un plat une fois et le vend aussi au comptoir.
+            'sellable' => app(PosCatalog::class)->sellable($terminal->tenant_id),
+            'methods'  => Sale::METHODS,
+            // Employé au poste, et faut-il en demander un ? Tant que le commerce
+            // n'a créé personne, la caisse fonctionne comme avant.
+            'staff'      => $this->currentStaff($terminal),
+            'hasStaff'   => Staff::where('tenant_id', $terminal->tenant_id)->where('is_active', true)->exists(),
+        ]);
     }
 
     public function sale(Request $request, int $id): JsonResponse
@@ -59,6 +75,9 @@ class PosController extends Controller
             'items.*.name'       => ['required', 'string', 'max:120'],
             'items.*.price'      => ['required', 'numeric', 'min:0'],
             'items.*.qty'        => ['required', 'integer', 'min:1'],
+            // « menu:7 » / « pos:7 ». `product_id` reste accepté : une caisse
+            // déjà installée ne doit pas s'arrêter de vendre à la mise à jour.
+            'items.*.ref'        => ['nullable', 'string', 'max:30'],
             'items.*.product_id' => ['nullable', 'integer'],
             'discount'           => ['nullable', 'numeric', 'min:0'],
             'payments'           => ['nullable', 'array'],
@@ -66,7 +85,7 @@ class PosController extends Controller
             'client_uuid'        => ['nullable', 'string', 'max:64'],
         ]);
 
-        $sale = $this->service->recordSale($terminal, $data);
+        $sale = $this->service->recordSale($terminal, $data, $this->currentStaff($terminal));
 
         return response()->json(['ok' => true, 'reference' => $sale->reference, 'total' => (float) $sale->total]);
     }
@@ -74,10 +93,15 @@ class PosController extends Controller
     public function sync(Request $request, int $id): JsonResponse
     {
         $terminal = $this->own($id);
+        // Employé au poste au moment de la REPRISE. La caisse hors-ligne rejoue
+        // ses ventes dès le retour du réseau, donc en pratique la même personne
+        // — et si le poste a été fermé entre-temps, la vente revient au patron
+        // plutôt que d'être attribuée à qui a repris le comptoir.
+        $staff = $this->currentStaff($terminal);
         $results = [];
         foreach ($request->input('sales', []) as $payload) {
             try {
-                $sale = $this->service->recordSale($terminal, $payload);
+                $sale = $this->service->recordSale($terminal, $payload, $staff);
                 $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => true, 'reference' => $sale->reference];
             } catch (\Throwable $e) {
                 $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => false, 'error' => $e->getMessage()];
@@ -91,7 +115,16 @@ class PosController extends Controller
     {
         $terminal = $this->own($id);
         $date = $request->date('date') ?: now();
-        $sales = $terminal->sales()->whereDate('sold_at', $date)->where('status', 1)->latest()->get();
+
+        // Ce que la personne au poste a le DROIT de voir. Le tableau de bord est
+        // celui du patron : sans employé connecté, la vue reste complète.
+        $staff = $this->currentStaff($terminal);
+        $visibles = $staff
+            ? app(PosSales::class)->visibleTo($staff, $terminal)
+            : app(PosSales::class)->forOwner($terminal->tenant_id, $terminal);
+
+        $sales = (clone $visibles)->whereDate('sold_at', $date)->where('status', 1)
+            ->with('staff')->latest()->get();
 
         $byMethod = [];
         foreach ($sales as $s) {
@@ -102,7 +135,15 @@ class PosController extends Controller
         }
         $z = ['date' => $date->format('Y-m-d'), 'count' => $sales->count(), 'total' => $sales->sum('total'), 'by_method' => $byMethod];
 
-        return view('tagtoa::pos.report', compact('terminal', 'sales', 'z'));
+        // « Qui a encaissé combien » — n'a de sens que pour qui voit plus que
+        // ses propres ventes.
+        $byCashier = $staff && $staff->salesScope() === 'own'
+            ? []
+            : app(PosSales::class)->byCashier(
+                (clone $visibles)->whereDate('sold_at', $date)->where('status', 1)
+            );
+
+        return view('tagtoa::pos.report', compact('terminal', 'sales', 'z', 'staff', 'byCashier'));
     }
 
     public function products(int $id): View
@@ -115,6 +156,23 @@ class PosController extends Controller
     public function saveProducts(Request $request, int $id): RedirectResponse
     {
         $terminal = $this->own($id);
+
+        // Le formulaire n'était pas validé : un prix négatif, un stock
+        // aberrant ou une unité inventée entraient tels quels dans la base et
+        // ressortaient au moment d'encaisser.
+        $request->validate([
+            'products'                       => ['array', 'max:500'],
+            'products.*.name'                => ['nullable', 'string', 'max:120'],
+            'products.*.price'               => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'products.*.cost_price'          => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'products.*.stock'               => ['nullable', 'numeric', 'min:-999999', 'max:999999999'],
+            'products.*.low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'products.*.unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
+            'products.*.sku'                 => ['nullable', 'string', 'max:60'],
+            'products.*.emoji'               => ['nullable', 'string', 'max:16'],
+            'products.*.color'               => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+        ]);
+
         $keep = [];
         foreach ($request->input('products', []) as $i => $row) {
             if (empty($row['name'])) {
@@ -125,17 +183,113 @@ class PosController extends Controller
                 'price'     => (float) ($row['price'] ?? 0),
                 'emoji'     => $row['emoji'] ?? null,
                 'color'     => $row['color'] ?? '#2cb809',
-                'stock'     => ($row['stock'] ?? '') === '' ? null : (int) $row['stock'],
+                // Stock DÉCIMAL : le riz se compte à la mamit, la viande à la
+                // livre. Un cast entier ferait disparaître une demi-livre à
+                // chaque enregistrement.
+                'stock'     => $this->nombreOuNull($row['stock'] ?? null),
                 'is_active' => ! empty($row['is_active']),
                 'sort'      => (int) ($row['sort'] ?? $i),
+
+                // Volet commercial : ce qui permet enfin de dire au marchand
+                // combien il GAGNE, et pas seulement combien il encaisse.
+                // Le coût reste null quand il n'est pas renseigné — « 0 »
+                // laisserait croire que la marge est totale.
+                'cost_price'          => $this->nombreOuNull($row['cost_price'] ?? null),
+                'unit'                => Pricing::unit($row['unit'] ?? null),
+                'low_stock_threshold' => $this->nombreOuNull($row['low_stock_threshold'] ?? null),
+                'sku'                 => trim((string) ($row['sku'] ?? '')) ?: null,
             ];
-            $p = ! empty($row['id']) ? $terminal->products()->whereKey($row['id'])->first() : null;
-            $p ? $p->update($attrs) : $p = $terminal->products()->create($attrs);
+            // Catalogue du COMMERCE : l'article est partagé par toutes ses caisses.
+            $p = app(PosCatalog::class)->save($terminal, $attrs, ! empty($row['id']) ? (int) $row['id'] : null);
             $keep[] = $p->id;
         }
-        $terminal->products()->whereNotIn('id', $keep ?: [0])->delete();
 
+        // ENREGISTRER NE SUPPRIME JAMAIS.
+        // Le formulaire effaçait auparavant tout article absent de l'envoi. Le
+        // catalogue étant désormais partagé par toutes les caisses, un envoi
+        // partiel — connexion coupée, deux personnes qui modifient en même
+        // temps, un navigateur qui ne poste pas tout — effaçait les articles de
+        // TOUT le commerce. Supprimer est maintenant une action à part.
         return back()->with('success', __('Produits enregistrés.'));
+    }
+
+    /** Champ numérique laissé vide = « non renseigné », pas « zéro ». */
+    private function nombreOuNull(mixed $valeur): ?float
+    {
+        return ($valeur === null || $valeur === '') ? null : (float) $valeur;
+    }
+
+    /**
+     * Supprime UN article du catalogue — acte délibéré du patron.
+     *
+     * Une caisse ne supprime rien : le caissier vend, rend un article à un
+     * client et retire une ligne du panier en cours, mais le catalogue est celui
+     * du commerce. Pour retirer un article de la vente sans le perdre, il existe
+     * l'interrupteur « actif » : l'historique et le stock restent intacts.
+     */
+    public function destroyProduct(int $id, int $productId): RedirectResponse
+    {
+        $terminal = $this->own($id);
+
+        $product = app(PosCatalog::class)->find($terminal->tenant_id, $productId);
+        abort_unless($product, 404);
+
+        $nom = $product->name;
+        $product->delete();
+
+        // Les ventes déjà encaissées gardent le nom et le prix de l'article :
+        // supprimer un produit ne réécrit aucun historique.
+        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)
+            ->log('pos.product_deleted', null, $nom);
+
+        return back()->with('success', __('Article supprimé du catalogue.').' ('.$nom.')');
+    }
+
+
+    /* ---------- Qui tient la caisse ---------- */
+
+    /**
+     * Employé connecté SUR CETTE CAISSE, ou null.
+     *
+     * La session ne garde qu'un identifiant : l'employé est relu en base à
+     * chaque requête, pour qu'une désactivation ferme la caisse immédiatement
+     * plutôt qu'à la prochaine connexion.
+     */
+    protected function currentStaff(Terminal $terminal): ?Staff
+    {
+        $id = session('tagtoa_pos_staff.'.$terminal->id);
+
+        return $id
+            ? Staff::where('tenant_id', $terminal->tenant_id)->where('is_active', true)->find($id)
+            : null;
+    }
+
+    /** Ouvre le poste après vérification du code. */
+    public function staffLogin(Request $request, int $id): RedirectResponse
+    {
+        $terminal = $this->own($id);
+        $data = $request->validate(['pin' => ['required', 'string', 'max:20']]);
+
+        $staff = app(StaffService::class)->authenticate($terminal->tenant_id, $data['pin'], $terminal->id);
+
+        if (! $staff) {
+            // Message volontairement identique pour un code faux et pour un
+            // employé désactivé : ne rien apprendre à qui essaie des codes.
+            return back()->with('error', __('Code incorrect.'));
+        }
+
+        session(['tagtoa_pos_staff.'.$terminal->id => $staff->id]);
+
+        return back()->with('success', __('Bonjour :nom.', ['nom' => $staff->name]));
+    }
+
+    /** Ferme le poste (fin de service, ou relève par un collègue). */
+    public function staffLogout(int $id): RedirectResponse
+    {
+        $terminal = $this->own($id);
+        session()->forget('tagtoa_pos_staff.'.$terminal->id);
+
+        return back()->with('success', __('Poste fermé.'));
     }
 
     /* ---------- PWA (installable + offline) ---------- */

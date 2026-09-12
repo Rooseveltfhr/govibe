@@ -60,7 +60,13 @@ class BillingController extends Controller
     /** Marque toutes les commissions « à régler » comme réglées (settlement). */
     public function settle(): RedirectResponse
     {
-        $n = $this->base(Tenant::id())
+        // Écriture de masse : on refuse net plutôt que d'écrire sans savoir sur
+        // quel commerce. base() protégerait déjà, mais un refus explicite dit au
+        // marchand ce qui se passe au lieu de lui annoncer « 0 réglée ».
+        $tenantId = Tenant::id();
+        abort_if($tenantId === null || $tenantId === '', 403, __('Commerce introuvable.'));
+
+        $n = $this->base($tenantId)
             ->where('status', Commission::STATUS_ACCRUED)
             ->update(['status' => Commission::STATUS_SETTLED, 'settled_at' => now()]);
 
@@ -97,9 +103,24 @@ class BillingController extends Controller
         }, $filename, ['Content-Type' => 'text/csv']);
     }
 
-    /** Requête de base scoping tenant. */
+    /**
+     * Requête de base, TOUJOURS limitée à un commerce.
+     *
+     * Elle échouait en OUVERT : l'ancien `when($tenantId, …)` retirait purement
+     * et simplement le filtre quand l'identifiant du commerce était absent
+     * (session expirée, tâche en console, helper Biztap indisponible). Le relevé
+     * affichait alors les commissions de TOUTE la plateforme, l'export CSV les
+     * téléchargeait, et le règlement les marquait réglées d'un seul coup.
+     *
+     * Sans identifiant, la requête ne renvoie donc plus rien. Un écran vide se
+     * remarque et se corrige ; des chiffres faux, non.
+     */
     protected function base(?string $tenantId)
     {
-        return Commission::when($tenantId, fn ($x) => $x->where('tenant_id', $tenantId));
+        if ($tenantId === null || $tenantId === '') {
+            return Commission::query()->whereRaw('1 = 0');
+        }
+
+        return Commission::query()->where('tenant_id', $tenantId);
     }
 }

@@ -25,8 +25,8 @@
     @foreach([
         ['menu',  __('Restaurant / Bar / Hôtel'),  'fa-utensils',            __('Menu digital NFC/QR — vos clients scannent, commandent, paient.'),        __('Nom du restaurant')],
         ['pay',   __('Boutique / Services'),        'fa-money-bill-transfer', __('Page de paiement — recevez MonCash, NatCash, Zelle et plus.'),            __('Nom du business')],
-        ['links', __('Créateur / Influenceur'),     'fa-link',                __('Page de liens style Linktree — tous vos réseaux en un seul lien.'),       __('Votre nom / marque')],
     ] as $q)
+    @continue(! in_array($q[0], \Modules\Tagtoa\App\Http\Controllers\Hub\OnboardingController::quickKinds(), true))
     <div class="card">
         <div class="ic" style="width:46px;height:46px;border-radius:12px;background:var(--blue-pale);color:var(--blue-deep);display:flex;align-items:center;justify-content:center;font-size:20px"><i class="fa-solid {{ $q[2] }}"></i></div>
         <b style="font-family:var(--fh);font-size:16px;display:block;margin-top:12px">{{ $q[1] }}</b>
@@ -43,14 +43,18 @@
     @endforeach
 </div>
 
-{{-- Autres modules (formulaires complets) --}}
+{{-- Autres modules (formulaires complets). Filtrés sur les modules mis en avant :
+     proposer ici un module absent du menu enverrait le marchand dans une
+     impasse dès qu'il voudrait y revenir. --}}
 <div class="h-row" style="margin-top:24px"><h2>{{ __('Ou démarrez avec') }}</h2></div>
 <div class="grid g3">
     @foreach([
-        ['site',    __('Site web vitrine'),        'fa-globe',          route('tagtoa.site.dashboard.create')],
+        ['pos',     __('Caisse (POS)'),            'fa-cash-register',  route('tagtoa.pos.index')],
         ['event',   __('Événement + billetterie'), 'fa-ticket',         route('tagtoa.event.dashboard.create')],
+        ['site',    __('Site web vitrine'),        'fa-globe',          route('tagtoa.site.dashboard.create')],
         ['booking', __('Rendez-vous'),             'fa-calendar-check', route('tagtoa.booking.dashboard.create')],
     ] as $m)
+    @continue(! \Modules\Tagtoa\App\Support\DashboardModules::isEnabled($m[0]))
     <a class="card" href="{{ $m[3] }}" style="display:flex;align-items:center;gap:14px">
         <div class="ic" style="width:42px;height:42px;border-radius:11px;background:var(--blue-pale);color:var(--blue-deep);display:flex;align-items:center;justify-content:center;font-size:18px"><i class="fa-solid {{ $m[2] }}"></i></div>
         <b style="font-family:var(--fh)">{{ $m[1] }}</b>

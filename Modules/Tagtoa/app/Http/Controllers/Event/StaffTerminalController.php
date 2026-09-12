@@ -17,6 +17,7 @@ use Modules\Tagtoa\App\Models\Event\Ticket;
 use Modules\Tagtoa\App\Services\Event\CheckinService;
 use Modules\Tagtoa\App\Services\Event\StaffPinService;
 use Modules\Tagtoa\App\Services\Event\SyncReconciler;
+use Modules\Tagtoa\App\Services\Pay\MerchantMethods;
 
 /**
  * TAGTOA EVENT — terminal STAFF (terrain, auth par PIN, offline-first).
@@ -45,10 +46,9 @@ class StaffTerminalController extends Controller
 
         $ticketTypes = $event->ticketTypes()->where('is_active', true)->get();
 
-        // Moyens de paiement issus de TAGTOA Pay (page de paiement liée à l'événement).
-        $payMethods = $event->payPage
-            ? $event->payPage->activeMethods()->orderBy('sort')->get(['id', 'label', 'type'])
-            : collect();
+        // Moyens de paiement du MARCHAND (configurés une fois dans TAGTOA Pay) :
+        // plus besoin de lier une page de paiement à l'événement pour les voir.
+        $payMethods = app(MerchantMethods::class)->active($event->tenant_id);
 
         $pendingConflicts = $staff && $staff->role === 'admin'
             ? SyncConflict::where('event_id', $event->id)->where('resolved', false)->count()
@@ -217,9 +217,8 @@ class StaffTerminalController extends Controller
         // ou « Carte TAGTOA » (closed-loop).
         $method = trim((string) ($data['payment_method'] ?? ''));
         if ($method !== '' && $method !== 'Espèces' && $method !== 'Carte TAGTOA') {
-            $allowed = $event->payPage
-                ? $event->payPage->activeMethods()->pluck('label')->all()
-                : [];
+            $allowed = app(MerchantMethods::class)->active($event->tenant_id)
+                ->map->display_label->all();
             if (! in_array($method, $allowed, true)) {
                 $method = ''; // valeur inconnue ignorée (anti-spoof)
             }

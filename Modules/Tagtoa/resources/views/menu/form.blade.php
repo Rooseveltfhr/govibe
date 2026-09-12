@@ -52,13 +52,30 @@
 
     {{-- ----- Catégories & produits ----- --}}
     <div class="card">
-        <div class="h-row"><h2>{{ __('Catégories & produits') }}</h2><button type="button" class="btn btn-d btn-sm" onclick="addCat()"><i class="fa-solid fa-plus"></i> {{ __('Catégorie') }}</button></div>
-        <p style="color:var(--muted);font-size:13px;margin-top:-8px">{{ __('Organisez vos produits & services par catégorie (Entrées, Plats, Boissons, Services…).') }}</p>
+        <div class="h-row">
+            <h2>{{ __('Catégories &') }} <span class="tt-nouns">{{ __('Produits') }}</span></h2>
+            <button type="button" class="btn btn-d btn-sm" onclick="addCat()"><i class="fa-solid fa-plus"></i> {{ __('Catégorie') }}</button>
+        </div>
+        <p style="color:var(--muted);font-size:13px;margin-top:-8px">
+            {{ __('Le formulaire suit le type d\'établissement choisi plus haut : un hôtel décrit des chambres, un bar des boissons, un restaurant des plats.') }}
+        </p>
+        {{-- Catégories proposées pour ce métier : un raccourci, jamais imposé. --}}
+        <div id="catpresets" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:4px"></div>
         <div id="cats"></div>
     </div>
 
     <button class="btn btn-p"><i class="fa-solid fa-floppy-disk"></i> {{ __('Enregistrer le menu') }}</button>
+
+    {{-- TOUT DERNIER champ du formulaire, volontairement. PHP coupe $_POST
+         au-delà de max_input_vars sans rien dire : si ce jeton n'arrive pas,
+         c'est que la fin de l'envoi a été perdue et le serveur refuse
+         d'enregistrer à moitié. Ne rien mettre après lui. --}}
+    <input type="hidden" name="form_end" value="1">
 </form>
+
+{{-- Supprimer est une action à part, jamais un effet de bord de
+     l'enregistrement : un envoi incomplet ne doit pas valoir suppression. --}}
+<form id="delform" method="POST" style="display:none">@csrf @method('DELETE')</form>
 
 {{-- Template catégorie --}}
 <template id="cattpl">
@@ -66,10 +83,11 @@
         <div style="display:flex;gap:8px;align-items:center">
             <input name="cats[CIDX][icon]" class="inp" placeholder="🍔" style="max-width:64px;text-align:center">
             <input name="cats[CIDX][name]" class="inp" placeholder="{{ __('Nom de la catégorie') }}" style="font-weight:600">
-            <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.catblock').remove()"><i class="fa-solid fa-trash"></i></button>
+            <button type="button" class="btn btn-o btn-sm delcat" style="flex:0;color:var(--red)"
+                    title="{{ __('Supprimer la catégorie') }}"><i class="fa-solid fa-trash"></i></button>
         </div>
         <div class="items" style="margin-top:10px"></div>
-        <button type="button" class="btn btn-o btn-sm" onclick="addItem(this.closest('.catblock'))" style="margin-top:6px"><i class="fa-solid fa-plus"></i> {{ __('Ajouter un produit') }}</button>
+        <button type="button" class="btn btn-o btn-sm tt-additem" onclick="addItem(this.closest('.catblock'))" style="margin-top:6px"><i class="fa-solid fa-plus"></i> {{ __('Ajouter') }}</button>
     </div>
 </template>
 
@@ -78,9 +96,10 @@
     <div class="itemrow" data-ci="CIDX" data-ii="IIDX" style="background:#fff;border:1px solid var(--bd);border-radius:11px;padding:10px;margin-bottom:8px">
         <div style="display:flex;gap:8px;align-items:center">
             <input name="cats[CIDX][items][IIDX][emoji]" class="inp" placeholder="🍔" style="max-width:56px;text-align:center">
-            <input name="cats[CIDX][items][IIDX][name]" class="inp" placeholder="{{ __('Nom du produit / service') }}">
-            <input name="cats[CIDX][items][IIDX][price]" class="inp" type="number" step="0.01" min="0" placeholder="{{ __('Prix') }}" style="max-width:110px">
-            <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.itemrow').remove()"><i class="fa-solid fa-trash"></i></button>
+            <input name="cats[CIDX][items][IIDX][name]" class="inp tt-itemname" placeholder="{{ __('Nom') }}">
+            <input name="cats[CIDX][items][IIDX][price]" class="inp tt-price" type="number" step="0.01" min="0" placeholder="{{ __('Prix') }}" style="max-width:130px">
+            <button type="button" class="btn btn-o btn-sm delitem" style="flex:0;color:var(--red)"
+                    title="{{ __('Supprimer l\'article') }}"><i class="fa-solid fa-trash"></i></button>
         </div>
         <input name="cats[CIDX][items][IIDX][description]" class="inp" placeholder="{{ __('Description (optionnel)') }}" style="margin-top:8px">
         <div style="display:flex;gap:16px;align-items:center;margin-top:8px;flex-wrap:wrap">
@@ -90,10 +109,42 @@
                 <label class="switch removeimgwrap" style="flex:0;display:none"><input type="checkbox" name="cats[CIDX][items][IIDX][remove_image]" value="1"> {{ __('Retirer') }}</label>
             </div>
             <input name="cats[CIDX][items][IIDX][badge]" class="inp" placeholder="{{ __('Badge: Nouveau, Promo…') }}" style="max-width:200px">
-            <input name="cats[CIDX][items][IIDX][stock]" class="inp" type="number" min="0" placeholder="{{ __('Stock (vide = illimité)') }}" style="max-width:170px" title="{{ __('Laisser vide pour ne pas suivre le stock') }}">
+            {{-- Stock décimal : un plat peut se vendre à la livre (griot, poisson). --}}
+            <input name="cats[CIDX][items][IIDX][stock]" class="inp" type="number" step="0.001" min="0" placeholder="{{ __('Stock (vide = illimité)') }}" style="max-width:170px" title="{{ __('Laisser vide pour ne pas suivre le stock') }}">
             <label class="switch" style="flex:0"><input type="hidden" name="cats[CIDX][items][IIDX][is_available]" value="0"><input type="checkbox" name="cats[CIDX][items][IIDX][is_available]" value="1" checked> {{ __('Disponible') }}</label>
             <label class="switch" style="flex:0"><input type="checkbox" name="cats[CIDX][items][IIDX][is_featured]" value="1"> {{ __('Mis en avant') }}</label>
         </div>
+        {{-- Gestion : coût matière, unité, seuil, référence. Replié par défaut —
+             un restaurant qui veut seulement afficher sa carte ne doit pas le
+             subir ; celui qui veut savoir ce que chaque plat lui rapporte le
+             déplie une fois. --}}
+        <button type="button" class="btn btn-o btn-sm togdet" style="margin-top:8px">
+            <i class="fa-solid fa-sliders"></i> {{ __('Coût & gestion') }}
+        </button>
+        <div class="itemdet" hidden style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)">
+            <label style="font-size:12px;color:var(--muted)">{{ __('Coût matière') }}
+                <input name="cats[CIDX][items][IIDX][cost_price]" class="inp" type="number" step="0.01" min="0" placeholder="{{ __('non renseigné') }}" style="max-width:130px">
+            </label>
+            <label style="font-size:12px;color:var(--muted)">{{ __('Unité') }}
+                <select name="cats[CIDX][items][IIDX][unit]" class="inp" style="max-width:130px">
+                    @foreach (\Modules\Tagtoa\App\Support\Catalog\Pricing::UNITS as $cle => $u)
+                        <option value="{{ $cle }}">{{ __($u['label']) }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label style="font-size:12px;color:var(--muted)">{{ __('Alerte sous') }}
+                <input name="cats[CIDX][items][IIDX][low_stock_threshold]" class="inp" type="number" step="0.001" min="0" placeholder="5" style="max-width:110px">
+            </label>
+            <label style="font-size:12px;color:var(--muted)">{{ __('Référence (SKU)') }}
+                <input name="cats[CIDX][items][IIDX][sku]" class="inp" maxlength="60" style="max-width:140px">
+            </label>
+        </div>
+
+        {{-- Champs propres au métier, injectés selon le type d'établissement. --}}
+        <div class="specs"></div>
+        {{-- Atteste que cette ligne a bien porté ses options : sans le marqueur,
+             le serveur n'y touche pas plutôt que de les effacer. --}}
+        <input type="hidden" name="cats[CIDX][items][IIDX][options_sent]" value="1">
         <div class="options" style="margin-top:8px"></div>
         <button type="button" class="btn btn-o btn-sm" onclick="addOption(this.closest('.itemrow'))" style="margin-top:6px"><i class="fa-solid fa-plus"></i> {{ __('Option (taille, extra…)') }}</button>
     </div>
@@ -122,9 +173,145 @@
     </div>
 </template>
 
+<style>
+    /* Champs métier : une grille dense qui reste lisible sur téléphone. */
+    .specgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:10px;
+              padding-top:10px;border-top:1px dashed var(--bd)}
+    .specfld .lbl{margin-top:0;font-size:12.5px}
+    .tagwrap{display:flex;flex-wrap:wrap;gap:6px}
+    .tag input{position:absolute;opacity:0;width:0;height:0}
+    .tag span{display:inline-block;border:1.5px solid var(--bd);border-radius:999px;padding:5px 11px;
+              font-size:12.5px;cursor:pointer;transition:.14s;user-select:none}
+    .tag input:checked + span{border-color:#2cb809;background:rgba(44,184,9,.09);color:#0e5f44;font-weight:600}
+    .tag input:focus-visible + span{outline:2px solid #2cb809;outline-offset:2px}
+</style>
 @push('scripts')
 <script>
 var cIdx = 0;
+
+/* ------------------------------------------------------------------
+   Le formulaire suit le métier.
+   Les profils viennent du serveur (BusinessProfile) : le navigateur ne fait
+   que les rendre. Ce qui sera réellement enregistré est de toute façon revalidé
+   côté serveur contre le même profil — le JS est un confort, pas une garantie.
+   ------------------------------------------------------------------ */
+var PROFILES = @json(\Modules\Tagtoa\App\Support\Menu\BusinessProfile::PROFILES);
+
+function currentProfile(){
+    var sel = document.querySelector('select[name="type"]');
+    var t = sel ? sel.value : 'other';
+    return PROFILES[t] || PROFILES['other'];
+}
+
+function esc(v){
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+}
+
+/* Rend les champs métier d'UN article. `values` = ce qui est déjà enregistré. */
+function renderSpecs(row, values){
+    var box = row.querySelector('.specs');
+    if (!box) { return; }
+    var ci = row.getAttribute('data-ci'), ii = row.getAttribute('data-ii');
+    var fields = currentProfile().fields || {};
+    values = values || {};
+
+    var html = '';
+    Object.keys(fields).forEach(function(key){
+        var f = fields[key];
+        var base = 'cats['+ci+'][items]['+ii+'][specs]['+key+']';
+        var v = values[key];
+        html += '<div class="specfld"><label class="lbl">'+esc(f.label)
+             + (f.unit ? ' <span style="font-weight:400;color:var(--muted)">('+esc(f.unit)+')</span>' : '')
+             + '</label>';
+
+        if (f.type === 'number'){
+            html += '<input class="inp" type="number" step="any" name="'+base+'"'
+                 + (f.min != null ? ' min="'+esc(f.min)+'"' : '')
+                 + (f.max != null ? ' max="'+esc(f.max)+'"' : '')
+                 + ' value="'+esc(v != null ? v : '')+'">';
+        } else if (f.type === 'select'){
+            html += '<select class="sel" name="'+base+'"><option value="">—</option>';
+            (f.options || []).forEach(function(o){
+                html += '<option value="'+esc(o)+'"'+(v === o ? ' selected' : '')+'>'+esc(o)+'</option>';
+            });
+            html += '</select>';
+        } else if (f.type === 'tags'){
+            var chosen = Array.isArray(v) ? v : [];
+            html += '<div class="tagwrap">';
+            (f.options || []).forEach(function(o){
+                html += '<label class="tag"><input type="checkbox" name="'+base+'[]" value="'+esc(o)+'"'
+                     + (chosen.indexOf(o) !== -1 ? ' checked' : '')+'><span>'+esc(o)+'</span></label>';
+            });
+            html += '</div>';
+        } else if (f.type === 'bool'){
+            html += '<label class="switch"><input type="checkbox" name="'+base+'" value="1"'
+                 + (v ? ' checked' : '')+'> '+esc(f.label)+'</label>';
+        } else {
+            html += '<input class="inp" name="'+base+'" maxlength="'+esc(f.max || 120)+'" value="'+esc(v != null ? v : '')+'">';
+        }
+        html += '</div>';
+    });
+
+    box.innerHTML = html ? '<div class="specgrid">'+html+'</div>' : '';
+}
+
+/* Ce que l'utilisateur a saisi dans les champs métier d'un article. */
+function readSpecs(row){
+    var out = {};
+    row.querySelectorAll('.specs [name]').forEach(function(el){
+        var m = el.name.match(/\[specs\]\[([^\]]+)\]/);
+        if (!m) { return; }
+        var key = m[1];
+        if (el.type === 'checkbox'){
+            if (el.name.slice(-2) === '[]'){
+                if (el.checked){ (out[key] = out[key] || []).push(el.value); }
+            } else if (el.checked){ out[key] = true; }
+        } else if (el.value !== ''){ out[key] = el.value; }
+    });
+    return out;
+}
+
+/* Changement de type : on re-rend tout en gardant ce qui a un sens dans le
+   nouveau métier (une capacité de chambre n'a plus de place dans un restaurant,
+   mais la valeur reste en base tant que l'article n'est pas ré-enregistré). */
+function applyProfile(){
+    var p = currentProfile();
+
+    document.querySelectorAll('.tt-nouns').forEach(function(el){ el.textContent = p.nouns; });
+    document.querySelectorAll('.tt-itemname').forEach(function(el){ el.placeholder = 'Nom — ' + p.noun; });
+    document.querySelectorAll('.tt-price').forEach(function(el){ el.placeholder = p.price_hint; });
+    document.querySelectorAll('.tt-additem').forEach(function(el){
+        el.innerHTML = '<i class="fa-solid fa-plus"></i> ' + p.noun;
+    });
+
+    document.querySelectorAll('.itemrow').forEach(function(row){ renderSpecs(row, readSpecs(row)); });
+    renderPresets();
+}
+
+/* Catégories proposées pour ce métier — un clic les ajoute, rien n'est imposé. */
+function renderPresets(){
+    var box = document.getElementById('catpresets');
+    if (!box) { return; }
+    var existing = Array.prototype.map.call(
+        document.querySelectorAll('#cats [name$="[name]"].inp'),
+        function(el){ return (el.value || '').toLowerCase().trim(); }
+    );
+    box.innerHTML = '';
+    (currentProfile().categories || []).forEach(function(name){
+        if (existing.indexOf(name.toLowerCase()) !== -1) { return; }
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'btn btn-o btn-sm'; b.style.flex = '0';
+        b.innerHTML = '<i class="fa-solid fa-plus"></i> ' + esc(name);
+        b.onclick = function(){
+            var block = addCat({ name: name });
+            addItem(block);
+            renderPresets();
+        };
+        box.appendChild(b);
+    });
+}
 
 function previewItemImage(input){
     var row = input.closest('.itemrow');
@@ -173,6 +360,24 @@ function addChoice(optRow, d){
     return row;
 }
 
+var DEL_ITEM_URL = @json($editing ? url('/tagtoa/menu/'.$menu->id.'/items') : null);
+var DEL_CAT_URL  = @json($editing ? url('/tagtoa/menu/'.$menu->id.'/categories') : null);
+
+/* Ligne jamais enregistrée → on l'enlève de l'écran.
+   Élément déjà en base → suppression serveur, confirmée. Depuis que
+   « Enregistrer » ne supprime plus rien, retirer la ligne de l'écran ne
+   suffirait pas : le plat serait toujours là au rechargement. */
+function supprimer(el, url, question){
+    var champId = el.querySelector(':scope > input[name$="[id]"]');
+    if (!champId || !champId.value || !url){ el.remove(); return; }
+
+    if (!confirm(question)) return;
+
+    var f = document.getElementById('delform');
+    f.action = url + '/' + champId.value;
+    f.submit();
+}
+
 function addItem(catEl, d){
     var ci = catEl.getAttribute('data-ci');
     var ii = parseInt(catEl.getAttribute('data-ii') || '0', 10);
@@ -188,6 +393,10 @@ function addItem(catEl, d){
         row.querySelector('[name$="[description]"]').value = d.description || '';
         row.querySelector('[name$="[badge]"]').value = d.badge || '';
         row.querySelector('[name$="[stock]"]').value = (d.stock != null ? d.stock : '');
+        row.querySelector('[name$="[cost_price]"]').value = (d.cost_price != null ? d.cost_price : '');
+        row.querySelector('[name$="[unit]"]').value = d.unit || 'piece';
+        row.querySelector('[name$="[low_stock_threshold]"]').value = (d.low_stock_threshold != null ? d.low_stock_threshold : '');
+        row.querySelector('[name$="[sku]"]').value = d.sku || '';
         row.querySelector('input[type=checkbox][name$="[is_available]"]').checked = d.is_available !== false;
         row.querySelector('[name$="[is_featured]"]').checked = !!d.is_featured;
         var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][items]['+ii+'][id]'; h.value=d.id; row.appendChild(h);
@@ -198,6 +407,14 @@ function addItem(catEl, d){
         }
         (d.options || []).forEach(function(o){ addOption(row, o); });
     }
+    row.querySelector('.togdet').addEventListener('click', function(){
+        var det = row.querySelector('.itemdet'); det.hidden = !det.hidden;
+    });
+    row.querySelector('.delitem').addEventListener('click', function(){
+        var nom = (row.querySelector('[name$="[name]"]').value || '').trim();
+        supprimer(row, DEL_ITEM_URL, "{{ __('Supprimer définitivement cet article ? Il disparaîtra aussi de la caisse.') }}\n\n" + nom);
+    });
+    renderSpecs(row, d ? d.specs : null);
     return row;
 }
 
@@ -213,6 +430,10 @@ function addCat(d){
         var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][id]'; h.value=d.id; block.appendChild(h);
         (d.items || []).forEach(function(it){ addItem(block, it); });
     }
+    block.querySelector('.delcat').addEventListener('click', function(){
+        var nom = (block.querySelector('[name$="[name]"]').value || '').trim();
+        supprimer(block, DEL_CAT_URL, "{{ __('Supprimer cette catégorie ET tous ses articles ? Cette action est définitive.') }}\n\n" + nom);
+    });
     return block;
 }
 
@@ -224,6 +445,9 @@ function addCat(d){
                 'id' => $i->id, 'name' => $i->name, 'emoji' => $i->emoji, 'price' => $i->price,
                 'description' => $i->description, 'badge' => $i->badge, 'is_available' => $i->is_available,
                 'is_featured' => $i->is_featured, 'stock' => $i->stock, 'image_url' => $i->image_url,
+                'cost_price' => $i->cost_price, 'unit' => $i->unit_key,
+                'low_stock_threshold' => $i->low_stock_threshold, 'sku' => $i->sku,
+                'specs' => $i->specs ?: (object) [],
                 'options' => $i->options->map(fn ($o) => [
                     'id' => $o->id, 'name' => $o->name, 'required' => $o->required, 'multiple' => $o->multiple,
                     'choices' => $o->choices->map(fn ($ch) => ['id' => $ch->id, 'label' => $ch->label, 'price_delta' => $ch->price_delta])->values(),
@@ -236,6 +460,11 @@ var existing = @json($catData);
 
 if (existing.length){ existing.forEach(addCat); }
 else { var c = addCat(); addItem(c); }
+
+// Le formulaire suit le type dès qu'on en change, sans recharger la page.
+var typeSel = document.querySelector('select[name="type"]');
+if (typeSel){ typeSel.addEventListener('change', applyProfile); }
+applyProfile();
 </script>
 @endpush
 @endsection

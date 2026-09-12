@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Tagtoa\App\Support\Card\CardWallet;
 use Modules\Tagtoa\App\Support\Money;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA CARD — compte d'une carte NFC prépayée closed-loop (valable partout
@@ -14,6 +15,8 @@ use Modules\Tagtoa\App\Support\Money;
  */
 class CardAccount extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_card_accounts';
 
     protected $fillable = [
