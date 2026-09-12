@@ -213,6 +213,17 @@
             </a>
 
             @php $preuvesEnAttente = \App\Models\PreuvePaiement::where('statut', 'recue')->count(); @endphp
+            @php $landryNouvelles = \App\Models\ReservationLandry::nouvelles()->count(); @endphp
+            <a href="{{ route('erp.landry.index') }}" class="sidebar-link {{ request()->routeIs('erp.landry.*') ? 'active' : '' }}">
+                <i class="bi bi-basket-fill icon"></i>
+                <span class="label">
+                    LANDRY
+                    @if ($landryNouvelles > 0)
+                        <span class="ml-1 text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5">{{ $landryNouvelles }}</span>
+                    @endif
+                </span>
+            </a>
+
             @php $inscriptionsAverifier = \App\Models\InscriptionSession::averifier()->count(); @endphp
             <a href="{{ route('erp.formations.index') }}" class="sidebar-link {{ request()->routeIs('erp.formations.*') ? 'active' : '' }}">
                 <i class="bi bi-mortarboard-fill icon"></i>
