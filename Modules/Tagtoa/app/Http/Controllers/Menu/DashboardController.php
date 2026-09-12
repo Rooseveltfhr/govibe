@@ -132,6 +132,65 @@ $data = $this->validateMenu($request);
         return Order::whereHas('menu', fn ($q) => $q->where('tenant_id', Tenant::id()))->findOrFail($id);
     }
 
+    /* ---------- supprimer : un acte délibéré du patron ---------- */
+
+    /**
+     * Supprime UN article du menu.
+     *
+     * Séparé de l'enregistrement pour la même raison qu'au comptoir (0.1b) :
+     * un envoi incomplet ne doit jamais valoir suppression. Depuis B-3 la
+     * caisse vend ce catalogue, donc l'article emporterait son stock avec lui.
+     *
+     * Les ventes déjà encaissées gardent le nom et le prix figés sur leur
+     * ligne : supprimer un plat ne réécrit aucun historique.
+     */
+    public function destroyItem(int $id, int $itemId): RedirectResponse
+    {
+        $menu = $this->own($id);
+
+        $item = Item::where('menu_id', $menu->id)->whereKey($itemId)->first();
+        abort_unless($item, 404);
+
+        $nom = $item->name;
+        $item->delete();
+
+        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)
+            ->log('menu.item_deleted', null, $nom);
+
+        return back()->with('success', __('Article supprimé du menu.').' ('.$nom.')');
+    }
+
+    /**
+     * Supprime UNE catégorie et les articles qu'elle contient.
+     *
+     * Volontairement explicite : c'est l'action la plus lourde de l'écran, elle
+     * ne doit jamais arriver par accident. Le nombre d'articles emportés est
+     * annoncé au retour pour que le patron voie ce qu'il vient de faire.
+     */
+    public function destroyCategory(int $id, int $categoryId): RedirectResponse
+    {
+        $menu = $this->own($id);
+
+        $cat = $menu->categories()->whereKey($categoryId)->first();
+        abort_unless($cat, 404);
+
+        $nom = $cat->name;
+        $combien = $cat->items()->count();
+
+        DB::transaction(function () use ($cat) {
+            $cat->items()->delete();
+            $cat->delete();
+        });
+
+        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)
+            ->log('menu.category_deleted', null, $nom.' ('.$combien.')');
+
+        return back()->with('success', trans_choice(
+            '{0}Catégorie supprimée.|{1}Catégorie supprimée avec 1 article.|[2,*]Catégorie supprimée avec :count articles.',
+            $combien
+        ));
+    }
+
     /* ---------- helpers ---------- */
 
     protected function own(int $id, array $with = []): Menu
@@ -190,6 +249,8 @@ $data = $this->validateMenu($request);
      */
     protected function validateContent(Request $request): void
     {
+        $this->refuseUnEnvoiTronque($request);
+
         $request->validate([
             'cats'                               => ['array', 'max:200'],
             'cats.*.name'                        => ['nullable', 'string', 'max:120'],
@@ -203,6 +264,33 @@ $data = $this->validateMenu($request);
             'cats.*.items.*.sku'                 => ['nullable', 'string', 'max:60'],
             'cats.*.items.*.description'         => ['nullable', 'string', 'max:600'],
             'cats.*.items.*.badge'               => ['nullable', 'string', 'max:60'],
+        ]);
+    }
+
+    /**
+     * Refuse un formulaire arrivé incomplet.
+     *
+     * PHP coupe $_POST au-delà de `max_input_vars` (1000 par défaut) SANS rien
+     * dire. Une carte de soixante plats dépasse ce plafond : le marchand
+     * cliquait « Enregistrer » et la fin de son menu n'arrivait jamais au
+     * serveur. Depuis que l'enregistrement ne supprime plus rien, il ne perd
+     * plus ses plats — mais ses dernières modifications seraient quand même
+     * passées à la trappe en silence, ce qui est presque aussi grave.
+     *
+     * Le formulaire pose donc un jeton en TOUT DERNIER champ. S'il manque alors
+     * que du contenu a été envoyé, c'est que la fin a été coupée : on refuse
+     * l'écriture entière et on le dit, plutôt que d'enregistrer à moitié.
+     */
+    protected function refuseUnEnvoiTronque(Request $request): void
+    {
+        if (! $request->has('cats') || $request->boolean('form_end')) {
+            return;
+        }
+
+        $limite = (int) ini_get('max_input_vars');
+
+        throw \Illuminate\Validation\ValidationException::withMessages([
+            'cats' => __("L'envoi est arrivé incomplet et n'a pas été enregistré. Votre menu est intact. Réduisez le nombre d'articles enregistrés en une fois (limite du serveur : :n champs), ou demandez à votre hébergeur d'augmenter max_input_vars.", ['n' => $limite ?: 1000]),
         ]);
     }
 
@@ -290,11 +378,30 @@ $data = $this->validateMenu($request);
                     $item ? $item->update($itemAttrs) : $item = $cat->items()->create($itemAttrs);
                     $keepItems[] = $item->id;
 
-                    $this->syncItemOptions($item, $it['options'] ?? []);
+                    // Le marqueur est posé par le formulaire : sans lui, la
+                    // ligne n'a pas porté ses options (envoi tronqué, appel
+                    // partiel) et on n'y touche pas plutôt que de les effacer.
+                    if (! empty($it['options_sent'])) {
+                        $this->syncItemOptions($item, $it['options'] ?? []);
+                    }
                 }
-                $cat->items()->whereNotIn('id', $keepItems ?: [0])->delete();
             }
-            $menu->categories()->whereNotIn('id', $keepCats ?: [0])->delete();
+
+            // ENREGISTRER NE SUPPRIME JAMAIS — ni un article, ni une catégorie.
+            //
+            // Le formulaire effaçait tout ce qui n'était pas renvoyé. Or un envoi
+            // peut être incomplet sans que personne le veuille : connexion
+            // coupée, deux personnes qui modifient en même temps, et surtout
+            // max_input_vars côté PHP, qui TRONQUE $_POST en silence dès qu'un
+            // menu devient gros. Le marchand cliquait « Enregistrer » et perdait
+            // la moitié de sa carte.
+            //
+            // Depuis B-3 c'est pire : la caisse vend le catalogue du menu, donc
+            // l'article effacé emportait son stock et disparaissait du comptoir.
+            //
+            // Retirer un plat de la vente sans rien perdre : l'interrupteur
+            // « Disponible ». Le supprimer vraiment : la corbeille, une action
+            // à part, confirmée.
         });
     }
 

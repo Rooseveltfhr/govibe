@@ -162,6 +162,13 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/edit', [MenuDashboard::class, 'edit'])->name('edit');
         Route::put('/{id}', [MenuDashboard::class, 'update'])->name('update');
         Route::delete('/{id}', [MenuDashboard::class, 'destroy'])->name('destroy');
+
+        // Supprimer est un acte à part, jamais un effet de bord de
+        // l'enregistrement — même règle qu'au comptoir (0.1b).
+        Route::delete('/{id}/items/{itemId}', [MenuDashboard::class, 'destroyItem'])
+            ->whereNumber(['id', 'itemId'])->name('items.destroy');
+        Route::delete('/{id}/categories/{categoryId}', [MenuDashboard::class, 'destroyCategory'])
+            ->whereNumber(['id', 'categoryId'])->name('categories.destroy');
         Route::get('/{id}/orders', [MenuDashboard::class, 'orders'])->name('orders');
         Route::post('/orders/{order}/status', [MenuDashboard::class, 'setStatus'])->name('orders.status');
         Route::post('/orders/{order}/paid', [MenuDashboard::class, 'markPaid'])->name('orders.paid');

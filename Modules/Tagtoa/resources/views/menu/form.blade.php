@@ -65,7 +65,17 @@
     </div>
 
     <button class="btn btn-p"><i class="fa-solid fa-floppy-disk"></i> {{ __('Enregistrer le menu') }}</button>
+
+    {{-- TOUT DERNIER champ du formulaire, volontairement. PHP coupe $_POST
+         au-delà de max_input_vars sans rien dire : si ce jeton n'arrive pas,
+         c'est que la fin de l'envoi a été perdue et le serveur refuse
+         d'enregistrer à moitié. Ne rien mettre après lui. --}}
+    <input type="hidden" name="form_end" value="1">
 </form>
+
+{{-- Supprimer est une action à part, jamais un effet de bord de
+     l'enregistrement : un envoi incomplet ne doit pas valoir suppression. --}}
+<form id="delform" method="POST" style="display:none">@csrf @method('DELETE')</form>
 
 {{-- Template catégorie --}}
 <template id="cattpl">
@@ -73,7 +83,8 @@
         <div style="display:flex;gap:8px;align-items:center">
             <input name="cats[CIDX][icon]" class="inp" placeholder="🍔" style="max-width:64px;text-align:center">
             <input name="cats[CIDX][name]" class="inp" placeholder="{{ __('Nom de la catégorie') }}" style="font-weight:600">
-            <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.catblock').remove()"><i class="fa-solid fa-trash"></i></button>
+            <button type="button" class="btn btn-o btn-sm delcat" style="flex:0;color:var(--red)"
+                    title="{{ __('Supprimer la catégorie') }}"><i class="fa-solid fa-trash"></i></button>
         </div>
         <div class="items" style="margin-top:10px"></div>
         <button type="button" class="btn btn-o btn-sm tt-additem" onclick="addItem(this.closest('.catblock'))" style="margin-top:6px"><i class="fa-solid fa-plus"></i> {{ __('Ajouter') }}</button>
@@ -87,7 +98,8 @@
             <input name="cats[CIDX][items][IIDX][emoji]" class="inp" placeholder="🍔" style="max-width:56px;text-align:center">
             <input name="cats[CIDX][items][IIDX][name]" class="inp tt-itemname" placeholder="{{ __('Nom') }}">
             <input name="cats[CIDX][items][IIDX][price]" class="inp tt-price" type="number" step="0.01" min="0" placeholder="{{ __('Prix') }}" style="max-width:130px">
-            <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.itemrow').remove()"><i class="fa-solid fa-trash"></i></button>
+            <button type="button" class="btn btn-o btn-sm delitem" style="flex:0;color:var(--red)"
+                    title="{{ __('Supprimer l\'article') }}"><i class="fa-solid fa-trash"></i></button>
         </div>
         <input name="cats[CIDX][items][IIDX][description]" class="inp" placeholder="{{ __('Description (optionnel)') }}" style="margin-top:8px">
         <div style="display:flex;gap:16px;align-items:center;margin-top:8px;flex-wrap:wrap">
@@ -130,6 +142,9 @@
 
         {{-- Champs propres au métier, injectés selon le type d'établissement. --}}
         <div class="specs"></div>
+        {{-- Atteste que cette ligne a bien porté ses options : sans le marqueur,
+             le serveur n'y touche pas plutôt que de les effacer. --}}
+        <input type="hidden" name="cats[CIDX][items][IIDX][options_sent]" value="1">
         <div class="options" style="margin-top:8px"></div>
         <button type="button" class="btn btn-o btn-sm" onclick="addOption(this.closest('.itemrow'))" style="margin-top:6px"><i class="fa-solid fa-plus"></i> {{ __('Option (taille, extra…)') }}</button>
     </div>
@@ -345,6 +360,24 @@ function addChoice(optRow, d){
     return row;
 }
 
+var DEL_ITEM_URL = @json($editing ? url('/tagtoa/menu/'.$menu->id.'/items') : null);
+var DEL_CAT_URL  = @json($editing ? url('/tagtoa/menu/'.$menu->id.'/categories') : null);
+
+/* Ligne jamais enregistrée → on l'enlève de l'écran.
+   Élément déjà en base → suppression serveur, confirmée. Depuis que
+   « Enregistrer » ne supprime plus rien, retirer la ligne de l'écran ne
+   suffirait pas : le plat serait toujours là au rechargement. */
+function supprimer(el, url, question){
+    var champId = el.querySelector(':scope > input[name$="[id]"]');
+    if (!champId || !champId.value || !url){ el.remove(); return; }
+
+    if (!confirm(question)) return;
+
+    var f = document.getElementById('delform');
+    f.action = url + '/' + champId.value;
+    f.submit();
+}
+
 function addItem(catEl, d){
     var ci = catEl.getAttribute('data-ci');
     var ii = parseInt(catEl.getAttribute('data-ii') || '0', 10);
@@ -377,6 +410,10 @@ function addItem(catEl, d){
     row.querySelector('.togdet').addEventListener('click', function(){
         var det = row.querySelector('.itemdet'); det.hidden = !det.hidden;
     });
+    row.querySelector('.delitem').addEventListener('click', function(){
+        var nom = (row.querySelector('[name$="[name]"]').value || '').trim();
+        supprimer(row, DEL_ITEM_URL, "{{ __('Supprimer définitivement cet article ? Il disparaîtra aussi de la caisse.') }}\n\n" + nom);
+    });
     renderSpecs(row, d ? d.specs : null);
     return row;
 }
@@ -393,6 +430,10 @@ function addCat(d){
         var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][id]'; h.value=d.id; block.appendChild(h);
         (d.items || []).forEach(function(it){ addItem(block, it); });
     }
+    block.querySelector('.delcat').addEventListener('click', function(){
+        var nom = (block.querySelector('[name$="[name]"]').value || '').trim();
+        supprimer(block, DEL_CAT_URL, "{{ __('Supprimer cette catégorie ET tous ses articles ? Cette action est définitive.') }}\n\n" + nom);
+    });
     return block;
 }
 

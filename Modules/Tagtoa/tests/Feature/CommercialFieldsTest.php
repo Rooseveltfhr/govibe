@@ -435,6 +435,9 @@ class CommercialFieldsTest extends TestCase
                 'name'  => 'Plats',
                 'items' => [$itemAttrs],
             ]],
+            // Jeton de fin du formulaire : atteste que l'envoi est arrivé
+            // entier (voir MenuSaveNeverDeletesTest).
+            'form_end' => 1,
         ]);
     }
 
