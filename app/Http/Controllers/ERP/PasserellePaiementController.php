@@ -86,6 +86,10 @@ class PasserellePaiementController extends Controller
             'titulaire'     => 'nullable|string|max:150',
             'numero_compte' => 'nullable|string|max:255',
             'reseau'        => 'nullable|string|max:100',
+            // Devise réellement encaissée par ce compte : c'est elle qui décide
+            // du total affiché au client. Un compte en gourdes annoncé en
+            // dollars ferait envoyer cinquante fois trop peu.
+            'devise'        => ['nullable', Rule::in(config('govibe.devises'))],
             'lien_paiement' => 'nullable|url|max:500',
             'instructions'  => 'nullable|string|max:2000',
             // mimes en plus de « image » : écarte le SVG, qui peut porter du
@@ -103,12 +107,26 @@ class PasserellePaiementController extends Controller
             'logo.max'           => 'Le logo ne doit pas dépasser 1 Mo.',
         ]);
 
+        $devise = $data['devise'] ?? null;
+        unset($data['devise']);
+
         // Une case décochée n'est pas envoyée : sans valeur explicite,
         // désactiver un moyen de paiement serait impossible.
-        return array_merge($data, [
+        $data = array_merge($data, [
             'actif' => $request->boolean('actif'),
             'ordre' => $request->integer('ordre'),
         ]);
+
+        // Une passerelle API tient sa liste de devises de son pilote. L'écraser
+        // depuis ce formulaire lui ferait perdre ses devises en modifiant
+        // simplement son logo.
+        if (! $passerelle?->estApi()) {
+            // Vide, la liste est effacée : la passerelle redevient « non
+            // précisée » plutôt que de garder une devise qu'on vient de retirer.
+            $data['devises_supportees'] = filled($devise) ? [$devise] : null;
+        }
+
+        return $data;
     }
 
     /**

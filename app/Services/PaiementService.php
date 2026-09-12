@@ -6,6 +6,7 @@ use App\Models\EvenementPaiement;
 use App\Models\Paiement;
 use App\Models\PasserellePaiement;
 use App\Models\TauxChange;
+use App\Paiement\PaiementConstate;
 use App\Paiement\RegistrePilotes;
 use App\Paiement\ResultatInitiation;
 use Illuminate\Database\Eloquent\Model;
@@ -158,6 +159,7 @@ class PaiementService
         ])->save();
 
         $this->tracer($paiement, 'paiement_confirme', $avant, 'reussi', 'passerelle');
+        $this->prevenirLePayable($paiement, true);
 
         return $paiement;
     }
@@ -189,6 +191,7 @@ class PaiementService
             ])->save();
 
             $this->tracer($paiement, 'approbation_manuelle', $avant, 'reussi', 'agent', $userId);
+            $this->prevenirLePayable($paiement, true);
 
             return $paiement;
         });
@@ -210,6 +213,7 @@ class PaiementService
         ])->save();
 
         $this->tracer($paiement, 'rejet', $avant, 'echoue', 'agent', $userId);
+        $this->prevenirLePayable($paiement, false);
 
         return $paiement;
     }
@@ -232,6 +236,23 @@ class PaiementService
         $paiement->forceFill(['mode' => 'cash'])->save();
 
         return $this->approuverManuel($paiement, $userId);
+    }
+
+    /**
+     * Répercute le verdict sur ce qui était payé — commande, facture, billet.
+     *
+     * Le payable reste libre de ne rien implémenter : une chose payable qui n'a
+     * pas d'état à tenir n'a rien à faire ici.
+     */
+    private function prevenirLePayable(Paiement $paiement, bool $reussi): void
+    {
+        $payable = $paiement->payable;
+
+        if (! $payable instanceof PaiementConstate) {
+            return;
+        }
+
+        $reussi ? $payable->paiementReussi($paiement) : $payable->paiementRejete($paiement);
     }
 
     private function figerConversion(Paiement $paiement): void

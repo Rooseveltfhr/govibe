@@ -39,6 +39,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | WhatsApp de vérification
+    |--------------------------------------------------------------------------
+    |
+    | Numéro où arrivent les commandes et les preuves de paiement à vérifier.
+    | Changer de numéro ne doit pas demander un déploiement.
+    |
+    */
+    'whatsapp_verification' => env('GOVIBE_WHATSAPP', '50933988754'),
+
+    /*
+    |--------------------------------------------------------------------------
     | LANDRY — service de lavage
     |--------------------------------------------------------------------------
     |

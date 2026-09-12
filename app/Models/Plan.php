@@ -63,6 +63,34 @@ class Plan extends Model
         return ['mensuel' => 'Mensuel', 'annuel' => 'Annuel'];
     }
 
+    /**
+     * Segment d'URL de chaque service.
+     *
+     * Séparé de la clé interne : « sites-web » se diffuse en publicité,
+     * « site_web » est ce que porte la base. Renommer l'un sans l'autre
+     * casserait les liens déjà imprimés.
+     */
+    public static function segments(): array
+    {
+        return [
+            'site_web' => 'sites-web',
+            'hebergement' => 'hebergement',
+            'domaine' => 'domaines',
+        ];
+    }
+
+    public static function serviceDuSegment(string $segment): ?string
+    {
+        $service = array_search($segment, self::segments(), true);
+
+        return $service === false ? null : $service;
+    }
+
+    public function getSegmentAttribute(): string
+    {
+        return self::segments()[$this->service] ?? $this->service;
+    }
+
     public function getServiceLibelleAttribute(): string
     {
         return self::services()[$this->service] ?? $this->service;

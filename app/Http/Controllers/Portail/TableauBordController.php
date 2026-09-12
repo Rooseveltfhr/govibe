@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Portail;
 use App\Http\Controllers\Controller;
 use App\Models\Abonnement;
 use App\Models\Booking;
+use App\Models\CommandeAbonnement;
 use App\Models\DemandeAgentIa;
 use App\Models\InscriptionSession;
 use App\Models\Invoice;
@@ -76,6 +77,25 @@ class TableauBordController extends Controller
                 'reference' => $a->reference,
             ]);
 
+        // Les commandes figurent à côté des abonnements : entre le règlement et
+        // la mise en service il s'écoule des heures, et le client doit voir que
+        // sa commande existe au lieu d'un portail vide.
+        $commandes = CommandeAbonnement::where('client_id', $clientId)->latest()->get()
+            ->map(fn ($c) => [
+                'unite' => 'Commandes',
+                'icone' => 'fa-bag-shopping',
+                'titre' => $c->plan_nom,
+                'detail' => $c->service_libelle.' · '.$c->montant_affiche,
+                'statut' => $c->statut_libelle,
+                'etat' => match ($c->statut) {
+                    'livree' => 'actif',
+                    'annulee' => 'termine',
+                    default => 'en_cours',
+                },
+                'date' => $c->created_at,
+                'reference' => $c->reference,
+            ]);
+
         $agents = DemandeAgentIa::where('client_id', $clientId)->latest()->get()
             ->map(fn ($d) => [
                 'unite' => 'Agents IA',
@@ -112,7 +132,8 @@ class TableauBordController extends Controller
                 'reference' => $b->reference,
             ]);
 
-        return $abonnements->concat($agents)->concat($formations)->concat($reservations)
+        return $abonnements->concat($commandes)->concat($agents)
+            ->concat($formations)->concat($reservations)
             ->sortByDesc('date')->values()->all();
     }
 }

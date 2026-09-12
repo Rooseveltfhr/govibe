@@ -230,6 +230,11 @@ jobs:
           verifier "/agents-ia/demande" "200 301 302" "demande d'Agent IA"
           verifier "/formation/formation-ai" "200 301 302" "inscription Formation AI"
           verifier "/landry"           "200 301 302" "réservation LANDRY"
+          # Les trois services vendus par abonnement : ce sont les pages
+          # diffusées en publicité.
+          verifier "/sites-web"        "200 301 302" "offre sites web"
+          verifier "/hebergement"      "200 301 302" "offre hébergement"
+          verifier "/domaines"         "200 301 302" "offre noms de domaine"
 
           echo "Contrôle d'accès"
           # 302 vers la connexion, ou 403. Un 200 signifierait que la prospection
@@ -252,6 +257,7 @@ jobs:
           verifier "/erp/transactions/configuration" "302 301 403" "clés API protégées"
           verifier "/erp/abonnements" "302 301 403" "abonnements protégés"
           verifier "/erp/landry"       "302 301 403" "réservations LANDRY protégées"
+          verifier "/erp/commandes"    "302 301 403" "commandes en ligne protégées"
 
           if [ "$ECHEC" -ne 0 ]; then
             echo "::error::Le déploiement est passé mais le site ne répond pas correctement."
