@@ -294,6 +294,34 @@ $data = $this->validateMenu($request);
         ]);
     }
 
+    /**
+     * Enregistre le stock saisi au menu, via le journal.
+     *
+     * Champ absent de l'envoi : on n'y touche pas. Champ vidé : l'article
+     * repasse en « non suivi », ce qui est une décision et non un mouvement —
+     * il n'y a plus rien à compter.
+     */
+    private function noteLeStock(Item $item, array $ligne, bool $nouveau): void
+    {
+        if (! array_key_exists('stock', $ligne)) {
+            return;
+        }
+
+        $valeur = $this->nombreOuNull($ligne['stock'], 0);
+
+        if ($valeur === null) {
+            if ($item->stock !== null) {
+                $item->forceFill(['stock' => null])->save();
+            }
+
+            return;
+        }
+
+        app(\Modules\Tagtoa\App\Services\Inventory\StockLedger::class)->count($item, $valeur, [
+            'reason' => $nouveau ? __('Stock initial') : __('Saisie au menu'),
+        ]);
+    }
+
     /** Champ numérique laissé vide = « non renseigné », pas « zéro ». */
     private function nombreOuNull(mixed $valeur, ?float $minimum = null): ?float
     {
@@ -350,10 +378,6 @@ $data = $this->validateMenu($request);
                         'specs'        => BusinessProfile::sanitize($menu->type, $it['specs'] ?? null),
                         'is_featured'  => ! empty($it['is_featured']),
                         'is_available' => ! isset($it['is_available']) ? true : (bool) $it['is_available'],
-                        // Stock DÉCIMAL : le griot se vend à la livre, le riz à
-                        // la mamit. Un cast entier effaçait une demi-livre à
-                        // chaque enregistrement du menu.
-                        'stock'        => $this->nombreOuNull($it['stock'] ?? null, 0),
                         'sort'         => (int) $ii,
 
                         // Coût matière, unité, seuil, référence — même volet
@@ -375,8 +399,16 @@ $data = $this->validateMenu($request);
                         $itemAttrs['image_path'] = null;
                     }
 
+                    $nouveau = $item === null;
                     $item ? $item->update($itemAttrs) : $item = $cat->items()->create($itemAttrs);
                     $keepItems[] = $item->id;
+
+                    // Le stock ne s'écrit pas, il se journalise : le patron
+                    // tape ce qu'il a sur l'étagère, le service en déduit
+                    // l'écart. Sans cela, corriger un stock depuis le menu
+                    // laisserait un trou dans l'historique — là même où le
+                    // commerce cherchera plus tard ce qui a disparu.
+                    $this->noteLeStock($item, $it, $nouveau);
 
                     // Le marqueur est posé par le formulaire : sans lui, la
                     // ligne n'a pas porté ses options (envoi tronqué, appel

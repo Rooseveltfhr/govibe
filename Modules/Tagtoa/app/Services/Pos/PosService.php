@@ -8,6 +8,8 @@ use Modules\Tagtoa\App\Models\Pos\Sale;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
+use Modules\Tagtoa\App\Services\Inventory\StockLedger;
+use Modules\Tagtoa\App\Support\Inventory\MovementType;
 use Modules\Tagtoa\App\Support\Catalog\Pricing;
 use Modules\Tagtoa\App\Support\Pos\CatalogRef;
 
@@ -115,9 +117,14 @@ class PosService
                 ]);
 
                 // UN SEUL STOCK : vendre un plat au comptoir retire du même
-                // stock qu'une commande passée par QR.
-                if ($article && $article->stock !== null) {
-                    $article->decrement('stock', $qty);
+                // stock qu'une commande passée par QR. Et il passe par le
+                // journal, pour que le patron puisse remonter de l'écart
+                // constaté sur l'étagère jusqu'à la vente qui l'explique.
+                if ($article) {
+                    app(StockLedger::class)->remove(
+                        $article, $qty, MovementType::SALE,
+                        ['staff' => $staff, 'origin_type' => 'pos_sale', 'origin_id' => $sale->id]
+                    );
                 }
             }
 

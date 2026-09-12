@@ -160,6 +160,32 @@ class DashboardController extends Controller
         ]);
     }
 
+    /**
+     * Enregistre le stock saisi au catalogue de la boutique, via le journal.
+     *
+     * Champ absent : on n'y touche pas. Champ vidé : l'article repasse en
+     * « non suivi » — une décision, pas un mouvement.
+     */
+    private function noteLeStock(\Modules\Tagtoa\App\Models\Store\Product $product, array $ligne, bool $nouveau): void
+    {
+        if (! array_key_exists('stock', $ligne)) {
+            return;
+        }
+
+        if ($ligne['stock'] === '' || $ligne['stock'] === null) {
+            if ($product->stock !== null) {
+                $product->forceFill(['stock' => null])->save();
+            }
+
+            return;
+        }
+
+        app(\Modules\Tagtoa\App\Services\Inventory\StockLedger::class)
+            ->count($product, max(0.0, (float) $ligne['stock']), [
+                'reason' => $nouveau ? __('Stock initial') : __('Saisie au catalogue'),
+            ]);
+    }
+
     /** Synchronise les produits depuis le formulaire répétable (products[]). */
     protected function syncProducts(Store $store, Request $request): void
     {
@@ -177,14 +203,19 @@ class DashboardController extends Controller
                     'price'         => round((float) ($p['price'] ?? 0), 2),
                     'compare_price' => (! isset($p['compare_price']) || $p['compare_price'] === '') ? null : round((float) $p['compare_price'], 2),
                     'category'      => $p['category'] ?? null,
-                    'stock'         => (! isset($p['stock']) || $p['stock'] === '') ? null : max(0, (int) $p['stock']),
                     'is_available'  => ! isset($p['is_available']) ? true : (bool) $p['is_available'],
                     'is_featured'   => ! empty($p['is_featured']),
                     'sort'          => $i,
                 ];
 
                 $product = ! empty($p['id']) ? $store->products()->whereKey($p['id'])->first() : null;
+                $nouveau = $product === null;
                 $product ? $product->update($attrs) : $product = $store->products()->create($attrs);
+
+                // Le stock passe par le journal, jamais par une écriture
+                // directe : le marchand tape ce qu'il a en réserve, le service
+                // en déduit l'écart et le trace.
+                $this->noteLeStock($product, $p, $nouveau);
 
                 // Image par produit (optionnelle) : products[i][image]
                 $file = $request->file("products.$i.image");

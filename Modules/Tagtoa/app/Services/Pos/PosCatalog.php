@@ -7,6 +7,7 @@ use Illuminate\Support\Collection;
 use Modules\Tagtoa\App\Models\Menu\Item;
 use Modules\Tagtoa\App\Models\Pos\Product;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
+use Modules\Tagtoa\App\Services\Inventory\StockLedger;
 use Modules\Tagtoa\App\Support\Pos\CatalogRef;
 
 /**
@@ -156,17 +157,57 @@ class PosCatalog
      */
     public function save(Terminal $terminal, array $attributes, ?int $productId = null): Product
     {
+        // Le stock ne s'écrit pas, il se journalise : le patron tape ce qu'il a
+        // sur l'étagère, le service en déduit l'écart et le motif « comptage ».
+        // Sans cela, corriger un stock depuis le catalogue laisserait un trou
+        // dans l'historique — exactement là où le commerce cherchera plus tard
+        // à comprendre ce qui a disparu.
+        $stockDemande = array_key_exists('stock', $attributes) ? $attributes['stock'] : false;
+        unset($attributes['stock']);
+
         $existing = $productId ? $this->find($terminal->tenant_id, $productId) : null;
 
         if ($existing) {
             $existing->update($attributes);
+            $this->noteLeStock($existing, $stockDemande);
 
             return $existing;
         }
 
-        return Product::create($attributes + [
+        $product = Product::create($attributes + [
             'tenant_id'   => $terminal->tenant_id,
             'terminal_id' => $terminal->id,
+        ]);
+
+        $this->noteLeStock($product, $stockDemande, true);
+
+        return $product;
+    }
+
+    /**
+     * Enregistre le stock saisi au catalogue, via le journal.
+     *
+     * `false` = le champ n'était pas dans l'envoi : on n'y touche pas.
+     * `null`  = suivi désactivé volontairement (article illimité).
+     */
+    private function noteLeStock(Product $product, mixed $stockDemande, bool $nouveau = false): void
+    {
+        if ($stockDemande === false) {
+            return;
+        }
+
+        if ($stockDemande === null) {
+            // Repasser en « non suivi » est une décision, pas un mouvement :
+            // il n'y a plus rien à compter.
+            if ($product->stock !== null) {
+                $product->forceFill(['stock' => null])->save();
+            }
+
+            return;
+        }
+
+        app(StockLedger::class)->count($product, (float) $stockDemande, [
+            'reason' => $nouveau ? __('Stock initial') : __('Saisie au catalogue'),
         ]);
     }
 }
