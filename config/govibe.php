@@ -39,6 +39,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | LANDRY — service de lavage
+    |--------------------------------------------------------------------------
+    |
+    | Dates de la campagne de réservation et frais d'inscription. Modifiables
+    | sans redéploiement par les variables d'environnement.
+    |
+    */
+    'landry' => [
+        'ouverture_reservations' => env('LANDRY_DEBUT', '2026-09-11'),
+        'ouverture_services' => env('LANDRY_OUVERTURE', '2026-10-11'),
+        'frais_inscription' => (float) env('LANDRY_FRAIS', 1000),
+        'devise' => env('LANDRY_DEVISE', 'HTG'),
+        'whatsapp' => env('LANDRY_WHATSAPP', '50933988754'),
+        'adresse' => '#16 Ruelle Sajous, Gonaïves',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Portail client
     |--------------------------------------------------------------------------
     */

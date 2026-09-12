@@ -32,6 +32,7 @@ use App\Http\Controllers\FicheTechniqueController;
 use App\Http\Controllers\PreuvePaiementController;
 use App\Http\Controllers\AgentIaController;
 use App\Http\Controllers\SessionFormationController;
+use App\Http\Controllers\LandryController;
 use App\Http\Controllers\PaiementRetourController;
 use App\Http\Controllers\Portail\AuthController as PortailAuthController;
 use App\Http\Controllers\Portail\TableauBordController as PortailTableauBordController;
@@ -44,6 +45,7 @@ use App\Http\Controllers\ERP\AgentIaAdminController;
 use App\Http\Controllers\ERP\InscriptionSessionController;
 use App\Http\Controllers\ERP\PaiementAdminController;
 use App\Http\Controllers\ERP\AbonnementAdminController;
+use App\Http\Controllers\ERP\ReservationLandryController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -90,6 +92,13 @@ Route::get('/paiement/retour/{paiement}', [PaiementRetourController::class, 'ret
 Route::post('/paiement/notification/{paiement}', [PaiementRetourController::class, 'notification'])
     ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
     ->middleware('throttle:60,1')->name('paiement.notification');
+
+// LANDRY — service de lavage. URL courte pour la publicité : /landry
+Route::get('/landry', [LandryController::class, 'index'])->name('landry.index');
+Route::post('/landry', [LandryController::class, 'store'])
+    ->middleware('throttle:10,10')
+    ->name('landry.store');
+Route::get('/landry/merci', [LandryController::class, 'merci'])->name('landry.merci');
 
 // Formations payantes à inscription courte. L'URL porte le slug pour que la
 // publicité pointe sur une adresse lisible : /formation/formation-ai
@@ -364,6 +373,15 @@ Route::prefix('erp')->name('erp.')->middleware('app')->group(function () {
             Route::post('/{passerelle}', [PasserellePaiementController::class, 'update'])->name('update');
             Route::delete('/{passerelle}/fichier', [PasserellePaiementController::class, 'destroyFichier'])->name('fichier.destroy');
             Route::delete('/{passerelle}', [PasserellePaiementController::class, 'destroy'])->name('destroy');
+        });
+
+        // ── Réservations LANDRY ───────────────────────────
+        Route::prefix('landry')->name('landry.')->group(function () {
+            Route::get('/', [ReservationLandryController::class, 'index'])->name('index');
+            Route::get('/export', [ReservationLandryController::class, 'export'])->name('export');
+            Route::get('/{reservation}', [ReservationLandryController::class, 'show'])->name('show');
+            Route::patch('/{reservation}', [ReservationLandryController::class, 'update'])->name('update');
+            Route::delete('/{reservation}', [ReservationLandryController::class, 'destroy'])->name('destroy');
         });
 
         // ── Abonnements et catalogue de plans ─────────────
