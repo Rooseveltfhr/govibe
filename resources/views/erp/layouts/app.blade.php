@@ -188,8 +188,19 @@
                 <span class="label">Moyens de paiement</span>
             </a>
 
-            {{-- Le compteur ne s'affiche que s'il y a des preuves à traiter :
+            {{-- Le compteur ne s'affiche que s'il y a quelque chose à traiter :
                  un « 0 » permanent cesse vite d'être regardé. --}}
+            @php $commandesAtraiter = \App\Models\CommandeAbonnement::atraiter()->count(); @endphp
+            <a href="{{ route('erp.commandes.index') }}" class="sidebar-link {{ request()->routeIs('erp.commandes.*') ? 'active' : '' }}">
+                <i class="bi bi-bag-fill icon"></i>
+                <span class="label">
+                    Commandes en ligne
+                    @if ($commandesAtraiter > 0)
+                        <span class="ml-1 text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5">{{ $commandesAtraiter }}</span>
+                    @endif
+                </span>
+            </a>
+
             @php $abonnementsImpayes = \App\Models\Abonnement::whereIn('statut', ['en_retard', 'suspendu'])->count(); @endphp
             <a href="{{ route('erp.abonnements.index') }}" class="sidebar-link {{ request()->routeIs('erp.abonnements.*') ? 'active' : '' }}">
                 <i class="bi bi-arrow-repeat icon"></i>

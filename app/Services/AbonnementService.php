@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Abonnement;
 use App\Models\Client;
+use App\Models\CommandeAbonnement;
 use App\Models\EvenementAbonnement;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -26,9 +27,13 @@ class AbonnementService
         Plan $plan,
         string $cycle = 'mensuel',
         ?Carbon $debut = null,
+        array $tarifGele = [],
     ): Abonnement {
         $debut = ($debut ?? now())->startOfDay();
-        $prix = $plan->prixPour($cycle);
+
+        // Un tarif déjà annoncé au client prime sur le catalogue : une commande
+        // payée hier ne se réévalue pas au prix révisé ce matin.
+        $prix = $tarifGele['prix_unitaire'] ?? $plan->prixPour($cycle);
 
         if ($prix === null) {
             throw new \InvalidArgumentException(
@@ -56,10 +61,10 @@ class AbonnementService
             'statut' => $essaiFin ? 'essai' : 'actif',
             'cycle' => $cycle,
             'prix_unitaire' => $prix,
-            'devise' => $plan->devise,
-            'tca_taux' => $plan->tca_taux,
+            'devise' => $tarifGele['devise'] ?? $plan->devise,
+            'tca_taux' => $tarifGele['tca_taux'] ?? $plan->tca_taux,
             // Gelé à la souscription, comme le prix.
-            'taux_change_htg' => TauxChange::actuel($plan->devise, 'HTG'),
+            'taux_change_htg' => TauxChange::actuel($tarifGele['devise'] ?? $plan->devise, 'HTG'),
 
             'date_debut' => $debut,
             'essai_fin' => $essaiFin,
@@ -72,6 +77,102 @@ class AbonnementService
         $this->tracer($abonnement, 'souscription', null, $abonnement->statut, 'systeme');
 
         return $abonnement;
+    }
+
+    /**
+     * Transforme une commande du site en abonnement facturable.
+     *
+     * Le client est créé ou retrouvé ici : une commande se passe sans compte,
+     * mais un abonnement a besoin d'un titulaire à facturer.
+     *
+     * Deux garde-fous, parce que le bouton est dans l'ERP et qu'un agent peut
+     * cliquer deux fois : la commande déjà activée rend son abonnement sans en
+     * créer un second, et une commande impayée n'active rien — sauf si le plan
+     * comporte un essai, qui est justement le service rendu avant paiement.
+     */
+    public function activerCommande(CommandeAbonnement $commande, ?int $userId = null): Abonnement
+    {
+        if ($commande->estActivee()) {
+            return $commande->abonnement;
+        }
+
+        $plan = $commande->plan_id ? Plan::find($commande->plan_id) : null;
+
+        if (! $plan) {
+            throw new \DomainException(
+                "Le plan de la commande {$commande->reference} n'existe plus dans le catalogue : "
+                .'recréez-le avant de mettre le service en route.'
+            );
+        }
+
+        if (! $commande->estPayee() && $plan->essai_jours < 1) {
+            throw new \DomainException(
+                "La commande {$commande->reference} n'est pas réglée. "
+                .'Constatez le paiement avant de mettre le service en route.'
+            );
+        }
+
+        return DB::transaction(function () use ($commande, $plan, $userId) {
+            // Relu sous verrou : deux agents sur la même fiche ne doivent pas
+            // produire deux contrats pour une commande.
+            $commande = CommandeAbonnement::lockForUpdate()->find($commande->id);
+
+            if ($commande->estActivee()) {
+                return $commande->abonnement;
+            }
+
+            $client = $this->clientDeLaCommande($commande);
+
+            $abonnement = $this->souscrire($client, $plan, $commande->cycle, null, [
+                'prix_unitaire' => (float) $commande->prix_unitaire,
+                'devise' => $commande->devise,
+                'tca_taux' => (float) $commande->tca_taux,
+            ]);
+
+            $commande->forceFill([
+                'client_id' => $client->id,
+                'abonnement_id' => $abonnement->id,
+                'statut' => 'livree',
+                'traitee_par' => $userId,
+                'traitee_le' => now(),
+            ])->save();
+
+            $this->tracer($abonnement, 'commande_activee', null, $abonnement->statut,
+                $userId ? 'agent' : 'systeme', $userId, ['commande' => $commande->reference]);
+
+            return $abonnement;
+        });
+    }
+
+    /**
+     * Le client à facturer : celui déjà rattaché, sinon celui qui porte la même
+     * adresse, sinon un nouveau.
+     *
+     * Le rapprochement se fait sur l'adresse exacte en minuscules. Rapprocher
+     * « à peu près » ferait facturer une commande au dossier d'un tiers.
+     */
+    private function clientDeLaCommande(CommandeAbonnement $commande): Client
+    {
+        if ($commande->client_id && $client = Client::find($commande->client_id)) {
+            return $client;
+        }
+
+        $existant = Client::whereRaw('LOWER(email) = ?', [mb_strtolower($commande->email)])->first();
+
+        if ($existant) {
+            return $existant;
+        }
+
+        return Client::create([
+            // L'énumération de la colonne n'accepte que ces valeurs : une
+            // entreprise est « company », un particulier « individual ».
+            'type' => filled($commande->entreprise) ? 'company' : 'individual',
+            'name' => $commande->entreprise ?: $commande->nom_complet,
+            'email' => $commande->email,
+            'phone' => $commande->whatsapp,
+            'status' => 'active',
+            'source' => 'Commande en ligne — '.$commande->service_libelle,
+        ]);
     }
 
     /**

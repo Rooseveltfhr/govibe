@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CommandeAbonnement;
 use App\Models\ComptePortail;
 use App\Models\DemandeAgentIa;
 use App\Models\InscriptionSession;
@@ -33,6 +34,10 @@ class RattachementServicesClient
             $total = 0;
 
             $total += DemandeAgentIa::whereNull('client_id')
+                ->whereRaw('LOWER(email) = ?', [$email])
+                ->update(['client_id' => $compte->client_id]);
+
+            $total += CommandeAbonnement::whereNull('client_id')
                 ->whereRaw('LOWER(email) = ?', [$email])
                 ->update(['client_id' => $compte->client_id]);
 

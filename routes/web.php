@@ -44,7 +44,9 @@ use App\Http\Controllers\ERP\PreuvePaiementAdminController;
 use App\Http\Controllers\ERP\AgentIaAdminController;
 use App\Http\Controllers\ERP\InscriptionSessionController;
 use App\Http\Controllers\ERP\PaiementAdminController;
+use App\Http\Controllers\CommandeAbonnementController;
 use App\Http\Controllers\ERP\AbonnementAdminController;
+use App\Http\Controllers\ERP\CommandeAbonnementController as CommandeAdminController;
 use App\Http\Controllers\ERP\ReservationLandryController;
 use Illuminate\Support\Facades\Route;
 
@@ -115,6 +117,24 @@ Route::post('/agents-ia/demande', [AgentIaController::class, 'store'])
     ->middleware('throttle:10,10')
     ->name('agents-ia.store');
 Route::get('/agents-ia/confirmation', [AgentIaController::class, 'confirmation'])->name('agents-ia.confirmation');
+
+// Sites web, hébergement et noms de domaine — les trois services vendus par
+// abonnement. Les tarifs viennent du catalogue tenu dans l'ERP.
+//
+// /commande/merci est déclaré AVANT /commande/{plan} : sans cela un plan dont
+// le slug vaudrait « merci » capterait la page de confirmation.
+Route::get('/commande/merci', [CommandeAbonnementController::class, 'merci'])->name('abonnements.merci');
+Route::get('/commande/{plan}', [CommandeAbonnementController::class, 'commande'])->name('abonnements.commande');
+Route::post('/commande/{plan}', [CommandeAbonnementController::class, 'store'])
+    ->middleware('throttle:10,10')
+    ->name('abonnements.store');
+
+// Adresses courtes pour la publicité : /sites-web, /hebergement, /domaines.
+// La contrainte n'accepte que ces trois segments — la route ne peut donc pas
+// capter une autre page, où qu'elle soit déclarée.
+Route::get('/{service}', [CommandeAbonnementController::class, 'index'])
+    ->whereIn('service', ['sites-web', 'hebergement', 'domaines'])
+    ->name('abonnements.service');
 
 Route::view('/paiement', 'paiement')->name('paiement');
 
@@ -382,6 +402,17 @@ Route::prefix('erp')->name('erp.')->middleware('app')->group(function () {
             Route::get('/{reservation}', [ReservationLandryController::class, 'show'])->name('show');
             Route::patch('/{reservation}', [ReservationLandryController::class, 'update'])->name('update');
             Route::delete('/{reservation}', [ReservationLandryController::class, 'destroy'])->name('destroy');
+        });
+
+        // ── Commandes venues du site ──────────────────────
+        Route::prefix('commandes')->name('commandes.')->group(function () {
+            Route::get('/', [CommandeAdminController::class, 'index'])->name('index');
+            // Avant /{commande} : « export » n'est pas un uuid, mais la route
+            // la plus générale gagnerait si elle était déclarée en premier.
+            Route::get('/export', [CommandeAdminController::class, 'export'])->name('export');
+            Route::get('/{commande}', [CommandeAdminController::class, 'show'])->name('show');
+            Route::patch('/{commande}', [CommandeAdminController::class, 'update'])->name('update');
+            Route::post('/{commande}/activer', [CommandeAdminController::class, 'activer'])->name('activer');
         });
 
         // ── Abonnements et catalogue de plans ─────────────

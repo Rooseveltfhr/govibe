@@ -54,6 +54,28 @@
 
 <div class="grid gap-4 mt-4" style="grid-template-columns: repeat(2,1fr);">
     <div>
+        {{-- C'est cette devise qui décide du total affiché au client sur le site :
+             un compte NatCash reçoit des gourdes, un compte Zelle des dollars.
+             Laissée vide, aucune conversion n'est proposée et le client voit le
+             montant dans la devise de l'offre — ce qui peut être faux. --}}
+        <label for="{{ $p }}devise" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+            Devise encaissée
+        </label>
+        @php
+            $deviseActuelle = ($passerelle->devises_supportees ?? [])[0] ?? '';
+        @endphp
+        <select id="{{ $p }}devise" name="devise"
+                class="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm dark:bg-slate-700 dark:text-gray-200 focus:outline-none focus:border-red-400">
+            <option value="">Non précisée</option>
+            @foreach (config('govibe.devises') as $d)
+                <option value="{{ $d }}" @selected(old('devise', $deviseActuelle) === $d)>{{ $d }}</option>
+            @endforeach
+        </select>
+        <p class="text-xs text-gray-400 mt-1">
+            Le site convertit le total dans cette devise, au taux réglé en configuration.
+        </p>
+    </div>
+    <div>
         <label for="{{ $p }}reseau" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
             Réseau (crypto)
         </label>
