@@ -151,6 +151,10 @@ jobs:
           echo "--"
           grep -rln "hero" "$PUB/app/Http/Controllers" 2>/dev/null | sed "s|^$PUB/||" | sort
           echo "::endgroup::"
+
+          echo "::group::Comment \$hero / \$cta sont construits (FrontendController.php)"
+          grep -n "hero\|'cta'\|\"cta\"" "$PUB/app/Http/Controllers/FrontendController.php" 2>/dev/null | head -60
+          echo "::endgroup::"
           EOSSH
 
       - name: Fetch file (artefact — jamais affiché dans le log)
