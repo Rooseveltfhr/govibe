@@ -196,7 +196,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 | renseigné ; avant, tout répond comme aujourd'hui.
 |
 */
-Route::prefix('portail')->name('portail.')->middleware('app')->group(function () {
+Route::prefix('portail')->name('portail.')->group(function () {
 
     // Invité : deux tentatives par minute suffisent à une personne réelle et
     // rendent le balayage d'identifiants inutilisable.
@@ -222,7 +222,7 @@ Route::prefix('portail')->name('portail.')->middleware('app')->group(function ()
     });
 });
 
-Route::prefix('erp')->name('erp.')->middleware('app')->group(function () {
+Route::prefix('erp')->name('erp.')->group(function () {
 
     // Auth
     Route::get('/login', [ERPAuthController::class, 'showLogin'])->name('login');

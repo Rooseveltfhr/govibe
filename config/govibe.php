@@ -25,6 +25,14 @@ return [
     'domaine_vitrine' => env('GOVIBE_DOMAINE_VITRINE', 'govibeht.com'),
 
     /*
+    | Durée, en jours, pendant laquelle le navigateur s'interdira le HTTP clair
+    | sur ce domaine (HSTS). Désactivé par défaut : la consigne reste en mémoire
+    | du navigateur pendant toute la durée annoncée, y compris si un certificat
+    | expire entre-temps. Commencer petit (1 à 7 jours), puis allonger.
+    */
+    'hsts_jours' => (int) env('GOVIBE_HSTS_JOURS', 0),
+
+    /*
     |--------------------------------------------------------------------------
     | Devises et taux de change
     |--------------------------------------------------------------------------
