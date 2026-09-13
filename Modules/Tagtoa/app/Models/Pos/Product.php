@@ -17,7 +17,7 @@ class Product extends Model
 
     protected $table = 'tagtoa_pos_products';
 
-    protected $fillable = ['tenant_id', 'terminal_id', 'name', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'emoji', 'color', 'stock', 'is_active', 'sort'];
+    protected $fillable = ['tenant_id', 'terminal_id', 'name', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'emoji', 'color', 'stock', 'is_active', 'sort'];
 
     protected $casts = [
         'price'      => 'decimal:2',
@@ -37,6 +37,12 @@ class Product extends Model
      * partagent. Cette relation ne dit que sur quelle caisse l'article a été
      * créé. Pour chercher un article, passer par PosCatalog, jamais par ici.
      */
+    /** Le fournisseur habituel. Nullable : rien ne dépend de sa présence. */
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\Tagtoa\App\Models\Inventory\Supplier::class, 'supplier_id');
+    }
+
     public function terminal(): BelongsTo
     {
         return $this->belongsTo(Terminal::class, 'terminal_id');

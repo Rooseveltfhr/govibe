@@ -295,4 +295,58 @@ class InventoryScreenTest extends TestCase
 
         $this->assertSame(0, Supplier::count());
     }
+
+    /* ------------------------------------------------------------------
+       Le fournisseur habituel sur la fiche article.
+       ------------------------------------------------------------------ */
+
+    public function test_both_catalogue_forms_render_with_the_supplier_list(): void
+    {
+        // Une variable oubliée entre le contrôleur et sa vue compile très bien
+        // et rend une page blanche au marchand. On rend donc vraiment la page.
+        $this->patron();
+        Supplier::create(['tenant_id' => 't-1', 'name' => 'Dépôt Bon Prix', 'is_active' => true]);
+        $this->article();
+
+        $this->get(route('tagtoa.pos.products', $this->caisse()->id))
+            ->assertOk()->assertSee('Dépôt Bon Prix');
+
+        $menu = \Modules\Tagtoa\App\Models\Menu\Menu::create([
+            'tenant_id' => 't-1', 'name' => 'Carte', 'alias' => 'carte', 'currency' => 'HTG',
+        ]);
+        $this->get(route('tagtoa.menu.dashboard.edit', $menu->id))
+            ->assertOk()->assertSee('Dépôt Bon Prix');
+    }
+
+    public function test_an_article_remembers_where_it_is_bought(): void
+    {
+        $this->patron();
+        $depot = Supplier::create(['tenant_id' => 't-1', 'name' => 'Dépôt Bon Prix', 'is_active' => true]);
+
+        $this->post(route('tagtoa.pos.products.save', $this->caisse()->id), [
+            'products' => [[
+                'name' => 'Riz', 'price' => 120, 'supplier_id' => $depot->id,
+                'is_active' => 1, 'color' => '#2cb809',
+            ]],
+        ])->assertRedirect();
+
+        $this->assertSame($depot->id, Product::where('name', 'Riz')->firstOrFail()->supplier_id);
+    }
+
+    public function test_an_article_never_points_at_the_neighbour_supplier(): void
+    {
+        $this->patron('t-2');
+        $chezLeVoisin = Supplier::create(['tenant_id' => 't-2', 'name' => 'Dépôt du voisin', 'is_active' => true]);
+
+        $this->patron('t-1');
+
+        $this->post(route('tagtoa.pos.products.save', $this->caisse()->id), [
+            'products' => [[
+                'name' => 'Riz', 'price' => 120, 'supplier_id' => $chezLeVoisin->id,
+                'is_active' => 1, 'color' => '#2cb809',
+            ]],
+        ])->assertRedirect();
+
+        $this->assertNull(Product::where('name', 'Riz')->firstOrFail()->supplier_id);
+    }
 }

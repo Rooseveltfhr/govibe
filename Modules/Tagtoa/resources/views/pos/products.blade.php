@@ -59,6 +59,16 @@
             <label style="font-size:12px;color:var(--muted)">{{ __('Référence (SKU)') }}
                 <input name="products[IDX][sku]" class="inp" maxlength="60" style="max-width:140px">
             </label>
+            {{-- Chez qui on rachète cet article : pré-rempli au moment de
+                 saisir une réception dans l'écran Stock. --}}
+            <label style="font-size:12px;color:var(--muted)">{{ __('Fournisseur') }}
+                <select name="products[IDX][supplier_id]" class="inp" style="max-width:170px">
+                    <option value="">—</option>
+                    @foreach($suppliers as $f)
+                        <option value="{{ $f->id }}">{{ $f->name }}</option>
+                    @endforeach
+                </select>
+            </label>
             <span class="marge" style="font-size:12px;color:var(--muted);align-self:flex-end;padding-bottom:8px"></span>
         </div>
     </div>
@@ -111,6 +121,7 @@ function addP(d){var h=document.getElementById('ptpl').innerHTML.replace(/IDX/g,
         champ(r,'unit').value=d.unit||'piece';
         champ(r,'low_stock_threshold').value=d.low_stock_threshold==null?'':d.low_stock_threshold;
         champ(r,'sku').value=d.sku||'';
+        champ(r,'supplier_id').value=d.supplier_id||'';
         var i=document.createElement('input');i.type='hidden';i.name='products['+pIdx+'][id]';i.value=d.id;r.appendChild(i);}
     r.querySelector('.delrow').addEventListener('click', function(){ delRow(this); });
     r.querySelector('.togdet').addEventListener('click', function(){
@@ -127,6 +138,7 @@ function addP(d){var h=document.getElementById('ptpl').innerHTML.replace(/IDX/g,
         'is_active' => $p->is_active,
         'cost_price' => $p->cost_price, 'unit' => $p->unit_key,
         'low_stock_threshold' => $p->low_stock_threshold, 'sku' => $p->sku,
+        'supplier_id' => $p->supplier_id,
     ])->values();
 @endphp
 var ex=@json($productData);

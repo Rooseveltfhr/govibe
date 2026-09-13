@@ -150,7 +150,11 @@ class PosController extends Controller
     {
         $terminal = $this->own($id, ['products']);
 
-        return view('tagtoa::pos.products', compact('terminal'));
+        return view('tagtoa::pos.products', [
+            'terminal'  => $terminal,
+            'suppliers' => \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)
+                ->orderBy('name')->get(['id', 'name']),
+        ]);
     }
 
     public function saveProducts(Request $request, int $id): RedirectResponse
@@ -169,6 +173,7 @@ class PosController extends Controller
             'products.*.low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'products.*.unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
             'products.*.sku'                 => ['nullable', 'string', 'max:60'],
+            'products.*.supplier_id'         => ['nullable', 'integer'],
             'products.*.emoji'               => ['nullable', 'string', 'max:16'],
             'products.*.color'               => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ]);
@@ -198,6 +203,10 @@ class PosController extends Controller
                 'unit'                => Pricing::unit($row['unit'] ?? null),
                 'low_stock_threshold' => $this->nombreOuNull($row['low_stock_threshold'] ?? null),
                 'sku'                 => trim((string) ($row['sku'] ?? '')) ?: null,
+                // Chez qui cet article est acheté d'habitude. Un identifiant
+                // deviné ne doit pas rattacher le fournisseur du voisin :
+                // la recherche est cloisonnée par le commerce courant.
+                'supplier_id'         => $this->fournisseur($row['supplier_id'] ?? null),
             ];
             // Catalogue du COMMERCE : l'article est partagé par toutes ses caisses.
             $p = app(PosCatalog::class)->save($terminal, $attrs, ! empty($row['id']) ? (int) $row['id'] : null);
@@ -211,6 +220,12 @@ class PosController extends Controller
         // temps, un navigateur qui ne poste pas tout — effaçait les articles de
         // TOUT le commerce. Supprimer est maintenant une action à part.
         return back()->with('success', __('Produits enregistrés.'));
+    }
+
+    /** Un fournisseur de CE commerce, sinon rien. */
+    private function fournisseur(mixed $id): ?int
+    {
+        return $id ? \Modules\Tagtoa\App\Models\Inventory\Supplier::whereKey((int) $id)->value('id') : null;
     }
 
     /** Champ numérique laissé vide = « non renseigné », pas « zéro ». */

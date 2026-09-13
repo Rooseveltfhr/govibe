@@ -42,8 +42,9 @@ class DashboardController extends Controller
     {
         return view('tagtoa::menu.form', [
             'menu'     => new Menu(['theme' => 'light', 'accent_color' => '#2cb809', 'currency' => Locale::currencyFor()]),
-            'vcards'   => $this->vcards(),
-            'payPages' => $this->payPages(),
+            'vcards'    => $this->vcards(),
+            'payPages'  => $this->payPages(),
+            'suppliers' => $this->fournisseurs(),
         ]);
     }
 
@@ -71,8 +72,9 @@ $data = $this->validateMenu($request);
 
         return view('tagtoa::menu.form', [
             'menu'     => $menu,
-            'vcards'   => $this->vcards(),
-            'payPages' => $this->payPages(),
+            'vcards'    => $this->vcards(),
+            'payPages'  => $this->payPages(),
+            'suppliers' => $this->fournisseurs(),
         ]);
     }
 
@@ -262,6 +264,7 @@ $data = $this->validateMenu($request);
             'cats.*.items.*.low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'cats.*.items.*.unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
             'cats.*.items.*.sku'                 => ['nullable', 'string', 'max:60'],
+            'cats.*.items.*.supplier_id'         => ['nullable', 'integer'],
             'cats.*.items.*.description'         => ['nullable', 'string', 'max:600'],
             'cats.*.items.*.badge'               => ['nullable', 'string', 'max:60'],
         ]);
@@ -320,6 +323,19 @@ $data = $this->validateMenu($request);
         app(\Modules\Tagtoa\App\Services\Inventory\StockLedger::class)->count($item, $valeur, [
             'reason' => $nouveau ? __('Stock initial') : __('Saisie au menu'),
         ]);
+    }
+
+    /** L'annuaire actif du commerce, pour la liste déroulante des articles. */
+    private function fournisseurs()
+    {
+        return \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)
+            ->orderBy('name')->get(['id', 'name']);
+    }
+
+    /** Un fournisseur de CE commerce, sinon rien. */
+    private function fournisseur(mixed $id): ?int
+    {
+        return $id ? \Modules\Tagtoa\App\Models\Inventory\Supplier::whereKey((int) $id)->value('id') : null;
     }
 
     /** Champ numérique laissé vide = « non renseigné », pas « zéro ». */
@@ -388,6 +404,9 @@ $data = $this->validateMenu($request);
                         'unit'                => Pricing::unit($it['unit'] ?? null),
                         'low_stock_threshold' => $this->nombreOuNull($it['low_stock_threshold'] ?? null, 0),
                         'sku'                 => trim((string) ($it['sku'] ?? '')) ?: null,
+                        // Cloisonné : un identifiant deviné ne doit pas
+                        // rattacher le fournisseur du commerce d'à côté.
+                        'supplier_id'         => $this->fournisseur($it['supplier_id'] ?? null),
                     ];
                     $item = ! empty($it['id']) ? $cat->items()->whereKey($it['id'])->first() : null;
 

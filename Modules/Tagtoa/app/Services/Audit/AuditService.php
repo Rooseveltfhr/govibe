@@ -37,6 +37,8 @@ class AuditService
         'card.status'       => 'Statut carte TAGTOA modifié',
         'card.credits_granted' => 'Crédits carte accordés',
         'pos.product_deleted' => 'Article supprimé du catalogue',
+        'stock.movement'      => 'Mouvement de stock',
+        'supplier.created'    => 'Fournisseur enregistré',
         'menu.item_deleted'   => 'Article supprimé du menu',
         'menu.category_deleted' => 'Catégorie du menu supprimée',
         'event_staff_deleted' => 'Staff terrain supprimé',

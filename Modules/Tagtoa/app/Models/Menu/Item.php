@@ -17,7 +17,7 @@ class Item extends Model
     protected $table = 'tagtoa_menu_items';
 
     protected $fillable = [
-        'menu_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'image_path',
+        'menu_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'image_path',
         'emoji', 'badge', 'specs', 'is_available', 'is_featured', 'stock', 'sort',
     ];
 
@@ -36,6 +36,12 @@ class Item extends Model
     ];
 
     /** Disponible à la vente : stock non suivi (null) OU stock > 0. */
+    /** Le fournisseur habituel. Nullable : rien ne dépend de sa présence. */
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\Tagtoa\App\Models\Inventory\Supplier::class, 'supplier_id');
+    }
+
     public function getInStockAttribute(): bool
     {
         return $this->stock === null || $this->stock > 0;

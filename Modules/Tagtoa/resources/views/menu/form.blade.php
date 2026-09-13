@@ -138,6 +138,15 @@
             <label style="font-size:12px;color:var(--muted)">{{ __('Référence (SKU)') }}
                 <input name="cats[CIDX][items][IIDX][sku]" class="inp" maxlength="60" style="max-width:140px">
             </label>
+            {{-- Chez qui on rachète : pré-rempli à la saisie d'une réception. --}}
+            <label style="font-size:12px;color:var(--muted)">{{ __('Fournisseur') }}
+                <select name="cats[CIDX][items][IIDX][supplier_id]" class="inp" style="max-width:170px">
+                    <option value="">—</option>
+                    @foreach($suppliers as $f)
+                        <option value="{{ $f->id }}">{{ $f->name }}</option>
+                    @endforeach
+                </select>
+            </label>
         </div>
 
         {{-- Champs propres au métier, injectés selon le type d'établissement. --}}
@@ -397,6 +406,7 @@ function addItem(catEl, d){
         row.querySelector('[name$="[unit]"]').value = d.unit || 'piece';
         row.querySelector('[name$="[low_stock_threshold]"]').value = (d.low_stock_threshold != null ? d.low_stock_threshold : '');
         row.querySelector('[name$="[sku]"]').value = d.sku || '';
+        row.querySelector('[name$="[supplier_id]"]').value = d.supplier_id || '';
         row.querySelector('input[type=checkbox][name$="[is_available]"]').checked = d.is_available !== false;
         row.querySelector('[name$="[is_featured]"]').checked = !!d.is_featured;
         var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][items]['+ii+'][id]'; h.value=d.id; row.appendChild(h);
@@ -447,6 +457,7 @@ function addCat(d){
                 'is_featured' => $i->is_featured, 'stock' => $i->stock, 'image_url' => $i->image_url,
                 'cost_price' => $i->cost_price, 'unit' => $i->unit_key,
                 'low_stock_threshold' => $i->low_stock_threshold, 'sku' => $i->sku,
+                'supplier_id' => $i->supplier_id,
                 'specs' => $i->specs ?: (object) [],
                 'options' => $i->options->map(fn ($o) => [
                     'id' => $o->id, 'name' => $o->name, 'required' => $o->required, 'multiple' => $o->multiple,
