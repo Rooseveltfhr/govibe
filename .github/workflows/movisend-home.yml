@@ -152,12 +152,16 @@ jobs:
           grep -rln "hero" "$PUB/app/Http/Controllers" 2>/dev/null | sed "s|^$PUB/||" | sort
           echo "::endgroup::"
 
-          echo "::group::Content:: dans FrontendController.php (avec 2 lignes de contexte)"
-          grep -n -A2 -B2 "Content::" "$PUB/app/Http/Controllers/FrontendController.php" 2>/dev/null | head -150
+          echo "::group::Fichiers contenant \$hero = ou compact('hero' dans app/ (chemins + ligne)"
+          grep -rn "hero *=\|compact([^)]*hero\|'hero'\]" "$PUB/app" --include=*.php 2>/dev/null | sed "s|^$PUB/||" | head -60
           echo "::endgroup::"
 
-          echo "::group::Occurrences de 'single' / 'double' dans FrontendController.php"
-          grep -n "'single'\|'double'" "$PUB/app/Http/Controllers/FrontendController.php" 2>/dev/null | head -40
+          echo "::group::Fonctions/traits/helpers mentionnant Content:: n'importe où dans app/"
+          grep -rln "Content::" "$PUB/app" --include=*.php 2>/dev/null | sed "s|^$PUB/||" | sort
+          echo "::endgroup::"
+
+          echo "::group::composer.json — fichiers 'files' autoload (helpers globaux)"
+          grep -n -A5 '"files"' "$PUB/composer.json" 2>/dev/null
           echo "::endgroup::"
           EOSSH
 
