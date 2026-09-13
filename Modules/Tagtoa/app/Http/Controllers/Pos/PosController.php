@@ -64,6 +64,10 @@ class PosController extends Controller
             // n'a créé personne, la caisse fonctionne comme avant.
             'staff'      => $this->currentStaff($terminal),
             'hasStaff'   => Staff::where('tenant_id', $terminal->tenant_id)->where('is_active', true)->exists(),
+            // Le régime de taxe, pour que la caisse annonce le BON montant
+            // avant d'encaisser. Avec des prix hors taxe, afficher le
+            // sous-total ferait annoncer moins que ce que le client paiera.
+            'tax'        => \Modules\Tagtoa\App\Services\Tax\TaxProfile::current($terminal->tenant_id),
         ]);
     }
 
@@ -74,7 +78,10 @@ class PosController extends Controller
             'items'              => ['required', 'array', 'min:1'],
             'items.*.name'       => ['required', 'string', 'max:120'],
             'items.*.price'      => ['required', 'numeric', 'min:0'],
-            'items.*.qty'        => ['required', 'integer', 'min:1'],
+            // DÉCIMAL : le riz se vend à la mamit, la viande à la livre. Un
+            // « integer » ici bloquait 2,5 livres alors que la caisse et la
+            // base savent les traiter depuis 0.2b.
+            'items.*.qty'        => ['required', 'numeric', 'min:0', 'max:999999'],
             // « menu:7 » / « pos:7 ». `product_id` reste accepté : une caisse
             // déjà installée ne doit pas s'arrêter de vendre à la mise à jour.
             'items.*.ref'        => ['nullable', 'string', 'max:30'],
@@ -87,7 +94,16 @@ class PosController extends Controller
 
         $sale = $this->service->recordSale($terminal, $data, $this->currentStaff($terminal));
 
-        return response()->json(['ok' => true, 'reference' => $sale->reference, 'total' => (float) $sale->total]);
+        // Le TOTAL vient du serveur, toujours : avec des prix hors taxe, il est
+        // supérieur à ce que la caisse avait calculé, et c'est ce montant-là
+        // que le caissier doit annoncer au client.
+        return response()->json([
+            'ok'        => true,
+            'reference' => $sale->reference,
+            'total'     => (float) $sale->total,
+            'tax'       => (float) $sale->tax_total,
+            'tax_label' => $sale->tax_label,
+        ]);
     }
 
     public function sync(Request $request, int $id): JsonResponse
@@ -143,7 +159,14 @@ class PosController extends Controller
                 (clone $visibles)->whereDate('sold_at', $date)->where('status', 1)
             );
 
-        return view('tagtoa::pos.report', compact('terminal', 'sales', 'z', 'staff', 'byCashier'));
+        // Ce que le commerce doit déclarer sur la journée. Calculé sur les
+        // montants FIGÉS des ventes : une déclaration qui changerait parce
+        // qu'on a modifié un taux depuis ne vaudrait rien.
+        $tax = app(PosSales::class)->taxReport(
+            (clone $visibles)->whereDate('sold_at', $date)->where('status', 1)
+        );
+
+        return view('tagtoa::pos.report', compact('terminal', 'sales', 'z', 'staff', 'byCashier', 'tax'));
     }
 
     public function products(int $id): View

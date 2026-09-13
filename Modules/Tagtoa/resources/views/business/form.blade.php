@@ -102,6 +102,79 @@
         </div>
     </div>
 
+    {{-- ---------- Taxe ---------- --}}
+    <div class="card">
+        <div class="h-row"><h2>{{ __('Taxe') }}</h2></div>
+        <p style="color:var(--muted);font-size:13px;margin:-6px 0 12px;max-width:70ch">
+            {{ __('Laissez désactivé si votre commerce ne facture pas de taxe — c\'est le cas de la plupart. Activez-la seulement si vous êtes assujetti.') }}
+        </p>
+
+        <label class="switch" style="display:inline-flex;align-items:center;gap:8px">
+            <input type="hidden" name="tax_enabled" value="0">
+            <input type="checkbox" name="tax_enabled" value="1" id="taxOn"
+                   @checked(old('tax_enabled', $business->tax_enabled))>
+            {{ __('Mon commerce facture une taxe') }}
+        </label>
+
+        <div id="taxBox" style="margin-top:14px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+            <div>
+                <label class="lbl">{{ __('Nom de la taxe') }}</label>
+                <input class="inp" name="tax_label" maxlength="24" list="taxnames"
+                       value="{{ old('tax_label', $business->tax_label) }}" placeholder="TCA">
+                <datalist id="taxnames">
+                    @foreach(\Modules\Tagtoa\App\Support\Tax\Tax::SUGGESTED as $t)
+                        <option value="{{ $t['label'] }}">{{ $t['country'] }} — {{ $t['rate'] }} %</option>
+                    @endforeach
+                </datalist>
+                <p style="color:var(--muted);font-size:12.5px;margin-top:5px">
+                    {{ __('TCA en Haïti, ITBIS en République dominicaine, TVA au Sénégal…') }}
+                </p>
+            </div>
+
+            <div>
+                <label class="lbl">{{ __('Taux (%)') }}</label>
+                <input class="inp" type="number" name="tax_rate" step="0.001" min="0" max="99.999"
+                       value="{{ old('tax_rate', $business->tax_rate) }}" placeholder="10">
+            </div>
+
+            <div>
+                <label class="lbl">{{ __('Numéro fiscal') }}</label>
+                <input class="inp" name="tax_number" maxlength="40"
+                       value="{{ old('tax_number', $business->tax_number) }}" placeholder="{{ __('NIF, RCCM…') }}">
+                <p style="color:var(--muted);font-size:12.5px;margin-top:5px">
+                    {{ __('Il s\'imprime sur vos reçus.') }}
+                </p>
+            </div>
+
+            {{-- LE réglage à ne pas se tromper : dans un sens le client paie
+                 10 % de trop, dans l'autre le commerce paie la taxe de sa
+                 poche à chaque vente. --}}
+            <div style="grid-column:1/-1">
+                <label class="lbl">{{ __('Vos prix affichés') }}</label>
+                <label class="switch" style="display:flex;align-items:flex-start;gap:8px;margin-top:6px">
+                    <input type="radio" name="tax_inclusive" value="1"
+                           @checked(old('tax_inclusive', $business->tax_inclusive ?? true))>
+                    <span>
+                        <b>{{ __('Contiennent déjà la taxe') }}</b>
+                        <span style="display:block;color:var(--muted);font-size:12.5px">
+                            {{ __('Le client paie le prix sur l\'étiquette. C\'est l\'usage en Haïti et dans les Caraïbes.') }}
+                        </span>
+                    </span>
+                </label>
+                <label class="switch" style="display:flex;align-items:flex-start;gap:8px;margin-top:8px">
+                    <input type="radio" name="tax_inclusive" value="0"
+                           @checked(! old('tax_inclusive', $business->tax_inclusive ?? true))>
+                    <span>
+                        <b>{{ __('Sont hors taxe') }}</b>
+                        <span style="display:block;color:var(--muted);font-size:12.5px">
+                            {{ __('La taxe s\'ajoute au moment d\'encaisser, et le client paie davantage que le prix affiché.') }}
+                        </span>
+                    </span>
+                </label>
+            </div>
+        </div>
+    </div>
+
     @if($errors->any())
         <div class="card" style="border-left:4px solid var(--red)">
             @foreach($errors->all() as $e)<div style="color:var(--red);font-size:13.5px">{{ $e }}</div>@endforeach
@@ -177,3 +250,15 @@ renderCats();
 </script>
 @endpush
 @endsection
+
+@push('scripts')
+<script>
+/* Le bloc ne sert à rien tant que la taxe n'est pas activée : le montrer
+   quand même laisserait croire qu'il faut le remplir. */
+(function(){
+    var on = document.getElementById('taxOn'), box = document.getElementById('taxBox');
+    function maj(){ box.style.display = on.checked ? 'grid' : 'none'; }
+    on.addEventListener('change', maj); maj();
+})();
+</script>
+@endpush

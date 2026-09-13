@@ -114,6 +114,9 @@ class PosCatalog
                 'group'  => null,
                 'stock'  => $p->stock,
                 'codes'  => $codes[CatalogRef::SOURCE_POS.':'.$p->id] ?? [],
+                // Le taux propre à l'article, pour que la caisse affiche le
+                // bon total avant d'encaisser. Null = celui du commerce.
+                'tax_rate' => $p->tax_rate === null ? null : (float) $p->tax_rate,
             ];
         }
 
@@ -129,6 +132,7 @@ class PosCatalog
                 'group'  => $i->category?->name, // rangé par catégorie du menu
                 'stock'  => $i->stock,
                 'codes'  => $codes[CatalogRef::SOURCE_MENU.':'.$i->id] ?? [],
+                'tax_rate' => $i->tax_rate === null ? null : (float) $i->tax_rate,
             ];
         }
 

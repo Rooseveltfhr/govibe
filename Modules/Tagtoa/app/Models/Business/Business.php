@@ -31,6 +31,7 @@ class Business extends Model
         'id', 'account_id', 'name', 'type', 'categories',
         'sells_products', 'sells_services',
         'logo_path', 'address', 'phone', 'currency', 'is_active',
+        'tax_enabled', 'tax_label', 'tax_rate', 'tax_inclusive', 'tax_number',
     ];
 
     protected $casts = [
@@ -38,6 +39,8 @@ class Business extends Model
         'sells_products' => 'boolean',
         'sells_services' => 'boolean',
         'is_active'      => 'boolean',
+        'tax_enabled'    => 'boolean',
+        'tax_inclusive'  => 'boolean',
     ];
 
     /** Devises proposées d'emblée ; le marchand peut en saisir une autre. */

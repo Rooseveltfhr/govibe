@@ -121,6 +121,14 @@ class BusinessController extends Controller
             // Le marchand peut saisir une devise que nous ne listons pas.
             'currency' => ['required', 'string', 'min:3', 'max:10', 'alpha'],
             'logo'    => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+
+            // Taxe. Un taux hors bornes serait appliqué à chaque vente : on le
+            // refuse à la saisie plutôt que de le découvrir sur un reçu.
+            'tax_enabled'   => ['nullable', 'boolean'],
+            'tax_label'     => ['nullable', 'string', 'max:24'],
+            'tax_rate'      => ['nullable', 'numeric', 'min:0', 'max:99.999'],
+            'tax_inclusive' => ['nullable', 'boolean'],
+            'tax_number'    => ['nullable', 'string', 'max:40'],
         ]);
     }
 

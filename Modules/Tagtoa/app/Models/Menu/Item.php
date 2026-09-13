@@ -17,7 +17,7 @@ class Item extends Model
     protected $table = 'tagtoa_menu_items';
 
     protected $fillable = [
-        'menu_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'image_path',
+        'menu_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'image_path',
         'emoji', 'badge', 'specs', 'is_available', 'is_featured', 'stock', 'sort',
     ];
 

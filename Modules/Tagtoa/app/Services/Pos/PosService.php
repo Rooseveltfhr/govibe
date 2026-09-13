@@ -10,7 +10,9 @@ use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
 use Modules\Tagtoa\App\Services\Inventory\StockLedger;
 use Modules\Tagtoa\App\Support\Inventory\MovementType;
+use Modules\Tagtoa\App\Services\Tax\TaxProfile;
 use Modules\Tagtoa\App\Support\Catalog\Pricing;
+use Modules\Tagtoa\App\Support\Tax\Tax;
 use Modules\Tagtoa\App\Support\Pos\CatalogRef;
 
 /**
@@ -51,6 +53,10 @@ class PosService
             // Le prix et le nom viennent TOUJOURS du serveur, jamais de ce que
             // la caisse a envoyé. Les articles au pied levé (sans référence)
             // gardent le prix saisi par le caissier : c'est le cas du « divers ».
+            // Le régime de taxe est lu UNE fois : le relire à chaque ligne
+            // ferait autant de requêtes pour une réponse identique.
+            $taxe = TaxProfile::current($terminal->tenant_id);
+
             $lines = [];
             $subtotal = 0;
             foreach ($items as $it) {
@@ -83,9 +89,31 @@ class PosService
 
                 $ligneTotal = Pricing::lineTotal($unit, $price, $qty);
                 $subtotal += $ligneTotal;
-                $lines[] = [$article, $name, $price, $cost, $qty, $ligneTotal];
+
+                // Taux du JOUR de la vente, figé sur la ligne. Si l'État relève
+                // la taxe l'an prochain, les reçus de cette année ne doivent
+                // pas se recalculer tout seuls : ce sont des pièces comptables.
+                $tauxLigne = $taxe->rateFor($article);
+
+                $lines[] = [$article, $name, $price, $cost, $qty, $ligneTotal, $tauxLigne];
             }
             $total = max(0, $subtotal - $discount);
+
+            // La remise réduit les bases taxables AU PRORATA : l'imputer sur
+            // une seule ligne changerait la taxe due selon l'ordre des
+            // articles, et ferait payer au commerce une taxe qu'il n'a pas
+            // encaissée.
+            $recap = Tax::summarize(
+                array_map(fn ($l) => ['amount' => $l[5], 'rate' => $l[6]], $lines),
+                $taxe->inclusive,
+                (float) $discount
+            );
+
+            // Prix TTC (usage haïtien) : le total ne bouge pas, la taxe en est
+            // extraite. Prix HT : elle s'ajoute, et le client paie davantage.
+            if (! $taxe->inclusive) {
+                $total = $recap['total'];
+            }
 
             $sale = $terminal->sales()->create([
                 'reference'      => Sale::generateReference(),
@@ -93,6 +121,13 @@ class PosService
                 'discount'       => $discount,
                 'total'          => $total,
                 'currency'       => $terminal->currency,
+                'tax_total'      => $recap['tax'],
+                'tax_base'       => $recap['base'],
+                // Copiés sur la vente : changer la convention ou le nom de la
+                // taxe ne doit pas retourner le sens des reçus déjà émis.
+                'tax_inclusive'  => $taxe->inclusive,
+                'tax_label'      => $taxe->enabled ? $taxe->label() : null,
+                'tax_breakdown'  => $recap['tax'] > 0 ? array_values($recap['byRate']) : null,
                 'payments'       => $payload['payments'] ?? [['method' => 'cash', 'amount' => $total]],
                 'customer_phone' => $payload['customer_phone'] ?? null,
                 'staff_id'       => $staff?->id,
@@ -101,7 +136,13 @@ class PosService
                 'sold_at'        => now(),
             ]);
 
-            foreach ($lines as [$article, $name, $price, $cost, $qty, $ligneTotal]) {
+            $facteurRemise = $subtotal > 0 ? max(0, $subtotal - $discount) / $subtotal : 0.0;
+
+            foreach ($lines as [$article, $name, $price, $cost, $qty, $ligneTotal, $tauxLigne]) {
+                // Même prorata que le récapitulatif : la part de taxe d'une
+                // ligne doit pouvoir se ré-additionner pour retomber sur le
+                // total de la vente.
+                $partLigne = Tax::split(round($ligneTotal * $facteurRemise, 2), $tauxLigne, $taxe->inclusive);
                 // La ligne dit de QUEL catalogue vient l'article : le plat n°7
                 // et le bouton n°7 sont deux choses différentes.
                 $sale->items()->create([
@@ -114,6 +155,8 @@ class PosService
                     'cost_price' => $cost,
                     'qty'        => $qty,
                     'line_total' => $ligneTotal,
+                    'tax_rate'   => $taxe->enabled ? $tauxLigne : null,
+                    'tax_amount' => $taxe->enabled ? $partLigne['tax'] : null,
                 ]);
 
                 // UN SEUL STOCK : vendre un plat au comptoir retire du même

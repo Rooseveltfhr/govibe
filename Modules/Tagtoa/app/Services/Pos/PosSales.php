@@ -106,6 +106,61 @@ class PosSales
     }
 
     /**
+     * La taxe collectée sur une période, par taux.
+     *
+     * C'est le chiffre que le commerce doit déclarer. Sans lui, le marchand
+     * refait l'addition à la main chaque mois, sur des reçus en papier — et
+     * c'est exactement le moment où il se trompe.
+     *
+     * Tout vient des montants FIGÉS sur les ventes : rien n'est recalculé à
+     * partir des réglages d'aujourd'hui. Une déclaration qui changerait parce
+     * qu'on a modifié un taux depuis ne vaudrait rien.
+     *
+     * @return array{collected:float, base:float, total:float, sales:int,
+     *               byRate:array<int, array{rate:float, base:float, tax:float}>,
+     *               label:?string}
+     */
+    public function taxReport(Builder $sales): array
+    {
+        $collectee = 0.0;
+        $base = 0.0;
+        $total = 0.0;
+        $compte = 0;
+        $parTaux = [];
+        $libelle = null;
+
+        foreach ($sales->get() as $vente) {
+            $compte++;
+            $collectee += (float) $vente->tax_total;
+            $base      += (float) $vente->tax_base;
+            $total     += (float) $vente->total;
+            $libelle ??= $vente->tax_label;
+
+            foreach ((array) $vente->tax_breakdown as $ligne) {
+                $taux = (float) ($ligne['rate'] ?? 0);
+                $cle = rtrim(rtrim(number_format($taux, 3, '.', ''), '0'), '.');
+
+                if (! isset($parTaux[$cle])) {
+                    $parTaux[$cle] = ['rate' => $taux, 'base' => 0.0, 'tax' => 0.0];
+                }
+                $parTaux[$cle]['base'] = round($parTaux[$cle]['base'] + (float) ($ligne['base'] ?? 0), 2);
+                $parTaux[$cle]['tax']  = round($parTaux[$cle]['tax'] + (float) ($ligne['tax'] ?? 0), 2);
+            }
+        }
+
+        krsort($parTaux, SORT_NUMERIC);
+
+        return [
+            'collected' => round($collectee, 2),
+            'base'      => round($base, 2),
+            'total'     => round($total, 2),
+            'sales'     => $compte,
+            'byRate'    => array_values($parTaux),
+            'label'     => $libelle,
+        ];
+    }
+
+    /**
      * Recette d'une journée, par employé — « qui a encaissé combien ».
      * Les ventes sans caissier (commerce sans employé, ou employé parti)
      * remontent sous le nom du patron plutôt que de disparaître du total.

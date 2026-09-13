@@ -25,6 +25,50 @@
     <div class="stat"><div class="ic"><i class="fa-solid fa-credit-card"></i></div><div class="v">{{ count($z['by_method']) }}</div><div class="k">{{ __('Méthodes') }}</div></div>
 </div>
 
+{{-- ---------- Ce qu'il faudra déclarer ----------
+     Sans ce bloc, le marchand refait l'addition à la main chaque mois sur
+     des reçus en papier — et c'est exactement là qu'il se trompe. --}}
+@if(($tax['collected'] ?? 0) > 0)
+<div class="card" style="border-left:4px solid #1F4E79">
+    <div class="h-row">
+        <h2 style="margin:0">{{ $tax['label'] ?: __('Taxe') }} {{ __('collectée') }}</h2>
+        <span style="flex:1"></span>
+        <b style="font-size:20px">{{ number_format($tax['collected'], 2) }} {{ $terminal->currency }}</b>
+    </div>
+
+    <p style="color:var(--muted);font-size:12.5px;margin:6px 0 10px">
+        {{ __('Montants figés le jour de chaque vente : changer un taux aujourd\'hui ne modifie pas ce chiffre.') }}
+    </p>
+
+    @if(count($tax['byRate']) > 1)
+        {{-- Le détail PAR TAUX : dès qu'un commerce vend de l'exonéré à côté
+             du taxé, c'est ce que la déclaration demande. --}}
+        <table style="width:100%;border-collapse:collapse;font-size:13.5px">
+            <thead><tr style="text-align:left;color:var(--muted);font-size:12px">
+                <th style="padding:6px 4px">{{ __('Taux') }}</th>
+                <th style="padding:6px 4px">{{ __('Base') }}</th>
+                <th style="padding:6px 4px;text-align:right">{{ __('Taxe') }}</th>
+            </tr></thead>
+            <tbody>
+            @foreach($tax['byRate'] as $l)
+                <tr style="border-top:1px solid var(--bd)">
+                    <td style="padding:7px 4px">{{ rtrim(rtrim(number_format($l['rate'], 2, '.', ''), '0'), '.') }} %</td>
+                    <td style="padding:7px 4px">{{ number_format($l['base'], 2) }}</td>
+                    <td style="padding:7px 4px;text-align:right;font-weight:600">{{ number_format($l['tax'], 2) }}</td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    @else
+        <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:13.5px">
+            <span>{{ __('Base hors taxe') }} : <b>{{ number_format($tax['base'], 2) }}</b></span>
+            <span>{{ __('Encaissé') }} : <b>{{ number_format($tax['total'], 2) }}</b></span>
+            <span style="color:var(--muted)">{{ $tax['sales'] }} {{ __('ventes') }}</span>
+        </div>
+    @endif
+</div>
+@endif
+
 {{-- Qui a encaissé combien. Le patron voit toutes ses caisses ; un gérant
      voit la sienne ; un caissier ne voit que ses ventes, et ce bloc disparaît
      puisqu'il n'aurait qu'une seule ligne : la sienne. --}}

@@ -22,11 +22,15 @@ class Sale extends Model
     protected $table = 'tagtoa_pos_sales';
 
     protected $fillable = [
-        'terminal_id', 'staff_id', 'reference', 'subtotal', 'discount', 'total', 'currency',
+        'terminal_id', 'staff_id', 'reference', 'subtotal', 'discount', 'total', 'currency', 'tax_total', 'tax_base', 'tax_inclusive', 'tax_label', 'tax_breakdown',
         'payments', 'customer_phone', 'client_uuid', 'status', 'sold_at',
     ];
 
     protected $casts = [
+        'tax_total'     => 'decimal:2',
+        'tax_base'      => 'decimal:2',
+        'tax_inclusive' => 'boolean',
+        'tax_breakdown' => 'array',
         'subtotal' => 'decimal:2', 'discount' => 'decimal:2', 'total' => 'decimal:2',
         'payments' => 'array', 'status' => 'integer', 'sold_at' => 'datetime',
     ];
