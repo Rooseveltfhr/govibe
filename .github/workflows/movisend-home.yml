@@ -47,13 +47,24 @@ name: MoviSend — Diagnostic & déploiement (demomovisend.govibeht.com)
 #                       commande artisan temporaire, l'exécute (Eloquent,
 #                       jamais de SQL brut ; n'écrit QUE si "Remito"/"Remitta"
 #                       est trouvé, affiche avant/après), puis la retire.
+# mode=repair_overcorrection : la 1ère exécution de mode=rebrand avait un bug
+#                       (str_ireplace au lieu d'un remplacement à limite de
+#                       mot) : "Remitta" matchait aussi comme SOUS-CHAÎNE du
+#                       mot générique "remittance" ("Remitta"+"nce"), donc
+#                       "remittance"/"Remittance" est devenu "MoviSendnce"
+#                       dans les champs SEO de la Page d'accueil. Ce mode
+#                       déploie tools/movisend/RepairMetaOvercorrection.php,
+#                       qui restaure le texte exact d'origine (seul "Remito"
+#                       remplacé, "remittance" intact), puis se retire.
+#                       movisend:rebrand est corrigé (limite de mot) pour que
+#                       ça ne puisse plus se reproduire.
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "diagnose | explore | fetch_file | deploy_file | snapshot | fix_cta_links | rebrand"
+        description: "diagnose | explore | fetch_file | deploy_file | snapshot | fix_cta_links | rebrand | repair_overcorrection"
         type: choice
-        options: [diagnose, explore, fetch_file, deploy_file, snapshot, fix_cta_links, rebrand]
+        options: [diagnose, explore, fetch_file, deploy_file, snapshot, fix_cta_links, rebrand, repair_overcorrection]
         default: diagnose
       relative_path:
         description: "fetch_file : chemin relatif au docroot du fichier à récupérer"
@@ -314,3 +325,41 @@ jobs:
           ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
             "rm -f '$PUB/app/Console/Commands/RebrandToMovisend.php' && echo 'Nettoyé.'"
+
+      - name: Repair overcorrection — deploy la commande artisan (tools/movisend/RepairMetaOvercorrection.php)
+        if: ${{ inputs.mode == 'repair_overcorrection' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
+            tools/movisend/RepairMetaOvercorrection.php \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/movisend-repair-upload"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          mkdir -p "$PUB/app/Console/Commands"
+          mv /tmp/movisend-repair-upload "$PUB/app/Console/Commands/RepairMetaOvercorrection.php"
+          echo "Déployé: $PUB/app/Console/Commands/RepairMetaOvercorrection.php"
+          EOSSH
+
+      - name: Repair overcorrection — exécute (commande artisan normale, pas de tinker/PsySH)
+        if: ${{ inputs.mode == 'repair_overcorrection' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          echo "::group::Résultat"
+          cd "$PUB" && php artisan movisend:repair-meta-overcorrection
+          echo "::endgroup::"
+          EOSSH
+
+      - name: Repair overcorrection — nettoyage (retire la commande artisan temporaire)
+        if: ${{ inputs.mode == 'repair_overcorrection' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "rm -f '$PUB/app/Console/Commands/RepairMetaOvercorrection.php' && echo 'Nettoyé.'"
