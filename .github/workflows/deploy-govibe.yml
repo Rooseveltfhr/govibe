@@ -206,14 +206,14 @@ jobs:
           # chaque page publique importante, et une page ERP pour vérifier qu'elle
           # exige toujours une authentification.
           verifier() {
-            local chemin="$1" attendu="$2" role="$3"
+            local chemin="$1" attendu="$2" role="$3" base="${4:-$BASE}"
             local code
-            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$BASE$chemin")
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$base$chemin")
             [ -n "$code" ] || code="000"
             if echo "$attendu" | grep -qw "$code"; then
-              echo "  ✓ $chemin → $code   ($role)"
+              echo "  ✓ $base$chemin → $code   ($role)"
             else
-              echo "::error::$chemin → HTTP $code, attendu $attendu ($role)"
+              echo "::error::$base$chemin → HTTP $code, attendu $attendu ($role)"
               ECHEC=1
             fi
           }
@@ -258,6 +258,20 @@ jobs:
           verifier "/erp/abonnements" "302 301 403" "abonnements protégés"
           verifier "/erp/landry"       "302 301 403" "réservations LANDRY protégées"
           verifier "/erp/commandes"    "302 301 403" "commandes en ligne protégées"
+
+          # ── Le domaine applicatif ───────────────────────────────────────
+          # L'isolation est un interrupteur : tant que GOVIBE_DOMAINE_APP est
+          # vide, les deux hôtes servent tout. On vérifie donc ce qui est vrai
+          # dans les deux états — le back-office répond sur app.govibeht.com —
+          # plutôt qu'une redirection qui n'existe pas encore.
+          echo "Domaine applicatif"
+          APP="https://app.govibeht.com"
+          verifier "/erp/login"        "200"         "connexion ERP" "$APP"
+          verifier "/portail/connexion" "200"        "connexion portail" "$APP"
+          verifier "/up"               "200"         "sonde de disponibilité" "$APP"
+          # Une fois l'isolation active, la page publique repart vers la
+          # vitrine ; avant, elle est servie telle quelle. Les deux passent.
+          verifier "/"                 "200 301 302" "accueil sur l'hôte applicatif" "$APP"
 
           if [ "$ECHEC" -ne 0 ]; then
             echo "::error::Le déploiement est passé mais le site ne répond pas correctement."

@@ -330,8 +330,15 @@ class PortailClientTest extends TestCase
         config(['govibe.domaine_app' => 'app.govibeht.com']);
 
         $reponse = $this->get('http://govibeht.com/portail/connexion');
-        $reponse->assertStatus(301);
-        $this->assertStringStartsWith('https://app.govibeht.com/', $reponse->headers->get('Location'));
+
+        // 302 et non 301 : une redirection permanente reste dans le cache du
+        // navigateur bien après qu'on l'ait corrigée. Une erreur de domaine
+        // deviendrait irrattrapable pour les visiteurs qui l'ont reçue.
+        $reponse->assertStatus(302);
+        $this->assertSame(
+            'https://app.govibeht.com/portail/connexion',
+            $reponse->headers->get('Location')
+        );
 
         // Sur le bon domaine, la page répond normalement.
         $this->get('http://app.govibeht.com/portail/connexion')->assertOk();

@@ -12,11 +12,22 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // L'aiguillage entre les deux domaines s'applique à TOUTES les pages,
+        // pas seulement à l'ERP : la règle inverse — une page publique demandée
+        // sur le domaine applicatif — ne peut se poser qu'ici. Posé en tête,
+        // il tranche avant que la session ne soit ouverte.
+        $middleware->web(prepend: [
+            \App\Http\Middleware\DomaineApplication::class,
+        ]);
+
+        $middleware->web(append: [
+            \App\Http\Middleware\EntetesSecurite::class,
+        ]);
+
         $middleware->alias([
             'admin'  => \App\Http\Middleware\AdminMiddleware::class,
             'erp'    => \App\Http\Middleware\ERPMiddleware::class,
             'client' => \App\Http\Middleware\AuthentifieClient::class,
-            'app'    => \App\Http\Middleware\DomaineApplication::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
