@@ -388,7 +388,10 @@ jobs:
           # install vient de créer node_modules) : Node résout require()
           # en remontant depuis le dossier du fichier, donc un script mis
           # dans /tmp ne trouverait jamais node_modules du workspace.
-          cat > mobile-check.js <<'JSEOF'
+          # Extension .cjs (pas .js) : package.json du dépôt a "type":
+          # "module", donc un .js y serait traité comme ESM et require()
+          # échouerait ("require is not defined in ES module scope").
+          cat > mobile-check.cjs <<'JSEOF'
           const { chromium } = require('playwright');
 
           (async () => {
@@ -428,7 +431,7 @@ jobs:
           })();
           JSEOF
 
-          node mobile-check.js
+          node mobile-check.cjs
 
           echo "::group::mobile-check.jpg (base64)"
           base64 -w0 mobile-check.jpg
