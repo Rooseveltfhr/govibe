@@ -21,9 +21,18 @@ use Illuminate\Console\Command;
  *    og_description feed the rest of the per-page SEO tags (see
  *    FrontendController::getPageSeo()).
  *
- * Only replaces occurrences of "Remito"/"Remitta" — anything else is left
- * untouched. Safe to run more than once (idempotent: a second run only
- * prints SKIPPED lines). Deployed via the movisend-home.yml GitHub Actions
+ * Only replaces whole-word occurrences of "Remito"/"Remitta" — anything
+ * else is left untouched. Matching is done on WORD BOUNDARIES
+ * (preg_replace with \b), not plain substring replacement: "Remitta" is a
+ * substring of the generic industry word "remittance" ("Remitta" + "nce"),
+ * and an earlier version of this command using str_ireplace() corrupted
+ * every occurrence of "remittance"/"Remittance" in the home Page's SEO
+ * text into "MoviSendnce" (fixed by tools/movisend/RepairMetaOvercorrection.php).
+ * Word-boundary matching leaves "remittance" alone since there is no word
+ * boundary between "Remitta" and the following "nce".
+ *
+ * Safe to run more than once (idempotent: a second run only prints
+ * SKIPPED lines). Deployed via the movisend-home.yml GitHub Actions
  * workflow (mode=rebrand), then removed from the server once confirmed
  * working.
  */
@@ -33,8 +42,13 @@ class RebrandToMovisend extends Command
 
     protected $description = 'Replace remaining "Remito"/"Remitta" branding with "MoviSend" in BasicControl and the home Page SEO fields';
 
-    protected const FROM = ['Remito', 'Remitta'];
+    protected const FROM_PATTERN = '/\b(Remito|Remitta)\b/i';
     protected const TO = 'MoviSend';
+
+    protected static function rebrand(string $text): string
+    {
+        return preg_replace(self::FROM_PATTERN, self::TO, $text);
+    }
 
     public function handle(): int
     {
@@ -51,8 +65,8 @@ class RebrandToMovisend extends Command
 
         $this->line('BEFORE BasicControl.site_title: ' . ($before ?: '(empty)'));
 
-        if ($before && str_ireplace(self::FROM, self::TO, $before) !== $before) {
-            $control->site_title = str_ireplace(self::FROM, self::TO, $before);
+        if ($before && static::rebrand($before) !== $before) {
+            $control->site_title = static::rebrand($before);
             $control->save();
             \Cache::forget('ConfigureSetting');
 
@@ -75,8 +89,8 @@ class RebrandToMovisend extends Command
             $before = $page->{$field};
             $this->line("BEFORE page.{$field}: " . ($before ?: '(empty)'));
 
-            if ($before && str_ireplace(self::FROM, self::TO, $before) !== $before) {
-                $page->{$field} = str_ireplace(self::FROM, self::TO, $before);
+            if ($before && static::rebrand($before) !== $before) {
+                $page->{$field} = static::rebrand($before);
                 $this->line("AFTER  page.{$field}: " . $page->{$field});
             } else {
                 $this->line("SKIPPED page.{$field} (no Remito/Remitta found)");
@@ -90,7 +104,7 @@ class RebrandToMovisend extends Command
         if (is_array($page->meta_keywords)) {
             $beforeKeywords = $page->meta_keywords;
             $afterKeywords = array_map(
-                fn ($keyword) => is_string($keyword) ? str_ireplace(self::FROM, self::TO, $keyword) : $keyword,
+                fn ($keyword) => is_string($keyword) ? static::rebrand($keyword) : $keyword,
                 $beforeKeywords
             );
 
