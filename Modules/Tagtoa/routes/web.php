@@ -272,6 +272,16 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     Route::post('/catalog/scan', [\Modules\Tagtoa\App\Http\Controllers\Catalog\ScanController::class, 'resolve'])
         ->middleware('throttle:240,1')->name('tagtoa.catalog.scan');
 
+    // CODES ARTICLE — scanner une fois, reconnaître toujours. Et fabriquer une
+    // étiquette pour ce qui n'a pas de code imprimé (la majorité, ici).
+    Route::prefix('catalog/codes')->name('tagtoa.catalog.codes.')->group(function () {
+        $codes = \Modules\Tagtoa\App\Http\Controllers\Catalog\CodeController::class;
+        Route::get('/', [$codes, 'index'])->name('index');
+        Route::post('/', [$codes, 'attach'])->name('attach');
+        Route::post('/generate', [$codes, 'generate'])->name('generate');
+        Route::delete('/{codeId}', [$codes, 'detach'])->whereNumber('codeId')->name('detach');
+    });
+
     // INVENTAIRE — la réserve : ce qu'il reste, ce qui a bougé, chez qui on achète.
     Route::prefix('inventory')->name('tagtoa.inventory.')->group(function () {
         $inventaire = \Modules\Tagtoa\App\Http\Controllers\Inventory\InventoryController::class;

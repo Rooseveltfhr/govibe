@@ -69,6 +69,12 @@
                     @endforeach
                 </select>
             </label>
+            {{-- Les codes-barres de l'article : n'apparaît qu'une fois
+                 l'article enregistré, puisqu'un code se rattache à quelque
+                 chose qui existe. --}}
+            <a class="btn btn-o btn-sm lienCodes" hidden style="align-self:flex-end">
+                <i class="fa-solid fa-barcode"></i> {{ __('Codes-barres') }}
+            </a>
             <span class="marge" style="font-size:12px;color:var(--muted);align-self:flex-end;padding-bottom:8px"></span>
         </div>
     </div>
@@ -79,6 +85,7 @@
 @push('scripts')
 <script>
 var DEL_URL = "{{ url('/tagtoa/pos/'.$terminal->id.'/products') }}";
+var CODES_URL = "{{ route('tagtoa.catalog.codes.index') }}";
 var pIdx=0;
 
 /* Ligne jamais enregistrée → on l'enlève de l'écran.
@@ -122,7 +129,10 @@ function addP(d){var h=document.getElementById('ptpl').innerHTML.replace(/IDX/g,
         champ(r,'low_stock_threshold').value=d.low_stock_threshold==null?'':d.low_stock_threshold;
         champ(r,'sku').value=d.sku||'';
         champ(r,'supplier_id').value=d.supplier_id||'';
-        var i=document.createElement('input');i.type='hidden';i.name='products['+pIdx+'][id]';i.value=d.id;r.appendChild(i);}
+        var i=document.createElement('input');i.type='hidden';i.name='products['+pIdx+'][id]';i.value=d.id;r.appendChild(i);
+        var lien=r.querySelector('.lienCodes');
+        lien.href=CODES_URL+'?ref=pos:'+d.id;
+        lien.hidden=false;}
     r.querySelector('.delrow').addEventListener('click', function(){ delRow(this); });
     r.querySelector('.togdet').addEventListener('click', function(){
         var det = r.querySelector('.pdet'); det.hidden = !det.hidden;

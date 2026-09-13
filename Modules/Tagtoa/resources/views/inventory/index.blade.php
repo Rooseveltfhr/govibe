@@ -47,6 +47,9 @@
 <div class="h-row">
     <h2>{{ __('Articles suivis') }} <span style="color:var(--muted);font-weight:400">({{ $articles->count() }})</span></h2>
     <span style="flex:1"></span>
+    <button type="button" id="scanBtn" class="btn btn-d btn-sm">
+        <i class="fa-solid fa-barcode"></i> {{ __('Scanner') }}
+    </button>
     <a href="{{ route('tagtoa.inventory.movements') }}" class="btn btn-o btn-sm">
         <i class="fa-solid fa-clock-rotate-left"></i> {{ __('Journal') }}
     </a>
@@ -175,6 +178,8 @@
 </div>
 
 @push('scripts')
+<script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}" defer></script>
+<script src="{{ route('tagtoa.asset', 'tagtoa-scanner.js') }}" defer></script>
 <script>
 var MV_COUNT = @json(\Modules\Tagtoa\App\Support\Inventory\MovementType::COUNT);
 var MV_BUY   = @json(\Modules\Tagtoa\App\Support\Inventory\MovementType::PURCHASE);
@@ -213,6 +218,83 @@ document.querySelectorAll('.mv').forEach(function(b){
 });
 document.getElementById('mvtype').addEventListener('change', majMv);
 majMv();
+
+/* ------------------------------------------------------------------
+   Scanner — sur un inventaire, c'est ce qui fait gagner le plus de temps.
+
+   Compter cent articles en les cherchant un par un dans une liste prend
+   une soirée. En les scannant, c'est le temps de passer devant l'étagère.
+   ------------------------------------------------------------------ */
+var SCAN_URL = "{{ route('tagtoa.catalog.scan') }}";
+var CSRF = "{{ csrf_token() }}";
+
+function ouvrirMouvementPour(article){
+    var bouton = document.querySelector('.mv[data-ref="' + article.ref + '"]');
+
+    if(bouton){ bouton.click(); return; }
+
+    // L'article existe mais ne suit pas son stock : il n'est pas dans le
+    // tableau. Le comptage ouvrira son suivi, ce qui est exactement ce que
+    // le patron demande en le scannant pendant un inventaire.
+    mvStock = (article.stock === null ? '0' : String(article.stock));
+    document.getElementById('mvref').value = article.ref;
+    document.getElementById('mvname').textContent = article.name;
+    document.getElementById('mvcard').hidden = false;
+    majMv();
+    document.getElementById('mvcard').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function direScan(texte, erreur){
+    var el = document.getElementById('scanmsg');
+    if(!el){
+        el = document.createElement('div');
+        el.id = 'scanmsg';
+        el.className = 'card';
+        el.style.cssText = 'margin-bottom:12px;font-size:14px';
+        var ancre = document.querySelector('.h-row');
+        ancre.parentNode.insertBefore(el, ancre);
+    }
+    el.textContent = texte;
+    el.style.borderLeft = '4px solid ' + (erreur ? 'var(--red)' : '#2cb809');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 5000);
+}
+
+function chercherParCode(code){
+    fetch(SCAN_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},
+        body:JSON.stringify({code:code})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+          if(d && d.found){
+              if(window.TagtoaScanner) TagtoaScanner.close();
+              ouvrirMouvementPour(d.article);
+              return;
+          }
+          // On ne devine jamais : compter le mauvais article fausserait la
+          // réserve au lieu de la corriger.
+          if(window.TagtoaScanner) TagtoaScanner.reject();
+          direScan("{{ __('Code inconnu : ') }}" + code + " — " +
+                   "{{ __('attribuez-le d\'abord à un article.') }}", true);
+      })
+      .catch(function(){
+          direScan("{{ __('Vérification impossible. Réessayez.') }}", true);
+      });
+}
+
+window.addEventListener('load', function(){
+    if(!window.TagtoaScanner) return;
+
+    TagtoaScanner.listenWedge(chercherParCode);
+
+    document.getElementById('scanBtn').addEventListener('click', function(){
+        TagtoaScanner.open({
+            onCode: chercherParCode,
+            title:  "{{ __('Scanner un article') }}",
+            hint:   "{{ __('Visez le code : l\'article s\'ouvre pour une réception, une perte ou un comptage.') }}",
+            submit: "{{ __('Chercher') }}"
+        });
+    });
+});
 </script>
 @endpush
 @endsection

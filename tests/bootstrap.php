@@ -41,6 +41,7 @@ require_once $base.'/Support/DashboardModules.php';
 require_once $base.'/Support/Pos/StaffAccess.php';
 require_once $base.'/Support/Pos/CatalogRef.php';
 require_once $base.'/Support/Catalog/Barcode.php';
+require_once $base.'/Support/Catalog/Code39.php';
 require_once $base.'/Support/Catalog/Pricing.php';
 require_once $base.'/Support/Inventory/MovementType.php';
 require_once $base.'/Support/Dev/RouteNames.php';

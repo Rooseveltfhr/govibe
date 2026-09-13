@@ -349,4 +349,61 @@ class InventoryScreenTest extends TestCase
 
         $this->assertNull(Product::where('name', 'Riz')->firstOrFail()->supplier_id);
     }
+
+    /* ------------------------------------------------------------------
+       Scanner à l'inventaire : compter sans chercher dans une liste.
+       ------------------------------------------------------------------ */
+
+    public function test_the_stock_screen_carries_the_scanner(): void
+    {
+        $this->patron();
+        $this->article();
+
+        $this->get(route('tagtoa.inventory.index'))
+            ->assertOk()
+            ->assertSee('tagtoa-scanner.js', false)
+            ->assertSee('scanBtn', false);
+    }
+
+    public function test_counting_a_scanned_article_that_was_untracked_opens_its_tracking(): void
+    {
+        // Pendant un inventaire, le patron scanne une étagère entière. Un
+        // article qui ne suivait pas son stock doit se mettre à le suivre —
+        // c'est exactement ce qu'il demande en le comptant.
+        $this->patron();
+        $pate = $this->article(['name' => 'Pâté', 'stock' => null]);
+
+        $this->post(route('tagtoa.inventory.move'), [
+            'ref' => 'pos:'.$pate->id, 'type' => MovementType::COUNT,
+            'qty' => 18, 'reason' => 'Inventaire',
+        ])->assertRedirect();
+
+        $this->assertSame(18.0, $pate->fresh()->stock);
+        $this->assertSame(MovementType::OPENING, StockMovement::firstOrFail()->type);
+    }
+
+    public function test_the_scanner_asset_is_served_from_our_own_origin(): void
+    {
+        // Un CDN injoignable, c'est un scanner cassé le jour où la connexion
+        // est mauvaise — c'est-à-dire le jour où il sert le plus.
+        $this->get(route('tagtoa.asset', 'tagtoa-scanner.js'))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/javascript; charset=utf-8');
+    }
+
+    public function test_our_own_assets_are_not_cached_forever(): void
+    {
+        // Ils n'ont pas de version dans leur nom : les figer un an rendrait
+        // toute correction invisible jusqu'à ce que le commerçant vide son
+        // navigateur, ce qu'il ne fera pas.
+        $reponse = $this->get(route('tagtoa.asset', 'tagtoa-scanner.js'))->assertOk();
+
+        $this->assertStringNotContainsString('immutable', $reponse->headers->get('Cache-Control'));
+    }
+
+    public function test_an_asset_outside_the_list_is_never_served(): void
+    {
+        $this->get('/tagtoa-asset/composer.json')->assertNotFound();
+        $this->get(route('tagtoa.asset', 'tagtoa-secret.js'))->assertNotFound();
+    }
 }
