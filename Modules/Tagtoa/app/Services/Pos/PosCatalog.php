@@ -88,11 +88,19 @@ class PosCatalog
      *
      * @return array<int, array{ref:string, source:string, id:int, name:string,
      *                          price:float, emoji:?string, color:string,
-     *                          group:?string, stock:?int}>
+     *                          group:?string, stock:?float, codes:array<int,string>}>
      */
     public function sellable(?string $tenantId): array
     {
         $lignes = [];
+
+        // Les codes voyagent AVEC le catalogue, jamais à la demande.
+        //
+        // La caisse travaille hors ligne par conception : interroger le serveur
+        // à chaque article scanné rendrait le scanner inutilisable le jour où
+        // la connexion tombe — c'est-à-dire le jour où le commerçant en a le
+        // plus besoin.
+        $codes = $this->codesParArticle($tenantId);
 
         foreach ($this->active($tenantId) as $p) {
             $lignes[] = [
@@ -105,6 +113,7 @@ class PosCatalog
                 'color'  => $p->color ?: '#2cb809',
                 'group'  => null,
                 'stock'  => $p->stock,
+                'codes'  => $codes[CatalogRef::SOURCE_POS.':'.$p->id] ?? [],
             ];
         }
 
@@ -119,10 +128,33 @@ class PosCatalog
                 'color'  => '#1F4E79',           // le menu se distingue d'un coup d'œil
                 'group'  => $i->category?->name, // rangé par catégorie du menu
                 'stock'  => $i->stock,
+                'codes'  => $codes[CatalogRef::SOURCE_MENU.':'.$i->id] ?? [],
             ];
         }
 
         return $lignes;
+    }
+
+    /**
+     * Tous les codes du commerce, rangés par article.
+     *
+     * Une seule requête pour tout le catalogue : une par article ferait des
+     * centaines d'allers-retours à l'ouverture de la caisse.
+     *
+     * @return array<string, array<int, string>> « pos:7 » => ['5449000000996', …]
+     */
+    private function codesParArticle(?string $tenantId): array
+    {
+        $parArticle = [];
+
+        $codes = \Modules\Tagtoa\App\Models\Catalog\ProductCode::where('tenant_id', $tenantId)
+            ->orderByDesc('is_primary')->get(['source', 'product_id', 'code']);
+
+        foreach ($codes as $c) {
+            $parArticle[$c->source.':'.$c->product_id][] = $c->code;
+        }
+
+        return $parArticle;
     }
 
     /**

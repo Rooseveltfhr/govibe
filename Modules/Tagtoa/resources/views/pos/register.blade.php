@@ -14,6 +14,10 @@
     <link rel="apple-touch-icon" href="{{ route('tagtoa.pos.icon') }}">
     <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
     <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
+    {{-- Scanner : auto-hébergé comme le reste. Un CDN injoignable, c'est un
+         scanner cassé le jour où la connexion est mauvaise. --}}
+    <script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}" defer></script>
+    <script src="{{ route('tagtoa.asset', 'tagtoa-scanner.js') }}" defer></script>
     <style>
         :root{--blk:#0A0A0A;--blue:#2cb809;--green:#1D9E75;--red:#E0473E;--bg:#F5F5F3;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -55,7 +59,7 @@
         .poste .err{color:var(--red);font-weight:600;font-size:13px}
     </style>
     <div class="app">
-        <div class="top"><i class="fa-solid fa-cash-register" style="color:var(--blue)"></i><h1>{{ $terminal->name }}</h1><button id="installBtn" class="net" style="display:none;border:0;cursor:pointer;background:var(--blue)" title="{{ __('Installer l\'application') }}"><i class="fa-solid fa-download"></i> {{ __('Installer') }}</button><span class="net" id="net">●</span>
+        <div class="top"><i class="fa-solid fa-cash-register" style="color:var(--blue)"></i><h1>{{ $terminal->name }}</h1><button id="installBtn" class="net" style="display:none;border:0;cursor:pointer;background:var(--blue)" title="{{ __('Installer l\'application') }}"><i class="fa-solid fa-download"></i> {{ __('Installer') }}</button><button id="scanBtn" class="net" style="border:0;cursor:pointer;background:var(--blue)" title="{{ __('Scanner un code-barres') }}"><i class="fa-solid fa-barcode"></i></button><span class="net" id="net">●</span>
             @if($staff)
                 <span class="who" title="{{ $staff->role_label }}">{{ $staff->initials }}</span>
             @endif
@@ -127,6 +131,104 @@ var cart={},method='cash';
 /* Panier indexé par RÉFÉRENCE : sans cela, le plat n°7 et le bouton n°7
    partageraient la même ligne et l'un écraserait l'autre. */
 function add(ref,name,price){if(!cart[ref])cart[ref]={ref:ref,name:name,price:price,qty:0};cart[ref].qty++;beep('add');render();}
+/* ------------------------------------------------------------------
+   Scanner — vendre sans chercher l'article dans la grille.
+
+   La table des codes est EMBARQUÉE avec le catalogue. La caisse doit
+   continuer de vendre quand la connexion tombe, et c'est justement le
+   moment où le commerçant ne peut pas se permettre de chercher.
+
+   Le serveur n'est interrogé qu'en dernier recours, pour un code qu'on ne
+   connaît pas encore (article créé sur une autre caisse il y a dix
+   minutes). Hors ligne, ce recours n'existe pas : on le dit, on ne fait
+   pas semblant.
+   ------------------------------------------------------------------ */
+var SCAN_URL = "{{ route('tagtoa.catalog.scan') }}";
+var PAR_CODE = {};   // code -> {ref, name, price}
+
+(function indexerLesCodes(){
+    @foreach($sellable as $a)
+        @foreach($a['codes'] as $c)
+            PAR_CODE[@json($c)] = {ref:@json($a['ref']), name:@json($a['name']), price:{{ (float) $a['price'] }}};
+        @endforeach
+    @endforeach
+})();
+
+function nettoyerCode(c){ return String(c||'').toUpperCase().replace(/[^A-Z0-9\-]/g,''); }
+
+/* Message court en haut de la grille : le caissier ne lit pas un roman
+   entre deux clients. */
+function direScan(texte, erreur){
+    var el = document.getElementById('scanmsg');
+    if(!el){
+        el = document.createElement('div');
+        el.id = 'scanmsg';
+        el.style.cssText = 'grid-column:1/-1;padding:10px 12px;border-radius:10px;font-size:14px';
+        var g = document.getElementById('grid');
+        g.insertBefore(el, g.firstChild);
+    }
+    el.textContent = texte;
+    el.style.background = erreur ? 'rgba(224,71,62,.12)' : 'rgba(44,184,9,.12)';
+    el.style.color = erreur ? 'var(--red)' : '#1a7a05';
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 4000);
+}
+
+function vendreParCode(code){
+    code = nettoyerCode(code);
+    if(code.length < 4) return;
+
+    var a = PAR_CODE[code];
+    if(a){ add(a.ref, a.name, a.price); direScan(a.name); return; }
+
+    if(!navigator.onLine){
+        beep('error');
+        direScan("{{ __('Code inconnu de cette caisse, et pas de connexion pour vérifier.') }}", true);
+        return;
+    }
+
+    fetch(SCAN_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},
+        body:JSON.stringify({code:code})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+          if(d && d.found){
+              // Retenu pour la suite de la journée : le même article repasse
+              // souvent à la caisse.
+              PAR_CODE[code] = {ref:d.article.ref, name:d.article.name, price:d.article.price};
+              add(d.article.ref, d.article.name, d.article.price);
+              direScan(d.article.name + (d.article.out ? " — {{ __('stock épuisé') }}" : ''));
+              return;
+          }
+          // Code inconnu : on ne devine JAMAIS un article. Encaisser le
+          // mauvais prix coûte plus cher que de taper l'article à la main.
+          beep('error');
+          if(window.TagtoaScanner) TagtoaScanner.reject();
+          direScan("{{ __('Code inconnu : ') }}" + code, true);
+      })
+      .catch(function(){
+          beep('error');
+          direScan("{{ __('Vérification impossible. Touchez l\'article dans la grille.') }}", true);
+      });
+}
+
+window.addEventListener('load', function(){
+    if(!window.TagtoaScanner) return;
+
+    // La douchette USB/Bluetooth marche sans rien ouvrir : c'est le matériel
+    // le plus courant derrière un comptoir.
+    TagtoaScanner.listenWedge(vendreParCode);
+
+    var b = document.getElementById('scanBtn');
+    if(b) b.addEventListener('click', function(){
+        TagtoaScanner.open({
+            onCode: vendreParCode,
+            title:  "{{ __('Scanner pour vendre') }}",
+            hint:   "{{ __('Visez le code-barres. Chaque lecture ajoute l\'article au panier.') }}",
+            submit: "{{ __('Ajouter') }}"
+        });
+    });
+});
+
 document.querySelectorAll('.grid .p').forEach(function(b){
     b.addEventListener('click',function(){add(this.dataset.ref,this.dataset.name,parseFloat(this.dataset.price));});
 });

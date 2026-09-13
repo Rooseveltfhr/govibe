@@ -264,6 +264,14 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::delete('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'destroy'])->whereNumber('id')->name('destroy');
     });
 
+    // SCAN — à quel article correspond ce code, DANS ce commerce.
+    //
+    // Limité en débit : une douchette en rafale, ou quelqu'un qui essaierait
+    // des codes au hasard pour deviner le catalogue, tapent tous les deux vite.
+    // Le plafond laisse passer un inventaire normal et arrête le balayage.
+    Route::post('/catalog/scan', [\Modules\Tagtoa\App\Http\Controllers\Catalog\ScanController::class, 'resolve'])
+        ->middleware('throttle:240,1')->name('tagtoa.catalog.scan');
+
     // INVENTAIRE — la réserve : ce qu'il reste, ce qui a bougé, chez qui on achète.
     Route::prefix('inventory')->name('tagtoa.inventory.')->group(function () {
         $inventaire = \Modules\Tagtoa\App\Http\Controllers\Inventory\InventoryController::class;
