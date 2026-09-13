@@ -24,13 +24,47 @@ name: MoviSend — Diagnostic & déploiement (demomovisend.govibeht.com)
 #                       la page d'accueil PUBLIQUE en direct et l'imprime en
 #                       base64 dans le log, pour voir le HTML réellement rendu
 #                       (contenu dynamique du page-builder déjà résolu).
+# mode=fix_cta_links   : corrige EXACTEMENT deux boutons (hero "Open an Account"
+#                       et cta "Register Now") qui pointent vers le domaine du
+#                       vendeur CodeCanyon (remit.bugfinder.app /
+#                       remito.bugfinder.app) au lieu du site lui-même. Déploie
+#                       tools/movisend/FixCtaLinks.php comme commande artisan
+#                       temporaire, l'exécute (Eloquent, jamais de SQL brut ;
+#                       n'écrit QUE si la valeur contient "bugfinder.app",
+#                       affiche avant/après), puis la retire du serveur.
+#                       (v1 utilisait `php artisan tinker fichier.php` — PsySH
+#                       ne digère pas ce mode d'exécution sans TTY ; d'où la
+#                       vraie commande artisan à la place.)
+# mode=rebrand         : remplace les mentions restantes de "Remito"/"Remitta"
+#                       par "MoviSend". BasicControl.site_title (un seul
+#                       champ, mis en cache sous 'ConfigureSetting') alimente
+#                       le <title>, meta author, og:site_name, l'alt du logo
+#                       et le copyright du footer — tous corrigés d'un coup.
+#                       Page (slug '/').page_title/meta_title/
+#                       meta_description/og_description/meta_keywords sont
+#                       aussi corrigés. Même mécanique que fix_cta_links :
+#                       déploie tools/movisend/RebrandToMovisend.php comme
+#                       commande artisan temporaire, l'exécute (Eloquent,
+#                       jamais de SQL brut ; n'écrit QUE si "Remito"/"Remitta"
+#                       est trouvé, affiche avant/après), puis la retire.
+# mode=repair_overcorrection : la 1ère exécution de mode=rebrand avait un bug
+#                       (str_ireplace au lieu d'un remplacement à limite de
+#                       mot) : "Remitta" matchait aussi comme SOUS-CHAÎNE du
+#                       mot générique "remittance" ("Remitta"+"nce"), donc
+#                       "remittance"/"Remittance" est devenu "MoviSendnce"
+#                       dans les champs SEO de la Page d'accueil. Ce mode
+#                       déploie tools/movisend/RepairMetaOvercorrection.php,
+#                       qui restaure le texte exact d'origine (seul "Remito"
+#                       remplacé, "remittance" intact), puis se retire.
+#                       movisend:rebrand est corrigé (limite de mot) pour que
+#                       ça ne puisse plus se reproduire.
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "diagnose | explore | fetch_file | deploy_file | snapshot"
+        description: "diagnose | explore | fetch_file | deploy_file | snapshot | fix_cta_links | rebrand | repair_overcorrection"
         type: choice
-        options: [diagnose, explore, fetch_file, deploy_file, snapshot]
+        options: [diagnose, explore, fetch_file, deploy_file, snapshot, fix_cta_links, rebrand, repair_overcorrection]
         default: diagnose
       relative_path:
         description: "fetch_file : chemin relatif au docroot du fichier à récupérer"
@@ -132,6 +166,26 @@ jobs:
           grep -rli "remito" "$PUB/resources" "$PUB/config" "$PUB/assets" "$PUB/routes" "$PUB/README.md" "$PUB/composer.json" 2>/dev/null \
             | grep -v "/vendor/" | sed "s|^$PUB/||" | sort
           echo "::endgroup::"
+
+          echo "::group::Modèles/contrôleurs touchant 'button_url' ou 'hero' (code source, pas de données)"
+          grep -rn "button_url" "$PUB/app" 2>/dev/null | sed "s|^$PUB/||"
+          echo "--"
+          find "$PUB/app/Models" -iname "*hero*" -o -iname "*content*" -o -iname "*media*" 2>/dev/null | sed "s|^$PUB/||" | sort
+          echo "--"
+          grep -rln "hero" "$PUB/app/Http/Controllers" 2>/dev/null | sed "s|^$PUB/||" | sort
+          echo "::endgroup::"
+
+          echo "::group::Fichiers contenant \$hero = ou compact('hero' dans app/ (chemins + ligne)"
+          grep -rn "hero *=\|compact([^)]*hero\|'hero'\]" "$PUB/app" --include=*.php 2>/dev/null | sed "s|^$PUB/||" | head -60
+          echo "::endgroup::"
+
+          echo "::group::Fonctions/traits/helpers mentionnant Content:: n'importe où dans app/"
+          grep -rln "Content::" "$PUB/app" --include=*.php 2>/dev/null | sed "s|^$PUB/||" | sort
+          echo "::endgroup::"
+
+          echo "::group::composer.json — fichiers 'files' autoload (helpers globaux)"
+          grep -n -A5 '"files"' "$PUB/composer.json" 2>/dev/null
+          echo "::endgroup::"
           EOSSH
 
       - name: Fetch file (artefact — jamais affiché dans le log)
@@ -195,3 +249,117 @@ jobs:
           base64 -w0 page.html 2>/dev/null || echo "(vide ou échec)"
           echo ""
           echo "::endgroup::"
+
+      - name: Fix CTA links — deploy la commande artisan (tools/movisend/FixCtaLinks.php)
+        if: ${{ inputs.mode == 'fix_cta_links' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
+            tools/movisend/FixCtaLinks.php \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/movisend-fixctalinks-upload"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          mkdir -p "$PUB/app/Console/Commands"
+          mv /tmp/movisend-fixctalinks-upload "$PUB/app/Console/Commands/FixCtaLinks.php"
+          echo "Déployé: $PUB/app/Console/Commands/FixCtaLinks.php"
+          EOSSH
+
+      - name: Fix CTA links — exécute (commande artisan normale, pas de tinker/PsySH)
+        if: ${{ inputs.mode == 'fix_cta_links' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          echo "::group::Résultat"
+          cd "$PUB" && php artisan movisend:fix-cta-links
+          echo "::endgroup::"
+          EOSSH
+
+      - name: Fix CTA links — nettoyage (retire la commande artisan temporaire)
+        if: ${{ inputs.mode == 'fix_cta_links' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "rm -f '$PUB/app/Console/Commands/FixCtaLinks.php' && echo 'Nettoyé.'"
+
+      - name: Rebrand — deploy la commande artisan (tools/movisend/RebrandToMovisend.php)
+        if: ${{ inputs.mode == 'rebrand' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
+            tools/movisend/RebrandToMovisend.php \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/movisend-rebrand-upload"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          mkdir -p "$PUB/app/Console/Commands"
+          mv /tmp/movisend-rebrand-upload "$PUB/app/Console/Commands/RebrandToMovisend.php"
+          echo "Déployé: $PUB/app/Console/Commands/RebrandToMovisend.php"
+          EOSSH
+
+      - name: Rebrand — exécute (commande artisan normale, pas de tinker/PsySH)
+        if: ${{ inputs.mode == 'rebrand' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          echo "::group::Résultat"
+          cd "$PUB" && php artisan movisend:rebrand
+          echo "::endgroup::"
+          EOSSH
+
+      - name: Rebrand — nettoyage (retire la commande artisan temporaire)
+        if: ${{ inputs.mode == 'rebrand' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "rm -f '$PUB/app/Console/Commands/RebrandToMovisend.php' && echo 'Nettoyé.'"
+
+      - name: Repair overcorrection — deploy la commande artisan (tools/movisend/RepairMetaOvercorrection.php)
+        if: ${{ inputs.mode == 'repair_overcorrection' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
+            tools/movisend/RepairMetaOvercorrection.php \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/movisend-repair-upload"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          mkdir -p "$PUB/app/Console/Commands"
+          mv /tmp/movisend-repair-upload "$PUB/app/Console/Commands/RepairMetaOvercorrection.php"
+          echo "Déployé: $PUB/app/Console/Commands/RepairMetaOvercorrection.php"
+          EOSSH
+
+      - name: Repair overcorrection — exécute (commande artisan normale, pas de tinker/PsySH)
+        if: ${{ inputs.mode == 'repair_overcorrection' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          echo "::group::Résultat"
+          cd "$PUB" && php artisan movisend:repair-meta-overcorrection
+          echo "::endgroup::"
+          EOSSH
+
+      - name: Repair overcorrection — nettoyage (retire la commande artisan temporaire)
+        if: ${{ inputs.mode == 'repair_overcorrection' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "rm -f '$PUB/app/Console/Commands/RepairMetaOvercorrection.php' && echo 'Nettoyé.'"
