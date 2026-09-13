@@ -144,11 +144,25 @@ class RebrandContentAndBlog extends Command
                     continue;
                 }
                 $after = static::rebrand($before);
+                if ($field === 'slug') {
+                    $after = strtolower($after);
+                }
                 $this->line("Blog#{$blog->id}.{$field} BEFORE: {$before}");
                 if ($after !== $before) {
                     $blog->{$field} = $after;
                     $this->line("Blog#{$blog->id}.{$field} AFTER:  {$after}");
                 }
+            }
+
+            // Repair pass: a slug must always be fully lowercase. The first
+            // run of this command (before this safeguard existed) left
+            // "MoviSend" mixed-case inside a slug ("...-with-MoviSend-today"
+            // instead of "...-with-movisend-today"). Self-heals on rerun.
+            if (is_string($blog->slug) && $blog->slug !== strtolower($blog->slug)) {
+                $before = $blog->slug;
+                $blog->slug = strtolower($blog->slug);
+                $this->line("Blog#{$blog->id}.slug case-repair BEFORE: {$before}");
+                $this->line("Blog#{$blog->id}.slug case-repair AFTER:  {$blog->slug}");
             }
 
             if (is_array($blog->meta_keywords)) {
