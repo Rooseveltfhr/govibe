@@ -35,13 +35,25 @@ name: MoviSend — Diagnostic & déploiement (demomovisend.govibeht.com)
 #                       (v1 utilisait `php artisan tinker fichier.php` — PsySH
 #                       ne digère pas ce mode d'exécution sans TTY ; d'où la
 #                       vraie commande artisan à la place.)
+# mode=rebrand         : remplace les mentions restantes de "Remito"/"Remitta"
+#                       par "MoviSend". BasicControl.site_title (un seul
+#                       champ, mis en cache sous 'ConfigureSetting') alimente
+#                       le <title>, meta author, og:site_name, l'alt du logo
+#                       et le copyright du footer — tous corrigés d'un coup.
+#                       Page (slug '/').page_title/meta_title/
+#                       meta_description/og_description/meta_keywords sont
+#                       aussi corrigés. Même mécanique que fix_cta_links :
+#                       déploie tools/movisend/RebrandToMovisend.php comme
+#                       commande artisan temporaire, l'exécute (Eloquent,
+#                       jamais de SQL brut ; n'écrit QUE si "Remito"/"Remitta"
+#                       est trouvé, affiche avant/après), puis la retire.
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "diagnose | explore | fetch_file | deploy_file | snapshot | fix_cta_links"
+        description: "diagnose | explore | fetch_file | deploy_file | snapshot | fix_cta_links | rebrand"
         type: choice
-        options: [diagnose, explore, fetch_file, deploy_file, snapshot, fix_cta_links]
+        options: [diagnose, explore, fetch_file, deploy_file, snapshot, fix_cta_links, rebrand]
         default: diagnose
       relative_path:
         description: "fetch_file : chemin relatif au docroot du fichier à récupérer"
@@ -264,3 +276,41 @@ jobs:
           ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
             "rm -f '$PUB/app/Console/Commands/FixCtaLinks.php' && echo 'Nettoyé.'"
+
+      - name: Rebrand — deploy la commande artisan (tools/movisend/RebrandToMovisend.php)
+        if: ${{ inputs.mode == 'rebrand' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
+            tools/movisend/RebrandToMovisend.php \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/movisend-rebrand-upload"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          mkdir -p "$PUB/app/Console/Commands"
+          mv /tmp/movisend-rebrand-upload "$PUB/app/Console/Commands/RebrandToMovisend.php"
+          echo "Déployé: $PUB/app/Console/Commands/RebrandToMovisend.php"
+          EOSSH
+
+      - name: Rebrand — exécute (commande artisan normale, pas de tinker/PsySH)
+        if: ${{ inputs.mode == 'rebrand' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          echo "::group::Résultat"
+          cd "$PUB" && php artisan movisend:rebrand
+          echo "::endgroup::"
+          EOSSH
+
+      - name: Rebrand — nettoyage (retire la commande artisan temporaire)
+        if: ${{ inputs.mode == 'rebrand' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "rm -f '$PUB/app/Console/Commands/RebrandToMovisend.php' && echo 'Nettoyé.'"
