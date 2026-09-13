@@ -27,11 +27,14 @@ name: MoviSend — Diagnostic & déploiement (demomovisend.govibeht.com)
 # mode=fix_cta_links   : corrige EXACTEMENT deux boutons (hero "Open an Account"
 #                       et cta "Register Now") qui pointent vers le domaine du
 #                       vendeur CodeCanyon (remit.bugfinder.app /
-#                       remito.bugfinder.app) au lieu du site lui-même. Le
-#                       contenu (App\Models\Content, colonne JSON media) est
-#                       modifié via Eloquent (php artisan tinker), jamais par
-#                       SQL brut. N'écrit QUE si la valeur actuelle contient
-#                       "bugfinder.app" (garde-fou) et affiche avant/après.
+#                       remito.bugfinder.app) au lieu du site lui-même. Déploie
+#                       tools/movisend/FixCtaLinks.php comme commande artisan
+#                       temporaire, l'exécute (Eloquent, jamais de SQL brut ;
+#                       n'écrit QUE si la valeur contient "bugfinder.app",
+#                       affiche avant/après), puis la retire du serveur.
+#                       (v1 utilisait `php artisan tinker fichier.php` — PsySH
+#                       ne digère pas ce mode d'exécution sans TTY ; d'où la
+#                       vraie commande artisan à la place.)
 on:
   workflow_dispatch:
     inputs:
@@ -212,7 +215,23 @@ jobs:
           echo ""
           echo "::endgroup::"
 
-      - name: Fix CTA links (Eloquent uniquement, garde-fou "bugfinder.app")
+      - name: Fix CTA links — deploy la commande artisan (tools/movisend/FixCtaLinks.php)
+        if: ${{ inputs.mode == 'fix_cta_links' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
+            tools/movisend/FixCtaLinks.php \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/movisend-fixctalinks-upload"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          mkdir -p "$PUB/app/Console/Commands"
+          mv /tmp/movisend-fixctalinks-upload "$PUB/app/Console/Commands/FixCtaLinks.php"
+          echo "Déployé: $PUB/app/Console/Commands/FixCtaLinks.php"
+          EOSSH
+
+      - name: Fix CTA links — exécute (commande artisan normale, pas de tinker/PsySH)
         if: ${{ inputs.mode == 'fix_cta_links' }}
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
@@ -220,42 +239,16 @@ jobs:
           ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
           set -uo pipefail
-          cat > /tmp/movisend_fix_links.php <<'PHPEOF'
-          $hero = App\Models\Content::where('type', 'hero')->where('name', 'single')->first();
-          if ($hero) {
-              $media = $hero->media;
-              $before = isset($media->button_url) ? $media->button_url : null;
-              echo "BEFORE hero/single: " . ($before ? $before : '(vide)') . "\n";
-              if ($before && str_contains($before, 'bugfinder.app')) {
-                  $media->button_url = 'https://demomovisend.govibeht.com/register';
-                  $hero->media = $media;
-                  $hero->save();
-                  echo "AFTER  hero/single: " . $hero->fresh()->media->button_url . "\n";
-              } else {
-                  echo "SKIPPED hero/single (ne contient pas 'bugfinder.app' — rien change)\n";
-              }
-          } else {
-              echo "MISSING hero/single\n";
-          }
-          $cta = App\Models\Content::where('type', 'cta')->where('name', 'single')->first();
-          if ($cta) {
-              $media = $cta->media;
-              $before = isset($media->button_url) ? $media->button_url : null;
-              echo "BEFORE cta/single: " . ($before ? $before : '(vide)') . "\n";
-              if ($before && str_contains($before, 'bugfinder.app')) {
-                  $media->button_url = 'https://demomovisend.govibeht.com/register';
-                  $cta->media = $media;
-                  $cta->save();
-                  echo "AFTER  cta/single: " . $cta->fresh()->media->button_url . "\n";
-              } else {
-                  echo "SKIPPED cta/single (ne contient pas 'bugfinder.app' — rien change)\n";
-              }
-          } else {
-              echo "MISSING cta/single\n";
-          }
-          PHPEOF
           echo "::group::Résultat"
-          cd "$PUB" && php artisan tinker /tmp/movisend_fix_links.php
+          cd "$PUB" && php artisan movisend:fix-cta-links
           echo "::endgroup::"
-          rm -f /tmp/movisend_fix_links.php
           EOSSH
+
+      - name: Fix CTA links — nettoyage (retire la commande artisan temporaire)
+        if: ${{ inputs.mode == 'fix_cta_links' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "rm -f '$PUB/app/Console/Commands/FixCtaLinks.php' && echo 'Nettoyé.'"
