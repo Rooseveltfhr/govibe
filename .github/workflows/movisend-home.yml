@@ -384,7 +384,11 @@ jobs:
           npm install --no-save playwright@1.47.2
           npx playwright install --with-deps chromium
 
-          cat > /tmp/mobile-check.js <<'JSEOF'
+          # Le script doit rester dans le répertoire du workspace (où npm
+          # install vient de créer node_modules) : Node résout require()
+          # en remontant depuis le dossier du fichier, donc un script mis
+          # dans /tmp ne trouverait jamais node_modules du workspace.
+          cat > mobile-check.js <<'JSEOF'
           const { chromium } = require('playwright');
 
           (async () => {
@@ -419,14 +423,14 @@ jobs:
             console.log(JSON.stringify(sizes, null, 2));
             console.log('::endgroup::');
 
-            await page.screenshot({ path: '/tmp/mobile-check.jpg', type: 'jpeg', quality: 60 });
+            await page.screenshot({ path: 'mobile-check.jpg', type: 'jpeg', quality: 60 });
             await browser.close();
           })();
           JSEOF
 
-          node /tmp/mobile-check.js
+          node mobile-check.js
 
           echo "::group::mobile-check.jpg (base64)"
-          base64 -w0 /tmp/mobile-check.jpg
+          base64 -w0 mobile-check.jpg
           echo ""
           echo "::endgroup::"
