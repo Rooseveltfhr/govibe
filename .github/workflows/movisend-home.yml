@@ -58,13 +58,26 @@ name: MoviSend — Diagnostic & déploiement (demomovisend.govibeht.com)
 #                       remplacé, "remittance" intact), puis se retire.
 #                       movisend:rebrand est corrigé (limite de mot) pour que
 #                       ça ne puisse plus se reproduire.
+# mode=mobile_check    : PAS de SSH — comme mode=snapshot, mais au lieu de lire
+#                       le HTML brut, ouvre la page publique dans un vrai
+#                       Chromium (Playwright, installé sur le runner) à une
+#                       largeur de téléphone (375x812), après le chargement
+#                       COMPLET de la cascade CSS (tous les @import résolus).
+#                       Mesure la taille de police RÉELLEMENT calculée
+#                       (getComputedStyle) de .hero-title, .common-title h3,
+#                       h1/h2/h3 et .breadcrumbs-content h4, et prend une
+#                       capture d'écran — pour vérifier que les media queries
+#                       ajoutées dans 01-global.css (PR #179) ne sont pas
+#                       neutralisées par une règle plus tardive dans la
+#                       cascade (ex. responsive.css, importé après
+#                       01-global.css dans style.css).
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "diagnose | explore | fetch_file | deploy_file | snapshot | fix_cta_links | rebrand | repair_overcorrection"
+        description: "diagnose | explore | fetch_file | deploy_file | snapshot | mobile_check | fix_cta_links | rebrand | repair_overcorrection"
         type: choice
-        options: [diagnose, explore, fetch_file, deploy_file, snapshot, fix_cta_links, rebrand, repair_overcorrection]
+        options: [diagnose, explore, fetch_file, deploy_file, snapshot, mobile_check, fix_cta_links, rebrand, repair_overcorrection]
         default: diagnose
       relative_path:
         description: "fetch_file : chemin relatif au docroot du fichier à récupérer"
@@ -91,7 +104,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup SSH key
-        if: ${{ inputs.mode != 'snapshot' }}
+        if: ${{ inputs.mode != 'snapshot' && inputs.mode != 'mobile_check' }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
@@ -101,7 +114,7 @@ jobs:
 
       - name: Resolve docroot
         id: docroot
-        if: ${{ inputs.mode != 'snapshot' }}
+        if: ${{ inputs.mode != 'snapshot' && inputs.mode != 'mobile_check' }}
         run: |
           PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
           D=$(ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
@@ -363,3 +376,57 @@ jobs:
           ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
             "rm -f '$PUB/app/Console/Commands/RepairMetaOvercorrection.php' && echo 'Nettoyé.'"
+
+      - name: Mobile check — Chromium réel à largeur téléphone (375x812), mesure des tailles calculées
+        if: ${{ inputs.mode == 'mobile_check' }}
+        run: |
+          set -uo pipefail
+          npm install --no-save playwright@1.47.2
+          npx playwright install --with-deps chromium
+
+          cat > /tmp/mobile-check.js <<'JSEOF'
+          const { chromium } = require('playwright');
+
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+            await page.goto('https://demomovisend.govibeht.com/', { waitUntil: 'networkidle', timeout: 30000 });
+
+            const sizes = await page.evaluate(() => {
+              function info(sel) {
+                const el = document.querySelector(sel);
+                if (!el) return { selector: sel, found: false };
+                const cs = getComputedStyle(el);
+                return {
+                  selector: sel,
+                  found: true,
+                  fontSize: cs.fontSize,
+                  lineHeight: cs.lineHeight,
+                  text: (el.textContent || '').trim().slice(0, 70)
+                };
+              }
+              return [
+                info('.hero-title'),
+                info('.common-title h3'),
+                info('h1'),
+                info('h2'),
+                info('h3'),
+                info('.breadcrumbs-content h4')
+              ];
+            });
+
+            console.log('::group::Tailles de police calculées (viewport 375x812, après cascade CSS complète)');
+            console.log(JSON.stringify(sizes, null, 2));
+            console.log('::endgroup::');
+
+            await page.screenshot({ path: '/tmp/mobile-check.jpg', type: 'jpeg', quality: 60 });
+            await browser.close();
+          })();
+          JSEOF
+
+          node /tmp/mobile-check.js
+
+          echo "::group::mobile-check.jpg (base64)"
+          base64 -w0 /tmp/mobile-check.jpg
+          echo ""
+          echo "::endgroup::"
