@@ -174,6 +174,7 @@ class PosController extends Controller
             'products.*.unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
             'products.*.sku'                 => ['nullable', 'string', 'max:60'],
             'products.*.supplier_id'         => ['nullable', 'integer'],
+            'products.*.new_code'            => ['nullable', 'string', 'max:64'],
             'products.*.emoji'               => ['nullable', 'string', 'max:16'],
             'products.*.color'               => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ]);
@@ -211,6 +212,15 @@ class PosController extends Controller
             // Catalogue du COMMERCE : l'article est partagé par toutes ses caisses.
             $p = app(PosCatalog::class)->save($terminal, $attrs, ! empty($row['id']) ? (int) $row['id'] : null);
             $keep[] = $p->id;
+
+            // Code scanné au moment de créer la ligne : on ne peut l'attacher
+            // qu'ici, une fois l'article réellement enregistré. C'est ce qui
+            // ferme la boucle — scanner un produit inconnu, le créer, et le
+            // revendre en le scannant, sans jamais taper de chiffres.
+            if (! empty($row['new_code'])) {
+                app(\Modules\Tagtoa\App\Services\Catalog\ProductCodes::class)
+                    ->attach($terminal->tenant_id, 'pos:'.$p->id, $row['new_code']);
+            }
         }
 
         // ENREGISTRER NE SUPPRIME JAMAIS.

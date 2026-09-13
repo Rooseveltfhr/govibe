@@ -17,6 +17,13 @@
             {{ __('Enregistrer ne supprime jamais un article — décochez pour le retirer de la vente, ou utilisez la corbeille.') }}
         </p>
         <button type="button" class="btn btn-d btn-sm" onclick="addP()"><i class="fa-solid fa-plus"></i> {{ __('Ajouter un produit') }}</button>
+        {{-- Scanner pour créer : le code inconnu devient un article, et
+             l'article se revend ensuite en le scannant. La boucle est fermée
+             sans jamais taper un chiffre. --}}
+        <button type="button" class="btn btn-o btn-sm" id="scanBtn">
+            <i class="fa-solid fa-barcode"></i> {{ __('Scanner un produit') }}
+        </button>
+        <p id="scanmsg" style="font-size:13px;margin-top:8px"></p>
         <div id="plist" style="margin-top:12px"></div>
     </div>
     <button class="btn btn-p"><i class="fa-solid fa-floppy-disk"></i> {{ __('Enregistrer') }}</button>
@@ -75,6 +82,7 @@
             <a class="btn btn-o btn-sm lienCodes" hidden style="align-self:flex-end">
                 <i class="fa-solid fa-barcode"></i> {{ __('Codes-barres') }}
             </a>
+            <span class="nouveauCode" style="font-size:12px;color:#1a7a05;font-family:monospace;align-self:flex-end;padding-bottom:8px"></span>
             <span class="marge" style="font-size:12px;color:var(--muted);align-self:flex-end;padding-bottom:8px"></span>
         </div>
     </div>
@@ -83,6 +91,8 @@
 <form id="delform" method="POST" style="display:none">@csrf @method('DELETE')</form>
 
 @push('scripts')
+<script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}" defer></script>
+<script src="{{ route('tagtoa.asset', 'tagtoa-scanner.js') }}" defer></script>
 <script>
 var DEL_URL = "{{ url('/tagtoa/pos/'.$terminal->id.'/products') }}";
 var CODES_URL = "{{ route('tagtoa.catalog.codes.index') }}";
@@ -140,7 +150,84 @@ function addP(d){var h=document.getElementById('ptpl').innerHTML.replace(/IDX/g,
     champ(r,'price').addEventListener('input', function(){ majMarge(r); });
     champ(r,'cost_price').addEventListener('input', function(){ majMarge(r); });
     majMarge(r);
-    pIdx++;}
+    pIdx++;
+    return r;}
+/* ------------------------------------------------------------------
+   Scanner pour créer un article.
+
+   Seul le patron passe par cet écran : un caissier vend, il ne crée pas
+   d'article. C'est pourquoi la création vit ici et pas à la caisse.
+   ------------------------------------------------------------------ */
+var SCAN_URL = "{{ route('tagtoa.catalog.scan') }}";
+var CSRF = "{{ csrf_token() }}";
+
+function direScan(texte, erreur){
+    var el = document.getElementById('scanmsg');
+    el.textContent = texte;
+    el.style.color = erreur ? 'var(--red)' : '#1a7a05';
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.textContent = ''; }, 6000);
+}
+
+/* Article déjà connu : on le montre plutôt que d'en créer un deuxième. Deux
+   articles pour le même produit, c'est un stock coupé en deux. */
+function surlignerExistant(ref){
+    var lien = document.querySelector('.lienCodes[href$="' + ref + '"]');
+    var ligne = lien ? lien.closest('.prow') : null;
+    if(!ligne) return false;
+
+    ligne.scrollIntoView({behavior:'smooth', block:'center'});
+    ligne.style.transition = 'background .4s';
+    ligne.style.background = 'rgba(44,184,9,.14)';
+    setTimeout(function(){ ligne.style.background = ''; }, 1600);
+    return true;
+}
+
+function creerDepuisCode(code){
+    fetch(SCAN_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},
+        body:JSON.stringify({code:code})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+          if(d && d.found){
+              if(window.TagtoaScanner) TagtoaScanner.close();
+              direScan("{{ __('Ce code est déjà celui de : ') }}" + d.article.name);
+              surlignerExistant(d.article.ref);
+              return;
+          }
+
+          // Inconnu : une ligne neuve, le code déjà accroché. Il ne reste
+          // qu'à écrire le nom et le prix.
+          if(window.TagtoaScanner) TagtoaScanner.close();
+          var r = addP();
+          var champ = document.createElement('input');
+          champ.type = 'hidden';
+          champ.name = 'products[' + (pIdx - 1) + '][new_code]';
+          champ.value = code;
+          r.appendChild(champ);
+          r.querySelector('.nouveauCode').textContent = code;
+          champ = r.querySelector('[name$="[name]"]');
+          r.scrollIntoView({behavior:'smooth', block:'center'});
+          champ.focus();
+          direScan("{{ __('Nouveau code ') }}" + code + " — " + "{{ __('donnez-lui un nom et un prix, puis enregistrez.') }}");
+      })
+      .catch(function(){ direScan("{{ __('Vérification impossible. Réessayez.') }}", true); });
+}
+
+window.addEventListener('load', function(){
+    if(!window.TagtoaScanner){ document.getElementById('scanBtn').disabled = true; return; }
+
+    TagtoaScanner.listenWedge(creerDepuisCode);
+
+    document.getElementById('scanBtn').addEventListener('click', function(){
+        TagtoaScanner.open({
+            onCode: creerDepuisCode,
+            title:  "{{ __('Scanner un produit') }}",
+            hint:   "{{ __('Un code inconnu crée une nouvelle ligne. Un code déjà connu vous montre son article.') }}",
+            submit: "{{ __('Chercher') }}"
+        });
+    });
+});
+
 @php
     $productData = $terminal->products->map(fn ($p) => [
         'id' => $p->id, 'emoji' => $p->emoji, 'name' => $p->name,

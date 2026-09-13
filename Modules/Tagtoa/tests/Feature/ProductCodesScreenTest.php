@@ -195,4 +195,79 @@ class ProductCodesScreenTest extends TestCase
 
         $this->assertSame(1, ProductCode::withoutGlobalScopes()->count());
     }
+
+    /* ------------------------------------------------------------------
+       La boucle complète : scanner un inconnu, le créer, le revendre.
+       ------------------------------------------------------------------ */
+
+    public function test_a_scanned_unknown_code_becomes_an_article_that_scans_back(): void
+    {
+        // C'est le test qui dit si le scanner sert vraiment : partir d'un
+        // produit que le commerce ne connaît pas, et finir en le vendant sans
+        // jamais avoir tapé un chiffre.
+        $this->patron();
+
+        $this->post(route('tagtoa.pos.products.save', $this->caisse()->id), [
+            'products' => [[
+                'name' => 'Prestige', 'price' => 150, 'is_active' => 1,
+                'color' => '#2cb809', 'new_code' => '7640140160016',
+            ]],
+        ])->assertRedirect();
+
+        $biere = Product::where('name', 'Prestige')->firstOrFail();
+        $this->assertSame(1, ProductCode::where('code', '7640140160016')->count());
+
+        $this->postJson(route('tagtoa.catalog.scan'), ['code' => '7640140160016'])
+            ->assertOk()
+            ->assertJsonPath('article.ref', 'pos:'.$biere->id)
+            ->assertJsonPath('article.price', 150);
+    }
+
+    public function test_a_misread_code_never_silently_lands_on_a_new_article(): void
+    {
+        // L'article est créé — le patron a écrit son nom et son prix — mais le
+        // code refusé ne doit pas s'y accrocher : il désignerait un article
+        // que personne ne retrouverait en scannant.
+        $this->patron();
+
+        $this->post(route('tagtoa.pos.products.save', $this->caisse()->id), [
+            'products' => [[
+                'name' => 'Prestige', 'price' => 150, 'is_active' => 1,
+                'color' => '#2cb809', 'new_code' => '7640140160017',
+            ]],
+        ])->assertRedirect();
+
+        $this->assertSame(1, Product::where('name', 'Prestige')->count());
+        $this->assertSame(0, ProductCode::count(), 'Un code au contrôle faux ne s\'attache pas.');
+    }
+
+    public function test_creating_with_a_code_the_shop_already_uses_changes_nothing(): void
+    {
+        // Deux articles pour le même produit couperaient le stock en deux.
+        $this->patron();
+        $coca = $this->article('t-1', ['name' => 'Coca']);
+        app(ProductCodes::class)->attach('t-1', 'pos:'.$coca->id, '5449000000996');
+
+        $this->post(route('tagtoa.pos.products.save', $this->caisse()->id), [
+            'products' => [[
+                'name' => 'Coca bis', 'price' => 80, 'is_active' => 1,
+                'color' => '#2cb809', 'new_code' => '5449000000996',
+            ]],
+        ])->assertRedirect();
+
+        $code = ProductCode::where('code', '5449000000996')->firstOrFail();
+        $this->assertSame($coca->id, (int) $code->product_id, 'Le code reste sur l\'article d\'origine.');
+        $this->assertSame(1, ProductCode::count());
+    }
+
+    public function test_the_catalogue_screen_carries_the_scanner(): void
+    {
+        $this->patron();
+        $this->article();
+
+        $this->get(route('tagtoa.pos.products', $this->caisse()->id))
+            ->assertOk()
+            ->assertSee('tagtoa-scanner.js', false)
+            ->assertSee('new_code', false);
+    }
 }
