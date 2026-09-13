@@ -53,6 +53,11 @@ class SessionFormationTest extends TestCase
         $this->assertSame(['presentiel', 'online'], $f->modes);
         $this->assertCount(5, $f->modules);
         $this->assertContains('Prompt Engineering', $f->modules);
+
+        // Un seul numéro pour la formation : celui où arrivent déjà les
+        // inscriptions. Deux numéros obligeaient l'équipe à suivre deux
+        // conversations pour une même personne.
+        $this->assertSame('50933988754', $f->whatsapp_contact);
     }
 
     public function test_la_page_porte_les_informations_de_laffiche(): void
@@ -112,6 +117,9 @@ class SessionFormationTest extends TestCase
         $this->get('/formation/formation-ai')
             ->assertOk()
             ->assertSee('inscriptions sont closes')
+            // Le numéro de contact n'apparaît que dans ce cas : c'est le seul
+            // moment où le visiteur n'a plus de formulaire pour nous joindre.
+            ->assertSee('wa.me/50933988754', false)
             ->assertDontSee('Envoyer mon inscription');
 
         $this->post('/formation/formation-ai', $this->inscription())->assertSessionHasErrors();
