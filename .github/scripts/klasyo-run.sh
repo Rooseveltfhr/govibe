@@ -1,37 +1,51 @@
 #!/usr/bin/env bash
-# KLASYO — DISCOVERY 3 : prérequis pour créer un instructeur (rôle, relation, colonnes users, statut approuvé).
+# KLASYO — Créer un instructeur (user role=2 + instructors approuvé) et y rattacher les 6 cours démo,
+# afin qu'ils apparaissent dans le catalogue/API (l'auteur est résolu via le rôle du propriétaire).
 set -uo pipefail
 P="$HOME/domains/klasyo.org/public_html/platform"
 DB=$(grep -E '^DB_DATABASE=' "$P/.env" | cut -d= -f2- | tr -d '"')
 DU=$(grep -E '^DB_USERNAME=' "$P/.env" | cut -d= -f2- | tr -d '"')
 DP=$(grep -E '^DB_PASSWORD=' "$P/.env" | cut -d= -f2- | tr -d '"')
-q(){ mysql -u"$DU" -p"$DP" "$DB" -N -e "$1" 2>&1; }
+MYSQL(){ mysql -u"$DU" -p"$DP" "$DB" "$@"; }
+Q(){ mysql -u"$DU" -p"$DP" "$DB" -N -e "$1" 2>/dev/null; }
+EMAIL='formateur.demo@klasyo.org'
 
-echo "== getUserRoleRelation (helper) =="
-grep -n -A15 'function getUserRoleRelation' "$P/app/Helper/helper.php" 2>/dev/null | head -20
+echo "== 1) Utilisateur instructeur (role=2) =="
+U="$(Q "SELECT id FROM users WHERE email='$EMAIL' LIMIT 1;" | head -1)"
+if [ -z "$U" ]; then
+  HASH="$(cd "$P" && php -r "echo password_hash('KlasyoDemo2026', PASSWORD_BCRYPT);" 2>/dev/null)"
+  MYSQL -e "SET NAMES utf8mb4; INSERT INTO users (name,email,email_verified_at,password,role,created_at,updated_at)
+            VALUES ('KLASYO Formation','$EMAIL',NOW(),'$HASH',2,NOW(),NOW());"
+  U="$(Q "SELECT id FROM users WHERE email='$EMAIL' LIMIT 1;" | head -1)"
+  echo "   créé user_id=$U"
+else
+  echo "   existe déjà user_id=$U"
+fi
 
+echo "== 2) Profil instructeur (approuvé, status=1) =="
+I="$(Q "SELECT id FROM instructors WHERE user_id=$U LIMIT 1;" | head -1)"
+if [ -z "$I" ]; then
+  MYSQL -e "SET NAMES utf8mb4; INSERT INTO instructors
+            (uuid,user_id,first_name,last_name,professional_title,slug,status,is_subscription_enable,created_at,updated_at)
+            VALUES (UUID(),$U,'KLASYO','Formation','Formateur KLASYO','klasyo-formation',1,1,NOW(),NOW());"
+  I="$(Q "SELECT id FROM instructors WHERE user_id=$U LIMIT 1;" | head -1)"
+  echo "   créé instructor_id=$I"
+else
+  MYSQL -e "UPDATE instructors SET status=1 WHERE id=$I;"
+  echo "   existe déjà instructor_id=$I (status forcé à 1)"
+fi
+
+echo "== 3) Rattacher les 6 cours démo à l'instructeur =="
+MYSQL -e "SET NAMES utf8mb4; UPDATE courses SET user_id=$U, instructor_id=$I
+  WHERE slug IN ('introduction-programmation-python','html-css-premier-site-web','marketing-digital-debutants','comptabilite-generale-bases','design-graphique-canva','excel-debutant-confirme');"
+echo "   cours rattachés: $(Q "SELECT COUNT(*) FROM courses WHERE instructor_id=$I;")"
+
+echo "== 4) Purge cache + vérif API =="
+( cd "$P" && timeout 40 php artisan optimize:clear 2>&1 | tail -1 ) || true
+UA='Mozilla/5.0 klasyo-check'
+echo "  /api/courses-list :"
+curl -sS -m 20 -H 'Accept: application/json' -A "$UA" "https://klasyo.org/platform/api/courses-list" 2>/dev/null | php -r '$j=json_decode(file_get_contents("php://stdin"),true); $c=$j["data"]["courses"]??[]; echo "   ".count($c)." cours\n"; foreach(array_slice($c,0,6) as $x){ echo "   - ".($x["title"]??"?")." | prix ".($x["price"]??"?")." | note ".($x["average_rating"]??"?")." | ".($x["author"]??"?")."\n"; }' 2>/dev/null || echo "   (lecture API échouée)"
+echo "  /api/home/category-course (nb catégories):"
+curl -sS -m 20 -H 'Accept: application/json' -A "$UA" "https://klasyo.org/platform/api/home/category-course" 2>/dev/null | php -r '$j=json_decode(file_get_contents("php://stdin"),true); echo "   ".count($j["data"]??[])."\n";' 2>/dev/null || true
 echo
-echo "== Constantes rôle & statut (coreconstant) =="
-grep -inE "USER_ROLE|ROLE_INSTRUCTOR|ROLE_ADMIN|ROLE_STUDENT|ROLE_ORGANIZATION|STATUS_APPROVED|INSTRUCTOR_STATUS|ACTIVE\s*=" "$P/app/Helper/coreconstant.php" 2>/dev/null | head -30
-
-echo
-echo "== Course->instructor() relation =="
-grep -n -A3 'function instructor(' "$P/app/Models/Course.php" 2>/dev/null | head -12
-grep -n -A3 'function user(' "$P/app/Models/Course.php" 2>/dev/null | head -8
-
-echo
-echo "== users : colonnes NOT NULL (sans défaut) =="
-q "SELECT COLUMN_NAME, COLUMN_TYPE, COLUMN_DEFAULT FROM information_schema.columns WHERE table_schema='$DB' AND table_name='users' AND IS_NULLABLE='NO';"
-echo "== users : toutes colonnes =="
-q "SELECT COLUMN_NAME FROM information_schema.columns WHERE table_schema='$DB' AND table_name='users' ORDER BY ordinal_position;" | tr '\n' ' '; echo
-echo "== user 1 (échantillon valeurs role/username/password non affiché) =="
-q "SELECT id, name, email, role FROM users WHERE id=1;"
-
-echo
-echo "== instructors : toutes colonnes =="
-q "SELECT COLUMN_NAME FROM information_schema.columns WHERE table_schema='$DB' AND table_name='instructors' ORDER BY ordinal_position;" | tr '\n' ' '; echo
-echo "== getUserRoleRelation usages / STATUS constants instructor =="
-grep -inE "APPROVED|STATUS_ACTIVE|const STATUS" "$P/app/Helper/coreconstant.php" 2>/dev/null | head -20
-
-echo
-echo "== FIN DISCOVERY 3 =="
+echo "== FIN =="
