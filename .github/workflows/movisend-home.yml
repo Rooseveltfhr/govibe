@@ -221,21 +221,37 @@ jobs:
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
           set -uo pipefail
           cat > /tmp/movisend_fix_links.php <<'PHPEOF'
-          $pairs = [['hero', 'single'], ['cta', 'single']];
-          foreach ($pairs as [$type, $name]) {
-              $c = \App\Models\Content::where('type', $type)->where('name', $name)->first();
-              if (!$c) { echo "MISSING: $type/$name\n"; continue; }
-              $media = $c->media;
-              $before = $media->button_url ?? null;
-              echo "BEFORE $type/$name: " . ($before ?? '(vide)') . "\n";
+          $hero = App\Models\Content::where('type', 'hero')->where('name', 'single')->first();
+          if ($hero) {
+              $media = $hero->media;
+              $before = isset($media->button_url) ? $media->button_url : null;
+              echo "BEFORE hero/single: " . ($before ? $before : '(vide)') . "\n";
               if ($before && str_contains($before, 'bugfinder.app')) {
                   $media->button_url = 'https://demomovisend.govibeht.com/register';
-                  $c->media = $media;
-                  $c->save();
-                  echo "AFTER  $type/$name: " . $c->fresh()->media->button_url . "\n";
+                  $hero->media = $media;
+                  $hero->save();
+                  echo "AFTER  hero/single: " . $hero->fresh()->media->button_url . "\n";
               } else {
-                  echo "SKIPPED $type/$name (ne contient pas 'bugfinder.app' — rien changé)\n";
+                  echo "SKIPPED hero/single (ne contient pas 'bugfinder.app' — rien change)\n";
               }
+          } else {
+              echo "MISSING hero/single\n";
+          }
+          $cta = App\Models\Content::where('type', 'cta')->where('name', 'single')->first();
+          if ($cta) {
+              $media = $cta->media;
+              $before = isset($media->button_url) ? $media->button_url : null;
+              echo "BEFORE cta/single: " . ($before ? $before : '(vide)') . "\n";
+              if ($before && str_contains($before, 'bugfinder.app')) {
+                  $media->button_url = 'https://demomovisend.govibeht.com/register';
+                  $cta->media = $media;
+                  $cta->save();
+                  echo "AFTER  cta/single: " . $cta->fresh()->media->button_url . "\n";
+              } else {
+                  echo "SKIPPED cta/single (ne contient pas 'bugfinder.app' — rien change)\n";
+              }
+          } else {
+              echo "MISSING cta/single\n";
           }
           PHPEOF
           echo "::group::Résultat"
