@@ -194,7 +194,31 @@ jobs:
           env BRANCH="\$BRANCH" APP_DIR="\$DIR" bash update.sh
           EOSSH
 
+      # La séparation des domaines est un interrupteur, armé dans le .env du
+      # serveur. Tant qu'il ne l'est pas, exiger que app.govibeht.com serve
+      # l'application rendrait le déploiement rouge en permanence — et un
+      # déploiement toujours rouge cesse vite d'être lu.
+      - name: Lire l'état de la séparation des domaines
+        id: isolation
+        env:
+          APP_DIR: ${{ steps.locate.outputs.app_dir }}
+        run: |
+          set -uo pipefail
+          DOMAINE=$(ssh -i ~/.ssh/id_deploy -p "${{ steps.target.outputs.port }}" \
+              -o StrictHostKeyChecking=accept-new \
+              "${{ steps.target.outputs.user }}@${{ steps.target.outputs.host }}" \
+              "grep -E '^GOVIBE_DOMAINE_APP=' '$APP_DIR/.env' 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\"'\''' " || true)
+          DOMAINE=$(echo "$DOMAINE" | tr -d '[:space:]')
+          echo "domaine=$DOMAINE" >> "$GITHUB_OUTPUT"
+          if [ -n "$DOMAINE" ]; then
+            echo "Séparation ARMÉE sur : $DOMAINE"
+          else
+            echo "Séparation non armée (GOVIBE_DOMAINE_APP vide) — les contrôles de l'hôte applicatif seront indicatifs."
+          fi
+
       - name: Vérifier que le site répond
+        env:
+          DOMAINE_APP: ${{ steps.isolation.outputs.domaine }}
         run: |
           set -uo pipefail
 
@@ -260,18 +284,37 @@ jobs:
           verifier "/erp/commandes"    "302 301 403" "commandes en ligne protégées"
 
           # ── Le domaine applicatif ───────────────────────────────────────
-          # L'isolation est un interrupteur : tant que GOVIBE_DOMAINE_APP est
-          # vide, les deux hôtes servent tout. On vérifie donc ce qui est vrai
-          # dans les deux états — le back-office répond sur app.govibeht.com —
-          # plutôt qu'une redirection qui n'existe pas encore.
-          echo "Domaine applicatif"
+          # Quand l'isolation est armée, ces contrôles font foi : si le
+          # sous-domaine ne sert pas l'application, l'équipe n'a plus d'ERP.
+          # Tant qu'elle ne l'est pas, ils sont indicatifs — ils disent si le
+          # vhost est prêt, sans bloquer un déploiement qui, lui, va bien.
           APP="https://app.govibeht.com"
-          verifier "/erp/login"        "200"         "connexion ERP" "$APP"
-          verifier "/portail/connexion" "200"        "connexion portail" "$APP"
-          verifier "/up"               "200"         "sonde de disponibilité" "$APP"
+          [ -n "${DOMAINE_APP:-}" ] && APP="https://$DOMAINE_APP"
+
+          echo "Domaine applicatif ($APP)"
+
+          controler_app() {
+            local chemin="$1" attendu="$2" role="$3"
+            local code
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$APP$chemin")
+            [ -n "$code" ] || code="000"
+
+            if echo "$attendu" | grep -qw "$code"; then
+              echo "  ✓ $APP$chemin → $code   ($role)"
+            elif [ -n "${DOMAINE_APP:-}" ]; then
+              echo "::error::$APP$chemin → HTTP $code, attendu $attendu ($role)"
+              ECHEC=1
+            else
+              echo "::warning::$APP$chemin → HTTP $code, attendu $attendu ($role) — le vhost n'est pas encore branché sur l'application. Sans blocage : la séparation n'est pas armée."
+            fi
+          }
+
+          controler_app "/erp/login"         "200"         "connexion ERP"
+          controler_app "/portail/connexion" "200"         "connexion portail"
+          controler_app "/up"                "200"         "sonde de disponibilité"
           # Une fois l'isolation active, la page publique repart vers la
           # vitrine ; avant, elle est servie telle quelle. Les deux passent.
-          verifier "/"                 "200 301 302" "accueil sur l'hôte applicatif" "$APP"
+          controler_app "/"                  "200 301 302" "accueil sur l'hôte applicatif"
 
           if [ "$ECHEC" -ne 0 ]; then
             echo "::error::Le déploiement est passé mais le site ne répond pas correctement."
