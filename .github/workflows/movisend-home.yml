@@ -24,13 +24,21 @@ name: MoviSend — Diagnostic & déploiement (demomovisend.govibeht.com)
 #                       la page d'accueil PUBLIQUE en direct et l'imprime en
 #                       base64 dans le log, pour voir le HTML réellement rendu
 #                       (contenu dynamique du page-builder déjà résolu).
+# mode=fix_cta_links   : corrige EXACTEMENT deux boutons (hero "Open an Account"
+#                       et cta "Register Now") qui pointent vers le domaine du
+#                       vendeur CodeCanyon (remit.bugfinder.app /
+#                       remito.bugfinder.app) au lieu du site lui-même. Le
+#                       contenu (App\Models\Content, colonne JSON media) est
+#                       modifié via Eloquent (php artisan tinker), jamais par
+#                       SQL brut. N'écrit QUE si la valeur actuelle contient
+#                       "bugfinder.app" (garde-fou) et affiche avant/après.
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "diagnose | explore | fetch_file | deploy_file | snapshot"
+        description: "diagnose | explore | fetch_file | deploy_file | snapshot | fix_cta_links"
         type: choice
-        options: [diagnose, explore, fetch_file, deploy_file, snapshot]
+        options: [diagnose, explore, fetch_file, deploy_file, snapshot, fix_cta_links]
         default: diagnose
       relative_path:
         description: "fetch_file : chemin relatif au docroot du fichier à récupérer"
@@ -203,3 +211,35 @@ jobs:
           base64 -w0 page.html 2>/dev/null || echo "(vide ou échec)"
           echo ""
           echo "::endgroup::"
+
+      - name: Fix CTA links (Eloquent uniquement, garde-fou "bugfinder.app")
+        if: ${{ inputs.mode == 'fix_cta_links' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          cat > /tmp/movisend_fix_links.php <<'PHPEOF'
+          $pairs = [['hero', 'single'], ['cta', 'single']];
+          foreach ($pairs as [$type, $name]) {
+              $c = \App\Models\Content::where('type', $type)->where('name', $name)->first();
+              if (!$c) { echo "MISSING: $type/$name\n"; continue; }
+              $media = $c->media;
+              $before = $media->button_url ?? null;
+              echo "BEFORE $type/$name: " . ($before ?? '(vide)') . "\n";
+              if ($before && str_contains($before, 'bugfinder.app')) {
+                  $media->button_url = 'https://demomovisend.govibeht.com/register';
+                  $c->media = $media;
+                  $c->save();
+                  echo "AFTER  $type/$name: " . $c->fresh()->media->button_url . "\n";
+              } else {
+                  echo "SKIPPED $type/$name (ne contient pas 'bugfinder.app' — rien changé)\n";
+              }
+          }
+          PHPEOF
+          echo "::group::Résultat"
+          cd "$PUB" && php artisan tinker /tmp/movisend_fix_links.php
+          echo "::endgroup::"
+          rm -f /tmp/movisend_fix_links.php
+          EOSSH
