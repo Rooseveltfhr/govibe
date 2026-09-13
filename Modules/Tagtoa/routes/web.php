@@ -264,6 +264,21 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::delete('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'destroy'])->whereNumber('id')->name('destroy');
     });
 
+    // INVENTAIRE — la réserve : ce qu'il reste, ce qui a bougé, chez qui on achète.
+    Route::prefix('inventory')->name('tagtoa.inventory.')->group(function () {
+        $inventaire = \Modules\Tagtoa\App\Http\Controllers\Inventory\InventoryController::class;
+        Route::get('/', [$inventaire, 'index'])->name('index');
+        Route::get('/movements', [$inventaire, 'movements'])->name('movements');
+        // Tout mouvement passe par le journal : rien n'écrit le stock en direct.
+        Route::post('/move', [$inventaire, 'move'])->name('move');
+
+        Route::get('/suppliers', [$inventaire, 'suppliersIndex'])->name('suppliers');
+        Route::post('/suppliers', [$inventaire, 'supplierStore'])->name('suppliers.store');
+        Route::put('/suppliers/{id}', [$inventaire, 'supplierUpdate'])->whereNumber('id')->name('suppliers.update');
+        // Archiver, jamais supprimer : l'historique désigne encore ce fournisseur.
+        Route::post('/suppliers/{id}/toggle', [$inventaire, 'supplierToggle'])->whereNumber('id')->name('suppliers.toggle');
+    });
+
     // POS
     Route::prefix('pos')->name('tagtoa.pos.')->group(function () {
         Route::get('/', [PosController::class, 'index'])->name('index');

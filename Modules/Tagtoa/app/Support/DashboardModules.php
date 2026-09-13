@@ -19,7 +19,7 @@ class DashboardModules
     /** Modules mis en avant par défaut. Le reste existe mais reste discret. */
     public const DEFAULT_ENABLED = [
         'menu', 'pos', 'event', 'pay',
-        'business', 'staff', 'analytics', 'customers', 'reviews', 'qr', 'plan',
+        'business', 'staff', 'inventory', 'analytics', 'customers', 'reviews', 'qr', 'plan',
     ];
 
     /**
@@ -65,6 +65,10 @@ class DashboardModules
         'business' => [
             'label' => 'Mes commerces', 'icon' => 'fa-shop', 'group' => 'account',
             'desc'  => 'Votre commerce : nom, métier, catégories, devise. Et un second si vous en ouvrez un.',
+        ],
+        'inventory' => [
+            'label' => 'Stock', 'icon' => 'fa-boxes-stacked', 'group' => 'account',
+            'desc'  => 'Ce qu\'il reste en réserve, ce qu\'il faut recommander, et où sont passés les articles manquants.',
         ],
         'staff' => [
             'label' => 'Équipe', 'icon' => 'fa-users-gear', 'group' => 'account',

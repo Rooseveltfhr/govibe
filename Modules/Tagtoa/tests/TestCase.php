@@ -51,6 +51,20 @@ abstract class TestCase extends BaseTestCase
         foreach (['valid.user', 'role', 'multi_tenant'] as $alias) {
             $router->aliasMiddleware($alias, PassThroughMiddleware::class);
         }
+
+        // Les VRAIES vues du module, sous leur vrai préfixe « tagtoa:: ».
+        //
+        // Sans cela, un test d'écran ne pouvait pas rendre une page et l'on se
+        // contentait de vérifier que les fichiers Blade compilent. Or ce n'est
+        // pas la même chose : une variable oubliée entre le contrôleur et sa
+        // vue compile parfaitement et rend une page blanche au marchand.
+        $app['view']->addNamespace('tagtoa', __DIR__.'/../resources/views');
+
+        // En production, ces routes passent par le groupe « web » de l'hôte,
+        // qui partage `$errors` avec chaque vue. Ce groupe n'existe pas ici :
+        // on fournit donc un sac vide, sans quoi toute page rendue en test
+        // planterait pour une raison qui n'a rien à voir avec le module.
+        $app['view']->share('errors', new \Illuminate\Support\ViewErrorBag);
     }
 
     protected function defineRoutes($router): void
