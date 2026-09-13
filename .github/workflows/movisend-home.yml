@@ -132,6 +132,14 @@ jobs:
           grep -rli "remito" "$PUB/resources" "$PUB/config" "$PUB/assets" "$PUB/routes" "$PUB/README.md" "$PUB/composer.json" 2>/dev/null \
             | grep -v "/vendor/" | sed "s|^$PUB/||" | sort
           echo "::endgroup::"
+
+          echo "::group::Modèles/contrôleurs touchant 'button_url' ou 'hero' (code source, pas de données)"
+          grep -rn "button_url" "$PUB/app" 2>/dev/null | sed "s|^$PUB/||"
+          echo "--"
+          find "$PUB/app/Models" -iname "*hero*" -o -iname "*content*" -o -iname "*media*" 2>/dev/null | sed "s|^$PUB/||" | sort
+          echo "--"
+          grep -rln "hero" "$PUB/app/Http/Controllers" 2>/dev/null | sed "s|^$PUB/||" | sort
+          echo "::endgroup::"
           EOSSH
 
       - name: Fetch file (artefact — jamais affiché dans le log)
