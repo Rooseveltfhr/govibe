@@ -71,13 +71,28 @@ name: MoviSend — Diagnostic & déploiement (demomovisend.govibeht.com)
 #                       neutralisées par une règle plus tardive dans la
 #                       cascade (ex. responsive.css, importé après
 #                       01-global.css dans style.css).
+# mode=rebrand_content : étend le même rebrand à limite de mot (voir
+#                       RebrandToMovisend::rebrand()) au reste du contenu
+#                       piloté par la base : Content.media, ContentDetails
+#                       .description (sections "Why People Choose Remitta",
+#                       "Business Already Running on Remitta", etc.), et
+#                       Blog.title/slug/meta_title/meta_description/
+#                       meta_keywords + le corps des articles (BlogDetails,
+#                       parcouru génériquement colonne par colonne — le nom
+#                       exact de la colonne n'est pas supposé). Déploie
+#                       tools/movisend/RebrandContentAndBlog.php comme
+#                       commande artisan temporaire, l'exécute (Eloquent,
+#                       jamais de SQL brut ; n'écrit QUE si "Remito"/
+#                       "Remitta" est trouvé À LIMITE DE MOT — ne touche
+#                       jamais "remittance" —, affiche avant/après), puis
+#                       la retire.
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "diagnose | explore | fetch_file | deploy_file | snapshot | mobile_check | fix_cta_links | rebrand | repair_overcorrection"
+        description: "diagnose | explore | fetch_file | deploy_file | snapshot | mobile_check | fix_cta_links | rebrand | repair_overcorrection | rebrand_content"
         type: choice
-        options: [diagnose, explore, fetch_file, deploy_file, snapshot, mobile_check, fix_cta_links, rebrand, repair_overcorrection]
+        options: [diagnose, explore, fetch_file, deploy_file, snapshot, mobile_check, fix_cta_links, rebrand, repair_overcorrection, rebrand_content]
         default: diagnose
       relative_path:
         description: "fetch_file : chemin relatif au docroot du fichier à récupérer"
@@ -437,3 +452,41 @@ jobs:
           base64 -w0 mobile-check.jpg
           echo ""
           echo "::endgroup::"
+
+      - name: Rebrand content — deploy la commande artisan (tools/movisend/RebrandContentAndBlog.php)
+        if: ${{ inputs.mode == 'rebrand_content' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
+            tools/movisend/RebrandContentAndBlog.php \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/movisend-rebrandcontent-upload"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          mkdir -p "$PUB/app/Console/Commands"
+          mv /tmp/movisend-rebrandcontent-upload "$PUB/app/Console/Commands/RebrandContentAndBlog.php"
+          echo "Déployé: $PUB/app/Console/Commands/RebrandContentAndBlog.php"
+          EOSSH
+
+      - name: Rebrand content — exécute (commande artisan normale, pas de tinker/PsySH)
+        if: ${{ inputs.mode == 'rebrand_content' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "PUB='$PUB' bash -s" <<'EOSSH'
+          set -uo pipefail
+          echo "::group::Résultat"
+          cd "$PUB" && php artisan movisend:rebrand-content
+          echo "::endgroup::"
+          EOSSH
+
+      - name: Rebrand content — nettoyage (retire la commande artisan temporaire)
+        if: ${{ inputs.mode == 'rebrand_content' }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          PUB="${{ steps.docroot.outputs.path }}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "rm -f '$PUB/app/Console/Commands/RebrandContentAndBlog.php' && echo 'Nettoyé.'"
