@@ -152,8 +152,12 @@ jobs:
           grep -rln "hero" "$PUB/app/Http/Controllers" 2>/dev/null | sed "s|^$PUB/||" | sort
           echo "::endgroup::"
 
-          echo "::group::Comment \$hero / \$cta sont construits (FrontendController.php)"
-          grep -n "hero\|'cta'\|\"cta\"" "$PUB/app/Http/Controllers/FrontendController.php" 2>/dev/null | head -60
+          echo "::group::Content:: dans FrontendController.php (avec 2 lignes de contexte)"
+          grep -n -A2 -B2 "Content::" "$PUB/app/Http/Controllers/FrontendController.php" 2>/dev/null | head -150
+          echo "::endgroup::"
+
+          echo "::group::Occurrences de 'single' / 'double' dans FrontendController.php"
+          grep -n "'single'\|'double'" "$PUB/app/Http/Controllers/FrontendController.php" 2>/dev/null | head -40
           echo "::endgroup::"
           EOSSH
 
