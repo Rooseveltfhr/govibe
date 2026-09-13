@@ -117,6 +117,12 @@ $data = $this->validateMenu($request);
         $data = $request->validate(['status' => ['required', Rule::in(Order::STATUSES)]]);
         $order->update(['status' => $data['status']]);
 
+        // Le module reste maître de l'état réel ; la colonne vertébrale suit,
+        // pour que le rapport commun ne montre pas une commande déjà livrée
+        // comme encore à préparer.
+        app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)
+            ->touch('menu_order', $order->id, $data['status']);
+
         return back()->with('success', __('Commande mise à jour.'));
     }
 

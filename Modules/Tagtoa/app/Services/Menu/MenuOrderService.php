@@ -8,6 +8,9 @@ use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Menu\Order;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
 use Modules\Tagtoa\App\Services\Inventory\StockLedger;
+use Modules\Tagtoa\App\Services\Order\OrderSpine;
+use Modules\Tagtoa\App\Support\Order\Channel;
+use Modules\Tagtoa\App\Support\Order\OrderStatus;
 use Modules\Tagtoa\App\Services\Inventory\StockService;
 use Modules\Tagtoa\App\Support\Inventory\MovementType;
 use Modules\Tagtoa\App\Services\Loyalty\LoyaltyCardService;
@@ -113,6 +116,30 @@ class MenuOrderService
                 );
             }
 
+            // Colonne vertébrale, dans la MÊME transaction : une commande
+            // absente du chiffre d'affaires parce que le processus s'est
+            // arrêté entre les deux écritures serait invisible et introuvable.
+            //
+            // Ici la commande naît en attente : le QR passe la commande, le
+            // paiement vient après — parfois jamais.
+            app(OrderSpine::class)->record([
+                'tenant_id'      => $menu->tenant_id,
+                'channel'        => Channel::MENU,
+                'source_type'    => 'menu_order',
+                'source_id'      => $order->id,
+                'reference'      => $order->reference,
+                'subtotal'       => (float) $order->subtotal,
+                'total'          => (float) $order->total,
+                'currency'       => $order->currency,
+                'status'         => OrderStatus::PENDING,
+                'payment_status' => OrderStatus::UNPAID,
+                'customer_id'    => app(OrderSpine::class)
+                    ->customerFor($menu->tenant_id, $order->customer_name, $order->customer_phone)?->id,
+                'customer_name'  => $order->customer_name,
+                'customer_phone' => $order->customer_phone,
+                'placed_at'      => $order->placed_at,
+            ]);
+
             return $order;
         });
 
@@ -205,6 +232,9 @@ class MenuOrderService
     {
         if (! $order->isPaid()) {
             $order->update(['payment_status' => 'paid']);
+            // La colonne vertébrale suit le module, qui reste maître de l'état
+            // réel de la commande.
+            app(OrderSpine::class)->touch('menu_order', $order->id, null, OrderStatus::PAID);
             $this->revenue->record('menu_order', $order->id, 'menu', (float) $order->subtotal, $order->tenant_id, $order->currency);
             $this->awardLoyaltyPoints($order);
         }

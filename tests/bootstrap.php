@@ -45,6 +45,8 @@ require_once $base.'/Support/Catalog/Code39.php';
 require_once $base.'/Support/Catalog/Pricing.php';
 require_once $base.'/Support/Inventory/MovementType.php';
 require_once $base.'/Support/Tax/Tax.php';
+require_once $base.'/Support/Order/Channel.php';
+require_once $base.'/Support/Order/OrderStatus.php';
 require_once $base.'/Support/Dev/RouteNames.php';
 require_once $base.'/Support/Nfc/AesCmac.php';
 require_once $base.'/Support/Nfc/Ntag424.php';

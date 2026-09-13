@@ -10,7 +10,10 @@ use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
 use Modules\Tagtoa\App\Services\Inventory\StockLedger;
 use Modules\Tagtoa\App\Support\Inventory\MovementType;
+use Modules\Tagtoa\App\Services\Order\OrderSpine;
 use Modules\Tagtoa\App\Services\Tax\TaxProfile;
+use Modules\Tagtoa\App\Support\Order\Channel;
+use Modules\Tagtoa\App\Support\Order\OrderStatus;
 use Modules\Tagtoa\App\Support\Catalog\Pricing;
 use Modules\Tagtoa\App\Support\Tax\Tax;
 use Modules\Tagtoa\App\Support\Pos\CatalogRef;
@@ -172,6 +175,37 @@ class PosService
             }
 
             $this->revenue->record('pos_sale', $sale->id, 'pos', (float) $total, $terminal->tenant_id, $terminal->currency);
+
+            // Colonne vertébrale, DANS la même transaction. Écrire après coup
+            // laisserait une vente encaissée absente du chiffre d'affaires si
+            // le processus s'arrêtait entre les deux — et un marchand qui
+            // constate un écart entre sa caisse et son rapport cesse de faire
+            // confiance aux deux.
+            //
+            // La caisse encaisse en même temps qu'elle vend : la commande naît
+            // terminée et payée.
+            app(OrderSpine::class)->record([
+                'tenant_id'      => $terminal->tenant_id,
+                'channel'        => Channel::POS,
+                'source_type'    => 'pos_sale',
+                'source_id'      => $sale->id,
+                'reference'      => $sale->reference,
+                'subtotal'       => (float) $subtotal,
+                'discount'       => (float) $discount,
+                'tax_base'       => $recap['base'],
+                'tax_total'      => $recap['tax'],
+                'total'          => (float) $sale->total,
+                'currency'       => $terminal->currency,
+                'status'         => OrderStatus::COMPLETED,
+                'payment_status' => OrderStatus::PAID,
+                // Le client reste facultatif : au comptoir, la plupart des
+                // ventes sont anonymes, et c'est normal.
+                'customer_id'    => app(OrderSpine::class)
+                    ->customerFor($terminal->tenant_id, null, $payload['customer_phone'] ?? null)?->id,
+                'customer_phone' => $payload['customer_phone'] ?? null,
+                'staff_id'       => $staff?->id,
+                'placed_at'      => $sale->sold_at,
+            ]);
 
             return $sale;
         });

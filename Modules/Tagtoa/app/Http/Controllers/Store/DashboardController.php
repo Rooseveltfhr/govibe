@@ -102,6 +102,9 @@ class DashboardController extends Controller
         $order = $this->ownOrder($orderId);
         $data = $request->validate(['status' => ['required', Rule::in(Order::STATUSES)]]);
         $order->update(['status' => $data['status']]);
+        // La colonne vertébrale suit le module, qui reste maître de l'état.
+        app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)
+            ->touch('store_order', $order->id, $data['status']);
         app(AuditService::class)->log('store_order_status', $order, $order->reference.' → '.$data['status']);
 
         return back()->with('success', __('Statut mis à jour.'));
