@@ -44,7 +44,7 @@ return new class extends Migration
                 'places_limitees' => true,
                 'max_participants' => null,
 
-                'whatsapp_contact' => '50933151550',
+                'whatsapp_contact' => '50933988754',
                 'couleur' => '#DC2626',
                 'inscriptions_ouvertes' => true,
                 'actif' => true,
