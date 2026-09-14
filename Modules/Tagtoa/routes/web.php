@@ -52,6 +52,18 @@ Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->name('tagtoa.links.g
 Route::get('/site/{alias}', [SitePublic::class, 'show'])->name('tagtoa.site.show');
 // Page de paiement hébergée pour un paiement créé via l'API développeur.
 Route::get('/pay/i/{reference}', [PayPublic::class, 'apiCheckout'])->name('tagtoa.pay.api.checkout');
+// SMART STAND — ce qui se passe quand on scanne le QR ou qu'on approche le
+// téléphone. Route PUBLIQUE : c'est un client attablé, pas un marchand
+// connecté. Débit large : c'est la requête la plus fréquente de la plateforme.
+Route::get('/s/{standId}', [\Modules\Tagtoa\App\Http\Controllers\Stand\StandPublicController::class, 'show'])
+    ->middleware('throttle:240,1')->name('tagtoa.stand.show');
+Route::get('/s/{standId}/status', [\Modules\Tagtoa\App\Http\Controllers\Stand\StandPublicController::class, 'status'])
+    ->middleware('throttle:60,1')->name('tagtoa.stand.status');
+// Vérifier le code gratté : SANS compte, et fortement limité — c'est la seule
+// porte par laquelle on pourrait tenter de deviner un code.
+Route::post('/s/{standId}/verify', [\Modules\Tagtoa\App\Http\Controllers\Stand\StandPublicController::class, 'verify'])
+    ->middleware('throttle:20,1')->name('tagtoa.stand.verify');
+
 Route::get('/menu/{alias}', [MenuPublic::class, 'show'])->name('tagtoa.menu.show');
 Route::get('/menu/order/{reference}', [MenuPublic::class, 'track'])->name('tagtoa.menu.track');
 Route::get('/menu/order/{reference}/status', [MenuPublic::class, 'status'])->name('tagtoa.menu.track.status');
@@ -262,6 +274,20 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::put('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'update'])->whereNumber('id')->name('update');
         Route::post('/{id}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'toggle'])->whereNumber('id')->name('toggle');
         Route::delete('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'destroy'])->whereNumber('id')->name('destroy');
+    });
+
+    // SMART STAND — réclamer un stand, et gérer les siens.
+    Route::prefix('stands')->name('tagtoa.stand.')->group(function () {
+        $stand  = \Modules\Tagtoa\App\Http\Controllers\Stand\StandController::class;
+        $public = \Modules\Tagtoa\App\Http\Controllers\Stand\StandPublicController::class;
+
+        Route::get('/', [$stand, 'index'])->name('index');
+        Route::put('/{id}', [$stand, 'update'])->whereNumber('id')->name('update');
+
+        // La réclamation exige un compte : c'est lui qui deviendra propriétaire.
+        Route::get('/claim/{standId}', [$public, 'claimForm'])->name('claim.form');
+        Route::post('/claim/{standId}', [$public, 'claim'])
+            ->middleware('throttle:20,1')->name('claim');
     });
 
     // SCAN — à quel article correspond ce code, DANS ce commerce.

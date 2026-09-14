@@ -26,14 +26,16 @@ class Stand extends Model
         'physical_state', 'digital_state', 'holder_type', 'holder_id',
         'tenant_id', 'location_label', 'target_module',
         'claimed_at', 'last_scanned_at', 'scan_count',
+        'claim_reserved_until', 'claim_reserved_token',
     ];
 
     protected $casts = [
         'serial'          => 'integer',
         'secret_version'  => 'integer',
         'scan_count'      => 'integer',
-        'claimed_at'      => 'datetime',
-        'last_scanned_at' => 'datetime',
+        'claimed_at'           => 'datetime',
+        'last_scanned_at'      => 'datetime',
+        'claim_reserved_until' => 'datetime',
     ];
 
     /**
@@ -43,7 +45,7 @@ class Stand extends Model
      * évite qu'un `toJson()` distrait le fasse voyager jusqu'à un écran de
      * revendeur, qui ne doit rien en connaître.
      */
-    protected $hidden = ['secret_hash'];
+    protected $hidden = ['secret_hash', 'claim_reserved_token'];
 
     public function batch(): BelongsTo
     {
