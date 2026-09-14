@@ -21,6 +21,13 @@ class Stand extends Model
 {
     protected $table = 'tagtoa_stands';
 
+    /* Qui détient l'OBJET. Une chaîne libre finirait par diverger entre le
+       code qui l'écrit et celui qui la lit — et un stand « chez reseller »
+       deviendrait introuvable depuis « chez revendeur ». */
+    public const HOLDER_PLATFORM = 'platform';
+    public const HOLDER_RESELLER = 'reseller';
+    public const HOLDER_BUSINESS = 'business';
+
     protected $fillable = [
         'batch_id', 'public_id', 'serial', 'secret_hash', 'secret_version',
         'physical_state', 'digital_state', 'holder_type', 'holder_id',
@@ -107,6 +114,20 @@ class Stand extends Model
     public function scopeOfBusiness($query, ?string $tenantId)
     {
         return $query->where('tenant_id', $tenantId);
+    }
+
+    /**
+     * Les stands qu'un revendeur détient physiquement.
+     *
+     * EXPLICITE, comme `scopeOfBusiness` : le modèle n'a pas de portée
+     * automatique, et une requête qui oublierait ce filtre montrerait à un
+     * revendeur le stock de tous les autres — c'est-à-dire la carte complète
+     * du réseau de distribution de TAGTOA.
+     */
+    public function scopeHeldBy($query, ?int $resellerId)
+    {
+        return $query->where('holder_type', self::HOLDER_RESELLER)
+            ->where('holder_id', $resellerId);
     }
 
     /** Retrouve un stand par ce qui est imprimé dessus, quelle que soit la saisie. */

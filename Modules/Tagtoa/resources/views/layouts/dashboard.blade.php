@@ -212,6 +212,13 @@
         [$modCourant, $ecranCourant] = $mods::locate(request()->path());
         $estAccueil = request()->is('tagtoa/home');
         $u = auth()->user();
+        // Ce commerce est-il revendeur TAGTOA ? Ce n'est pas un module qu'on
+        // active, c'est une casquette que porte une poignée de comptes — d'où
+        // une condition ici plutôt qu'une entrée au catalogue, qui obligerait
+        // tous les autres à la voir grisée.
+        $revendeur = null;
+        try { $revendeur = \Modules\Tagtoa\App\Models\Stand\Reseller::forBusiness(\Modules\Tagtoa\App\Support\Tenant::id()); }
+        catch (\Throwable $e) { $revendeur = null; }
         $isSuper = false;
         try { $isSuper = $u && method_exists($u, 'hasRole') && $u->hasRole('super_admin'); } catch (\Throwable $e) { $isSuper = false; }
     @endphp
@@ -257,8 +264,17 @@
                 </a>
             @endforeach
 
+            @if($revendeur)
+                <span class="sep">{{ __('Revendeur') }}</span>
+                <a href="{{ url('/tagtoa/reseller') }}" class="{{ request()->is('tagtoa/reseller*') ? 'on' : '' }}">
+                    <i class="fa-solid fa-truck-field"></i> {{ __('Mon stock TAGTOA') }}
+                </a>
+            @endif
+
             @if($isSuper)
                 <span class="sep">{{ __('Plateforme') }}</span>
+                <a href="{{ url('/tagtoa/admin/resellers') }}" class="{{ request()->is('tagtoa/admin/resellers*') ? 'on' : '' }}"><i class="fa-solid fa-truck-field"></i> {{ __('Revendeurs') }}</a>
+                <a href="{{ url('/tagtoa/admin/shop') }}" class="{{ request()->is('tagtoa/admin/shop*') ? 'on' : '' }}"><i class="fa-solid fa-boxes-packing"></i> {{ __('Boutique') }}</a>
                 <a href="{{ url('/tagtoa/admin/plans') }}" class="{{ request()->is('tagtoa/admin/plans*') ? 'on' : '' }}"><i class="fa-solid fa-layer-group"></i> {{ __('Forfaits TAGTOA') }}</a>
                 <a href="{{ url('/tagtoa/admin/card-credits') }}" class="{{ request()->is('tagtoa/admin/card-credits*') ? 'on' : '' }}"><i class="fa-solid fa-coins"></i> {{ __('Crédits cartes') }}</a>
                 {{-- Journal d'audit : retiré du menu marchand, mais c'est une pièce
@@ -340,7 +356,12 @@
                         <i class="fa-solid {{ $m['icon'] }}"></i>{{ __($m['label']) }}
                     </a>
                 @endforeach
+                @if($revendeur)
+                    <a href="{{ url('/tagtoa/reseller') }}"><i class="fa-solid fa-truck-field"></i>{{ __('Mon stock') }}</a>
+                @endif
                 @if($isSuper)
+                    <a href="{{ url('/tagtoa/admin/resellers') }}"><i class="fa-solid fa-truck-field"></i>{{ __('Revendeurs') }}</a>
+                    <a href="{{ url('/tagtoa/admin/shop') }}"><i class="fa-solid fa-boxes-packing"></i>{{ __('Boutique') }}</a>
                     <a href="{{ url('/sadmin/dashboard') }}"><i class="fa-solid fa-shield-halved"></i>{{ __('Super Admin') }}</a>
                 @endif
             </div>
