@@ -12,6 +12,9 @@
         <br>
         {{ __('Pour activer un stand : grattez le film au dos et scannez-le avec votre téléphone.') }}
     </p>
+    <a class="btn btn-p" href="{{ route('tagtoa.stand.activate') }}" style="margin-top:12px">
+        <i class="fa-solid fa-camera"></i> {{ __('Activer mes stands') }}
+    </a>
 </div>
 
 @if($stands->isEmpty())

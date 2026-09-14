@@ -284,6 +284,18 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/', [$stand, 'index'])->name('index');
         Route::put('/{id}', [$stand, 'update'])->whereNumber('id')->name('update');
 
+        // ACTIVATION EN SÉRIE — quarante tables d'affilée, caméra ouverte.
+        //
+        // Le plafond est haut à dessein : une salle de cent couverts scanne
+        // vite, et un marchand bloqué au milieu de son installation ne revient
+        // pas la terminer. Ce n'est PAS ici que la force brute est arrêtée —
+        // elle l'est par la limite de dix essais PAR STAND, qui tient quel que
+        // soit le nombre de machines et de comptes de l'attaquant.
+        $activation = \Modules\Tagtoa\App\Http\Controllers\Stand\StandActivationController::class;
+        Route::get('/activate', [$activation, 'screen'])->name('activate');
+        Route::post('/activate', [$activation, 'activate'])
+            ->middleware('throttle:120,1')->name('activate.scan');
+
         // La réclamation exige un compte : c'est lui qui deviendra propriétaire.
         Route::get('/claim/{standId}', [$public, 'claimForm'])->name('claim.form');
         Route::post('/claim/{standId}', [$public, 'claim'])

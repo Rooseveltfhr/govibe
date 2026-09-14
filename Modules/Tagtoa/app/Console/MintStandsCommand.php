@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Modules\Tagtoa\App\Models\Stand\StandBatch;
 use Modules\Tagtoa\App\Services\Stand\StandMinter;
 use Modules\Tagtoa\App\Support\Stand\StandId;
+use Modules\Tagtoa\App\Support\Stand\StandScratch;
 
 /**
  * TAGTOA — fabriquer un lot de Smart Stands.
@@ -78,6 +79,11 @@ class MintStandsCommand extends Command
         $this->line('  Fichiers : '.$dossier);
         $this->newLine();
         $this->warn('secrets.csv contient les codes EN CLAIR. Canal contrôlé, puis destruction après tirage.');
+        $this->newLine();
+        $this->line('  Sous le panneau à gratter, l\'imprimeur rend DEUX choses :');
+        $this->line('    • activation_code — les huit caractères lisibles (référence, jamais retirée)');
+        $this->line('    • scan_payload    — un QR ; c\'est lui qui fait passer une salle de');
+        $this->line('                        quarante tables de deux heures à quatre minutes');
 
         return self::SUCCESS;
     }
@@ -108,9 +114,24 @@ class MintStandsCommand extends Command
         $empreintes['nfc.csv'] = $this->ecrire($dossier.'/nfc.csv', implode("\n", $lignes), 0644);
 
         // 3) LE FICHIER SENSIBLE. 0600 : lisible par son seul propriétaire.
-        $lignes = ["public_id,activation_code"];
+        //
+        //    Deux colonnes pour UNE seule information, imprimées côte à côte
+        //    sous le panneau à gratter :
+        //
+        //      activation_code — les huit caractères lisibles. Ils restent la
+        //        référence : un panneau abîmé au grattage, une caméra cassée, un
+        //        téléphone sans autorisation — et le stand doit rester activable.
+        //
+        //      scan_payload    — le contenu du petit QR imprimé à côté. C'est
+        //        lui qui fait passer l'activation d'une salle de quarante tables
+        //        de deux heures à quatre minutes. Il porte l'identifiant ET le
+        //        secret, donc une seule visée suffit.
+        //
+        //    Ce QR-ci est SOUS le panneau : il n'est visible que de celui qui
+        //    tient l'objet. Rien n'est affaibli — seule la saisie change.
+        $lignes = ["public_id,activation_code,scan_payload"];
         foreach ($secrets as $publicId => $secret) {
-            $lignes[] = $publicId.','.StandId::pretty($secret);
+            $lignes[] = $publicId.','.StandId::pretty($secret).','.StandScratch::payload($publicId, $secret);
         }
         $empreintes['secrets.csv'] = $this->ecrire($dossier.'/secrets.csv', implode("\n", $lignes), 0600);
 
@@ -126,6 +147,16 @@ class MintStandsCommand extends Command
             'manufacturer' => $batch->manufacturer,
             'printed_url'  => $url,
             'secret_bits'  => StandId::entropyBits(),
+            // Ce que l'imprimeur doit rendre sous le panneau à gratter. Écrit
+            // dans le manifeste parce qu'un lot imprimé sans le QR de secret
+            // resterait activable — mais une table à la fois, et le marchand
+            // le découvrirait seulement le carton ouvert.
+            'scratch_panel' => [
+                'human_readable' => 'activation_code',
+                'scan_symbol'    => 'qr',
+                'scan_source'    => 'scan_payload',
+                'separator'      => StandScratch::SEPARATOR,
+            ],
             'files'        => $empreintes,
             'generated_at' => now()->toIso8601String(),
         ];
