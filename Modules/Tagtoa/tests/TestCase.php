@@ -65,6 +65,19 @@ abstract class TestCase extends BaseTestCase
         // on fournit donc un sac vide, sans quoi toute page rendue en test
         // planterait pour une raison qui n'a rien à voir avec le module.
         $app['view']->share('errors', new \Illuminate\Support\ViewErrorBag);
+
+    }
+
+    /**
+     * Providers chargés par le harnais.
+     *
+     * TagtoaServiceProvider n'est pas bootable ici (module_path(), surcharges
+     * de vues du cœur Biztap). On charge donc un provider de test qui
+     * enregistre les mêmes commandes de console — voir Stubs\ConsoleProvider.
+     */
+    protected function getPackageProviders($app): array
+    {
+        return [\Modules\Tagtoa\Tests\Stubs\ConsoleProvider::class];
     }
 
     protected function defineRoutes($router): void

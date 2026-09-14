@@ -18,6 +18,24 @@ class TagtoaServiceProvider extends ServiceProvider
         $this->overrideAuthViews();
         $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/migrations'));
         $this->loadJsonTranslationsFrom(module_path($this->moduleName, 'resources/lang'));
+        $this->registerCommands();
+    }
+
+    /**
+     * Commandes de console du module.
+     *
+     * Enregistrées seulement en console : en requête HTTP elles ne servent à
+     * rien et ne feraient qu'alourdir chaque démarrage.
+     */
+    protected function registerCommands(): void
+    {
+        if (! $this->app->runningInConsole()) {
+            return;
+        }
+
+        $this->commands([
+            \Modules\Tagtoa\App\Console\BackfillOrdersCommand::class,
+        ]);
     }
 
     /**
