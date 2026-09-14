@@ -441,6 +441,23 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     Route::get('/analytics', [\Modules\Tagtoa\App\Http\Controllers\Billing\AnalyticsController::class, 'index'])->name('tagtoa.analytics.index');
     Route::get('/customers', [\Modules\Tagtoa\App\Http\Controllers\Crm\CrmController::class, 'index'])->name('tagtoa.crm.index');
 
+    // BOUTIQUE TAGTOA — le marchand commande son matériel (stands, cartes NFC).
+    //
+    // Le Smart Stand existait de bout en bout SAUF le début : comment un
+    // restaurant obtient-il ses quarante stands ? Par WhatsApp, au jugé, sans
+    // trace — et une commande passée par message se perd et n'existe dans aucun
+    // chiffre.
+    Route::prefix('shop')->name('tagtoa.shop.')->group(function () {
+        $shop = \Modules\Tagtoa\App\Http\Controllers\Shop\ShopController::class;
+        Route::get('/', [$shop, 'index'])->name('index');
+        Route::post('/cart', [$shop, 'updateCart'])->name('cart');
+        Route::get('/checkout', [$shop, 'checkout'])->name('checkout');
+        // Limité : une commande fait partir un carton, et un envoi répété est
+        // arrêté plus bas par la clé d'idempotence — pas par ce plafond.
+        Route::post('/checkout', [$shop, 'store'])->middleware('throttle:20,1')->name('store');
+        Route::get('/orders', [$shop, 'orders'])->name('orders');
+    });
+
     // COMMANDES — la colonne vertébrale enfin visible. Elle existait sans écran :
     // le marchand ouvrait quatre modules pour savoir ce qu'il avait vendu.
     Route::get('/orders', [\Modules\Tagtoa\App\Http\Controllers\Order\OrderController::class, 'index'])
@@ -481,6 +498,14 @@ Route::middleware(['auth', 'valid.user', 'role:super_admin'])->prefix('tagtoa/ad
     // Crédits d'activation de cartes officielles (accorder/vendre aux revendeurs).
     Route::get('/card-credits', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\CardCreditController::class, 'index'])->name('tagtoa.superadmin.credits');
     Route::post('/card-credits', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\CardCreditController::class, 'grant'])->name('tagtoa.superadmin.credits.grant');
+    // Boutique : catalogue du matériel et commandes reçues de TOUS les
+    // commerces — c'est TAGTOA qui expédie.
+    $boutique = \Modules\Tagtoa\App\Http\Controllers\SuperAdmin\ShopAdminController::class;
+    Route::get('/shop', [$boutique, 'index'])->name('tagtoa.superadmin.shop');
+    Route::post('/shop/items', [$boutique, 'storeItem'])->name('tagtoa.superadmin.shop.items');
+    Route::put('/shop/items/{id}', [$boutique, 'updateItem'])->whereNumber('id')->name('tagtoa.superadmin.shop.item.update');
+    Route::put('/shop/orders/{id}', [$boutique, 'updateOrder'])->whereNumber('id')->name('tagtoa.superadmin.shop.order.update');
+
     // État système en lecture seule (environnement, DB, cache, sécurité NFC, limites connues).
     Route::get('/status', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\StatusController::class, 'index'])->name('tagtoa.superadmin.status');
     // Passerelles de paiement : activation, frais, et qui encaisse (plateforme vs marchand).

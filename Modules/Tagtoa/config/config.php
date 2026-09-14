@@ -188,6 +188,19 @@ return [
     'modules_enabled' => \Modules\Tagtoa\App\Support\DashboardModules::DEFAULT_ENABLED,
 
     /*
+     * BOUTIQUE TAGTOA — la devise du matériel vendu par la plateforme.
+     *
+     * UNE seule, pour toute la boutique : c'est TAGTOA qui vend, avec un seul
+     * tarif. Mélanger les devises dans un panier obligerait à un taux de
+     * change — et un taux figé dans une commande est une promesse qu'on ne
+     * tient pas six semaines plus tard, au moment de la livraison.
+     *
+     * Le matériel est importé et payé en dollars : c'est la devise qui reflète
+     * ce que la commande coûte réellement à la plateforme.
+     */
+    'shop_currency' => env('TAGTOA_SHOP_CURRENCY', 'USD'),
+
+    /*
     |--------------------------------------------------------------------------
     | Devises supportées
     |--------------------------------------------------------------------------
