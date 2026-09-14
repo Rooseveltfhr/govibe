@@ -160,13 +160,24 @@ class DashboardNavigationTest extends TestCase
 
     public function test_the_deepest_screen_wins(): void
     {
-        // /tagtoa/inventory/suppliers commence par /tagtoa/inventory : sans
-        // préférence pour l'URL la plus longue, « Fournisseurs » s'ouvrirait en
-        // soulignant « Stock ».
+        // /tagtoa/pos/categories commence par /tagtoa/pos : sans préférence
+        // pour l'URL la plus longue, « Catégories » s'ouvrirait en soulignant
+        // « Mes caisses », et le marchand croirait s'être trompé d'écran.
+        [$module, $ecran] = DashboardModules::locate('/tagtoa/pos/categories');
+
+        $this->assertSame('pos', $module);
+        $this->assertSame('/tagtoa/pos/categories', $ecran);
+    }
+
+    public function test_a_sub_page_of_a_screen_still_finds_that_screen(): void
+    {
+        // Les fournisseurs et les mouvements vivent DANS l'écran Inventaire, qui
+        // a sa propre barre : on ne les remonte pas au menu de la caisse, mais
+        // y arriver doit quand même désigner « Inventaire ».
         [$module, $ecran] = DashboardModules::locate('/tagtoa/inventory/suppliers');
 
         $this->assertSame('pos', $module);
-        $this->assertSame('/tagtoa/inventory/suppliers', $ecran);
+        $this->assertSame('/tagtoa/inventory', $ecran);
     }
 
     public function test_a_page_outside_every_module_locates_nothing(): void
@@ -199,7 +210,7 @@ class DashboardNavigationTest extends TestCase
         $page = $this->get('/tagtoa/inventory')->assertOk();
 
         $page->assertSee('class="subnav"', false);
-        foreach (['Mes caisses', 'Mouvements', 'Fournisseurs', 'Équipe'] as $voisin) {
+        foreach (['Nouvelle vente', 'Produits', 'Catégories', 'Retours', 'Caissiers'] as $voisin) {
             $page->assertSee($voisin, false);
         }
     }

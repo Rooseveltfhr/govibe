@@ -47,6 +47,9 @@ class DashboardModules
      *              `alias` = raccourci vers un écran qui appartient à un AUTRE
      *              module ; il s'affiche, mais n'attire pas l'écran à lui quand
      *              on cherche où l'on se trouve (voir `locate`).
+     *              `sep`   = ouvre un bloc, avec ce titre. Treize entrées
+     *              d'affilée se lisent comme une liste de courses ; en blocs,
+     *              on trouve sans lire.
      */
     public const CATALOG = [
         // --- Les quatre outils métier de TAGTOA ---
@@ -67,13 +70,34 @@ class DashboardModules
         'pos' => [
             'label' => 'Caisse (POS)', 'icon' => 'fa-cash-register', 'group' => 'module',
             'desc'  => 'Caisse tactile qui marche même sans internet, multi-paiement.',
+            // Treize écrans, cinq blocs. La caisse n'en montrait qu'un seul non
+            // par choix, mais parce que ses URL exigeaient toutes le numéro du
+            // poste — et qu'un menu ne connaît pas le numéro 7. Les routes
+            // vivent maintenant sous le commerce, et le menu peut enfin dire
+            // tout ce que la caisse sait faire.
+            //
+            // `sep` ouvre un bloc : on vend, on range, on suit les gens et
+            // l'argent, on tient la caisse, on règle. C'est l'ordre d'une
+            // journée de travail, pas un classement alphabétique.
             'children' => [
-                ['label' => 'Mes caisses',        'icon' => 'fa-cash-register',  'url' => '/tagtoa/pos'],
-                ['label' => 'Catalogue & codes',  'icon' => 'fa-barcode',        'url' => '/tagtoa/catalog/codes'],
-                ['label' => 'Stock',              'icon' => 'fa-boxes-stacked',  'url' => '/tagtoa/inventory',            'needs' => 'inventory'],
-                ['label' => 'Mouvements',         'icon' => 'fa-right-left',     'url' => '/tagtoa/inventory/movements',  'needs' => 'inventory'],
-                ['label' => 'Fournisseurs',       'icon' => 'fa-truck-field',    'url' => '/tagtoa/inventory/suppliers',  'needs' => 'inventory'],
-                ['label' => 'Équipe',             'icon' => 'fa-users-gear',     'url' => '/tagtoa/staff',                'needs' => 'staff'],
+                ['label' => 'Nouvelle vente', 'icon' => 'fa-cart-plus',     'url' => '/tagtoa/pos/sell',       'sep' => 'Vendre'],
+                ['label' => 'Commandes',      'icon' => 'fa-clipboard-list','url' => '/tagtoa/orders',         'needs' => 'orders', 'alias' => true],
+                ['label' => 'Tickets / Reçus','icon' => 'fa-receipt',       'url' => '/tagtoa/pos/tickets'],
+
+                ['label' => 'Produits',       'icon' => 'fa-box',           'url' => '/tagtoa/pos/products',   'sep' => 'Catalogue'],
+                ['label' => 'Catégories',     'icon' => 'fa-folder-tree',   'url' => '/tagtoa/pos/categories'],
+                ['label' => 'Inventaire',     'icon' => 'fa-boxes-stacked', 'url' => '/tagtoa/inventory',      'needs' => 'inventory'],
+                ['label' => 'Codes-barres',   'icon' => 'fa-barcode',       'url' => '/tagtoa/catalog/codes'],
+
+                ['label' => 'Clients',        'icon' => 'fa-users',         'url' => '/tagtoa/customers',      'needs' => 'customers', 'alias' => true, 'sep' => 'Gens & argent'],
+                ['label' => 'Paiements',      'icon' => 'fa-credit-card',   'url' => '/tagtoa/pay/methods',    'alias' => true],
+                ['label' => 'Retours',        'icon' => 'fa-rotate-left',   'url' => '/tagtoa/pos/returns'],
+
+                ['label' => 'Mes caisses',    'icon' => 'fa-cash-register', 'url' => '/tagtoa/pos',            'sep' => 'Le poste'],
+                ['label' => 'Caissiers',      'icon' => 'fa-user-tie',      'url' => '/tagtoa/staff',          'needs' => 'staff'],
+                ['label' => 'Rapports',       'icon' => 'fa-chart-column',  'url' => '/tagtoa/pos/reports'],
+
+                ['label' => 'Paramètres',     'icon' => 'fa-gear',          'url' => '/tagtoa/pos/settings',   'sep' => 'Réglages'],
             ],
         ],
         'event' => [

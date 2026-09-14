@@ -79,12 +79,19 @@ select.ic{padding:8px 8px}
 <form method="POST" action="{{ route('tagtoa.pos.products.add',$terminal->id) }}"
       enctype="multipart/form-data" class="card" id="fadd">
     @csrf
-    <div class="h-row" style="margin-bottom:12px">
+    <div class="h-row" style="margin-bottom:4px">
         <h2>{{ __('Ajouter un article') }}</h2>
-        <button type="button" class="btn btn-o btn-sm" id="scanBtn">
-            <i class="fa-solid fa-barcode"></i> {{ __('Scanner') }}
+        {{-- LE CHEMIN RAPIDE. Un commerce qui reçoit un carton passe la
+             douchette sur trente articles d'affilée : l'article est créé au
+             bip, on le nomme ensuite, assis. Demander un nom et un prix à
+             chaque bip ferait abandonner à l'article cinq. --}}
+        <button type="button" class="btn btn-d btn-sm" id="scanBtn">
+            <i class="fa-solid fa-barcode"></i> {{ __('Scanner un code') }}
         </button>
     </div>
+    <p style="color:var(--muted);font-size:12.5px;margin-bottom:12px">
+        {{ __('Scanner enregistre l\'article tout de suite — vous le nommerez après. Ou remplissez la fiche ci-dessous.') }}
+    </p>
 
     <div style="display:flex;gap:10px;align-items:flex-start">
         <label class="vig" title="{{ __('Photo de l\'article') }}" style="background:#2cb809">
@@ -130,11 +137,22 @@ select.ic{padding:8px 8px}
                     <input class="ic" id="aSku" name="sku" maxlength="60" placeholder="SKU">
                 </div>
                 <div>
+                    <label for="aRayon">{{ __('Rayon') }}</label>
+                    <select class="ic" id="aRayon" name="category_id">
+                        <option value="">—</option>
+                        @foreach($categories as $r)<option value="{{ $r->id }}">{{ $r->name }}</option>@endforeach
+                    </select>
+                </div>
+                <div>
                     <label for="aFour">{{ __('Fournisseur') }}</label>
                     <select class="ic" id="aFour" name="supplier_id">
                         <option value="">—</option>
                         @foreach($suppliers as $f)<option value="{{ $f->id }}">{{ $f->name }}</option>@endforeach
                     </select>
+                </div>
+                <div>
+                    <label for="aAchat">{{ __('Date d\'achat') }}</label>
+                    <input class="ic" id="aAchat" name="purchased_at" type="date">
                 </div>
                 <div>
                     <label for="aColor">{{ __('Couleur du bouton') }}</label>
@@ -188,6 +206,7 @@ select.ic{padding:8px 8px}
                 <span>
                     {{ \Modules\Tagtoa\App\Support\Money::format($p->price, $terminal->currency) }}
                     @if($p->stock !== null) · {{ __('Stock') }} {{ rtrim(rtrim(number_format($p->stock, 3, '.', ''), '0'), '.') }} @endif
+                    @if($p->category) · {{ $p->category->name }} @endif
                     @unless($p->is_active) · {{ __('retiré de la vente') }} @endunless
                 </span>
             </span>
@@ -262,6 +281,15 @@ select.ic{padding:8px 8px}
                             <input class="ic" name="products[0][sku]" value="{{ $p->sku }}" maxlength="60">
                         </div>
                         <div>
+                            <label>{{ __('Rayon') }}</label>
+                            <select class="ic" name="products[0][category_id]">
+                                <option value="">—</option>
+                                @foreach($categories as $r)
+                                    <option value="{{ $r->id }}" @selected($p->category_id === $r->id)>{{ $r->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
                             <label>{{ __('Fournisseur') }}</label>
                             <select class="ic" name="products[0][supplier_id]">
                                 <option value="">—</option>
@@ -269,6 +297,11 @@ select.ic{padding:8px 8px}
                                     <option value="{{ $f->id }}" @selected($p->supplier_id === $f->id)>{{ $f->name }}</option>
                                 @endforeach
                             </select>
+                        </div>
+                        <div>
+                            <label>{{ __('Date d\'achat') }}</label>
+                            <input class="ic" name="products[0][purchased_at]" type="date"
+                                   value="{{ optional($p->purchased_at)->format('Y-m-d') }}">
                         </div>
                         <div>
                             <label>{{ __('Couleur du bouton') }}</label>
@@ -316,11 +349,12 @@ select.ic{padding:8px 8px}
 @push('scripts')
 <script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}" defer></script>
 <script src="{{ route('tagtoa.asset', 'tagtoa-scanner.js') }}" defer></script>
+<script src="{{ route('tagtoa.asset', 'tagtoa-sound.js') }}" defer></script>
 <script>
 window.addEventListener('load', function () {
     var DEL_URL  = "{{ url('/tagtoa/pos/'.$terminal->id.'/products') }}",
         SAVE_URL = "{{ route('tagtoa.pos.products.save', $terminal->id) }}",
-        SCAN_URL = "{{ route('tagtoa.catalog.scan') }}",
+        SCAN_URL = "{{ route('tagtoa.pos.products.scan', $terminal->id) }}",
         CSRF     = "{{ csrf_token() }}";
 
     function fermerMenus(sauf) {
@@ -434,38 +468,51 @@ window.addEventListener('load', function () {
         return true;
     }
 
+    /* L'article est créé ET ENREGISTRÉ au bip. La caméra reste ouverte : on
+       passe la douchette sur tout le carton, puis on nomme les articles dans
+       la liste. Un code déjà connu ne crée rien — deux articles pour le même
+       produit, c'est un stock coupé en deux. */
+    var scannes = 0;
+
     function surCode(code) {
         fetch(SCAN_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
             body: JSON.stringify({ code: code })
         })
         .then(function (r) { return r.json(); })
         .then(function (d) {
-            if (window.TagtoaScanner) TagtoaScanner.close();
-            if (d && d.found) {
-                direScan("{{ __('Ce code est déjà celui de : ') }}" + d.article.name);
-                surlignerExistant(d.article.ref);
-                return;
+            if (!d) return;
+            direScan(d.message, d.result !== 'created');
+            if (d.result === 'created') {
+                scannes++;
+                if (window.TagtoaSound) TagtoaSound.add();
+            } else {
+                if (window.TagtoaSound) TagtoaSound.error();
+                if (d.product) surlignerExistant('pos:' + d.product.id);
             }
-            document.getElementById('aCode').value = code;
-            document.getElementById('codePose').textContent = code;
-            var nom = document.getElementById('aName');
-            nom.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            nom.focus();
-            direScan("{{ __('Code retenu — nom, prix, puis Ajouter.') }}");
         })
-        .catch(function () { direScan("{{ __('Vérification impossible. Réessayez.') }}", true); });
+        .catch(function () { direScan("{{ __('Enregistrement impossible. Réessayez ce code.') }}", true); });
+    }
+
+    /* On recharge SEULEMENT à la fermeture du scanner : recharger à chaque bip
+       couperait la caméra et le marchand recommencerait tout. */
+    function finDuScan() {
+        if (scannes > 0) location.reload();
     }
 
     if (!window.TagtoaScanner) { document.getElementById('scanBtn').disabled = true; return; }
     TagtoaScanner.listenWedge(surCode);
     document.getElementById('scanBtn').addEventListener('click', function () {
+        scannes = 0;
         TagtoaScanner.open({
-            onCode: surCode, once: true,
-            title:  "{{ __('Scanner un produit') }}",
-            hint:   "{{ __('Un code inconnu remplit le formulaire. Un code connu vous montre son article.') }}",
-            submit: "{{ __('Chercher') }}"
+            onCode: surCode,
+            /* La caméra RESTE ouverte : c'est tout l'objet du chemin rapide. */
+            once:   false,
+            title:  "{{ __('Scanner vos produits') }}",
+            hint:   "{{ __('Chaque code inconnu crée un article enregistré. Vous les nommerez ensuite.') }}",
+            submit: "{{ __('Enregistrer') }}",
+            onClose: finDuScan
         });
     });
 });

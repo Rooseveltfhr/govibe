@@ -60,6 +60,11 @@
         .nav details>summary.cur .chev{opacity:.85}
         .nav .sub{display:flex;flex-direction:column;gap:1px;margin:2px 0 8px 23px;padding-left:11px;border-left:1.5px solid rgba(255,255,255,.12)}
         .nav .sub a{padding:9px 12px;border-radius:9px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.58)}
+        /* Titre de bloc DANS un module. Treize entrées d'affilée se lisent
+           comme une liste de courses ; en blocs, on trouve sans lire. */
+        .nav .sub .bloc{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
+              color:rgba(255,255,255,.3);padding:11px 12px 3px;font-family:var(--fh)}
+        .nav .sub .bloc:first-child{padding-top:3px}
         .nav .sub a i{width:17px;font-size:12.5px}
         .sb-foot{flex:0 0 auto;margin-top:6px;padding:12px 13px 2px;border-top:1px solid rgba(255,255,255,.07);font-size:12px;color:rgba(255,255,255,.4)}
         /* Voile du tiroir (téléphone uniquement) */
@@ -83,6 +88,9 @@
         .subnav a:hover{border-color:var(--blue);color:var(--blue-deep)}
         .subnav a.on{background:var(--blk);border-color:var(--blk);color:#fff}
         .subnav a i{font-size:12.5px}
+        /* Un filet entre deux blocs : la barre défile, un titre y coûterait la
+           place d'un écran entier. */
+        .subnav .coupe{flex:0 0 1px;width:1px;background:var(--bd);margin:4px 3px;align-self:stretch}
         .content{padding:26px;max-width:1100px;width:100%;margin:0 auto;flex:1 1 auto}
         /* ── Composants réutilisables ──────────────────────────────────── */
         .flash{border-radius:12px;padding:13px 16px;margin-bottom:18px;font-size:14px;display:flex;gap:10px;align-items:center}
@@ -232,6 +240,7 @@
                         </summary>
                         <div class="sub">
                             @foreach($m['children'] as $c)
+                                @isset($c['sep'])<span class="bloc">{{ __($c['sep']) }}</span>@endisset
                                 <a href="{{ url($c['url']) }}" class="{{ $ouvert && $ecranCourant === rtrim($c['url'],'/') ? 'on' : '' }}">
                                     <i class="fa-solid {{ $c['icon'] }}"></i> {{ __($c['label']) }}
                                 </a>
@@ -282,8 +291,10 @@
             @php $ecrans = $modCourant ? $mods::children($modCourant) : []; @endphp
             @if(count($ecrans) > 1)
                 <nav class="subnav" aria-label="{{ __($mods::CATALOG[$modCourant]['label']) }}">
-                    @foreach($ecrans as $c)
-                        <a href="{{ url($c['url']) }}" class="{{ $ecranCourant === rtrim($c['url'],'/') ? 'on' : '' }}">
+                    @foreach($ecrans as $i => $c)
+                        @if($i > 0 && isset($c['sep']))<span class="coupe" aria-hidden="true"></span>@endif
+                        <a href="{{ url($c['url']) }}" class="{{ $ecranCourant === rtrim($c['url'],'/') ? 'on' : '' }}"
+                           @isset($c['sep']) title="{{ __($c['sep']) }}" @endisset>
                             <i class="fa-solid {{ $c['icon'] }}"></i> {{ __($c['label']) }}
                         </a>
                     @endforeach

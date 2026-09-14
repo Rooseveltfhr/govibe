@@ -308,7 +308,7 @@ class InventoryScreenTest extends TestCase
         Supplier::create(['tenant_id' => 't-1', 'name' => 'Dépôt Bon Prix', 'is_active' => true]);
         $this->article();
 
-        $this->get(route('tagtoa.pos.products', $this->caisse()->id))
+        $this->get(route('tagtoa.pos.products.terminal', $this->caisse()->id))
             ->assertOk()->assertSee('Dépôt Bon Prix');
 
         $menu = \Modules\Tagtoa\App\Models\Menu\Menu::create([

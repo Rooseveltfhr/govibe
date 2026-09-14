@@ -274,7 +274,7 @@ class ProductCodesScreenTest extends TestCase
         $this->patron();
         $this->article();
 
-        $this->get(route('tagtoa.pos.products', $this->caisse()->id))
+        $this->get(route('tagtoa.pos.products.terminal', $this->caisse()->id))
             ->assertOk()
             ->assertSee('tagtoa-scanner.js', false)
             ->assertSee('new_code', false);

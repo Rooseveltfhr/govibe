@@ -47,7 +47,7 @@ class PosController extends Controller
         $terminal->tenant_id = Tenant::id();
         $terminal->save();
 
-        return redirect()->route('tagtoa.pos.products', $terminal->id)->with('success', __('Caisse créée.'));
+        return redirect()->route('tagtoa.pos.products.terminal', $terminal->id)->with('success', __('Caisse créée.'));
     }
 
     public function register(int $id): View
@@ -174,9 +174,10 @@ class PosController extends Controller
         $terminal = $this->own($id, ['products']);
 
         return view('tagtoa::pos.products', [
-            'terminal'  => $terminal,
-            'suppliers' => \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)
+            'terminal'   => $terminal,
+            'suppliers'  => \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)
                 ->orderBy('name')->get(['id', 'name']),
+            'categories' => \Modules\Tagtoa\App\Models\Pos\Category::shown()->get(['id', 'name']),
         ]);
     }
 
@@ -210,6 +211,12 @@ class PosController extends Controller
             'unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
             'sku'                 => ['nullable', 'string', 'max:60'],
             'supplier_id'         => ['nullable', 'integer'],
+            'category_id'         => ['nullable', 'integer'],
+            // La date d'achat du lot. Elle ne sert pas à vendre : elle répond à
+            // « depuis quand cette caisse de bière dort-elle ici ? », la
+            // question qui distingue un commerce qui tourne d'un commerce dont
+            // la trésorerie est immobilisée sur ses étagères.
+            'purchased_at'        => ['nullable', 'date'],
             'emoji'               => ['nullable', 'string', 'max:16'],
             'color'               => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'new_code'            => ['nullable', 'string', 'max:64'],
@@ -232,6 +239,8 @@ class PosController extends Controller
             'low_stock_threshold' => $this->nombreOuNull($data['low_stock_threshold'] ?? null),
             'sku'                 => trim((string) ($data['sku'] ?? '')) ?: null,
             'supplier_id'         => $this->fournisseur($data['supplier_id'] ?? null),
+            'category_id'         => $this->rayon($data['category_id'] ?? null),
+            'purchased_at'        => $data['purchased_at'] ?? null,
         ];
 
         if ($request->hasFile('image')) {
@@ -249,6 +258,61 @@ class PosController extends Controller
         }
 
         return back()->with('success', __('« :nom » ajouté au catalogue.', ['nom' => $product->name]));
+    }
+
+    /**
+     * SCANNER POUR CRÉER — l'article existe avant qu'on l'ait nommé.
+     *
+     * C'est le geste d'un commerce qui reçoit un carton : on passe la douchette
+     * sur trente articles d'affilée, on les nomme ensuite, assis. Demander un
+     * nom et un prix à chaque bip ferait abandonner à l'article cinq — et les
+     * vingt-cinq autres resteraient hors du catalogue.
+     *
+     * L'article est donc créé AUSSITÔT, avec son code accroché, sous un nom
+     * provisoire qui porte le code lui-même : il est retrouvable, il apparaît
+     * dans la liste, et il est INACTIF tant qu'il n'a pas de prix. Un article
+     * sans prix proposé à la vente ferait encaisser zéro.
+     */
+    public function scanProduct(Request $request, int $id): JsonResponse
+    {
+        $terminal = $this->own($id);
+
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:64'],
+        ]);
+
+        $code = trim($data['code']);
+
+        // Déjà connu : on le montre, on n'en crée pas un deuxième. Deux articles
+        // pour le même produit, c'est un stock coupé en deux — et un inventaire
+        // qui ne retombe jamais juste.
+        $codes = app(\Modules\Tagtoa\App\Services\Catalog\ProductCodes::class);
+        if ($article = $codes->find($terminal->tenant_id, $code)) {
+            return response()->json([
+                'result'  => 'exists',
+                'message' => __('Ce code est déjà celui de : :nom', ['nom' => $article->name]),
+                'product' => ['id' => $article->id, 'name' => $article->name],
+            ]);
+        }
+
+        $product = app(PosCatalog::class)->save($terminal, [
+            'name'        => __('Article :code', ['code' => $code]),
+            'price'       => 0,
+            'stock'       => null,
+            // INACTIF tant qu'il n'a pas de prix : un bouton à zéro gourde en
+            // caisse, c'est une vente encaissée pour rien.
+            'is_active'   => false,
+            'color'       => '#8a8a8a',
+            'sort'        => (int) app(PosCatalog::class)->query($terminal->tenant_id)->max('sort') + 1,
+        ]);
+
+        $codes->attach($terminal->tenant_id, 'pos:'.$product->id, $code);
+
+        return response()->json([
+            'result'  => 'created',
+            'message' => __('Article créé et enregistré. Donnez-lui un nom et un prix.'),
+            'product' => ['id' => $product->id, 'name' => $product->name],
+        ]);
     }
 
     /**
@@ -291,6 +355,8 @@ class PosController extends Controller
             'products.*.unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
             'products.*.sku'                 => ['nullable', 'string', 'max:60'],
             'products.*.supplier_id'         => ['nullable', 'integer'],
+            'products.*.category_id'         => ['nullable', 'integer'],
+            'products.*.purchased_at'        => ['nullable', 'date'],
             'products.*.new_code'            => ['nullable', 'string', 'max:64'],
             'products.*.emoji'               => ['nullable', 'string', 'max:16'],
             'products.*.color'               => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
@@ -343,6 +409,8 @@ class PosController extends Controller
                 // deviné ne doit pas rattacher le fournisseur du voisin :
                 // la recherche est cloisonnée par le commerce courant.
                 'supplier_id'         => $this->fournisseur($row['supplier_id'] ?? null),
+                'category_id'         => $this->rayon($row['category_id'] ?? null),
+                'purchased_at'        => $row['purchased_at'] ?? null,
             ];
 
             // La photo arrive hors de `input()` : un fichier n'est pas une
@@ -378,6 +446,20 @@ class PosController extends Controller
         // temps, un navigateur qui ne poste pas tout — effaçait les articles de
         // TOUT le commerce. Supprimer est maintenant une action à part.
         return back()->with('success', __('Produits enregistrés.'));
+    }
+
+    /**
+     * Un rayon de CE commerce, sinon rien.
+     *
+     * L'identifiant vient du navigateur : sans ce filtre, un numéro deviné
+     * rangerait l'article dans le rayon du voisin — et le ferait apparaître
+     * dans SA grille de caisse.
+     */
+    private function rayon(mixed $id): ?int
+    {
+        return $id
+            ? \Modules\Tagtoa\App\Models\Pos\Category::whereKey((int) $id)->value('id')
+            : null;
     }
 
     /** Un fournisseur de CE commerce, sinon rien. */
@@ -542,5 +624,70 @@ JS;
     protected function own(int $id, array $with = []): Terminal
     {
         return Terminal::with($with)->where('tenant_id', Tenant::id())->findOrFail($id);
+    }
+
+    /* ==================================================================
+       LA CAISSE DU COMMERCE — pour que le POS s'ouvre sans numéro.
+       ================================================================== */
+
+    /**
+     * La caisse courante du commerce, créée au besoin.
+     *
+     * TOUS les écrans du POS exigeaient un identifiant de caisse dans leur URL
+     * (`/tagtoa/pos/7/products`). Conséquence pratique : rien ne pouvait être
+     * mis au menu, puisqu'un menu ne connaît pas le numéro 7. C'est la vraie
+     * raison pour laquelle la caisse n'avait qu'une entrée là où elle a treize
+     * écrans — et non un choix de design.
+     *
+     * Or depuis B-1 l'unité est le COMMERCE, et depuis B-3 le catalogue lui
+     * appartient déjà : la caisse n'est plus qu'un poste de travail. Les écrans
+     * se rangent donc sous le commerce, et le numéro ne sert plus qu'à ceux qui
+     * désignent vraiment un poste — vendre, faire son rapport de poste.
+     *
+     * Créer la caisse manquante est délibéré : demander à un marchand de créer
+     * « une caisse » avant de pouvoir ouvrir « Produits » est une marche qui
+     * n'apprend rien et sur laquelle on trébuche.
+     */
+    protected function caisseCourante(array $with = []): Terminal
+    {
+        $tenantId = Tenant::id();
+
+        $terminal = Terminal::with($with)->where('tenant_id', $tenantId)
+            ->orderBy('id')->first();
+
+        if ($terminal) {
+            return $terminal;
+        }
+
+        $terminal = new Terminal([
+            'name'      => __('Caisse principale'),
+            'currency'  => 'HTG',
+            'is_active' => true,
+        ]);
+        $terminal->tenant_id = $tenantId;
+        $terminal->save();
+
+        return $with ? $terminal->load($with) : $terminal;
+    }
+
+    /* ---- Les mêmes écrans, sans numéro dans l'URL ---- */
+
+    public function currentProducts(): View
+    {
+        return $this->products($this->caisseCourante(['products'])->id);
+    }
+
+    public function currentRegister(): RedirectResponse
+    {
+        // Redirection plutôt que rendu direct : la caisse est une application
+        // installable (manifeste, service worker) dont l'adresse porte le
+        // numéro du poste. La servir sous deux adresses en ferait deux
+        // installations, avec deux files d'attente hors ligne distinctes.
+        return redirect()->route('tagtoa.pos.register', $this->caisseCourante()->id);
+    }
+
+    public function currentReport(Request $request): View
+    {
+        return $this->report($this->caisseCourante()->id, $request);
     }
 }

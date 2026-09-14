@@ -338,8 +338,44 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     // POS
     Route::prefix('pos')->name('tagtoa.pos.')->group(function () {
         Route::get('/', [PosController::class, 'index'])->name('index');
+
+        /* ── LA CAISSE SANS NUMÉRO ─────────────────────────────────────
+           Chaque écran du POS exigeait un identifiant de poste dans son URL
+           (`/tagtoa/pos/7/products`). Conséquence pratique : RIEN ne pouvait
+           être mis au menu, puisqu'un menu ne connaît pas le numéro 7 — et
+           c'est la vraie raison pour laquelle la caisse n'avait qu'une entrée
+           là où elle a treize écrans.
+
+           Depuis B-1 l'unité est le commerce, et depuis B-3 le catalogue lui
+           appartient : ces écrans se rangent donc sous le commerce. Déclarées
+           AVANT `/{id}/…` pour que « products » ne soit jamais pris pour un
+           numéro de poste. */
+        Route::get('/sell', [PosController::class, 'currentRegister'])->name('sell');
+        Route::get('/products', [PosController::class, 'currentProducts'])->name('products');
+        Route::get('/reports', [PosController::class, 'currentReport'])->name('reports');
+
+        $cat = \Modules\Tagtoa\App\Http\Controllers\Pos\CategoryController::class;
+        Route::get('/categories', [$cat, 'index'])->name('categories');
+        Route::post('/categories', [$cat, 'store'])->name('categories.store');
+        Route::put('/categories/{id}', [$cat, 'update'])->whereNumber('id')->name('categories.update');
+        Route::delete('/categories/{id}', [$cat, 'destroy'])->whereNumber('id')->name('categories.destroy');
+
+        $tick = \Modules\Tagtoa\App\Http\Controllers\Pos\TicketController::class;
+        Route::get('/tickets', [$tick, 'index'])->name('tickets');
+        Route::get('/tickets/{id}', [$tick, 'show'])->whereNumber('id')->name('ticket');
+
+        $set = \Modules\Tagtoa\App\Http\Controllers\Pos\SettingsController::class;
+        Route::get('/settings', [$set, 'index'])->name('settings');
+        Route::put('/settings/{id}', [$set, 'update'])->whereNumber('id')->name('settings.update');
+
+        $ret = \Modules\Tagtoa\App\Http\Controllers\Pos\ReturnController::class;
+        Route::get('/returns', [$ret, 'index'])->name('returns');
+        Route::get('/returns/{id}', [$ret, 'create'])->whereNumber('id')->name('returns.create');
+        Route::post('/returns/{id}', [$ret, 'store'])->whereNumber('id')
+            ->middleware('throttle:30,1')->name('returns.store');
+
         Route::post('/', [PosController::class, 'store'])->name('store');
-        Route::get('/{id}/register', [PosController::class, 'register'])->name('register');
+        Route::get('/{id}/register', [PosController::class, 'register'])->whereNumber('id')->name('register');
         // Qui tient la caisse : ouverture et fermeture de poste par code.
         Route::post('/{id}/staff/login', [PosController::class, 'staffLogin'])
             ->middleware('throttle:10,1')->name('staff.login');
@@ -347,13 +383,18 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/{id}/sale', [PosController::class, 'sale'])->name('sale');
         Route::post('/{id}/sync', [PosController::class, 'sync'])->name('sync');
         Route::get('/{id}/report', [PosController::class, 'report'])->name('report');
-        Route::get('/{id}/products', [PosController::class, 'products'])->name('products');
+        Route::get('/{id}/products', [PosController::class, 'products'])->whereNumber('id')->name('products.terminal');
         Route::post('/{id}/products', [PosController::class, 'saveProducts'])->name('products.save');
         // AJOUTER est une action à part : un article part en base tout de suite,
         // au lieu d'attendre un enregistrement global qu'on oublie — ou que PHP
         // tronque.
         Route::post('/{id}/products/add', [PosController::class, 'addProduct'])
             ->whereNumber('id')->name('products.add');
+        // SCANNER POUR CRÉER : l'article est enregistré au bip, on le nomme
+        // ensuite. Limité en débit — une douchette en rafale et un balayage de
+        // codes au hasard tapent tous les deux vite.
+        Route::post('/{id}/products/scan', [PosController::class, 'scanProduct'])
+            ->whereNumber('id')->middleware('throttle:240,1')->name('products.scan');
         // Supprimer un article est une action à part : enregistrer le catalogue
         // ne supprime plus rien (le catalogue est partagé par toutes les caisses).
         Route::delete('/{id}/products/{productId}', [PosController::class, 'destroyProduct'])

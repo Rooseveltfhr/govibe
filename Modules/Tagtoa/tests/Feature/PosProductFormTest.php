@@ -335,7 +335,7 @@ class PosProductFormTest extends TestCase
         $caisse = $this->caisse();
         $this->post(route('tagtoa.pos.products.add', $caisse->id), ['name' => 'Prestige', 'price' => 150]);
 
-        $this->get(route('tagtoa.pos.products', $caisse->id))
+        $this->get(route('tagtoa.pos.products.terminal', $caisse->id))
             ->assertOk()
             ->assertSee(__('Ajouter un article'))
             ->assertSee('Prestige');
@@ -353,7 +353,7 @@ class PosProductFormTest extends TestCase
             $this->post(route('tagtoa.pos.products.add', $caisse->id), ['name' => $nom, 'price' => 50]);
         }
 
-        $html = $this->get(route('tagtoa.pos.products', $caisse->id))->assertOk()->getContent();
+        $html = $this->get(route('tagtoa.pos.products.terminal', $caisse->id))->assertOk()->getContent();
 
         // Les trois y sont, numérotés.
         foreach ([1, 2, 3] as $n) {
@@ -373,7 +373,7 @@ class PosProductFormTest extends TestCase
         $caisse = $this->caisse();
         $this->post(route('tagtoa.pos.products.add', $caisse->id), ['name' => 'Coca', 'price' => 75]);
 
-        $this->get(route('tagtoa.pos.products', $caisse->id))->assertOk()
+        $this->get(route('tagtoa.pos.products.terminal', $caisse->id))->assertOk()
             ->assertSee('class="kebab"', false)
             ->assertSee(__('Modifier'))
             ->assertSee(__('Supprimer'))
@@ -388,7 +388,7 @@ class PosProductFormTest extends TestCase
         $caisse = $this->caisse();
         $this->post(route('tagtoa.pos.products.add', $caisse->id), ['name' => 'Coca', 'price' => 75]);
 
-        $html = $this->get(route('tagtoa.pos.products', $caisse->id))->assertOk()->getContent();
+        $html = $this->get(route('tagtoa.pos.products.terminal', $caisse->id))->assertOk()->getContent();
 
         $this->assertStringNotContainsString('name="emoji"', $html);
         $this->assertStringNotContainsString('[emoji]', $html);
@@ -401,7 +401,7 @@ class PosProductFormTest extends TestCase
         $caisse = $this->caisse();
         $this->post(route('tagtoa.pos.products.add', $caisse->id), ['name' => 'Zoranj', 'price' => 50]);
 
-        $this->get(route('tagtoa.pos.products', $caisse->id))->assertOk()->assertSee('Z');
+        $this->get(route('tagtoa.pos.products.terminal', $caisse->id))->assertOk()->assertSee('Z');
     }
 
     public function test_taking_an_article_off_sale_keeps_everything_else(): void
@@ -491,7 +491,7 @@ class PosProductFormTest extends TestCase
         $caisse = $this->caisse();
         $this->post(route('tagtoa.pos.products.add', $caisse->id), ['name' => 'Coca', 'price' => 75]);
 
-        $this->get(route('tagtoa.pos.products', $caisse->id))
+        $this->get(route('tagtoa.pos.products.terminal', $caisse->id))
             ->assertOk()
             ->assertSee('name="form_end"', false);
     }
