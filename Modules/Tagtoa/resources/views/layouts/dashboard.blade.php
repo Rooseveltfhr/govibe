@@ -1,11 +1,21 @@
 {{-- TAGTOA — Layout dashboard (standalone, design system TAGTOA, mobile-first).
      N'hérite PAS du back-office vcard existant : interface propre et claire.
-     Sections : @section('title'), @section('page'), @yield('content'). --}}
+     Sections : @section('title'), @section('page'), @yield('content').
+
+     La navigation est HIÉRARCHIQUE : chaque module ouvre ses propres écrans
+     (DashboardModules::CATALOG → `children`). Un écran comme le Stock ne vit
+     plus au même niveau que la Caisse — on l'atteint par la Caisse, parce que
+     c'est pour elle qu'on l'ouvre.
+
+     Sur téléphone la barre latérale est repliée : c'est la barre d'écrans
+     (.subnav) sous le titre qui montre « tout ce qu'il y a dans ce module ».
+     Les deux lisent la même source, elles ne peuvent pas diverger. --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_','-',app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0A0A0A">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title','TAGTOA') · TAGTOA</title>
     <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
@@ -15,35 +25,66 @@
             --blk:#0A0A0A;--white:#fff;--bg:#F5F5F3;--surface:#fff;--blue:#2cb809;--blue-deep:#239406;
             --blue-pale:rgba(44,184,9,.08);--green:#1D9E75;--red:#E0473E;--amber:#E08A1E;
             --bd:rgba(0,0,0,.08);--muted:#8a8a8a;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif;
-            --ft:'Anton',sans-serif;--sb:248px;
+            --ft:'Anton',sans-serif;--sb:260px;
         }
         *{box-sizing:border-box;margin:0;padding:0}
         /* Titres en Anton (display) */
         .brand b,.top h1,.h-row h2,.stat .v,.card>h2,h1.pg{font-family:var(--ft)!important;font-weight:400!important;letter-spacing:.01em}
-        body{font-family:var(--fb);background:var(--bg);color:var(--blk);line-height:1.55;-webkit-font-smoothing:antialiased}
+        body{font-family:var(--fb);background:var(--bg);color:var(--blk);line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
         a{color:inherit;text-decoration:none}
-        /* Sidebar */
-        .sb{position:fixed;inset:0 auto 0 0;width:var(--sb);background:var(--blk);color:#fff;display:flex;flex-direction:column;padding:20px 14px;z-index:50;transition:transform .25s cubic-bezier(.4,0,.2,1)}
-        .brand{display:flex;align-items:center;gap:10px;padding:6px 10px 18px}
+        /* ── Barre latérale ────────────────────────────────────────────── */
+        .sb{position:fixed;inset:0 auto 0 0;width:var(--sb);background:var(--blk);color:#fff;display:flex;flex-direction:column;
+            padding:calc(18px + env(safe-area-inset-top)) 12px calc(14px + env(safe-area-inset-bottom));z-index:50;
+            transition:transform .25s cubic-bezier(.4,0,.2,1)}
+        .brand{display:flex;align-items:center;gap:10px;padding:6px 10px 16px;flex:0 0 auto}
         .brand .logo{width:34px;height:34px;border-radius:9px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:16px}
         .brand b{font-family:var(--fh);font-weight:700;font-size:18px;letter-spacing:.02em}
-        .nav{display:flex;flex-direction:column;gap:3px;margin-top:8px;overflow-y:auto}
-        .nav a{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:11px;color:rgba(255,255,255,.72);font-family:var(--fh);font-weight:500;font-size:14.5px;transition:background .18s,color .18s}
-        .nav a i{width:20px;text-align:center;font-size:15px}
-        .nav a:hover{background:rgba(255,255,255,.06);color:#fff}
+        .nav{display:flex;flex-direction:column;gap:2px;margin-top:4px;overflow-y:auto;overscroll-behavior:contain;flex:1 1 auto;
+             scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}
+        .nav::-webkit-scrollbar{width:6px}
+        .nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:3px}
+        .nav a,.nav summary{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:11px;color:rgba(255,255,255,.72);
+             font-family:var(--fh);font-weight:500;font-size:14.5px;transition:background .18s,color .18s}
+        .nav a i,.nav summary>i{width:20px;text-align:center;font-size:15px;flex:0 0 auto}
+        .nav a:hover,.nav summary:hover{background:rgba(255,255,255,.06);color:#fff}
         .nav a.on{background:var(--blue);color:#fff}
-        .nav .sep{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.35);padding:14px 13px 6px;font-family:var(--fh)}
-        .sb-foot{margin-top:auto;padding:12px 13px 4px;font-size:12px;color:rgba(255,255,255,.4)}
-        /* Main */
-        .main{margin-left:var(--sb);min-height:100vh;display:flex;flex-direction:column}
-        .top{position:sticky;top:0;background:rgba(245,245,243,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--bd);padding:14px 26px;display:flex;align-items:center;gap:14px;z-index:40}
-        .top .burger{display:none;background:none;border:0;font-size:20px;cursor:pointer}
-        .top .home{background:none;border:0;font-size:19px;cursor:pointer;color:var(--blk);display:flex;align-items:center;padding:6px;border-radius:9px}
+        .nav .sep{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.35);padding:16px 13px 6px;font-family:var(--fh)}
+        /* Groupes dépliables : <details> natif — la navigation marche même
+           sans JavaScript, et le groupe courant s'ouvre tout seul. */
+        .nav details>summary{cursor:pointer;list-style:none;user-select:none}
+        .nav details>summary::-webkit-details-marker{display:none}
+        .nav details>summary .chev{margin-left:auto;font-size:11px;opacity:.45;transition:transform .2s}
+        .nav details[open]>summary{color:#fff;background:rgba(255,255,255,.05)}
+        .nav details[open]>summary .chev{transform:rotate(90deg)}
+        .nav details>summary.cur{background:var(--blue);color:#fff}
+        .nav details>summary.cur .chev{opacity:.85}
+        .nav .sub{display:flex;flex-direction:column;gap:1px;margin:2px 0 8px 23px;padding-left:11px;border-left:1.5px solid rgba(255,255,255,.12)}
+        .nav .sub a{padding:9px 12px;border-radius:9px;font-size:13.5px;font-weight:500;color:rgba(255,255,255,.58)}
+        .nav .sub a i{width:17px;font-size:12.5px}
+        .sb-foot{flex:0 0 auto;margin-top:6px;padding:12px 13px 2px;border-top:1px solid rgba(255,255,255,.07);font-size:12px;color:rgba(255,255,255,.4)}
+        /* Voile du tiroir (téléphone uniquement) */
+        .scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:45;opacity:0;pointer-events:none;transition:opacity .25s}
+        /* ── Zone principale ───────────────────────────────────────────── */
+        .main{margin-left:var(--sb);min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+        .bar{position:sticky;top:0;z-index:40;background:rgba(245,245,243,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--bd)}
+        .top{padding:13px 26px;display:flex;align-items:center;gap:12px;min-height:56px}
+        .top .burger{display:none;background:none;border:0;font-size:19px;cursor:pointer;color:var(--blk);padding:6px 8px;border-radius:9px;margin-left:-8px}
+        .top .home{background:none;border:0;font-size:18px;cursor:pointer;color:var(--blk);display:flex;align-items:center;padding:6px;border-radius:9px}
         .top .home:hover,.top .home:active{background:var(--blue-pale)}
-        .top h1{font-family:var(--fh);font-weight:700;font-size:20px;flex:1}
-        .top .who{font-size:13px;color:var(--muted)}
-        .content{padding:26px;max-width:1100px;width:100%;margin:0 auto}
-        /* Reusable UI */
+        .top h1{font-family:var(--fh);font-weight:700;font-size:20px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .top .who{font-size:13px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .top .out{background:none;border:0;cursor:pointer;color:var(--muted);font-size:16px;padding:6px;border-radius:9px}
+        /* Barre d'écrans du module courant : sur téléphone, c'est ELLE qui
+           montre tout ce que contient le module (la latérale est repliée). */
+        .subnav{display:flex;gap:7px;padding:0 26px 10px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+        .subnav::-webkit-scrollbar{display:none}
+        .subnav a{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;
+                  font:600 13.5px var(--fh);color:#4a4a4a;background:#fff;border:1.5px solid var(--bd);white-space:nowrap;transition:.15s}
+        .subnav a:hover{border-color:var(--blue);color:var(--blue-deep)}
+        .subnav a.on{background:var(--blk);border-color:var(--blk);color:#fff}
+        .subnav a i{font-size:12.5px}
+        .content{padding:26px;max-width:1100px;width:100%;margin:0 auto;flex:1 1 auto}
+        /* ── Composants réutilisables ──────────────────────────────────── */
         .flash{border-radius:12px;padding:13px 16px;margin-bottom:18px;font-size:14px;display:flex;gap:10px;align-items:center}
         .flash.ok{background:#eafaf3;color:#0e5f44;border:1px solid var(--green)}
         .flash.err{background:#fdecea;color:#9a2820;border:1px solid var(--red)}
@@ -55,8 +96,8 @@
         .stat .ic{width:42px;height:42px;border-radius:11px;background:var(--blue-pale);color:var(--blue-deep);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px}
         .stat .v{font-family:var(--fh);font-weight:700;font-size:26px}
         .stat .k{font-size:13px;color:var(--muted)}
-        .h-row{display:flex;align-items:center;gap:12px;margin-bottom:18px}
-        .h-row h2{font-family:var(--fh);font-weight:700;font-size:17px;flex:1}
+        .h-row{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+        .h-row h2{font-family:var(--fh);font-weight:700;font-size:17px;flex:1;min-width:140px}
         .btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:11px;padding:11px 18px;font:600 14px var(--fh);cursor:pointer;transition:transform .12s,filter .15s}
         .btn:active{transform:scale(.97)}
         .btn-p{background:var(--blue);color:#fff}.btn-p:hover{filter:brightness(1.05)}
@@ -75,45 +116,100 @@
         .empty{text-align:center;color:var(--muted);padding:48px 20px}
         .empty i{font-size:34px;color:#cfcfcf;display:block;margin-bottom:12px}
         .switch{display:flex;align-items:center;gap:10px;font-size:14px;margin-top:8px}
-        .switch input{width:42px;height:24px;appearance:none;background:#ccc;border-radius:999px;position:relative;cursor:pointer;transition:background .2s}
+        .switch input{width:42px;height:24px;appearance:none;background:#ccc;border-radius:999px;position:relative;cursor:pointer;transition:background .2s;flex:0 0 auto}
         .switch input:checked{background:var(--blue)}
         .switch input::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform .2s}
         .switch input:checked::after{transform:translateX(18px)}
+        /* ── Tablette ──────────────────────────────────────────────────── */
+        @media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}}
+        /* ── Téléphone : la latérale devient un tiroir ─────────────────── */
         @media(max-width:860px){
-            .sb{transform:translateX(-100%)}.sb.open{transform:none}
-            .main{margin-left:0}.top .burger{display:block}
-            .g4{grid-template-columns:repeat(2,1fr)}.g3,.g2{grid-template-columns:1fr}
+            .sb{transform:translateX(-100%);box-shadow:0 0 40px rgba(0,0,0,.35)}
+            .sb.open{transform:none}
+            .main{margin-left:0}
+            .top .burger{display:flex}
+            .scrim{display:block}
+            body.nav-open{overflow:hidden}
+            body.nav-open .scrim{opacity:1;pointer-events:auto}
+            .g3,.g2{grid-template-columns:1fr}
         }
+        @media(max-width:640px){
+            .top{padding:11px 16px;gap:8px}
+            .subnav{padding:0 16px 9px}
+            .content{padding:18px 16px calc(24px + env(safe-area-inset-bottom))}
+            .top h1{font-size:17px}
+            .top .who{display:none}
+            .card{padding:16px;border-radius:14px}
+            .grid{gap:12px}
+            .stat{padding:15px}.stat .v{font-size:22px}
+            .row>*{min-width:100%}
+            /* Un tableau large ne doit jamais pousser la page de côté :
+               il défile seul, à l'intérieur de sa carte. */
+            .content table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+            .btn{padding:11px 15px}
+        }
+        /* Sous 360px, deux colonnes de statistiques deviennent illisibles. */
+        @media(max-width:360px){.g4{grid-template-columns:1fr}}
+        /* Doigt : jamais de cible plus petite que 44px */
+        @media(hover:none){.nav a,.nav summary,.subnav a,.top .burger,.top .home,.top .out{min-height:44px}}
         @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+        @media print{.sb,.bar,.scrim{display:none!important}.main{margin-left:0}.content{padding:0;max-width:none}}
     </style>
     @stack('head')
 </head>
 <body>
-    @php $cur = request()->segment(3) ?? request()->segment(2); @endphp
-    <aside class="sb" id="sb">
+    @php
+        $mods = \Modules\Tagtoa\App\Support\DashboardModules::class;
+        // Où sommes-nous ? Une seule réponse, partagée par la barre latérale et
+        // la barre d'écrans — impossible que l'une souligne un module et
+        // l'autre un autre.
+        [$modCourant, $ecranCourant] = $mods::locate(request()->path());
+        $estAccueil = request()->is('tagtoa/home');
+        $u = auth()->user();
+        $isSuper = false;
+        try { $isSuper = $u && method_exists($u, 'hasRole') && $u->hasRole('super_admin'); } catch (\Throwable $e) { $isSuper = false; }
+    @endphp
+
+    <div class="scrim" id="scrim" hidden></div>
+
+    <aside class="sb" id="sb" aria-label="{{ __('Navigation') }}">
         <div class="brand"><span class="logo">⚡</span><b>TAGTOA</b></div>
         <nav class="nav">
-            {{-- Barre latérale et page d'accueil lisent la MÊME source
-                 (DashboardModules) : elles ne peuvent plus diverger. --}}
-            @php $mods = \Modules\Tagtoa\App\Support\DashboardModules::class; @endphp
-            <a href="{{ url('/tagtoa/home') }}" class="{{ request()->is('tagtoa/home') ? 'on' : '' }}"><i class="fa-solid fa-grip"></i> {{ __('Accueil') }}</a>
+            <a href="{{ url('/tagtoa/home') }}" class="{{ $estAccueil ? 'on' : '' }}"><i class="fa-solid fa-grip"></i> {{ __('Accueil') }}</a>
+
             <span class="sep">{{ __('Modules') }}</span>
             @foreach($mods::enabled('module') as $m)
-                <a href="{{ url($m['url']) }}" class="{{ request()->is(ltrim($m['url'],'/').'*') ? 'on' : '' }}">
-                    <i class="fa-solid {{ $m['icon'] }}"></i> {{ __($m['label']) }}
-                </a>
+                @php $ouvert = $modCourant === $m['key']; @endphp
+                @if(count($m['children']) <= 1)
+                    {{-- Un seul écran : un groupe dépliable serait un clic pour rien. --}}
+                    <a href="{{ url($m['url']) }}" class="{{ $ouvert ? 'on' : '' }}">
+                        <i class="fa-solid {{ $m['icon'] }}"></i> {{ __($m['label']) }}
+                    </a>
+                @else
+                    <details {{ $ouvert ? 'open' : '' }}>
+                        <summary class="{{ $ouvert ? 'cur' : '' }}">
+                            <i class="fa-solid {{ $m['icon'] }}"></i>
+                            <span>{{ __($m['label']) }}</span>
+                            <i class="fa-solid fa-chevron-right chev" aria-hidden="true"></i>
+                        </summary>
+                        <div class="sub">
+                            @foreach($m['children'] as $c)
+                                <a href="{{ url($c['url']) }}" class="{{ $ouvert && $ecranCourant === rtrim($c['url'],'/') ? 'on' : '' }}">
+                                    <i class="fa-solid {{ $c['icon'] }}"></i> {{ __($c['label']) }}
+                                </a>
+                            @endforeach
+                        </div>
+                    </details>
+                @endif
             @endforeach
+
             <span class="sep">{{ __('Compte') }}</span>
             @foreach($mods::enabled('account') as $m)
-                <a href="{{ url($m['url']) }}" class="{{ request()->is(ltrim($m['url'],'/').'*') ? 'on' : '' }}">
+                <a href="{{ url($m['url']) }}" class="{{ $modCourant === $m['key'] ? 'on' : '' }}">
                     <i class="fa-solid {{ $m['icon'] }}"></i> {{ __($m['label']) }}
                 </a>
             @endforeach
-            @php
-                $u = auth()->user();
-                $isSuper = false;
-                try { $isSuper = $u && method_exists($u, 'hasRole') && $u->hasRole('super_admin'); } catch (\Throwable $e) { $isSuper = false; }
-            @endphp
+
             @if($isSuper)
                 <span class="sep">{{ __('Plateforme') }}</span>
                 <a href="{{ url('/tagtoa/admin/plans') }}" class="{{ request()->is('tagtoa/admin/plans*') ? 'on' : '' }}"><i class="fa-solid fa-layer-group"></i> {{ __('Forfaits TAGTOA') }}</a>
@@ -130,20 +226,32 @@
     </aside>
 
     <div class="main">
-        <header class="top">
-            <button class="burger" onclick="document.getElementById('sb').classList.toggle('open')"><i class="fa-solid fa-bars"></i></button>
-            @unless(request()->is('tagtoa/home'))
-                <a class="home" href="{{ url('/tagtoa/home') }}" title="{{ __('Retour à l\'accueil') }}"><i class="fa-solid fa-house"></i></a>
-            @endunless
-            <h1>@yield('page', 'TAGTOA')</h1>
-            @include('tagtoa::partials.lang')
-            <span class="who">{{ optional(auth()->user())->name ?? '' }}</span>
-            @if(\Illuminate\Support\Facades\Route::has('logout'))
-                <form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf
-                    <button type="submit" title="{{ __('Se déconnecter') }}" style="background:none;border:0;cursor:pointer;color:var(--muted);font-size:16px"><i class="fa-solid fa-right-from-bracket"></i></button>
-                </form>
+        <div class="bar">
+            <header class="top">
+                <button class="burger" id="burger" type="button" aria-controls="sb" aria-expanded="false" aria-label="{{ __('Ouvrir le menu') }}"><i class="fa-solid fa-bars"></i></button>
+                @unless($estAccueil)
+                    <a class="home" href="{{ url('/tagtoa/home') }}" title="{{ __('Retour à l\'accueil') }}"><i class="fa-solid fa-house"></i></a>
+                @endunless
+                <h1>@yield('page', 'TAGTOA')</h1>
+                @include('tagtoa::partials.lang')
+                <span class="who">{{ optional($u)->name ?? '' }}</span>
+                @if(\Illuminate\Support\Facades\Route::has('logout'))
+                    <form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf
+                        <button type="submit" class="out" title="{{ __('Se déconnecter') }}"><i class="fa-solid fa-right-from-bracket"></i></button>
+                    </form>
+                @endif
+            </header>
+            @php $ecrans = $modCourant ? $mods::children($modCourant) : []; @endphp
+            @if(count($ecrans) > 1)
+                <nav class="subnav" aria-label="{{ __($mods::CATALOG[$modCourant]['label']) }}">
+                    @foreach($ecrans as $c)
+                        <a href="{{ url($c['url']) }}" class="{{ $ecranCourant === rtrim($c['url'],'/') ? 'on' : '' }}">
+                            <i class="fa-solid {{ $c['icon'] }}"></i> {{ __($c['label']) }}
+                        </a>
+                    @endforeach
+                </nav>
             @endif
-        </header>
+        </div>
         <main class="content">
             @if(session('success'))<div class="flash ok"><i class="fa-solid fa-circle-check"></i> {{ session('success') }}</div>@endif
             @if(session('error'))<div class="flash err"><i class="fa-solid fa-circle-exclamation"></i> {{ session('error') }}</div>@endif
@@ -151,6 +259,51 @@
             @yield('content')
         </main>
     </div>
+
+    <script>
+    (function () {
+        var sb = document.getElementById('sb'),
+            scrim = document.getElementById('scrim'),
+            burger = document.getElementById('burger');
+        if (!sb || !burger) return;
+
+        function ouvrir(oui) {
+            sb.classList.toggle('open', oui);
+            document.body.classList.toggle('nav-open', oui);
+            burger.setAttribute('aria-expanded', oui ? 'true' : 'false');
+            // Le voile ne doit pas intercepter les clics quand il est invisible.
+            if (scrim) scrim.hidden = !oui;
+        }
+
+        burger.addEventListener('click', function () { ouvrir(!sb.classList.contains('open')); });
+        if (scrim) scrim.addEventListener('click', function () { ouvrir(false); });
+
+        // Refermer en partant : sinon le tiroir reste ouvert par-dessus la page
+        // suivante sur les navigateurs qui restaurent l'état (bfcache).
+        sb.addEventListener('click', function (e) {
+            if (e.target.closest('a')) ouvrir(false);
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && sb.classList.contains('open')) ouvrir(false);
+        });
+
+        // Passage téléphone → bureau : la latérale redevient fixe, le verrou de
+        // défilement n'aurait plus rien à verrouiller.
+        window.addEventListener('resize', function () {
+            if (window.innerWidth > 860 && sb.classList.contains('open')) ouvrir(false);
+        });
+
+        window.addEventListener('pageshow', function () { ouvrir(false); });
+
+        // L'écran actif peut être hors champ dans la barre d'écrans : on
+        // l'amène sous les yeux plutôt que de laisser le marchand deviner.
+        var actif = document.querySelector('.subnav a.on');
+        if (actif && actif.scrollIntoView) {
+            actif.scrollIntoView({ block: 'nearest', inline: 'center' });
+        }
+    })();
+    </script>
     @stack('scripts')
 </body>
 </html>

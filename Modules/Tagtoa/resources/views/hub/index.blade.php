@@ -46,21 +46,34 @@
 
 <div class="h-row" style="margin-top:26px"><h2>{{ __('Vos outils TAGTOA') }}</h2></div>
 {{-- Même source que la barre latérale (DashboardModules) : les deux listes ne
-     peuvent plus diverger quand un module est activé ou masqué. --}}
+     peuvent plus diverger quand un module est activé ou masqué. La carte montre
+     aussi les écrans du module — c'est la promesse de la nouvelle navigation :
+     on voit ce qu'il y a DEDANS avant d'entrer. --}}
 <div class="grid g3">
     @foreach(\Modules\Tagtoa\App\Support\DashboardModules::enabled('module') as $m)
-        <a class="card" href="{{ url($m['url']) }}" style="display:block;transition:transform .12s,box-shadow .15s" onmouseover="this.style.boxShadow='0 8px 26px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow='none'">
-            <div class="ic" style="width:46px;height:46px;border-radius:12px;background:var(--blue-pale);color:var(--blue-deep);display:flex;align-items:center;justify-content:center;font-size:20px"><i class="fa-solid {{ $m['icon'] }}"></i></div>
-            <b style="font-family:var(--fh);font-size:16px;display:block;margin-top:12px">{{ __($m['label']) }}</b>
-            <p style="font-size:13.5px;color:var(--muted);margin-top:4px">{{ __($m['desc']) }}</p>
-        </a>
+        <div class="card" style="display:flex;flex-direction:column">
+            <a href="{{ url($m['url']) }}" style="display:block">
+                <div class="ic" style="width:46px;height:46px;border-radius:12px;background:var(--blue-pale);color:var(--blue-deep);display:flex;align-items:center;justify-content:center;font-size:20px"><i class="fa-solid {{ $m['icon'] }}"></i></div>
+                <b style="font-family:var(--fh);font-size:16px;display:block;margin-top:12px">{{ __($m['label']) }}</b>
+                <p style="font-size:13.5px;color:var(--muted);margin-top:4px">{{ __($m['desc']) }}</p>
+            </a>
+            @if(count($m['children']) > 1)
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--bd)">
+                    @foreach($m['children'] as $c)
+                        <a href="{{ url($c['url']) }}" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid var(--bd);font:600 12px var(--fh);color:#4a4a4a">
+                            <i class="fa-solid {{ $c['icon'] }}" style="font-size:11px"></i> {{ __($c['label']) }}
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+        </div>
     @endforeach
 </div>
 
 <div class="h-row" style="margin-top:26px"><h2>{{ __('Suivi & compte') }}</h2></div>
 <div class="grid g3">
     @foreach(\Modules\Tagtoa\App\Support\DashboardModules::enabled('account') as $m)
-        <a class="card" href="{{ url($m['url']) }}" style="display:block;transition:transform .12s,box-shadow .15s" onmouseover="this.style.boxShadow='0 8px 26px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow='none'">
+        <a class="card" href="{{ url($m['url']) }}" style="display:block">
             <div class="ic" style="width:46px;height:46px;border-radius:12px;background:var(--blue-pale);color:var(--blue-deep);display:flex;align-items:center;justify-content:center;font-size:20px"><i class="fa-solid {{ $m['icon'] }}"></i></div>
             <b style="font-family:var(--fh);font-size:16px;display:block;margin-top:12px">{{ __($m['label']) }}</b>
             <p style="font-size:13.5px;color:var(--muted);margin-top:4px">{{ __($m['desc']) }}</p>

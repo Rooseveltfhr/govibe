@@ -54,7 +54,9 @@ class DashboardModulesTest extends TestCase
             $this->assertSame('/tagtoa/'.$key, $m['url']);
             $this->assertNotEmpty($m['label']);
             $this->assertNotEmpty($m['icon']);
-            $this->assertContains($m['group'], ['module', 'account']);
+            // 'feature' : écran réel, mais atteint depuis son module parent
+            // plutôt que depuis le premier niveau (voir DashboardModules).
+            $this->assertContains($m['group'], ['module', 'account', 'feature']);
         }
     }
 
