@@ -17,7 +17,7 @@ class Product extends Model
 
     protected $table = 'tagtoa_pos_products';
 
-    protected $fillable = ['tenant_id', 'terminal_id', 'name', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'emoji', 'color', 'image_path', 'stock', 'is_active', 'sort'];
+    protected $fillable = ['tenant_id', 'terminal_id', 'name', 'description', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'emoji', 'color', 'image_path', 'stock', 'is_active', 'sort'];
 
     protected $casts = [
         'price'      => 'decimal:2',

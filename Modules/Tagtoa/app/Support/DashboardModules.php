@@ -34,7 +34,7 @@ class DashboardModules
     /** Modules mis en avant par défaut. Le reste existe mais reste discret. */
     public const DEFAULT_ENABLED = [
         'menu', 'pos', 'event', 'pay',
-        'business', 'staff', 'stands', 'inventory', 'analytics', 'customers', 'reviews', 'qr', 'plan',
+        'business', 'staff', 'stands', 'inventory', 'orders', 'analytics', 'customers', 'reviews', 'qr', 'plan',
     ];
 
     /**
@@ -96,6 +96,10 @@ class DashboardModules
         ],
 
         // --- Suivi et compte : une page chacun, pas de sous-écran ---
+        'orders' => [
+            'label' => 'Commandes', 'icon' => 'fa-receipt', 'group' => 'account',
+            'desc'  => 'Toutes vos ventes, tous canaux confondus : caisse, menu QR, billetterie, liens.',
+        ],
         'analytics' => [
             'label' => 'Analytics', 'icon' => 'fa-chart-line', 'group' => 'account',
             'desc'  => 'Revenus, ventes, visites et meilleurs produits en temps réel.',
@@ -169,6 +173,70 @@ class DashboardModules
             'desc'  => 'Traçabilité des actions sensibles : modération, finances, statuts.',
         ],
     ];
+
+    /**
+     * LA BARRE DU BAS — cinq destinations, sur tout TAGTOA.
+     *
+     * Sur un téléphone, la barre latérale est un tiroir : deux gestes pour
+     * atteindre n'importe quoi, et rien à l'écran qui dise où l'on peut aller.
+     * Les cinq endroits où un marchand retourne toute la journée méritent d'être
+     * visibles en permanence, comme dans n'importe quelle application qu'il
+     * utilise déjà.
+     *
+     * Cinq, pas six : au-delà, les libellés se coupent et les cibles passent
+     * sous le pouce. Le cinquième ouvre le reste.
+     *
+     * `match` : les préfixes d'URL qui allument l'onglet. « Commandes » s'allume
+     * aussi sur les commandes d'un menu ou d'un événement, parce que c'est bien
+     * là qu'on est.
+     */
+    public const BOTTOM = [
+        ['key' => 'home',   'label' => 'Accueil',   'icon' => 'fa-house',         'url' => '/tagtoa/home',   'match' => ['tagtoa/home']],
+        ['key' => 'pos',    'label' => 'Caisse',    'icon' => 'fa-cash-register', 'url' => '/tagtoa/pos',    'match' => ['tagtoa/pos*', 'tagtoa/inventory*', 'tagtoa/catalog*']],
+        ['key' => 'menu',   'label' => 'Menu',      'icon' => 'fa-utensils',      'url' => '/tagtoa/menu',   'match' => ['tagtoa/menu*', 'tagtoa/stands*']],
+        ['key' => 'orders', 'label' => 'Commandes', 'icon' => 'fa-receipt',       'url' => '/tagtoa/orders', 'match' => ['tagtoa/orders*']],
+        ['key' => 'more',   'label' => 'Plus',      'icon' => 'fa-ellipsis',      'url' => null,             'match' => []],
+    ];
+
+    /**
+     * Ce que « Plus » contient : tout le reste, dans l'ordre où on le cherche.
+     *
+     * Lu depuis le MÊME catalogue que la barre latérale — une liste écrite à la
+     * main ici divergerait au premier module ajouté, et le marchand se
+     * retrouverait avec un module visible d'un côté, introuvable de l'autre.
+     * Les quatre premiers onglets en sont retirés : ils sont déjà sous le pouce.
+     */
+    public static function more(): array
+    {
+        $dejaEnBas = array_column(self::BOTTOM, 'key');
+        $out = [];
+
+        foreach (self::enabled() as $key => $m) {
+            if (in_array($key, $dejaEnBas, true)) {
+                continue;
+            }
+            $out[$key] = $m;
+        }
+
+        return $out;
+    }
+
+    /** L'onglet du bas correspondant au chemin courant, ou null. */
+    public static function bottomActive(string $path): ?string
+    {
+        $path = trim($path, '/');
+
+        foreach (self::BOTTOM as $tab) {
+            foreach ($tab['match'] as $motif) {
+                $regex = '#^'.str_replace('\*', '.*', preg_quote($motif, '#')).'$#';
+                if (preg_match($regex, $path)) {
+                    return $tab['key'];
+                }
+            }
+        }
+
+        return null;
+    }
 
     /** Clés activées (config si dispo, sinon la valeur par défaut). */
     public static function enabledKeys(): array

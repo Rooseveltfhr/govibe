@@ -341,6 +341,148 @@ class PosProductFormTest extends TestCase
             ->assertSee('Prestige');
     }
 
+    public function test_a_saved_article_leaves_the_form_and_joins_the_numbered_list(): void
+    {
+        // Tant qu'un article reste dans la zone de saisie, on ne sait pas s'il
+        // est acquis. Il doit quitter le formulaire et apparaître dans « Vos
+        // articles », numéroté — c'est le numéro qui dit « celui-ci est à toi ».
+        $this->patron();
+        $caisse = $this->caisse();
+
+        foreach (['Riz', 'Coca', 'Griot'] as $nom) {
+            $this->post(route('tagtoa.pos.products.add', $caisse->id), ['name' => $nom, 'price' => 50]);
+        }
+
+        $html = $this->get(route('tagtoa.pos.products', $caisse->id))->assertOk()->getContent();
+
+        // Les trois y sont, numérotés.
+        foreach ([1, 2, 3] as $n) {
+            $this->assertStringContainsString('<span class="num">'.$n.'</span>', $html);
+        }
+
+        // Et le champ d'ajout est VIDE : rien d'un article déjà enregistré n'y
+        // traîne, sinon on croirait devoir l'enregistrer une seconde fois.
+        $this->assertStringContainsString('id="aName" name="name" required maxlength="120" autofocus', $html);
+    }
+
+    public function test_each_article_carries_its_own_edit_menu(): void
+    {
+        // Modifier se DEMANDE, par les trois points : un formulaire ouvert en
+        // permanence sur chaque ligne, c'est ce qui rendait l'écran illisible.
+        $this->patron();
+        $caisse = $this->caisse();
+        $this->post(route('tagtoa.pos.products.add', $caisse->id), ['name' => 'Coca', 'price' => 75]);
+
+        $this->get(route('tagtoa.pos.products', $caisse->id))->assertOk()
+            ->assertSee('class="kebab"', false)
+            ->assertSee(__('Modifier'))
+            ->assertSee(__('Supprimer'))
+            ->assertSee(__('Retirer de la vente'));
+    }
+
+    public function test_the_screen_no_longer_asks_for_an_emoji(): void
+    {
+        // L'emoji se dessine autrement sur chaque téléphone et tombe en carré
+        // blanc sur beaucoup d'Android bon marché. La photo le remplace.
+        $this->patron();
+        $caisse = $this->caisse();
+        $this->post(route('tagtoa.pos.products.add', $caisse->id), ['name' => 'Coca', 'price' => 75]);
+
+        $html = $this->get(route('tagtoa.pos.products', $caisse->id))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('name="emoji"', $html);
+        $this->assertStringNotContainsString('[emoji]', $html);
+        $this->assertStringNotContainsString('🍔', $html);
+    }
+
+    public function test_an_article_without_a_photo_shows_its_initial(): void
+    {
+        $this->patron();
+        $caisse = $this->caisse();
+        $this->post(route('tagtoa.pos.products.add', $caisse->id), ['name' => 'Zoranj', 'price' => 50]);
+
+        $this->get(route('tagtoa.pos.products', $caisse->id))->assertOk()->assertSee('Z');
+    }
+
+    public function test_taking_an_article_off_sale_keeps_everything_else(): void
+    {
+        // Le menu « Retirer de la vente » n'envoie que l'identifiant. S'il
+        // passait par le chemin ordinaire, tous les champs absents seraient
+        // écrits à vide : retirer un article effacerait son prix et son stock.
+        Storage::fake('public');
+        $this->patron();
+        $caisse = $this->caisse();
+
+        $this->post(route('tagtoa.pos.products.add', $caisse->id), [
+            'name' => 'Prestige', 'price' => 150, 'stock' => 24, 'sku' => 'PR-1',
+            'image' => UploadedFile::fake()->image('b.jpg'),
+        ]);
+        $biere = Product::where('name', 'Prestige')->firstOrFail();
+
+        $this->post(route('tagtoa.pos.products.save', $caisse->id), [
+            'products' => [['id' => $biere->id, 'toggle_active' => 1]],
+            'form_end' => 1,
+        ])->assertRedirect();
+
+        $biere->refresh();
+        $this->assertFalse((bool) $biere->is_active);
+        $this->assertEquals(150.0, (float) $biere->price, 'Le prix ne doit pas être effacé.');
+        $this->assertSame(24.0, $biere->stock);
+        $this->assertSame('PR-1', $biere->sku);
+        $this->assertNotNull($biere->image_path, 'La photo ne doit pas être effacée.');
+    }
+
+    public function test_putting_it_back_on_sale_uses_the_same_action(): void
+    {
+        $this->patron();
+        $caisse = $this->caisse();
+        $this->post(route('tagtoa.pos.products.add', $caisse->id), ['name' => 'Coca', 'price' => 75]);
+        $coca = Product::where('name', 'Coca')->firstOrFail();
+
+        $bascule = fn () => $this->post(route('tagtoa.pos.products.save', $caisse->id), [
+            'products' => [['id' => $coca->id, 'toggle_active' => 1]], 'form_end' => 1,
+        ]);
+
+        $bascule();
+        $this->assertFalse((bool) $coca->refresh()->is_active);
+
+        $bascule();
+        $this->assertTrue((bool) $coca->refresh()->is_active);
+    }
+
+    public function test_the_toggle_never_reaches_the_neighbour_s_catalogue(): void
+    {
+        // L'identifiant vient du navigateur : sans cloisonnement, on éteindrait
+        // la vente d'un article d'un autre commerce.
+        $this->patron('t-1');
+        $autre = Terminal::create(['tenant_id' => 't-2', 'name' => 'Voisin', 'currency' => 'HTG', 'is_active' => true]);
+        $this->be(new GenericUser(['id' => 2, 'tenant_id' => 't-2']));
+        $this->post(route('tagtoa.pos.products.add', $autre->id), ['name' => 'Chez lui', 'price' => 10]);
+        $sien = Product::withoutGlobalScopes()->where('name', 'Chez lui')->firstOrFail();
+
+        $this->patron('t-1');
+        $this->post(route('tagtoa.pos.products.save', $this->caisse()->id), [
+            'products' => [['id' => $sien->id, 'toggle_active' => 1]], 'form_end' => 1,
+        ])->assertRedirect();
+
+        $this->assertTrue((bool) Product::withoutGlobalScopes()->find($sien->id)->is_active,
+            'Un article d\'un autre commerce ne doit pas changer d\'état.');
+    }
+
+    public function test_an_article_can_carry_a_short_description(): void
+    {
+        // La carte produit montre deux lignes sous le titre : sans description,
+        // ce n'est qu'un prix posé sous une photo.
+        $this->patron();
+
+        $this->post(route('tagtoa.pos.products.add', $this->caisse()->id), [
+            'name' => 'Griot', 'price' => 350, 'description' => 'Servi avec bananes pesées.',
+        ])->assertRedirect();
+
+        $this->assertSame('Servi avec bananes pesées.',
+            Product::where('name', 'Griot')->firstOrFail()->description);
+    }
+
     public function test_the_screen_carries_the_sentinel_when_there_is_something_to_save(): void
     {
         // Sans elle dans la VUE, la garde du contrôleur refuserait tous les

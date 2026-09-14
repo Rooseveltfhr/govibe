@@ -120,6 +120,40 @@
         .switch input:checked{background:var(--blue)}
         .switch input::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform .2s}
         .switch input:checked::after{transform:translateX(18px)}
+        /* ── La barre du bas : cinq destinations, toujours sous le pouce ──
+           Sur un téléphone, le tiroir latéral demande deux gestes et n'affiche
+           rien qui dise où l'on peut aller. Les cinq endroits où un marchand
+           retourne toute la journée restent donc visibles en permanence. */
+        .tabs{display:none;position:fixed;left:0;right:0;bottom:0;z-index:44;
+              background:rgba(255,255,255,.94);backdrop-filter:blur(14px);
+              border-top:1px solid var(--bd);
+              padding-bottom:env(safe-area-inset-bottom)}
+        .tabs>div{display:grid;grid-template-columns:repeat(5,1fr);max-width:640px;margin:0 auto}
+        .tabs a,.tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;
+              gap:3px;padding:8px 2px 7px;background:none;border:0;cursor:pointer;
+              color:var(--muted);font:600 10.5px var(--fh);min-height:54px;
+              -webkit-tap-highlight-color:transparent}
+        .tabs i{font-size:18px;line-height:1}
+        .tabs .on{color:var(--blue-deep)}
+        /* Le repère d'onglet actif : une barre courte au-dessus de l'icône, pas
+           un fond plein — un fond plein sur cinq onglets fait une mosaïque. */
+        .tabs .on::before{content:"";position:absolute;top:0;width:30px;height:3px;
+              border-radius:0 0 3px 3px;background:var(--blue)}
+        .tabs a,.tabs button{position:relative}
+        /* La feuille « Plus » : tout le reste, à portée de pouce. */
+        .sheet-more{position:fixed;inset:0;z-index:70;display:none}
+        .sheet-more.open{display:block}
+        .sheet-more .fond{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+        .sheet-more .panneau{position:absolute;left:0;right:0;bottom:0;background:var(--surface);
+              border-radius:20px 20px 0 0;padding:8px 16px calc(20px + env(safe-area-inset-bottom));
+              max-height:80vh;overflow-y:auto;box-shadow:0 -10px 40px rgba(0,0,0,.2)}
+        .sheet-more .poignee{width:40px;height:4px;border-radius:2px;background:var(--bd);margin:8px auto 14px}
+        .sheet-more h3{font-family:var(--ft);font-weight:400;font-size:19px;margin-bottom:12px}
+        .sheet-more .liste{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px}
+        .sheet-more .liste a{display:flex;flex-direction:column;align-items:center;gap:7px;
+              padding:14px 6px;border-radius:14px;border:1px solid var(--bd);
+              font:600 12px var(--fh);text-align:center;color:var(--blk);background:#fff}
+        .sheet-more .liste a i{font-size:19px;color:var(--blue-deep)}
         /* ── Tablette ──────────────────────────────────────────────────── */
         @media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}}
         /* ── Téléphone : la latérale devient un tiroir ─────────────────── */
@@ -132,6 +166,10 @@
             body.nav-open{overflow:hidden}
             body.nav-open .scrim{opacity:1;pointer-events:auto}
             .g3,.g2{grid-template-columns:1fr}
+            .tabs{display:block}
+            /* La barre recouvre 54px : sans cette réserve, le dernier bouton de
+               chaque page se retrouve dessous et devient inatteignable. */
+            .content{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
         }
         @media(max-width:640px){
             .top{padding:11px 16px;gap:8px}
@@ -260,6 +298,44 @@
         </main>
     </div>
 
+    @php $ongletActif = $mods::bottomActive(request()->path()); @endphp
+    <nav class="tabs" aria-label="{{ __('Navigation principale') }}">
+        <div>
+            @foreach($mods::BOTTOM as $t)
+                @if($t['key'] === 'more')
+                    <button type="button" id="moreBtn" aria-haspopup="dialog" aria-expanded="false">
+                        <i class="fa-solid {{ $t['icon'] }}"></i>{{ __($t['label']) }}
+                    </button>
+                @else
+                    <a href="{{ url($t['url']) }}" class="{{ $ongletActif === $t['key'] ? 'on' : '' }}"
+                       @if($ongletActif === $t['key']) aria-current="page" @endif>
+                        <i class="fa-solid {{ $t['icon'] }}"></i>{{ __($t['label']) }}
+                    </a>
+                @endif
+            @endforeach
+        </div>
+    </nav>
+
+    <div class="sheet-more" id="sheetMore" role="dialog" aria-modal="true" aria-label="{{ __('Tout TAGTOA') }}">
+        <div class="fond" data-fermer></div>
+        <div class="panneau">
+            <div class="poignee"></div>
+            <h3>{{ __('Tout TAGTOA') }}</h3>
+            {{-- Lu depuis le MÊME catalogue que la barre latérale : une liste
+                 écrite à la main ici divergerait au premier module ajouté. --}}
+            <div class="liste">
+                @foreach($mods::more() as $m)
+                    <a href="{{ url($m['url']) }}">
+                        <i class="fa-solid {{ $m['icon'] }}"></i>{{ __($m['label']) }}
+                    </a>
+                @endforeach
+                @if($isSuper)
+                    <a href="{{ url('/sadmin/dashboard') }}"><i class="fa-solid fa-shield-halved"></i>{{ __('Super Admin') }}</a>
+                @endif
+            </div>
+        </div>
+    </div>
+
     <script>
     (function () {
         var sb = document.getElementById('sb'),
@@ -295,6 +371,31 @@
         });
 
         window.addEventListener('pageshow', function () { ouvrir(false); });
+
+        // La feuille « Plus » : même règles que le tiroir — voile qui ferme,
+        // Échap qui ferme, défilement de fond bloqué.
+        var feuille = document.getElementById('sheetMore'),
+            moreBtn = document.getElementById('moreBtn');
+
+        function feuilleOuvrir(oui) {
+            if (!feuille) return;
+            feuille.classList.toggle('open', oui);
+            document.body.classList.toggle('nav-open', oui);
+            if (moreBtn) moreBtn.setAttribute('aria-expanded', oui ? 'true' : 'false');
+        }
+
+        if (moreBtn) moreBtn.addEventListener('click', function () {
+            feuilleOuvrir(!feuille.classList.contains('open'));
+        });
+        if (feuille) feuille.addEventListener('click', function (e) {
+            // Un lien ferme aussi : sinon la feuille reste par-dessus la page
+            // suivante sur les navigateurs qui restaurent l'état.
+            if (e.target.closest('[data-fermer]') || e.target.closest('a')) feuilleOuvrir(false);
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && feuille && feuille.classList.contains('open')) feuilleOuvrir(false);
+        });
+        window.addEventListener('pageshow', function () { feuilleOuvrir(false); });
 
         // L'écran actif peut être hors champ dans la barre d'écrans : on
         // l'amène sous les yeux plutôt que de laisser le marchand deviner.

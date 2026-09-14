@@ -200,6 +200,9 @@ class PosController extends Controller
 
         $data = $request->validate([
             'name'                => ['required', 'string', 'max:120'],
+            // Courte à dessein : deux lignes sur la carte produit, pas un
+            // paragraphe qui pousserait le prix hors de l'écran.
+            'description'         => ['nullable', 'string', 'max:160'],
             'price'               => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'stock'               => ['nullable', 'numeric', 'min:-999999', 'max:999999999'],
             'cost_price'          => ['nullable', 'numeric', 'min:0', 'max:99999999'],
@@ -217,6 +220,7 @@ class PosController extends Controller
 
         $attrs = [
             'name'                => $data['name'],
+            'description'         => trim((string) ($data['description'] ?? '')) ?: null,
             'price'               => (float) ($data['price'] ?? 0),
             'emoji'               => $data['emoji'] ?? null,
             'color'               => $data['color'] ?? '#2cb809',
@@ -278,6 +282,8 @@ class PosController extends Controller
         $request->validate([
             'products'                       => ['array', 'max:500'],
             'products.*.name'                => ['nullable', 'string', 'max:120'],
+            'products.*.description'         => ['nullable', 'string', 'max:160'],
+            'products.*.toggle_active'       => ['nullable', 'boolean'],
             'products.*.price'               => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'products.*.cost_price'          => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'products.*.stock'               => ['nullable', 'numeric', 'min:-999999', 'max:999999999'],
@@ -293,11 +299,28 @@ class PosController extends Controller
 
         $keep = [];
         foreach ($request->input('products', []) as $i => $row) {
+            // BASCULER LA MISE EN VENTE — une action à part, pas un
+            // enregistrement complet, et contrôlée AVANT l'exigence d'un nom.
+            //
+            // Le menu « Retirer de la vente » n'envoie que l'identifiant. S'il
+            // passait par le chemin ordinaire, tous les champs absents seraient
+            // écrits à vide : retirer un article de la vente effacerait son
+            // prix, son stock et sa photo.
+            if (! empty($row['toggle_active'])) {
+                $p = app(PosCatalog::class)->find($terminal->tenant_id, (int) ($row['id'] ?? 0));
+                if ($p) {
+                    $p->forceFill(['is_active' => ! $p->is_active])->save();
+                }
+                continue;
+            }
+
             if (empty($row['name'])) {
                 continue;
             }
+
             $attrs = [
                 'name'      => $row['name'],
+                'description' => trim((string) ($row['description'] ?? '')) ?: null,
                 'price'     => (float) ($row['price'] ?? 0),
                 'emoji'     => $row['emoji'] ?? null,
                 'color'     => $row['color'] ?? '#2cb809',
