@@ -2,244 +2,421 @@
 @section('title', __('Produits'))
 @section('page', $terminal->name.' — '.__('Produits'))
 
+@push('head')
+<style>
+/* Saisie DENSE. Le formulaire d'origine posait un cadre autour de chaque champ
+   et une étiquette au-dessus : sur un téléphone, « Prix d'achat », « Unité » et
+   « Alerte sous » prenaient chacun une ligne entière pour trois caractères.
+   Ici les champs se rangent en grille et remplissent la largeur disponible. */
+/* [hidden] AVANT tout le reste : une règle d'affichage explicite (display:grid
+   ici) l'emporte sur le display:none que le navigateur applique à l'attribut.
+   Sans cette ligne, les volets « plus de détails » s'affichent tous, dépliés,
+   dès l'ouverture — exactement ce que ce volet devait éviter. */
+[hidden]{display:none!important}
+.pf{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px 7px;align-items:end}
+.pf .w2{grid-column:span 2}
+.pf label{display:block;font:600 11px var(--fh);color:var(--muted);margin-bottom:3px;
+          text-transform:uppercase;letter-spacing:.04em}
+/* Champ compact : moins de rembourrage, moins de rayon, une seule bordure. */
+.ic{width:100%;padding:9px 11px;border:1.5px solid var(--bd);border-radius:9px;
+    font:14.5px var(--fb);background:#fff;min-width:0}
+.ic:focus{outline:0;border-color:var(--blue)}
+select.ic{padding:8px 8px}
+/* La vignette : photo si elle existe, sinon emoji sur la couleur du bouton.
+   Cliquer dessus ouvre la galerie — pas de champ « choisir un fichier » qui
+   prendrait une ligne pour lui seul. */
+.vig{position:relative;width:56px;height:56px;border-radius:11px;overflow:hidden;flex:0 0 auto;
+     border:1.5px solid var(--bd);display:flex;align-items:center;justify-content:center;
+     font-size:24px;cursor:pointer;background:#fafafa}
+.vig img{width:100%;height:100%;object-fit:cover}
+.vig input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.vig .cam{position:absolute;right:2px;bottom:2px;background:rgba(0,0,0,.6);color:#fff;
+          border-radius:6px;font-size:9px;padding:1px 4px;pointer-events:none}
+/* Une ligne d'article : un filet de séparation, pas un cadre. */
+.art{display:flex;gap:10px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--bd)}
+.art:first-child{border-top:0}
+.art .corps{flex:1;min-width:0}
+.art .act{display:flex;gap:4px;flex:0 0 auto}
+.ib{background:none;border:0;cursor:pointer;color:var(--muted);padding:7px 8px;border-radius:8px;font-size:14px}
+.ib:hover{background:rgba(0,0,0,.05);color:var(--blk)}
+.ib.rouge:hover{background:#fdecea;color:var(--red)}
+.chk{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--fh);color:var(--muted);white-space:nowrap}
+/* Deux champs sur la même ligne, au même endroit, plutôt qu'un seul :
+   « Emoji » et « Couleur » ne méritent pas une ligne chacun. */
+.duo{display:flex;gap:6px}
+.duo>*{flex:1;min-width:0}
+.duo input[type=color]{flex:0 0 46px}
+@media(max-width:560px){
+    /* Les trois boutons d'action prenaient une centaine de pixels EN LARGEUR
+       sur la ligne de l'article — c'est-à-dire la moitié de la place des
+       champs, qui retombaient alors à une colonne. Empilés, ils en prennent
+       trente-quatre et la grille reprend ses deux colonnes. */
+    .art .act{flex-direction:column;gap:2px}
+    .vig{width:44px;height:44px;font-size:18px}
+    .art{gap:8px}
+}
+</style>
+@endpush
+
 @section('content')
 <div class="h-row">
     <a href="{{ route('tagtoa.pos.index') }}" style="color:var(--muted);font-size:14px"><i class="fa-solid fa-arrow-left"></i> {{ __('Retour') }}</a>
     <span style="flex:1"></span>
     <a href="{{ route('tagtoa.pos.register',$terminal->id) }}" class="btn btn-d btn-sm"><i class="fa-solid fa-cash-register"></i> {{ __('Ouvrir caisse') }}</a>
 </div>
-<form method="POST" action="{{ route('tagtoa.pos.products.save',$terminal->id) }}">
+
+{{-- ══ AJOUTER ═══════════════════════════════════════════════════════════
+     Un article, enregistré tout de suite. L'écran empilait auparavant des
+     lignes vides qu'il fallait penser à enregistrer à la fin : on en scannait
+     cinq, le téléphone se verrouillait, tout était perdu. Ici chaque article
+     est acquis au moment où il apparaît dans la liste en dessous. --}}
+<form method="POST" action="{{ route('tagtoa.pos.products.add',$terminal->id) }}"
+      enctype="multipart/form-data" class="card" id="fadd">
     @csrf
-    <div class="card">
-        <p style="color:var(--muted);font-size:13px;margin:-4px 0 10px">
-            <i class="fa-solid fa-circle-info"></i>
-            {{ __('Ce catalogue est celui du commerce : toutes vos caisses y vendent les mêmes articles.') }}
-            {{ __('Enregistrer ne supprime jamais un article — décochez pour le retirer de la vente, ou utilisez la corbeille.') }}
-        </p>
-        <button type="button" class="btn btn-d btn-sm" onclick="addP()"><i class="fa-solid fa-plus"></i> {{ __('Ajouter un produit') }}</button>
-        {{-- Scanner pour créer : le code inconnu devient un article, et
-             l'article se revend ensuite en le scannant. La boucle est fermée
-             sans jamais taper un chiffre. --}}
+    <div class="h-row" style="margin-bottom:12px">
+        <h2>{{ __('Ajouter un article') }}</h2>
         <button type="button" class="btn btn-o btn-sm" id="scanBtn">
-            <i class="fa-solid fa-barcode"></i> {{ __('Scanner un produit') }}
+            <i class="fa-solid fa-barcode"></i> {{ __('Scanner') }}
         </button>
-        <p id="scanmsg" style="font-size:13px;margin-top:8px"></p>
-        <div id="plist" style="margin-top:12px"></div>
     </div>
-    <button class="btn btn-p"><i class="fa-solid fa-floppy-disk"></i> {{ __('Enregistrer') }}</button>
+
+    <div style="display:flex;gap:10px;align-items:flex-start">
+        <label class="vig" id="vigAdd" title="{{ __('Photo de l\'article') }}">
+            <span id="vigEmoji">🍔</span>
+            <img id="vigImg" hidden alt="">
+            <span class="cam"><i class="fa-solid fa-camera"></i></span>
+            <input type="file" name="image" accept="image/*" id="imgAdd">
+        </label>
+
+        <div class="corps" style="flex:1;min-width:0">
+            {{-- Pas d'étiquette au-dessus de ces quatre-là : le texte d'invite
+                 dit déjà ce qu'on attend, et une étiquette par champ coûtait
+                 dix-sept pixels de hauteur pour ne rien apprendre. --}}
+            <div class="pf">
+                <input class="ic w2" id="aName" name="name" required maxlength="120" autofocus
+                       placeholder="{{ __('Nom de l\'article') }}" aria-label="{{ __('Nom') }}">
+                <input class="ic" id="aPrice" name="price" type="number" step="0.01" min="0"
+                       placeholder="{{ __('Prix') }}" aria-label="{{ __('Prix de vente') }}">
+                <input class="ic" id="aStock" name="stock" type="number" step="0.001"
+                       placeholder="{{ __('Stock') }}" aria-label="{{ __('Stock') }}">
+            </div>
+
+            {{-- Volet gestion : replié. Un marchand qui veut seulement une
+                 grille de boutons ne doit pas le subir ; celui qui veut savoir
+                 ce qu'il gagne le déplie une fois. --}}
+            <div class="pf" id="addPlus" hidden style="margin-top:10px">
+                <div>
+                    <label for="aUnit">{{ __('Unité') }}</label>
+                    {{-- Repliée avec le reste : la très grande majorité des
+                         articles se vend à la pièce, qui est la valeur par
+                         défaut. Celui qui vend au poids l'ouvre une fois. --}}
+                    <select class="ic" id="aUnit" name="unit">
+                        @foreach (\Modules\Tagtoa\App\Support\Catalog\Pricing::UNITS as $cle => $u)
+                            <option value="{{ $cle }}">{{ __($u['label']) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="aCost">{{ __('Prix d\'achat') }}</label>
+                    <input class="ic" id="aCost" name="cost_price" type="number" step="0.01" min="0" placeholder="—">
+                </div>
+                <div>
+                    <label for="aSeuil">{{ __('Alerte sous') }}</label>
+                    <input class="ic" id="aSeuil" name="low_stock_threshold" type="number" step="0.001" min="0" placeholder="5">
+                </div>
+                <div>
+                    <label for="aSku">{{ __('Référence') }}</label>
+                    <input class="ic" id="aSku" name="sku" maxlength="60" placeholder="SKU">
+                </div>
+                <div>
+                    <label for="aFour">{{ __('Fournisseur') }}</label>
+                    <select class="ic" id="aFour" name="supplier_id">
+                        <option value="">—</option>
+                        @foreach($suppliers as $f)<option value="{{ $f->id }}">{{ $f->name }}</option>@endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="aEmoji">{{ __('Bouton') }}</label>
+                    <div class="duo">
+                        <input class="ic" id="aEmoji" name="emoji" maxlength="16" placeholder="🍔">
+                        <input class="ic" name="color" type="color" value="#2cb809"
+                               style="height:38px;padding:3px" aria-label="{{ __('Couleur') }}">
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
+                <button class="btn btn-p"><i class="fa-solid fa-plus"></i> {{ __('Ajouter') }}</button>
+                <button type="button" class="btn btn-o btn-sm" id="plusBtn">
+                    <i class="fa-solid fa-sliders"></i> {{ __('Plus de détails') }}
+                </button>
+                <span id="scanmsg" style="font-size:13px"></span>
+                <span id="codePose" style="font-size:12.5px;color:#1a7a05;font-family:monospace"></span>
+            </div>
+            <input type="hidden" name="new_code" id="aCode">
+        </div>
+    </div>
 </form>
 
-<template id="ptpl">
-    <div class="prow" style="border:1px solid var(--bd);border-radius:10px;padding:8px;margin-bottom:8px">
-        {{-- Ligne rapide : ce qu'il faut pour vendre. --}}
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input name="products[IDX][emoji]" class="inp" placeholder="🍔" style="max-width:64px">
-            <input name="products[IDX][name]" class="inp" placeholder="{{ __('Nom') }}" style="max-width:170px">
-            <input name="products[IDX][price]" type="number" step="0.01" min="0" class="inp" placeholder="{{ __('Prix vente') }}" style="max-width:110px">
-            {{-- Stock décimal : 2,5 livres de riz est une quantité réelle. --}}
-            <input name="products[IDX][stock]" type="number" step="0.001" class="inp" placeholder="{{ __('Stock') }}" style="max-width:90px">
-            <input name="products[IDX][color]" type="color" value="#2cb809" style="width:42px;height:42px;border:1px solid var(--bd);border-radius:8px">
-            <label class="switch" style="flex:0"><input type="checkbox" name="products[IDX][is_active]" value="1" checked></label>
-            <button type="button" class="btn btn-o btn-sm togdet" style="flex:0"
-                    title="{{ __('Prix d\'achat, unité, seuil') }}"><i class="fa-solid fa-sliders"></i></button>
-            <button type="button" class="btn btn-o btn-sm delrow" style="flex:0;color:var(--red)"
-                    title="{{ __('Supprimer du catalogue') }}"><i class="fa-solid fa-trash"></i></button>
+{{-- ══ LES ARTICLES DÉJÀ AU CATALOGUE ════════════════════════════════════ --}}
+<form method="POST" action="{{ route('tagtoa.pos.products.save',$terminal->id) }}"
+      enctype="multipart/form-data" class="card" id="fedit">
+    @csrf
+    <div class="h-row">
+        <h2>{{ __('Vos articles') }} <span style="color:var(--muted);font-weight:400">({{ $terminal->products->count() }})</span></h2>
+        @if($terminal->products->isNotEmpty())
+            <button class="btn btn-p btn-sm"><i class="fa-solid fa-floppy-disk"></i> {{ __('Enregistrer') }}</button>
+        @endif
+    </div>
+
+    <p style="color:var(--muted);font-size:12.5px;margin:-6px 0 4px">
+        <i class="fa-solid fa-circle-info"></i>
+        {{ __('Catalogue du commerce : toutes vos caisses y vendent les mêmes articles.') }}
+        {{ __('Enregistrer ne supprime jamais — décochez pour retirer de la vente.') }}
+    </p>
+
+    @forelse($terminal->products as $i => $p)
+    <div class="art" data-ref="pos:{{ $p->id }}">
+        <input type="hidden" name="products[{{ $i }}][id]" value="{{ $p->id }}">
+        <input type="hidden" name="products[{{ $i }}][sort]" value="{{ $p->sort }}">
+
+        <label class="vig" title="{{ __('Changer la photo') }}"
+               style="{{ $p->image_url ? '' : 'background:'.$p->color }}">
+            @if($p->image_url)
+                <img src="{{ $p->image_url }}" alt="{{ $p->name }}">
+            @else
+                <span>{{ $p->emoji ?: '🛒' }}</span>
+            @endif
+            <span class="cam"><i class="fa-solid fa-camera"></i></span>
+            <input type="file" name="products[{{ $i }}][image]" accept="image/*" class="fimg">
+        </label>
+
+        <div class="corps">
+            <div class="pf">
+                <input class="ic w2" name="products[{{ $i }}][name]" value="{{ $p->name }}" maxlength="120"
+                       aria-label="{{ __('Nom') }}">
+                <input class="ic pv" name="products[{{ $i }}][price]" type="number" step="0.01" min="0"
+                       value="{{ $p->price }}" placeholder="{{ __('Prix') }}" aria-label="{{ __('Prix de vente') }}">
+                <input class="ic" name="products[{{ $i }}][stock]" type="number" step="0.001"
+                       value="{{ $p->stock }}" placeholder="{{ __('Stock') }}" aria-label="{{ __('Stock') }}">
+            </div>
+
+            <div class="pf plus" hidden style="margin-top:8px">
+                <div>
+                    <label>{{ __('Prix d\'achat') }}</label>
+                    <input class="ic pa" name="products[{{ $i }}][cost_price]" type="number" step="0.01" min="0" value="{{ $p->cost_price }}" placeholder="—">
+                </div>
+                <div>
+                    <label>{{ __('Unité') }}</label>
+                    <select class="ic" name="products[{{ $i }}][unit]">
+                        @foreach (\Modules\Tagtoa\App\Support\Catalog\Pricing::UNITS as $cle => $u)
+                            <option value="{{ $cle }}" @selected($p->unit_key === $cle)>{{ __($u['label']) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label>{{ __('Alerte sous') }}</label>
+                    <input class="ic" name="products[{{ $i }}][low_stock_threshold]" type="number" step="0.001" min="0" value="{{ $p->low_stock_threshold }}" placeholder="5">
+                </div>
+                <div>
+                    <label>{{ __('Référence') }}</label>
+                    <input class="ic" name="products[{{ $i }}][sku]" value="{{ $p->sku }}" maxlength="60">
+                </div>
+                <div>
+                    <label>{{ __('Fournisseur') }}</label>
+                    <select class="ic" name="products[{{ $i }}][supplier_id]">
+                        <option value="">—</option>
+                        @foreach($suppliers as $f)
+                            <option value="{{ $f->id }}" @selected($p->supplier_id === $f->id)>{{ $f->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label>{{ __('Bouton') }}</label>
+                    <div class="duo">
+                        <input class="ic" name="products[{{ $i }}][emoji]" value="{{ $p->emoji }}" maxlength="16" placeholder="🍔">
+                        <input class="ic" name="products[{{ $i }}][color]" type="color"
+                               value="{{ $p->color ?: '#2cb809' }}" style="height:38px;padding:3px"
+                               aria-label="{{ __('Couleur') }}">
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                    <a class="btn btn-o btn-sm" href="{{ route('tagtoa.catalog.codes.index') }}?ref=pos:{{ $p->id }}">
+                        <i class="fa-solid fa-barcode"></i> {{ __('Codes-barres') }}
+                    </a>
+                    @if($p->image_url)
+                        <label class="chk"><input type="checkbox" name="products[{{ $i }}][remove_image]" value="1"> {{ __('Retirer la photo') }}</label>
+                    @endif
+                    <span class="marge" style="font-size:12px;color:var(--muted)"></span>
+                </div>
+            </div>
         </div>
 
-        {{-- Volet gestion : replié par défaut. Un marchand qui veut seulement
-             une grille de boutons ne doit pas le subir ; celui qui veut savoir
-             ce qu'il gagne le déplie une fois et n'y revient plus. --}}
-        <div class="pdet" hidden style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)">
-            <label style="font-size:12px;color:var(--muted)">{{ __('Prix d\'achat') }}
-                <input name="products[IDX][cost_price]" type="number" step="0.01" min="0" class="inp" placeholder="{{ __('non renseigné') }}" style="max-width:120px">
+        <div class="act">
+            <label class="chk" title="{{ __('En vente') }}">
+                <input type="checkbox" name="products[{{ $i }}][is_active]" value="1" @checked($p->is_active)>
             </label>
-            <label style="font-size:12px;color:var(--muted)">{{ __('Unité') }}
-                <select name="products[IDX][unit]" class="inp" style="max-width:130px">
-                    @foreach (\Modules\Tagtoa\App\Support\Catalog\Pricing::UNITS as $cle => $u)
-                        <option value="{{ $cle }}">{{ __($u['label']) }}</option>
-                    @endforeach
-                </select>
-            </label>
-            <label style="font-size:12px;color:var(--muted)">{{ __('Alerte sous') }}
-                <input name="products[IDX][low_stock_threshold]" type="number" step="0.001" min="0" class="inp" placeholder="5" style="max-width:100px">
-            </label>
-            <label style="font-size:12px;color:var(--muted)">{{ __('Référence (SKU)') }}
-                <input name="products[IDX][sku]" class="inp" maxlength="60" style="max-width:140px">
-            </label>
-            {{-- Chez qui on rachète cet article : pré-rempli au moment de
-                 saisir une réception dans l'écran Stock. --}}
-            <label style="font-size:12px;color:var(--muted)">{{ __('Fournisseur') }}
-                <select name="products[IDX][supplier_id]" class="inp" style="max-width:170px">
-                    <option value="">—</option>
-                    @foreach($suppliers as $f)
-                        <option value="{{ $f->id }}">{{ $f->name }}</option>
-                    @endforeach
-                </select>
-            </label>
-            {{-- Les codes-barres de l'article : n'apparaît qu'une fois
-                 l'article enregistré, puisqu'un code se rattache à quelque
-                 chose qui existe. --}}
-            <a class="btn btn-o btn-sm lienCodes" hidden style="align-self:flex-end">
-                <i class="fa-solid fa-barcode"></i> {{ __('Codes-barres') }}
-            </a>
-            <span class="nouveauCode" style="font-size:12px;color:#1a7a05;font-family:monospace;align-self:flex-end;padding-bottom:8px"></span>
-            <span class="marge" style="font-size:12px;color:var(--muted);align-self:flex-end;padding-bottom:8px"></span>
+            <button type="button" class="ib togplus" title="{{ __('Plus de détails') }}"><i class="fa-solid fa-sliders"></i></button>
+            <button type="button" class="ib rouge delrow" data-id="{{ $p->id }}" data-nom="{{ $p->name }}"
+                    title="{{ __('Supprimer du catalogue') }}"><i class="fa-solid fa-trash"></i></button>
         </div>
     </div>
-</template>
+    @empty
+        <div class="empty" style="padding:30px 16px">
+            <i class="fa-solid fa-box-open"></i>
+            {{ __('Aucun article. Ajoutez le premier ci-dessus, ou scannez-le.') }}
+        </div>
+    @endforelse
+
+    {{-- SENTINELLE — posée en DERNIER, volontairement.
+         Au-delà de max_input_vars, PHP coupe l'envoi sans un mot. Si ce champ
+         n'arrive pas, c'est que la fin de la liste n'est pas arrivée non plus,
+         et le contrôleur refuse d'enregistrer un envoi amputé. --}}
+    @if($terminal->products->isNotEmpty())
+        <input type="hidden" name="form_end" value="1">
+    @endif
+</form>
+
 {{-- Supprimer est un acte à part, jamais un effet de bord de l'enregistrement. --}}
 <form id="delform" method="POST" style="display:none">@csrf @method('DELETE')</form>
+@endsection
 
 @push('scripts')
 <script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}" defer></script>
 <script src="{{ route('tagtoa.asset', 'tagtoa-scanner.js') }}" defer></script>
 <script>
-var DEL_URL = "{{ url('/tagtoa/pos/'.$terminal->id.'/products') }}";
-var CODES_URL = "{{ route('tagtoa.catalog.codes.index') }}";
-var pIdx=0;
+window.addEventListener('load', function () {
+    var DEL_URL  = "{{ url('/tagtoa/pos/'.$terminal->id.'/products') }}",
+        SCAN_URL = "{{ route('tagtoa.catalog.scan') }}",
+        CSRF     = "{{ csrf_token() }}";
 
-/* Ligne jamais enregistrée → on l'enlève de l'écran.
-   Article déjà au catalogue → suppression serveur, confirmée. */
-function delRow(btn){
-    var row = btn.closest('.prow');
-    var id  = row.querySelector('input[name$="[id]"]');
-    var nom = (row.querySelector('[name$="[name]"]').value || '').trim();
-
-    if (!id || !id.value){ row.remove(); return; }
-
-    if (!confirm("{{ __('Supprimer définitivement cet article du catalogue de toutes vos caisses ?') }}\n\n" + nom)) return;
-
-    var f = document.getElementById('delform');
-    f.action = DEL_URL + '/' + id.value;
-    f.submit();
-}
-function champ(row, nom){ return row.querySelector('[name$="[' + nom + ']"]'); }
-
-/* Ce qui reste sur une unité vendue, affiché pendant la saisie.
-   C'est la seule raison pour laquelle un marchand prend le temps de remplir
-   son prix d'achat : il voit tout de suite ce que l'article lui rapporte. */
-function majMarge(row){
-    var vente  = parseFloat(champ(row,'price').value);
-    var achat  = parseFloat(champ(row,'cost_price').value);
-    var cible  = row.querySelector('.marge');
-    if (!cible) return;
-
-    if (isNaN(achat) || isNaN(vente) || vente <= 0){ cible.textContent=''; return; }
-
-    var marge = vente - achat;
-    var pct   = Math.round(marge / vente * 1000) / 10;
-    cible.textContent = (marge < 0 ? "{{ __('À PERTE') }} " : "{{ __('Marge') }} ") + marge.toFixed(2) + ' (' + pct + '%)';
-    cible.style.color = marge < 0 ? 'var(--red)' : 'var(--muted)';
-}
-
-function addP(d){var h=document.getElementById('ptpl').innerHTML.replace(/IDX/g,pIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('plist').appendChild(r);
-    if(d){champ(r,'emoji').value=d.emoji||'';champ(r,'name').value=d.name||'';champ(r,'price').value=d.price||'';champ(r,'stock').value=d.stock==null?'':d.stock;champ(r,'color').value=d.color||'#2cb809';champ(r,'is_active').checked=!!d.is_active;
-        champ(r,'cost_price').value=d.cost_price==null?'':d.cost_price;
-        champ(r,'unit').value=d.unit||'piece';
-        champ(r,'low_stock_threshold').value=d.low_stock_threshold==null?'':d.low_stock_threshold;
-        champ(r,'sku').value=d.sku||'';
-        champ(r,'supplier_id').value=d.supplier_id||'';
-        var i=document.createElement('input');i.type='hidden';i.name='products['+pIdx+'][id]';i.value=d.id;r.appendChild(i);
-        var lien=r.querySelector('.lienCodes');
-        lien.href=CODES_URL+'?ref=pos:'+d.id;
-        lien.hidden=false;}
-    r.querySelector('.delrow').addEventListener('click', function(){ delRow(this); });
-    r.querySelector('.togdet').addEventListener('click', function(){
-        var det = r.querySelector('.pdet'); det.hidden = !det.hidden;
+    /* ---- Volets « plus de détails » ---- */
+    document.getElementById('plusBtn').addEventListener('click', function () {
+        var d = document.getElementById('addPlus');
+        d.hidden = !d.hidden;
     });
-    champ(r,'price').addEventListener('input', function(){ majMarge(r); });
-    champ(r,'cost_price').addEventListener('input', function(){ majMarge(r); });
-    majMarge(r);
-    pIdx++;
-    return r;}
-/* ------------------------------------------------------------------
-   Scanner pour créer un article.
+    document.querySelectorAll('.togplus').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var d = b.closest('.art').querySelector('.plus');
+            d.hidden = !d.hidden;
+            if (!d.hidden) majMarge(b.closest('.art'));
+        });
+    });
 
-   Seul le patron passe par cet écran : un caissier vend, il ne crée pas
-   d'article. C'est pourquoi la création vit ici et pas à la caisse.
-   ------------------------------------------------------------------ */
-var SCAN_URL = "{{ route('tagtoa.catalog.scan') }}";
-var CSRF = "{{ csrf_token() }}";
+    /* ---- Aperçu immédiat de la photo choisie ----
+       Sans aperçu, on ne sait pas si le fichier est parti : sur un téléphone,
+       la galerie se referme et l'écran n'a pas bougé. */
+    function apercu(input, boite) {
+        var f = input.files && input.files[0];
+        if (!f) return;
+        var url = URL.createObjectURL(f),
+            img = boite.querySelector('img'),
+            txt = boite.querySelector('span:not(.cam)');
+        if (!img) {
+            img = document.createElement('img');
+            boite.insertBefore(img, boite.firstChild);
+        }
+        img.src = url; img.hidden = false;
+        if (txt) txt.hidden = true;
+        boite.style.background = '#fafafa';
+    }
+    document.querySelectorAll('.vig input[type=file]').forEach(function (inp) {
+        inp.addEventListener('change', function () { apercu(inp, inp.closest('.vig')); });
+    });
 
-function direScan(texte, erreur){
-    var el = document.getElementById('scanmsg');
-    el.textContent = texte;
-    el.style.color = erreur ? 'var(--red)' : '#1a7a05';
-    clearTimeout(el._t);
-    el._t = setTimeout(function(){ el.textContent = ''; }, 6000);
-}
+    /* ---- Marge : la seule raison de remplir un prix d'achat ---- */
+    function majMarge(art) {
+        var v = parseFloat((art.querySelector('.pv') || {}).value),
+            a = parseFloat((art.querySelector('.pa') || {}).value),
+            c = art.querySelector('.marge');
+        if (!c) return;
+        if (isNaN(a) || isNaN(v) || v <= 0) { c.textContent = ''; return; }
+        var m = v - a;
+        c.textContent = (m < 0 ? "{{ __('À PERTE') }} " : "{{ __('Marge') }} ")
+            + m.toFixed(2) + ' (' + (Math.round(m / v * 1000) / 10) + '%)';
+        c.style.color = m < 0 ? 'var(--red)' : 'var(--muted)';
+    }
+    document.querySelectorAll('.art').forEach(function (art) {
+        ['.pv', '.pa'].forEach(function (s) {
+            var el = art.querySelector(s);
+            if (el) el.addEventListener('input', function () { majMarge(art); });
+        });
+    });
 
-/* Article déjà connu : on le montre plutôt que d'en créer un deuxième. Deux
-   articles pour le même produit, c'est un stock coupé en deux. */
-function surlignerExistant(ref){
-    var lien = document.querySelector('.lienCodes[href$="' + ref + '"]');
-    var ligne = lien ? lien.closest('.prow') : null;
-    if(!ligne) return false;
+    /* ---- Supprimer : acte délibéré, confirmé, jamais un effet de bord ---- */
+    document.querySelectorAll('.delrow').forEach(function (b) {
+        b.addEventListener('click', function () {
+            if (!confirm("{{ __('Supprimer définitivement cet article du catalogue de toutes vos caisses ?') }}\n\n" + b.dataset.nom)) return;
+            var f = document.getElementById('delform');
+            f.action = DEL_URL + '/' + b.dataset.id;
+            f.submit();
+        });
+    });
 
-    ligne.scrollIntoView({behavior:'smooth', block:'center'});
-    ligne.style.transition = 'background .4s';
-    ligne.style.background = 'rgba(44,184,9,.14)';
-    setTimeout(function(){ ligne.style.background = ''; }, 1600);
-    return true;
-}
+    /* ---- Scanner ----
+       Un code inconnu REMPLIT le formulaire d'ajout, il ne crée plus une ligne
+       vide de plus. Le marchand écrit un nom, un prix, valide — l'article est
+       en base, le formulaire se vide, il scanne le suivant. C'est la boucle
+       complète : scanner un inconnu, le créer, puis le revendre en le scannant. */
+    function direScan(texte, erreur) {
+        var el = document.getElementById('scanmsg');
+        el.textContent = texte;
+        el.style.color = erreur ? 'var(--red)' : '#1a7a05';
+        clearTimeout(el._t);
+        el._t = setTimeout(function () { el.textContent = ''; }, 6000);
+    }
 
-function creerDepuisCode(code){
-    fetch(SCAN_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},
-        body:JSON.stringify({code:code})})
-      .then(function(r){return r.json();})
-      .then(function(d){
-          if(d && d.found){
-              if(window.TagtoaScanner) TagtoaScanner.close();
-              direScan("{{ __('Ce code est déjà celui de : ') }}" + d.article.name);
-              surlignerExistant(d.article.ref);
-              return;
-          }
+    /* Article déjà connu : on le montre plutôt que d'en créer un deuxième.
+       Deux articles pour le même produit, c'est un stock coupé en deux. */
+    function surlignerExistant(ref) {
+        var art = document.querySelector('.art[data-ref="' + ref + '"]');
+        if (!art) return false;
+        art.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        art.style.transition = 'background .4s';
+        art.style.background = 'rgba(44,184,9,.14)';
+        setTimeout(function () { art.style.background = ''; }, 1600);
+        return true;
+    }
 
-          // Inconnu : une ligne neuve, le code déjà accroché. Il ne reste
-          // qu'à écrire le nom et le prix.
-          if(window.TagtoaScanner) TagtoaScanner.close();
-          var r = addP();
-          var champ = document.createElement('input');
-          champ.type = 'hidden';
-          champ.name = 'products[' + (pIdx - 1) + '][new_code]';
-          champ.value = code;
-          r.appendChild(champ);
-          r.querySelector('.nouveauCode').textContent = code;
-          champ = r.querySelector('[name$="[name]"]');
-          r.scrollIntoView({behavior:'smooth', block:'center'});
-          champ.focus();
-          direScan("{{ __('Nouveau code ') }}" + code + " — " + "{{ __('donnez-lui un nom et un prix, puis enregistrez.') }}");
-      })
-      .catch(function(){ direScan("{{ __('Vérification impossible. Réessayez.') }}", true); });
-}
+    function surCode(code) {
+        fetch(SCAN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
+            body: JSON.stringify({ code: code })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (window.TagtoaScanner) TagtoaScanner.close();
 
-window.addEventListener('load', function(){
-    if(!window.TagtoaScanner){ document.getElementById('scanBtn').disabled = true; return; }
+            if (d && d.found) {
+                direScan("{{ __('Ce code est déjà celui de : ') }}" + d.article.name);
+                surlignerExistant(d.article.ref);
+                return;
+            }
 
-    TagtoaScanner.listenWedge(creerDepuisCode);
+            document.getElementById('aCode').value = code;
+            document.getElementById('codePose').textContent = code;
+            var nom = document.getElementById('aName');
+            nom.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            nom.focus();
+            direScan("{{ __('Code retenu — nom, prix, puis Ajouter.') }}");
+        })
+        .catch(function () { direScan("{{ __('Vérification impossible. Réessayez.') }}", true); });
+    }
 
-    document.getElementById('scanBtn').addEventListener('click', function(){
+    if (!window.TagtoaScanner) { document.getElementById('scanBtn').disabled = true; return; }
+
+    TagtoaScanner.listenWedge(surCode);
+
+    document.getElementById('scanBtn').addEventListener('click', function () {
         TagtoaScanner.open({
-            onCode: creerDepuisCode,
+            onCode: surCode,
+            once:   true,
             title:  "{{ __('Scanner un produit') }}",
-            hint:   "{{ __('Un code inconnu crée une nouvelle ligne. Un code déjà connu vous montre son article.') }}",
+            hint:   "{{ __('Un code inconnu remplit le formulaire. Un code connu vous montre son article.') }}",
             submit: "{{ __('Chercher') }}"
         });
     });
 });
-
-@php
-    $productData = $terminal->products->map(fn ($p) => [
-        'id' => $p->id, 'emoji' => $p->emoji, 'name' => $p->name,
-        'price' => $p->price, 'stock' => $p->stock, 'color' => $p->color,
-        'is_active' => $p->is_active,
-        'cost_price' => $p->cost_price, 'unit' => $p->unit_key,
-        'low_stock_threshold' => $p->low_stock_threshold, 'sku' => $p->sku,
-        'supplier_id' => $p->supplier_id,
-    ])->values();
-@endphp
-var ex=@json($productData);
-if(ex.length){ex.forEach(addP);}else{addP();}
 </script>
 @endpush
-@endsection

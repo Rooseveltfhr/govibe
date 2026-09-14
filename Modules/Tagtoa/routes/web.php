@@ -349,6 +349,11 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/report', [PosController::class, 'report'])->name('report');
         Route::get('/{id}/products', [PosController::class, 'products'])->name('products');
         Route::post('/{id}/products', [PosController::class, 'saveProducts'])->name('products.save');
+        // AJOUTER est une action à part : un article part en base tout de suite,
+        // au lieu d'attendre un enregistrement global qu'on oublie — ou que PHP
+        // tronque.
+        Route::post('/{id}/products/add', [PosController::class, 'addProduct'])
+            ->whereNumber('id')->name('products.add');
         // Supprimer un article est une action à part : enregistrer le catalogue
         // ne supprime plus rien (le catalogue est partagé par toutes les caisses).
         Route::delete('/{id}/products/{productId}', [PosController::class, 'destroyProduct'])

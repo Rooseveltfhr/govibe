@@ -180,9 +180,97 @@ class PosController extends Controller
         ]);
     }
 
+    /**
+     * AJOUTER UN SEUL ARTICLE — et l'enregistrer tout de suite.
+     *
+     * L'écran empilait des lignes vides qu'il fallait penser à enregistrer à la
+     * fin. Trois conséquences, toutes vécues :
+     *   • on scanne cinq produits, le téléphone se verrouille, tout est perdu ;
+     *   • on ne sait plus lesquels sont déjà au catalogue et lesquels attendent ;
+     *   • au-delà de quelques dizaines de lignes, PHP tronque l'envoi
+     *     (`max_input_vars`) et la fin disparaît sans un mot.
+     *
+     * Un article s'ajoute donc seul et part en base immédiatement. Le formulaire
+     * se vide, le curseur revient sur le nom, on enchaîne. Chaque article est
+     * acquis au moment où on le voit apparaître dans la liste.
+     */
+    public function addProduct(Request $request, int $id): RedirectResponse
+    {
+        $terminal = $this->own($id);
+
+        $data = $request->validate([
+            'name'                => ['required', 'string', 'max:120'],
+            'price'               => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'stock'               => ['nullable', 'numeric', 'min:-999999', 'max:999999999'],
+            'cost_price'          => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
+            'sku'                 => ['nullable', 'string', 'max:60'],
+            'supplier_id'         => ['nullable', 'integer'],
+            'emoji'               => ['nullable', 'string', 'max:16'],
+            'color'               => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'new_code'            => ['nullable', 'string', 'max:64'],
+            // 2 Mo : au-delà, une photo de plat prise au téléphone échouerait à
+            // l'envoi sur une connexion haïtienne sans qu'on sache pourquoi.
+            'image'               => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        $attrs = [
+            'name'                => $data['name'],
+            'price'               => (float) ($data['price'] ?? 0),
+            'emoji'               => $data['emoji'] ?? null,
+            'color'               => $data['color'] ?? '#2cb809',
+            'stock'               => $this->nombreOuNull($data['stock'] ?? null),
+            'is_active'           => true,
+            'sort'                => (int) app(PosCatalog::class)->query($terminal->tenant_id)->max('sort') + 1,
+            'cost_price'          => $this->nombreOuNull($data['cost_price'] ?? null),
+            'unit'                => Pricing::unit($data['unit'] ?? null),
+            'low_stock_threshold' => $this->nombreOuNull($data['low_stock_threshold'] ?? null),
+            'sku'                 => trim((string) ($data['sku'] ?? '')) ?: null,
+            'supplier_id'         => $this->fournisseur($data['supplier_id'] ?? null),
+        ];
+
+        if ($request->hasFile('image')) {
+            $attrs['image_path'] = $request->file('image')->store('tagtoa/pos-products', 'public');
+        }
+
+        $product = app(PosCatalog::class)->save($terminal, $attrs);
+
+        // Le code scanné ne peut s'attacher qu'ICI : un code se rattache à
+        // quelque chose qui existe. C'est ce qui ferme la boucle — scanner un
+        // produit inconnu, le créer, et le revendre en le scannant.
+        if (! empty($data['new_code'])) {
+            app(\Modules\Tagtoa\App\Services\Catalog\ProductCodes::class)
+                ->attach($terminal->tenant_id, 'pos:'.$product->id, $data['new_code']);
+        }
+
+        return back()->with('success', __('« :nom » ajouté au catalogue.', ['nom' => $product->name]));
+    }
+
+    /**
+     * MODIFIER les articles déjà au catalogue.
+     *
+     * Distinct de l'ajout : ici rien n'est créé, on retouche des lignes qui
+     * existent déjà et que le marchand voit à l'écran.
+     */
     public function saveProducts(Request $request, int $id): RedirectResponse
     {
         $terminal = $this->own($id);
+
+        // ENVOI TRONQUÉ — la panne silencieuse de PHP.
+        //
+        // Au-delà de `max_input_vars` (1000 par défaut), PHP coupe l'envoi SANS
+        // erreur : les derniers articles n'arrivent simplement jamais, et le
+        // marchand lit « Produits enregistrés ». Un champ sentinelle posé en
+        // DERNIER dans le formulaire dit si la fin est arrivée.
+        //
+        // Même défaut, même remède qu'au menu (0.2d) — il manquait ici.
+        if ($request->has('products') && ! $request->filled('form_end')) {
+            return back()->with('error', __(
+                'Votre navigateur n\'a pas pu envoyer toute la liste : rien n\'a été modifié. '
+                .'Modifiez moins d\'articles à la fois.'
+            ));
+        }
 
         // Le formulaire n'était pas validé : un prix négatif, un stock
         // aberrant ou une unité inventée entraient tels quels dans la base et
@@ -200,6 +288,7 @@ class PosController extends Controller
             'products.*.new_code'            => ['nullable', 'string', 'max:64'],
             'products.*.emoji'               => ['nullable', 'string', 'max:16'],
             'products.*.color'               => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'products.*.image'               => ['nullable', 'image', 'max:2048'],
         ]);
 
         $keep = [];
@@ -232,6 +321,19 @@ class PosController extends Controller
                 // la recherche est cloisonnée par le commerce courant.
                 'supplier_id'         => $this->fournisseur($row['supplier_id'] ?? null),
             ];
+
+            // La photo arrive hors de `input()` : un fichier n'est pas une
+            // valeur. On la cherche donc par son chemin exact dans l'envoi, et
+            // on ne touche à la colonne QUE si quelque chose a été envoyé —
+            // sinon un simple changement de prix effacerait l'image.
+            $image = $request->file("products.$i.image");
+            if ($image) {
+                $request->validate(["products.$i.image" => ['image', 'max:2048']]);
+                $attrs['image_path'] = $image->store('tagtoa/pos-products', 'public');
+            } elseif (! empty($row['remove_image'])) {
+                $attrs['image_path'] = null;
+            }
+
             // Catalogue du COMMERCE : l'article est partagé par toutes ses caisses.
             $p = app(PosCatalog::class)->save($terminal, $attrs, ! empty($row['id']) ? (int) $row['id'] : null);
             $keep[] = $p->id;

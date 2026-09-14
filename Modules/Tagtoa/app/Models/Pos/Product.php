@@ -17,7 +17,7 @@ class Product extends Model
 
     protected $table = 'tagtoa_pos_products';
 
-    protected $fillable = ['tenant_id', 'terminal_id', 'name', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'emoji', 'color', 'stock', 'is_active', 'sort'];
+    protected $fillable = ['tenant_id', 'terminal_id', 'name', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'emoji', 'color', 'image_path', 'stock', 'is_active', 'sort'];
 
     protected $casts = [
         'price'      => 'decimal:2',
@@ -29,6 +29,19 @@ class Product extends Model
         'stock'               => 'float',
         'is_active'           => 'boolean',
     ];
+
+    /**
+     * L'adresse publique de la photo, ou null.
+     *
+     * Passe par Storage::url plutôt que par un chemin construit à la main : le
+     * disque peut changer (local, S3) sans qu'aucune vue n'ait à le savoir.
+     */
+    public function getImageUrlAttribute(): ?string
+    {
+        return $this->image_path
+            ? \Illuminate\Support\Facades\Storage::url($this->image_path)
+            : null;
+    }
 
     /**
      * Caisse de SAISIE — pas le propriétaire.

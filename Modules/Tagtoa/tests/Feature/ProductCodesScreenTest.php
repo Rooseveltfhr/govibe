@@ -212,6 +212,9 @@ class ProductCodesScreenTest extends TestCase
                 'name' => 'Prestige', 'price' => 150, 'is_active' => 1,
                 'color' => '#2cb809', 'new_code' => '7640140160016',
             ]],
+            // Sentinelle du formulaire : sans elle, un envoi tronqué par PHP
+            // serait pris pour une liste complète.
+            'form_end' => 1,
         ])->assertRedirect();
 
         $biere = Product::where('name', 'Prestige')->firstOrFail();
@@ -235,6 +238,9 @@ class ProductCodesScreenTest extends TestCase
                 'name' => 'Prestige', 'price' => 150, 'is_active' => 1,
                 'color' => '#2cb809', 'new_code' => '7640140160017',
             ]],
+            // Sentinelle du formulaire : sans elle, un envoi tronqué par PHP
+            // serait pris pour une liste complète.
+            'form_end' => 1,
         ])->assertRedirect();
 
         $this->assertSame(1, Product::where('name', 'Prestige')->count());
@@ -253,6 +259,9 @@ class ProductCodesScreenTest extends TestCase
                 'name' => 'Coca bis', 'price' => 80, 'is_active' => 1,
                 'color' => '#2cb809', 'new_code' => '5449000000996',
             ]],
+            // Sentinelle du formulaire : sans elle, un envoi tronqué par PHP
+            // serait pris pour une liste complète.
+            'form_end' => 1,
         ])->assertRedirect();
 
         $code = ProductCode::where('code', '5449000000996')->firstOrFail();
