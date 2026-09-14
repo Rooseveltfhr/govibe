@@ -82,7 +82,20 @@ abstract class TestCase extends BaseTestCase
 
     protected function defineRoutes($router): void
     {
-        require __DIR__.'/../routes/web.php';
+        // En production, l'hôte sert ces routes dans son groupe « web », qui
+        // démarre la session et partage $errors. Ce groupe n'existe pas ici :
+        // sans session, tout écran qui en dépend échoue pour une raison qui
+        // n'a rien à voir avec le module.
+        //
+        // On n'ajoute QUE le démarrage de session : le groupe « web » complet
+        // apporterait aussi la vérification CSRF, qui ferait échouer les
+        // requêtes POST des tests sans rien prouver de plus.
+        $router->middleware([
+            \Illuminate\Session\Middleware\StartSession::class,
+            \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        ])->group(function () {
+            require __DIR__.'/../routes/web.php';
+        });
     }
 
     protected function setUp(): void
