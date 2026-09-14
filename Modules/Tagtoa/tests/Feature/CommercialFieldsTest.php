@@ -364,6 +364,9 @@ class CommercialFieldsTest extends TestCase
                 'unit' => 'lb', 'stock' => 12.5, 'low_stock_threshold' => 3.5,
                 'sku' => 'RIZ-01', 'is_active' => 1, 'color' => '#2cb809',
             ]],
+            // Sentinelle du formulaire : sans elle, un envoi tronqué par PHP
+            // serait pris pour une liste complète.
+            'form_end' => 1,
         ])->assertRedirect();
 
         $riz = Product::where('name', 'Riz')->firstOrFail();
@@ -384,6 +387,9 @@ class CommercialFieldsTest extends TestCase
 
         $this->post(route('tagtoa.pos.products.save', $this->caisse()->id), [
             'products' => [['name' => 'Riz', 'price' => 120, 'unit' => 'kilo-mamit']],
+            // Sentinelle du formulaire : sans elle, un envoi tronqué par PHP
+            // serait pris pour une liste complète.
+            'form_end' => 1,
         ])->assertSessionHasErrors('products.0.unit');
 
         $this->assertSame(0, Product::where('name', 'Riz')->count());
@@ -396,6 +402,9 @@ class CommercialFieldsTest extends TestCase
 
         $this->post(route('tagtoa.pos.products.save', $this->caisse()->id), [
             'products' => [['name' => 'Coca', 'price' => -75]],
+            // Sentinelle du formulaire : sans elle, un envoi tronqué par PHP
+            // serait pris pour une liste complète.
+            'form_end' => 1,
         ])->assertSessionHasErrors('products.0.price');
 
         $this->assertSame(0, Product::where('name', 'Coca')->count());
@@ -409,6 +418,9 @@ class CommercialFieldsTest extends TestCase
 
         $this->post(route('tagtoa.pos.products.save', $this->caisse()->id), [
             'products' => [['name' => 'Pâté', 'price' => 50, 'cost_price' => '', 'stock' => '']],
+            // Sentinelle du formulaire : sans elle, un envoi tronqué par PHP
+            // serait pris pour une liste complète.
+            'form_end' => 1,
         ])->assertRedirect();
 
         $pate = Product::where('name', 'Pâté')->firstOrFail();

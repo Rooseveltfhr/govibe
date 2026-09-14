@@ -29,6 +29,10 @@ class AssetController extends Controller
         // Le scanner TAGTOA lui-même : un seul composant pour la caisse, la
         // fiche article et le stock (voir resources/assets/tagtoa/).
         'tagtoa-scanner.js'        => 'application/javascript; charset=utf-8',
+        // Le retour sonore : un caissier en affluence ne regarde pas l'écran.
+        // Sons synthétisés, aucun fichier à télécharger — donc ils marchent
+        // encore quand la connexion est coupée.
+        'tagtoa-sound.js'          => 'application/javascript; charset=utf-8',
         // Font Awesome 6.5.1 auto-hébergé (CSS + webfonts woff2) — plus de CDN externe.
         'fontawesome-6.5.1.css'    => 'text/css; charset=utf-8',
         'fa-solid-900.woff2'       => 'font/woff2',

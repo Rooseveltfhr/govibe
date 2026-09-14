@@ -318,6 +318,11 @@
                 if (options.onCode) options.onCode(code);
                 if (options.once) Scanner.close();
             };
+            // Appelé quand l'écran se ferme, quelle que soit la façon : croix,
+            // Échap, `once`. Un écran qui doit se rafraîchir après une série de
+            // lectures en a besoin — recharger à chaque bip couperait la caméra
+            // et le marchand recommencerait tout.
+            etat.surFermeture = typeof options.onClose === 'function' ? options.onClose : null;
 
             overlay.querySelector('.sc-close').addEventListener('click', function () { Scanner.close(); });
 
@@ -393,6 +398,13 @@
             if (etat.echap) { document.removeEventListener('keydown', etat.echap); etat.echap = null; }
             etat.ouvert = false;
             etat.rappel = null;
+
+            // Appelé EN DERNIER, une seule fois : le rappel peut recharger la
+            // page, et tout ce qui suivrait ne s'exécuterait jamais — la caméra
+            // resterait allumée derrière.
+            var fin = etat.surFermeture;
+            etat.surFermeture = null;
+            if (fin) { try { fin(); } catch (e) {} }
         },
 
         /** Écoute une douchette USB/Bluetooth, écran fermé compris. */

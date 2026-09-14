@@ -61,7 +61,7 @@ class StandClaimService
         // dépense la comparaison bcrypt à chaque essai, et la limite ne protège
         // que la base, pas le processeur.
         if ($stand && $this->tooMany($stand)) {
-            $this->trace($stand, $publicId, false, $trace);
+            $this->traceAttempt($stand, $publicId, false, $trace);
 
             return ['result' => self::TOO_MANY, 'token' => null, 'stand' => null];
         }
@@ -71,7 +71,7 @@ class StandClaimService
         // plus vite qu'un identifiant réel.
         $ok = $this->minter->verify($stand, $secret);
 
-        $this->trace($stand, $publicId, $ok, $trace);
+        $this->traceAttempt($stand, $publicId, $ok, $trace);
 
         if (! $stand) {
             return ['result' => self::NOT_FOUND, 'token' => null, 'stand' => null];
@@ -210,8 +210,14 @@ class StandClaimService
 
     /* ---------------- interne ---------------- */
 
-    /** Trop d'essais sur CE stand dans l'heure ? */
-    private function tooMany(Stand $stand): bool
+    /**
+     * Trop d'essais sur CE stand dans l'heure ?
+     *
+     * PUBLIQUE à dessein : l'activation en série (M4) passe par le MÊME
+     * compteur. Si elle avait le sien, un attaquant contournerait la limite
+     * d'un parcours en empruntant l'autre — deux portes, une seule serrure.
+     */
+    public function tooMany(Stand $stand): bool
     {
         return StandClaimAttempt::where('stand_id', $stand->id)
             ->where('succeeded', false)
@@ -227,8 +233,14 @@ class StandClaimService
             && now()->lessThan($stand->claim_reserved_until);
     }
 
-    /** Journalise la tentative. Jamais le code essayé. */
-    private function trace(?Stand $stand, ?string $publicId, bool $ok, array $trace): void
+    /**
+     * Journalise la tentative. Jamais le code essayé.
+     *
+     * PUBLIQUE pour la même raison que `tooMany` : c'est ce journal qui ALIMENTE
+     * le compteur. Un parcours qui n'y écrirait pas deviendrait le trou par
+     * lequel on force les codes sans jamais déclencher la limite.
+     */
+    public function traceAttempt(?Stand $stand, ?string $publicId, bool $ok, array $trace): void
     {
         StandClaimAttempt::create([
             'stand_id'        => $stand?->id,

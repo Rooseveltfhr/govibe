@@ -20,6 +20,10 @@
     <title>{{ $menu->name }} — TAGTOA Menu</title>
     <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
     <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
+    {{-- Le retour sonore : sons synthétisés, aucun fichier à télécharger — donc
+         ils fonctionnent encore quand la connexion est mauvaise, c'est-à-dire
+         précisément quand le client doute que son geste soit passé. --}}
+    <script src="/tagtoa-asset/tagtoa-sound.js" defer></script>
     <style>
         :root{
             --acc:{{ $accent }};--bg:{{ $bg }};--fg:{{ $fg }};--surf:{{ $surf }};--mut:{{ $mut }};--bd:{{ $bd }};
@@ -47,13 +51,36 @@
         /* Sections */
         .sec{padding:22px 16px 4px}
         .sec h2{font:700 18px var(--fh);display:flex;align-items:center;gap:9px;margin-bottom:14px}
-        .item{display:flex;gap:14px;background:var(--surf);border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:12px}
-        .item .ph{width:64px;height:64px;border-radius:13px;flex:0 0 64px;background:color-mix(in srgb,var(--acc) 10%,var(--surf));display:flex;align-items:center;justify-content:center;font-size:30px;object-fit:cover}
-        .item .body{flex:1;min-width:0}
-        .item .nm{font:700 15.5px var(--fh);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        /* ── LA VITRINE ──────────────────────────────────────────────────
+           Une GRILLE de cartes, plus une liste de lignes.
+
+           Une liste montre deux plats par écran de téléphone : le client fait
+           défiler, se lasse, et commande ce qu'il a vu en premier. Une grille
+           en montre six, avec la photo en grand — et c'est la photo qui fait
+           commander, pas le nom.
+
+           Deux colonnes sur téléphone (172 px de carte : assez pour une photo
+           lisible), et autant que la largeur le permet ensuite. Personne ne
+           choisit le nombre de colonnes : c'est la place disponible qui décide. */
+        .grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+        @media(min-width:560px){.grille{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}}
+        .item{display:flex;flex-direction:column;background:var(--surf);border:1px solid var(--bd);
+              border-radius:16px;overflow:hidden;position:relative}
+        /* La photo d'abord, en 4:3 : le format qui montre une assiette entière
+           sans couper les bords, contrairement au carré. */
+        .item .ph{width:100%;aspect-ratio:4/3;object-fit:cover;display:flex;align-items:center;
+              justify-content:center;font:700 30px var(--fh);
+              background:color-mix(in srgb,var(--acc) 12%,var(--surf));color:var(--acc)}
+        .item .body{padding:11px 12px 12px;display:flex;flex-direction:column;flex:1;min-width:0}
+        /* Description : DEUX lignes, jamais trois. Au-delà, le prix descend
+           sous le pli et la carte cesse de vendre. */
+        .item .ds{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .item .ft{margin-top:auto}
+        .item .add{position:static}
+        .item .nm{font:700 14.5px var(--fh);display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.3}
         .pillb{font:700 10.5px var(--fh);background:var(--acc);color:#fff;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
-        .item .ds{color:var(--mut);font-size:13.5px;margin-top:3px}
-        .item .ft{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:10px}
+        .item .ds{color:var(--mut);font-size:12.5px;margin-top:4px;line-height:1.45;min-height:2.9em}
+        .item .ft{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px}
         .item .specs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
         .item .spec{font-size:12px;color:var(--mut);background:color-mix(in srgb,var(--acc) 8%,var(--surf));
                     border-radius:999px;padding:3px 10px;line-height:1.5}
@@ -132,8 +159,14 @@
         <div class="sec"><div class="empty"><i class="fa-solid fa-utensils" style="font-size:30px;display:block;margin-bottom:10px;opacity:.4"></i>{{ __('Le menu arrive bientôt.') }}</div></div>
     @else
         <nav class="catnav" id="catnav">
+            {{-- Icône + nom, jamais un emoji : un emoji se dessine autrement
+                 sur chaque téléphone et tombe en carré blanc sur beaucoup
+                 d'Android bon marché — juste à côté du nom du restaurant. --}}
             @foreach($categories as $c)
-                <div class="chip" data-target="cat{{ $c->id }}">{{ $c->icon ? $c->icon.' ' : '' }}{{ $c->name }}</div>
+                <div class="chip" data-target="cat{{ $c->id }}">
+                    <i class="fa-solid {{ \Modules\Tagtoa\App\Support\Menu\CategoryIcon::resolve($c->icon, $c->name) }}"></i>
+                    {{ $c->name }}
+                </div>
             @endforeach
         </nav>
 
@@ -144,12 +177,20 @@
         @endphp
         @foreach($categories as $c)
             <section class="sec" id="cat{{ $c->id }}">
-                <h2>{{ $c->icon ? $c->icon.' ' : '' }}{{ $c->name }}</h2>
+                <h2>
+                    <i class="fa-solid {{ \Modules\Tagtoa\App\Support\Menu\CategoryIcon::resolve($c->icon, $c->name) }}"></i>
+                    {{ $c->name }}
+                </h2>
+                <div class="grille">
                 @foreach($c->availableItems as $it)
                     @php $out = ! $it->in_stock; @endphp
                     <div class="item" @if($out) style="opacity:.55" @endif>
-                        @if($it->image_url)<img class="ph" src="{{ $it->image_url }}" alt="" loading="lazy">
-                        @else<div class="ph">{{ $it->emoji ?: '🍽️' }}</div>@endif
+                        {{-- La photo d'abord : c'est elle qui fait commander,
+                             pas le nom. À défaut, l'initiale du plat sur la
+                             couleur du commerce — jamais un emoji, qui tombe en
+                             carré blanc sur la moitié des téléphones. --}}
+                        @if($it->image_url)<img class="ph" src="{{ $it->image_url }}" alt="{{ $it->name }}" loading="lazy">
+                        @else<div class="ph">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($it->name, 0, 1)) }}</div>@endif
                         <div class="body">
                             <div class="nm">{{ $it->name }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ __('Épuisé') }}</span>@endif</div>
                             @if($it->description)<div class="ds">{{ $it->description }}</div>@endif
@@ -178,12 +219,13 @@
                                             'choices' => $o->choices->map(fn ($c) => ['id' => $c->id, 'label' => $c->label, 'price_delta' => (float) $c->price_delta])->values(),
                                         ])->values();
                                     @endphp
-                                    <button class="add" aria-label="{{ __('Ajouter') }}" data-id="{{ $it->id }}" data-name="{{ $it->name }}" data-price="{{ (float) $it->price }}" data-options='@json($opts)' onclick="add(this)"><i class="fa-solid fa-plus"></i></button>
+                                    <button class="add" aria-label="{{ __('Ajouter') }} — {{ $it->name }}" data-id="{{ $it->id }}" data-name="{{ $it->name }}" data-price="{{ (float) $it->price }}" data-options='@json($opts)' onclick="add(this)"><i class="fa-solid fa-plus"></i></button>
                                 @endif
                             </div>
                         </div>
                     </div>
                 @endforeach
+                </div>
             </section>
         @endforeach
     @endif
@@ -292,12 +334,24 @@
             if (opts.length){ openMod(id, name, price, opts); return; }
             addToCart(id, name, price, [], '');
         }
+        /* Le son est un ACCUSÉ DE RÉCEPTION, pas une décoration.
+           Sur un téléphone, le panier est en bas de page : le client qui touche
+           « + » ne voit RIEN bouger. Sans bruit, il retouche — et commande deux
+           fois le même plat. C'est le son qui l'évite, pas un message. */
+        function son(quoi){ if (window.TagtoaSound && TagtoaSound[quoi]) TagtoaSound[quoi](); }
+
         function addToCart(id, name, price, optionIds, optionLabel){
             var key = String(id) + (optionIds.length ? '|'+optionIds.slice().sort(function(a,b){return a-b;}).join(',') : '');
             if(!cart[key]) cart[key] = {id:Number(id), name:name, price:price, qty:0, options:optionIds, optionLabel:optionLabel};
-            cart[key].qty++; render();
+            cart[key].qty++; render(); son('add');
         }
-        function chg(id,d){ if(!cart[id])return; cart[id].qty+=d; if(cart[id].qty<=0) delete cart[id]; render(); }
+        function chg(id,d){
+            if(!cart[id])return;
+            cart[id].qty+=d;
+            if(cart[id].qty<=0) delete cart[id];
+            render();
+            son(d>0 ? 'add' : 'remove');
+        }
         function clearCart(){ cart={}; render(); closeCart(); }
         function totals(){ var n=0,t=0; for(var k in cart){ n+=cart[k].qty; t+=cart[k].qty*cart[k].price; } return {n:n,t:t}; }
         function tipAmount(subtotal){ return Math.round(subtotal*tipPct)/100; }

@@ -308,7 +308,7 @@ class InventoryScreenTest extends TestCase
         Supplier::create(['tenant_id' => 't-1', 'name' => 'Dépôt Bon Prix', 'is_active' => true]);
         $this->article();
 
-        $this->get(route('tagtoa.pos.products', $this->caisse()->id))
+        $this->get(route('tagtoa.pos.products.terminal', $this->caisse()->id))
             ->assertOk()->assertSee('Dépôt Bon Prix');
 
         $menu = \Modules\Tagtoa\App\Models\Menu\Menu::create([
@@ -328,6 +328,9 @@ class InventoryScreenTest extends TestCase
                 'name' => 'Riz', 'price' => 120, 'supplier_id' => $depot->id,
                 'is_active' => 1, 'color' => '#2cb809',
             ]],
+            // Sentinelle du formulaire : sans elle, un envoi tronqué par PHP
+            // serait pris pour une liste complète.
+            'form_end' => 1,
         ])->assertRedirect();
 
         $this->assertSame($depot->id, Product::where('name', 'Riz')->firstOrFail()->supplier_id);
@@ -345,6 +348,9 @@ class InventoryScreenTest extends TestCase
                 'name' => 'Riz', 'price' => 120, 'supplier_id' => $chezLeVoisin->id,
                 'is_active' => 1, 'color' => '#2cb809',
             ]],
+            // Sentinelle du formulaire : sans elle, un envoi tronqué par PHP
+            // serait pris pour une liste complète.
+            'form_end' => 1,
         ])->assertRedirect();
 
         $this->assertNull(Product::where('name', 'Riz')->firstOrFail()->supplier_id);

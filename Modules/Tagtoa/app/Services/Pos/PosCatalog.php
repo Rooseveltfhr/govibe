@@ -110,6 +110,10 @@ class PosCatalog
                 'name'   => $p->name,
                 'price'  => (float) $p->price,
                 'emoji'  => $p->emoji,
+                // La PHOTO du bouton. Un emoji ne distingue pas trois plats de
+                // riz ni quatre tailles de la même bière — et c'est là que le
+                // caissier se trompe de bouton, en pleine affluence.
+                'image'  => $p->image_url,
                 'color'  => $p->color ?: '#2cb809',
                 'group'  => null,
                 'stock'  => $p->stock,
@@ -128,6 +132,7 @@ class PosCatalog
                 'name'   => $i->name,
                 'price'  => (float) $i->price,
                 'emoji'  => $i->emoji,
+                'image'  => $i->image_url,
                 'color'  => '#1F4E79',           // le menu se distingue d'un coup d'œil
                 'group'  => $i->category?->name, // rangé par catégorie du menu
                 'stock'  => $i->stock,

@@ -21,7 +21,7 @@
                 <div style="color:var(--muted);font-size:13px;margin-top:6px">{{ $t->products_count }} {{ __('produits') }} · {{ $t->currency }}</div>
                 <div class="row" style="margin-top:14px;gap:8px">
                     <a href="{{ route('tagtoa.pos.register',$t->id) }}" class="btn btn-d btn-sm" style="flex:0"><i class="fa-solid fa-cash-register"></i> {{ __('Ouvrir') }}</a>
-                    <a href="{{ route('tagtoa.pos.products',$t->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-boxes-stacked"></i></a>
+                    <a href="{{ route('tagtoa.pos.products.terminal',$t->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-boxes-stacked"></i></a>
                     <a href="{{ route('tagtoa.pos.report',$t->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-chart-simple"></i></a>
                 </div>
             </div>

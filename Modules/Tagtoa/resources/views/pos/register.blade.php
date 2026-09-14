@@ -18,6 +18,7 @@
          scanner cassé le jour où la connexion est mauvaise. --}}
     <script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}" defer></script>
     <script src="{{ route('tagtoa.asset', 'tagtoa-scanner.js') }}" defer></script>
+    <script src="{{ route('tagtoa.asset', 'tagtoa-sound.js') }}" defer></script>
     <style>
         :root{--blk:#0A0A0A;--blue:#2cb809;--green:#1D9E75;--red:#E0473E;--bg:#F5F5F3;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -25,8 +26,18 @@
         .app{display:grid;grid-template-columns:1fr 320px;height:100vh}
         @media(max-width:760px){.app{grid-template-columns:1fr}.cart{position:fixed;inset:auto 0 0 0;max-height:48vh;border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.15)}}
         .top{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--blk);color:#fff}.top h1{font:600 16px var(--fh);flex:1}.top .net{font-size:12px;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.15)}.top .net.off{background:#E08A1E}.top a{color:#fff;opacity:.8;text-decoration:none}
-        .grid{padding:14px;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;align-content:start}
-        .p{border:0;border-radius:16px;padding:14px 8px;color:#fff;cursor:pointer;font:600 13px var(--fh);display:flex;flex-direction:column;align-items:center;gap:6px;min-height:96px;justify-content:center;transition:transform .1s}.p:active{transform:scale(.94)}.p .em{font-size:26px}.p .pr{font-size:12px;opacity:.85}
+        .grid{padding:14px;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:10px;align-content:start}
+        /* Le bouton de caisse porte une PHOTO quand il en a une. Un emoji ne
+           distingue pas trois plats de riz ni quatre tailles de la même bière,
+           et c'est exactement là que le caissier se trompe de bouton, en pleine
+           affluence. À défaut de photo : l'initiale sur la couleur — lisible de
+           loin, jamais un carré blanc. */
+        .p{border:0;border-radius:16px;padding:0;color:#fff;cursor:pointer;font:600 13px var(--fh);display:flex;flex-direction:column;min-height:112px;transition:transform .1s;overflow:hidden;text-align:left}
+        .p:active{transform:scale(.94)}
+        .p .ph{width:100%;height:60px;object-fit:cover;display:flex;align-items:center;justify-content:center;font:700 24px var(--fh);background:rgba(0,0,0,.14)}
+        .p .lb{padding:7px 8px 8px;display:flex;flex-direction:column;gap:2px;flex:1;justify-content:center;width:100%}
+        .p .nm{line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .p .pr{font-size:12px;opacity:.85}
         .cart{background:#fff;border-left:1px solid var(--bd);display:flex;flex-direction:column}.cart h2{font:600 15px var(--fh);padding:14px 16px;border-bottom:1px solid var(--bd)}
         .lines{flex:1;overflow-y:auto;padding:8px 12px}.ln{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)}.ln .nm{flex:1;font-size:14px}.ln .nm small{display:block;color:#888}.ln .q button{width:26px;height:26px;border-radius:7px;border:1px solid var(--bd);background:#fff;cursor:pointer}
         .tot{padding:12px 16px;border-top:1px solid var(--bd)}.tot .r{display:flex;justify-content:space-between;font-size:14px;padding:3px 0}.tot .r.g{font:700 20px var(--fh)}
@@ -43,7 +54,7 @@
 <body data-terminal="{{ $terminal->id }}" data-currency="{{ $terminal->currency }}">
     <style>
         .grid .p{position:relative}
-        .grid .p .st{position:absolute;top:5px;right:7px;background:rgba(0,0,0,.34);color:#fff;
+        .grid .p .st{position:absolute;top:5px;right:7px;background:rgba(0,0,0,.55);color:#fff;
                border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700}
         .who{width:30px;height:30px;border-radius:50%;background:var(--blue);color:#fff;
              display:inline-flex;align-items:center;justify-content:center;
@@ -93,9 +104,15 @@
                 <button class="p" style="background:{{ $a['color'] }}"
                         data-ref="{{ $a['ref'] }}" data-name="{{ $a['name'] }}" data-price="{{ $a['price'] }}"
                         @if($a['group']) title="{{ $a['group'] }}" @endif>
-                    <span class="em">{{ $a['emoji'] ?: ($a['source'] === 'menu' ? '🍽️' : '🛒') }}</span>
-                    <span>{{ $a['name'] }}</span>
-                    <span class="pr">{{ number_format($a['price'], 2) }}</span>
+                    @if(!empty($a['image']))
+                        <img class="ph" src="{{ $a['image'] }}" alt="" loading="lazy">
+                    @else
+                        <span class="ph">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($a['name'], 0, 1)) }}</span>
+                    @endif
+                    <span class="lb">
+                        <span class="nm">{{ $a['name'] }}</span>
+                        <span class="pr">{{ number_format($a['price'], 2) }}</span>
+                    </span>
                     @if($a['stock'] !== null)<span class="st">{{ $a['stock'] }}</span>@endif
                 </button>
             @endforeach
@@ -303,7 +320,21 @@ function pickM(m,el){method=m;document.querySelectorAll('.m').forEach(function(x
 function openPay(){document.getElementById('modal').classList.add('show');}function closePay(){document.getElementById('modal').classList.remove('show');}
 function payments(){if(document.getElementById('splitchk').checked){var a=parseFloat((document.getElementById('sp1')||{}).value||0),b=parseFloat((document.getElementById('sp2')||{}).value||0);return [{method:'moncash',amount:a},{method:'cash',amount:b}];}return [{method:method,amount:total()}];}
 function uuid(){return 'pxxxxxxxxyxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);})+Date.now();}
-var actx;function beep(t){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();var o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);var f={add:660,success:[880,1320],error:[200,160]}[t];o.frequency.value=Array.isArray(f)?f[0]:f;o.type='sine';g.gain.value=.1;o.start();if(Array.isArray(f))setTimeout(function(){o.frequency.value=f[1];},80);setTimeout(function(){o.stop();},t==='error'?240:150);}catch(e){}}
+/* Le retour sonore passe par le module commun de TAGTOA : même son à la
+   caisse, au menu du client et partout ailleurs, et surtout ASSEZ FORT.
+   L'ancien gain de 0,1 s'entendait dans un bureau silencieux, pas dans une
+   salle pleine — c'est-à-dire jamais au moment où il sert.
+   Repli sur l'ancienne synthèse si le module n'a pas pu se charger : une
+   caisse ne doit pas devenir muette parce qu'un fichier manque. */
+var actx;
+function beep(t){
+    if (window.TagtoaSound) {
+        if (t === 'add') return TagtoaSound.add();
+        if (t === 'success') return TagtoaSound.ok();
+        return TagtoaSound.error();
+    }
+    try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();var o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);var f={add:660,success:[880,1320],error:[200,160]}[t];o.frequency.value=Array.isArray(f)?f[0]:f;o.type='sine';g.gain.value=.3;o.start();if(Array.isArray(f))setTimeout(function(){o.frequency.value=f[1];},80);setTimeout(function(){o.stop();},t==='error'?240:150);}catch(e){}
+}
 function setNet(){var on=navigator.onLine;document.getElementById('net').textContent=on?'● online':'● offline';document.getElementById('net').classList.toggle('off',!on);if(on)flush();}
 window.addEventListener('online',setNet);window.addEventListener('offline',setNet);
 function q(){return JSON.parse(localStorage.getItem(QKEY)||'[]');}function setQ(a){localStorage.setItem(QKEY,JSON.stringify(a));}

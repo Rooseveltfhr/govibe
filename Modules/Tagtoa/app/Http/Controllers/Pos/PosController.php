@@ -47,7 +47,7 @@ class PosController extends Controller
         $terminal->tenant_id = Tenant::id();
         $terminal->save();
 
-        return redirect()->route('tagtoa.pos.products', $terminal->id)->with('success', __('Caisse créée.'));
+        return redirect()->route('tagtoa.pos.products.terminal', $terminal->id)->with('success', __('Caisse créée.'));
     }
 
     public function register(int $id): View
@@ -174,15 +174,171 @@ class PosController extends Controller
         $terminal = $this->own($id, ['products']);
 
         return view('tagtoa::pos.products', [
-            'terminal'  => $terminal,
-            'suppliers' => \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)
+            'terminal'   => $terminal,
+            'suppliers'  => \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)
                 ->orderBy('name')->get(['id', 'name']),
+            'categories' => \Modules\Tagtoa\App\Models\Pos\Category::shown()->get(['id', 'name']),
         ]);
     }
 
+    /**
+     * AJOUTER UN SEUL ARTICLE — et l'enregistrer tout de suite.
+     *
+     * L'écran empilait des lignes vides qu'il fallait penser à enregistrer à la
+     * fin. Trois conséquences, toutes vécues :
+     *   • on scanne cinq produits, le téléphone se verrouille, tout est perdu ;
+     *   • on ne sait plus lesquels sont déjà au catalogue et lesquels attendent ;
+     *   • au-delà de quelques dizaines de lignes, PHP tronque l'envoi
+     *     (`max_input_vars`) et la fin disparaît sans un mot.
+     *
+     * Un article s'ajoute donc seul et part en base immédiatement. Le formulaire
+     * se vide, le curseur revient sur le nom, on enchaîne. Chaque article est
+     * acquis au moment où on le voit apparaître dans la liste.
+     */
+    public function addProduct(Request $request, int $id): RedirectResponse
+    {
+        $terminal = $this->own($id);
+
+        $data = $request->validate([
+            'name'                => ['required', 'string', 'max:120'],
+            // Courte à dessein : deux lignes sur la carte produit, pas un
+            // paragraphe qui pousserait le prix hors de l'écran.
+            'description'         => ['nullable', 'string', 'max:160'],
+            'price'               => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'stock'               => ['nullable', 'numeric', 'min:-999999', 'max:999999999'],
+            'cost_price'          => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
+            'sku'                 => ['nullable', 'string', 'max:60'],
+            'supplier_id'         => ['nullable', 'integer'],
+            'category_id'         => ['nullable', 'integer'],
+            // La date d'achat du lot. Elle ne sert pas à vendre : elle répond à
+            // « depuis quand cette caisse de bière dort-elle ici ? », la
+            // question qui distingue un commerce qui tourne d'un commerce dont
+            // la trésorerie est immobilisée sur ses étagères.
+            'purchased_at'        => ['nullable', 'date'],
+            'emoji'               => ['nullable', 'string', 'max:16'],
+            'color'               => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'new_code'            => ['nullable', 'string', 'max:64'],
+            // 2 Mo : au-delà, une photo de plat prise au téléphone échouerait à
+            // l'envoi sur une connexion haïtienne sans qu'on sache pourquoi.
+            'image'               => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        $attrs = [
+            'name'                => $data['name'],
+            'description'         => trim((string) ($data['description'] ?? '')) ?: null,
+            'price'               => (float) ($data['price'] ?? 0),
+            'emoji'               => $data['emoji'] ?? null,
+            'color'               => $data['color'] ?? '#2cb809',
+            'stock'               => $this->nombreOuNull($data['stock'] ?? null),
+            'is_active'           => true,
+            'sort'                => (int) app(PosCatalog::class)->query($terminal->tenant_id)->max('sort') + 1,
+            'cost_price'          => $this->nombreOuNull($data['cost_price'] ?? null),
+            'unit'                => Pricing::unit($data['unit'] ?? null),
+            'low_stock_threshold' => $this->nombreOuNull($data['low_stock_threshold'] ?? null),
+            'sku'                 => trim((string) ($data['sku'] ?? '')) ?: null,
+            'supplier_id'         => $this->fournisseur($data['supplier_id'] ?? null),
+            'category_id'         => $this->rayon($data['category_id'] ?? null),
+            'purchased_at'        => $data['purchased_at'] ?? null,
+        ];
+
+        if ($request->hasFile('image')) {
+            $attrs['image_path'] = $request->file('image')->store('tagtoa/pos-products', 'public');
+        }
+
+        $product = app(PosCatalog::class)->save($terminal, $attrs);
+
+        // Le code scanné ne peut s'attacher qu'ICI : un code se rattache à
+        // quelque chose qui existe. C'est ce qui ferme la boucle — scanner un
+        // produit inconnu, le créer, et le revendre en le scannant.
+        if (! empty($data['new_code'])) {
+            app(\Modules\Tagtoa\App\Services\Catalog\ProductCodes::class)
+                ->attach($terminal->tenant_id, 'pos:'.$product->id, $data['new_code']);
+        }
+
+        return back()->with('success', __('« :nom » ajouté au catalogue.', ['nom' => $product->name]));
+    }
+
+    /**
+     * SCANNER POUR CRÉER — l'article existe avant qu'on l'ait nommé.
+     *
+     * C'est le geste d'un commerce qui reçoit un carton : on passe la douchette
+     * sur trente articles d'affilée, on les nomme ensuite, assis. Demander un
+     * nom et un prix à chaque bip ferait abandonner à l'article cinq — et les
+     * vingt-cinq autres resteraient hors du catalogue.
+     *
+     * L'article est donc créé AUSSITÔT, avec son code accroché, sous un nom
+     * provisoire qui porte le code lui-même : il est retrouvable, il apparaît
+     * dans la liste, et il est INACTIF tant qu'il n'a pas de prix. Un article
+     * sans prix proposé à la vente ferait encaisser zéro.
+     */
+    public function scanProduct(Request $request, int $id): JsonResponse
+    {
+        $terminal = $this->own($id);
+
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:64'],
+        ]);
+
+        $code = trim($data['code']);
+
+        // Déjà connu : on le montre, on n'en crée pas un deuxième. Deux articles
+        // pour le même produit, c'est un stock coupé en deux — et un inventaire
+        // qui ne retombe jamais juste.
+        $codes = app(\Modules\Tagtoa\App\Services\Catalog\ProductCodes::class);
+        if ($article = $codes->find($terminal->tenant_id, $code)) {
+            return response()->json([
+                'result'  => 'exists',
+                'message' => __('Ce code est déjà celui de : :nom', ['nom' => $article->name]),
+                'product' => ['id' => $article->id, 'name' => $article->name],
+            ]);
+        }
+
+        $product = app(PosCatalog::class)->save($terminal, [
+            'name'        => __('Article :code', ['code' => $code]),
+            'price'       => 0,
+            'stock'       => null,
+            // INACTIF tant qu'il n'a pas de prix : un bouton à zéro gourde en
+            // caisse, c'est une vente encaissée pour rien.
+            'is_active'   => false,
+            'color'       => '#8a8a8a',
+            'sort'        => (int) app(PosCatalog::class)->query($terminal->tenant_id)->max('sort') + 1,
+        ]);
+
+        $codes->attach($terminal->tenant_id, 'pos:'.$product->id, $code);
+
+        return response()->json([
+            'result'  => 'created',
+            'message' => __('Article créé et enregistré. Donnez-lui un nom et un prix.'),
+            'product' => ['id' => $product->id, 'name' => $product->name],
+        ]);
+    }
+
+    /**
+     * MODIFIER les articles déjà au catalogue.
+     *
+     * Distinct de l'ajout : ici rien n'est créé, on retouche des lignes qui
+     * existent déjà et que le marchand voit à l'écran.
+     */
     public function saveProducts(Request $request, int $id): RedirectResponse
     {
         $terminal = $this->own($id);
+
+        // ENVOI TRONQUÉ — la panne silencieuse de PHP.
+        //
+        // Au-delà de `max_input_vars` (1000 par défaut), PHP coupe l'envoi SANS
+        // erreur : les derniers articles n'arrivent simplement jamais, et le
+        // marchand lit « Produits enregistrés ». Un champ sentinelle posé en
+        // DERNIER dans le formulaire dit si la fin est arrivée.
+        //
+        // Même défaut, même remède qu'au menu (0.2d) — il manquait ici.
+        if ($request->has('products') && ! $request->filled('form_end')) {
+            return back()->with('error', __(
+                'Votre navigateur n\'a pas pu envoyer toute la liste : rien n\'a été modifié. '
+                .'Modifiez moins d\'articles à la fois.'
+            ));
+        }
 
         // Le formulaire n'était pas validé : un prix négatif, un stock
         // aberrant ou une unité inventée entraient tels quels dans la base et
@@ -190,6 +346,8 @@ class PosController extends Controller
         $request->validate([
             'products'                       => ['array', 'max:500'],
             'products.*.name'                => ['nullable', 'string', 'max:120'],
+            'products.*.description'         => ['nullable', 'string', 'max:160'],
+            'products.*.toggle_active'       => ['nullable', 'boolean'],
             'products.*.price'               => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'products.*.cost_price'          => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'products.*.stock'               => ['nullable', 'numeric', 'min:-999999', 'max:999999999'],
@@ -197,18 +355,38 @@ class PosController extends Controller
             'products.*.unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
             'products.*.sku'                 => ['nullable', 'string', 'max:60'],
             'products.*.supplier_id'         => ['nullable', 'integer'],
+            'products.*.category_id'         => ['nullable', 'integer'],
+            'products.*.purchased_at'        => ['nullable', 'date'],
             'products.*.new_code'            => ['nullable', 'string', 'max:64'],
             'products.*.emoji'               => ['nullable', 'string', 'max:16'],
             'products.*.color'               => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'products.*.image'               => ['nullable', 'image', 'max:2048'],
         ]);
 
         $keep = [];
         foreach ($request->input('products', []) as $i => $row) {
+            // BASCULER LA MISE EN VENTE — une action à part, pas un
+            // enregistrement complet, et contrôlée AVANT l'exigence d'un nom.
+            //
+            // Le menu « Retirer de la vente » n'envoie que l'identifiant. S'il
+            // passait par le chemin ordinaire, tous les champs absents seraient
+            // écrits à vide : retirer un article de la vente effacerait son
+            // prix, son stock et sa photo.
+            if (! empty($row['toggle_active'])) {
+                $p = app(PosCatalog::class)->find($terminal->tenant_id, (int) ($row['id'] ?? 0));
+                if ($p) {
+                    $p->forceFill(['is_active' => ! $p->is_active])->save();
+                }
+                continue;
+            }
+
             if (empty($row['name'])) {
                 continue;
             }
+
             $attrs = [
                 'name'      => $row['name'],
+                'description' => trim((string) ($row['description'] ?? '')) ?: null,
                 'price'     => (float) ($row['price'] ?? 0),
                 'emoji'     => $row['emoji'] ?? null,
                 'color'     => $row['color'] ?? '#2cb809',
@@ -231,7 +409,22 @@ class PosController extends Controller
                 // deviné ne doit pas rattacher le fournisseur du voisin :
                 // la recherche est cloisonnée par le commerce courant.
                 'supplier_id'         => $this->fournisseur($row['supplier_id'] ?? null),
+                'category_id'         => $this->rayon($row['category_id'] ?? null),
+                'purchased_at'        => $row['purchased_at'] ?? null,
             ];
+
+            // La photo arrive hors de `input()` : un fichier n'est pas une
+            // valeur. On la cherche donc par son chemin exact dans l'envoi, et
+            // on ne touche à la colonne QUE si quelque chose a été envoyé —
+            // sinon un simple changement de prix effacerait l'image.
+            $image = $request->file("products.$i.image");
+            if ($image) {
+                $request->validate(["products.$i.image" => ['image', 'max:2048']]);
+                $attrs['image_path'] = $image->store('tagtoa/pos-products', 'public');
+            } elseif (! empty($row['remove_image'])) {
+                $attrs['image_path'] = null;
+            }
+
             // Catalogue du COMMERCE : l'article est partagé par toutes ses caisses.
             $p = app(PosCatalog::class)->save($terminal, $attrs, ! empty($row['id']) ? (int) $row['id'] : null);
             $keep[] = $p->id;
@@ -253,6 +446,20 @@ class PosController extends Controller
         // temps, un navigateur qui ne poste pas tout — effaçait les articles de
         // TOUT le commerce. Supprimer est maintenant une action à part.
         return back()->with('success', __('Produits enregistrés.'));
+    }
+
+    /**
+     * Un rayon de CE commerce, sinon rien.
+     *
+     * L'identifiant vient du navigateur : sans ce filtre, un numéro deviné
+     * rangerait l'article dans le rayon du voisin — et le ferait apparaître
+     * dans SA grille de caisse.
+     */
+    private function rayon(mixed $id): ?int
+    {
+        return $id
+            ? \Modules\Tagtoa\App\Models\Pos\Category::whereKey((int) $id)->value('id')
+            : null;
     }
 
     /** Un fournisseur de CE commerce, sinon rien. */
@@ -417,5 +624,70 @@ JS;
     protected function own(int $id, array $with = []): Terminal
     {
         return Terminal::with($with)->where('tenant_id', Tenant::id())->findOrFail($id);
+    }
+
+    /* ==================================================================
+       LA CAISSE DU COMMERCE — pour que le POS s'ouvre sans numéro.
+       ================================================================== */
+
+    /**
+     * La caisse courante du commerce, créée au besoin.
+     *
+     * TOUS les écrans du POS exigeaient un identifiant de caisse dans leur URL
+     * (`/tagtoa/pos/7/products`). Conséquence pratique : rien ne pouvait être
+     * mis au menu, puisqu'un menu ne connaît pas le numéro 7. C'est la vraie
+     * raison pour laquelle la caisse n'avait qu'une entrée là où elle a treize
+     * écrans — et non un choix de design.
+     *
+     * Or depuis B-1 l'unité est le COMMERCE, et depuis B-3 le catalogue lui
+     * appartient déjà : la caisse n'est plus qu'un poste de travail. Les écrans
+     * se rangent donc sous le commerce, et le numéro ne sert plus qu'à ceux qui
+     * désignent vraiment un poste — vendre, faire son rapport de poste.
+     *
+     * Créer la caisse manquante est délibéré : demander à un marchand de créer
+     * « une caisse » avant de pouvoir ouvrir « Produits » est une marche qui
+     * n'apprend rien et sur laquelle on trébuche.
+     */
+    protected function caisseCourante(array $with = []): Terminal
+    {
+        $tenantId = Tenant::id();
+
+        $terminal = Terminal::with($with)->where('tenant_id', $tenantId)
+            ->orderBy('id')->first();
+
+        if ($terminal) {
+            return $terminal;
+        }
+
+        $terminal = new Terminal([
+            'name'      => __('Caisse principale'),
+            'currency'  => 'HTG',
+            'is_active' => true,
+        ]);
+        $terminal->tenant_id = $tenantId;
+        $terminal->save();
+
+        return $with ? $terminal->load($with) : $terminal;
+    }
+
+    /* ---- Les mêmes écrans, sans numéro dans l'URL ---- */
+
+    public function currentProducts(): View
+    {
+        return $this->products($this->caisseCourante(['products'])->id);
+    }
+
+    public function currentRegister(): RedirectResponse
+    {
+        // Redirection plutôt que rendu direct : la caisse est une application
+        // installable (manifeste, service worker) dont l'adresse porte le
+        // numéro du poste. La servir sous deux adresses en ferait deux
+        // installations, avec deux files d'attente hors ligne distinctes.
+        return redirect()->route('tagtoa.pos.register', $this->caisseCourante()->id);
+    }
+
+    public function currentReport(Request $request): View
+    {
+        return $this->report($this->caisseCourante()->id, $request);
     }
 }
