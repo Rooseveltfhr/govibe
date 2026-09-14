@@ -276,6 +276,16 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::delete('/{id}', [\Modules\Tagtoa\App\Http\Controllers\Staff\StaffController::class, 'destroy'])->whereNumber('id')->name('destroy');
     });
 
+    // REVENDEUR — sa console. L'objet passe par lui ; l'identité numérique,
+    // jamais : il ne voit aucun code d'activation, et c'est le commerçant qui
+    // gratte et réclame son stand.
+    Route::prefix('reseller')->name('tagtoa.reseller.')->group(function () {
+        $rev = \Modules\Tagtoa\App\Http\Controllers\Stand\ResellerController::class;
+        Route::get('/', [$rev, 'index'])->name('index');
+        Route::post('/sell', [$rev, 'sell'])->middleware('throttle:60,1')->name('sell');
+        Route::get('/{id}', [$rev, 'history'])->whereNumber('id')->name('history');
+    });
+
     // SMART STAND — réclamer un stand, et gérer les siens.
     Route::prefix('stands')->name('tagtoa.stand.')->group(function () {
         $stand  = \Modules\Tagtoa\App\Http\Controllers\Stand\StandController::class;
@@ -505,6 +515,14 @@ Route::middleware(['auth', 'valid.user', 'role:super_admin'])->prefix('tagtoa/ad
     Route::post('/shop/items', [$boutique, 'storeItem'])->name('tagtoa.superadmin.shop.items');
     Route::put('/shop/items/{id}', [$boutique, 'updateItem'])->whereNumber('id')->name('tagtoa.superadmin.shop.item.update');
     Route::put('/shop/orders/{id}', [$boutique, 'updateOrder'])->whereNumber('id')->name('tagtoa.superadmin.shop.order.update');
+
+    // Le réseau de distribution : créer les revendeurs, leur affecter des
+    // cartons — c'est-à-dire des plages.
+    $reseau = \Modules\Tagtoa\App\Http\Controllers\SuperAdmin\ResellerAdminController::class;
+    Route::get('/resellers', [$reseau, 'index'])->name('tagtoa.superadmin.resellers');
+    Route::post('/resellers', [$reseau, 'store'])->name('tagtoa.superadmin.resellers.store');
+    Route::put('/resellers/{id}', [$reseau, 'update'])->whereNumber('id')->name('tagtoa.superadmin.resellers.update');
+    Route::post('/resellers/{id}/allocate', [$reseau, 'allocate'])->whereNumber('id')->name('tagtoa.superadmin.resellers.allocate');
 
     // État système en lecture seule (environnement, DB, cache, sécurité NFC, limites connues).
     Route::get('/status', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\StatusController::class, 'index'])->name('tagtoa.superadmin.status');
