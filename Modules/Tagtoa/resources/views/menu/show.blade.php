@@ -54,6 +54,11 @@
         .pillb{font:700 10.5px var(--fh);background:var(--acc);color:#fff;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
         .item .ds{color:var(--mut);font-size:13.5px;margin-top:3px}
         .item .ft{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:10px}
+        .item .specs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+        .item .spec{font-size:12px;color:var(--mut);background:color-mix(in srgb,var(--acc) 8%,var(--surf));
+                    border-radius:999px;padding:3px 10px;line-height:1.5}
+        .item .spec b{font-weight:700;color:inherit}
+        .item .psuf{font-weight:500;font-size:12px;color:var(--mut);margin-left:2px}
         .price{font:700 15px var(--fh);color:var(--acc)}
         .add{border:0;background:var(--acc);color:#fff;width:36px;height:36px;border-radius:11px;font-size:16px;cursor:pointer;flex:0 0 auto;transition:transform .12s}
         .add:active{transform:scale(.9)}
@@ -132,6 +137,11 @@
             @endforeach
         </nav>
 
+        @php
+            // Suffixe de prix propre au métier (« / nuit » pour un hôtel) :
+            // calculé une seule fois, pas à chaque article.
+            $priceSuffix = \Modules\Tagtoa\App\Support\Menu\BusinessProfile::priceSuffix($menu->type);
+        @endphp
         @foreach($categories as $c)
             <section class="sec" id="cat{{ $c->id }}">
                 <h2>{{ $c->icon ? $c->icon.' ' : '' }}{{ $c->name }}</h2>
@@ -143,8 +153,24 @@
                         <div class="body">
                             <div class="nm">{{ $it->name }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ __('Épuisé') }}</span>@endif</div>
                             @if($it->description)<div class="ds">{{ $it->description }}</div>@endif
+                            {{-- Détails propres au métier : capacité et équipements d'une
+                                 chambre, degré d'alcool d'une boisson, temps de préparation
+                                 d'un plat. C'est ce qui permet au client de comparer. --}}
+                            @php $specs = \Modules\Tagtoa\App\Support\Menu\BusinessProfile::display($menu->type, $it->specs); @endphp
+                            @if($specs)
+                                <div class="specs">
+                                    @foreach($specs as $sp)
+                                        <span class="spec"><b>{{ __($sp['label']) }}</b> {{ $sp['value'] }}</span>
+                                    @endforeach
+                                </div>
+                            @endif
                             <div class="ft">
-                                @if($menu->show_prices)<span class="price">{{ \Modules\Tagtoa\App\Support\Money::format($it->price, $cur) }}</span>@else<span></span>@endif
+                                @if($menu->show_prices)
+                                    <span class="price">
+                                        {{ \Modules\Tagtoa\App\Support\Money::format($it->price, $cur) }}
+                                        @if($priceSuffix)<small class="psuf">{{ $priceSuffix }}</small>@endif
+                                    </span>
+                                @else<span></span>@endif
                                 @if($canOrder && ! $out)
                                     @php
                                         $opts = $it->options->map(fn ($o) => [

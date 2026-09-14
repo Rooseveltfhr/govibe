@@ -18,7 +18,8 @@ class CardCreditController extends Controller
 {
     public function index(): View
     {
-        $credits = CardCredit::orderByDesc('granted')->paginate(50);
+        // Vue plateforme : le fondateur voit les crédits de TOUS les commerces.
+        $credits = CardCredit::allTenants()->orderByDesc('granted')->paginate(50);
 
         return view('tagtoa::superadmin.card-credits', compact('credits'));
     }

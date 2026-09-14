@@ -59,6 +59,13 @@ class GatewayCatalog
                     : self::DEFAULTS['credential_mode'],
                 'fee_percent'     => max(0.0, (float) ($o['fee_percent'] ?? self::DEFAULTS['fee_percent'])),
                 'fee_fixed'       => max(0.0, (float) ($o['fee_fixed'] ?? self::DEFAULTS['fee_fixed'])),
+                // Qui traite réellement ce moyen. Le choix du super-admin ne
+                // s'applique que s'il figure dans la liste blanche du type :
+                // une valeur inconnue retombe sur le driver déclaré, jamais sur
+                // un nom de driver inventé.
+                'driver'          => PaymentGateway::allowsDriver($type, $o['driver'] ?? null)
+                    ? $o['driver']
+                    : ($meta['driver'] ?? null),
             ]);
         }
 
@@ -104,6 +111,18 @@ class GatewayCatalog
     /* ---------- lecture (tolérante) ---------- */
 
     /** Registre codé complet : type => métadonnées (label, icon, mode, kind, color, driver). */
+    /**
+     * Qui traite RÉELLEMENT ce moyen de paiement, réglage super-admin compris.
+     *
+     * À utiliser partout où l'on va déclencher un paiement.
+     * PaymentGateway::driver() ne renvoie que la valeur déclarée et ignore le
+     * choix du fondateur.
+     */
+    public static function driverFor(string $type): ?string
+    {
+        return self::effective()[$type]['driver'] ?? PaymentGateway::driver($type);
+    }
+
     public static function registry(): array
     {
         $out = [];
@@ -122,6 +141,7 @@ class GatewayCatalog
                 ->map(fn ($s) => [
                     'is_enabled'      => (bool) $s->is_enabled,
                     'credential_mode' => $s->credential_mode,
+                    'driver'          => $s->driver,
                     'fee_percent'     => (float) $s->fee_percent,
                     'fee_fixed'       => (float) $s->fee_fixed,
                 ])->all();

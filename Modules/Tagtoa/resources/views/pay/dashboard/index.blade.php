@@ -20,19 +20,21 @@
                 </div>
                 <a href="{{ url('/pay/'.$p->alias) }}" target="_blank" style="color:var(--blue);font-size:13px">tagtoa.com/pay/{{ $p->alias }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                 <div style="display:flex;gap:16px;margin-top:12px;color:var(--muted);font-size:13px">
-                    <span><i class="fa-solid fa-wallet"></i> {{ $p->methods_count }} {{ __('méthodes') }}</span>
+                    {{-- Les moyens sont ceux du marchand (configurés une fois) : les
+                         compter par lien n'aurait plus de sens. On montre le TYPE. --}}
+                    <span><i class="fa-solid {{ $p->type === \Modules\Tagtoa\App\Models\Pay\PaymentPage::TYPE_DONATION ? 'fa-hand-holding-heart' : 'fa-file-invoice-dollar' }}"></i>
+                        {{ __(\Modules\Tagtoa\App\Models\Pay\PaymentPage::TYPES[$p->type] ?? 'Facture / paiement') }}</span>
                     <span><i class="fa-solid fa-eye"></i> {{ $p->views }}</span>
                     @if($p->proofs_count)<span style="color:var(--blue-deep);font-weight:700"><i class="fa-solid fa-receipt"></i> {{ $p->proofs_count }}</span>@endif
                 </div>
                 <div class="row" style="margin-top:14px;gap:8px">
                     <a href="{{ route('tagtoa.pay.dashboard.edit',$p->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-pen"></i> {{ __('Modifier') }}</a>
+                    <a href="{{ route('tagtoa.pay.dashboard.share',$p->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-share-nodes"></i> {{ __('Partager') }}</a>
                     <a href="{{ route('tagtoa.pay.dashboard.proofs',$p->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-receipt"></i> {{ __('Preuves') }}</a>
                     <form method="POST" action="{{ route('tagtoa.pay.dashboard.destroy',$p->id) }}" onsubmit="return confirm('{{ __('Supprimer?') }}')" style="flex:0">
                         @csrf @method('DELETE')<button class="btn btn-o btn-sm" style="color:var(--red)"><i class="fa-solid fa-trash"></i></button>
                     </form>
-                    <button type="button" class="btn btn-o btn-sm" style="flex:0" onclick="var b=document.getElementById('sh-pay-{{ $p->id }}');b.style.display=b.style.display==='none'?'block':'none'"><i class="fa-solid fa-share-nodes"></i> {{ __('Partager') }}</button>
                 </div>
-                <div id="sh-pay-{{ $p->id }}" style="display:none;margin-top:12px">@include('tagtoa::partials.share-buttons', ['url' => url('/pay/'.$p->alias), 'title' => $p->title ?? $p->alias])</div>
             </div>
         @endforeach
     </div>

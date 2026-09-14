@@ -6,12 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA API — paiement demandé par un site tiers.
  */
 class ApiPayment extends Model
 {
+    use BelongsToTenant;
+
     public const STATUS_PENDING   = 'pending';
     public const STATUS_PAID      = 'paid';
     public const STATUS_FAILED    = 'failed';

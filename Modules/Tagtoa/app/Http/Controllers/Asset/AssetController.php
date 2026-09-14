@@ -26,6 +26,9 @@ class AssetController extends Controller
      */
     protected const ASSETS = [
         'html5-qrcode.min.js'      => 'application/javascript; charset=utf-8',
+        // Le scanner TAGTOA lui-même : un seul composant pour la caisse, la
+        // fiche article et le stock (voir resources/assets/tagtoa/).
+        'tagtoa-scanner.js'        => 'application/javascript; charset=utf-8',
         // Font Awesome 6.5.1 auto-hébergé (CSS + webfonts woff2) — plus de CDN externe.
         'fontawesome-6.5.1.css'    => 'text/css; charset=utf-8',
         'fa-solid-900.woff2'       => 'font/woff2',
@@ -48,15 +51,29 @@ class AssetController extends Controller
             abort(404);
         }
 
-        $path = __DIR__.'/../../../../resources/assets/vendor/'.$file;
+        // Les nôtres vivent à part de ce qui est vendored : ce sont deux
+        // cycles de vie différents (l'un se met à jour avec TAGTOA, l'autre
+        // avec sa librairie d'origine).
+        $base = __DIR__.'/../../../../resources/assets/';
+
+        $notre = is_file($base.'tagtoa/'.$file);
+        $path  = $notre ? $base.'tagtoa/'.$file : $base.'vendor/'.$file;
+
         if (! is_file($path)) {
             abort(404);
         }
 
-        // Immuable : le nom de fichier porte la version, on peut cacher 1 an.
+        // Les fichiers vendored portent leur version dans leur nom : un an de
+        // cache est sûr. Les nôtres n'en portent pas et évoluent avec le
+        // module — les figer rendrait toute correction invisible jusqu'à ce
+        // que le commerçant vide son navigateur, ce qu'il ne fera pas.
+        $cache = $notre
+            ? 'public, max-age=3600, must-revalidate'
+            : 'public, max-age=31536000, immutable';
+
         return response()->file($path, [
             'Content-Type'  => $mime,
-            'Cache-Control' => 'public, max-age=31536000, immutable',
+            'Cache-Control' => $cache,
         ]);
     }
 }

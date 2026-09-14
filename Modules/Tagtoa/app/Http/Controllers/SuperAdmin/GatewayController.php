@@ -50,6 +50,8 @@ class GatewayController extends Controller
             'credentials' => $credentials,
             'modes'       => GatewayCatalog::CREDENTIAL_MODES,
             'drivers'     => $this->drivers(),
+            // Moyens pouvant être traités par plusieurs fournisseurs (la carte).
+            'alternatives' => PaymentGateway::ALTERNATIVES,
         ]);
     }
 
@@ -72,8 +74,11 @@ class GatewayController extends Controller
                 'mode'    => GatewayCredentialFields::merge($cfg, $stored[$driver] ?? null)['mode'] ?? null,
                 'ready'   => GatewayManager::enabled($driver),
                 // Types de méthode couverts par ce driver (usdt/btc… → coinpayments).
+                // Types réellement traités par ce driver, réglage compris : sans
+                // cela l'écran annoncerait que Stripe couvre la carte alors que
+                // PayPal la traite.
                 'types'   => array_keys(array_filter(
-                    PaymentGateway::GATEWAYS,
+                    GatewayCatalog::effective(),
                     fn ($g) => ($g['driver'] ?? null) === $driver
                 )),
             ];
@@ -131,6 +136,7 @@ class GatewayController extends Controller
             'gateways.*.credential_mode'  => ['nullable', Rule::in(GatewayCatalog::CREDENTIAL_MODES)],
             'gateways.*.fee_percent'      => ['nullable', 'numeric', 'min:0', 'max:100'],
             'gateways.*.fee_fixed'        => ['nullable', 'numeric', 'min:0', 'max:999999'],
+            'gateways.*.driver'           => ['nullable', 'string', 'max:40'],
         ]);
 
         $touched = [];
@@ -148,6 +154,11 @@ class GatewayController extends Controller
                         : GatewayCatalog::MODE_PLATFORM,
                     'fee_percent'     => round((float) ($row['fee_percent'] ?? 0), 2),
                     'fee_fixed'       => round((float) ($row['fee_fixed'] ?? 0), 2),
+                    // Qui traite ce moyen. Refusé s'il n'est pas dans la liste
+                    // blanche du type : jamais un nom de driver arbitraire.
+                    'driver'          => PaymentGateway::allowsDriver($type, $row['driver'] ?? null)
+                        ? $row['driver']
+                        : null,
                 ]
             );
             $touched[] = $type;

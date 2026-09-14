@@ -7,6 +7,9 @@ use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Event\Order;
 use Modules\Tagtoa\App\Models\Event\Ticket;
 use Modules\Tagtoa\App\Models\Event\TicketType;
+use Modules\Tagtoa\App\Services\Order\OrderSpine;
+use Modules\Tagtoa\App\Support\Order\Channel;
+use Modules\Tagtoa\App\Support\Order\OrderStatus;
 
 /**
  * TAGTOA Event — création de commandes + émission des billets.
@@ -61,6 +64,11 @@ class TicketService
                 }
             }
 
+            // Colonne vertébrale, dans la MÊME transaction : une billetterie
+            // qui compte à part obligerait le marchand à additionner deux
+            // écrans pour connaître sa journée.
+            $this->inscrire($event, $order);
+
             return $order;
         });
     }
@@ -69,7 +77,41 @@ class TicketService
     {
         if (! $order->isPaid()) {
             $order->update(['status' => Order::STATUS_PAID, 'payment_method' => $method ?? $order->payment_method, 'paid_at' => now()]);
+
+            app(OrderSpine::class)->touch('event_order', $order->id,
+                OrderStatus::fromEvent(Order::STATUS_PAID), OrderStatus::PAID);
         }
         return $order;
+    }
+
+    /**
+     * Inscrit une commande de billetterie sur la colonne vertébrale.
+     *
+     * La billetterie compte ses statuts en entiers, parce qu'elle est
+     * antérieure à cette table. On les TRADUIT ici plutôt que de réécrire un
+     * module qui fonctionne — un test vérifie qu'aucun entier ne se perd en
+     * chemin.
+     */
+    private function inscrire($event, Order $order): void
+    {
+        $paye = $order->status === Order::STATUS_PAID;
+
+        app(OrderSpine::class)->record([
+            'tenant_id'      => $event->tenant_id,
+            'channel'        => Channel::EVENT,
+            'source_type'    => 'event_order',
+            'source_id'      => $order->id,
+            'reference'      => $order->reference,
+            'subtotal'       => (float) $order->total,
+            'total'          => (float) $order->total,
+            'currency'       => $order->currency,
+            'status'         => OrderStatus::fromEvent((int) $order->status),
+            'payment_status' => $paye ? OrderStatus::PAID : OrderStatus::UNPAID,
+            'customer_id'    => app(OrderSpine::class)
+                ->customerFor($event->tenant_id, $order->buyer_name, $order->buyer_phone)?->id,
+            'customer_name'  => $order->buyer_name,
+            'customer_phone' => $order->buyer_phone,
+            'placed_at'      => $order->created_at ?? now(),
+        ]);
     }
 }

@@ -24,8 +24,21 @@ class OnboardingController extends Controller
 {
     use EnforcesPlan;
 
-    /** Démarrages rapides supportés (création directe avec défauts). */
+    /**
+     * Démarrages rapides supportés (création directe avec défauts).
+     * Filtrés sur les modules mis en avant : proposer un démarrage vers un
+     * module absent du menu créerait une ressource que le marchand ne
+     * retrouverait plus ensuite.
+     */
     public const QUICK_KINDS = ['menu', 'pay', 'links'];
+
+    public static function quickKinds(): array
+    {
+        return array_values(array_filter(
+            self::QUICK_KINDS,
+            fn ($k) => \Modules\Tagtoa\App\Support\DashboardModules::isEnabled($k)
+        ));
+    }
 
     public function index(): View
     {
@@ -35,7 +48,7 @@ class OnboardingController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'kind'     => ['required', Rule::in(self::QUICK_KINDS)],
+            'kind'     => ['required', Rule::in(self::quickKinds())],
             'name'     => ['required', 'string', 'max:120'],
             'whatsapp' => ['nullable', 'string', 'max:40'],
         ]);
@@ -67,8 +80,10 @@ class OnboardingController extends Controller
                     'alias'     => PaymentPage::generateAlias($name),
                 ]);
 
-                return redirect()->route('tagtoa.pay.dashboard.edit', $page->id)
-                    ->with('success', __('Page de paiement créée. Ajoutez vos méthodes.'));
+                // Les moyens de paiement se configurent une seule fois, ailleurs :
+                // on envoie donc directement sur l'écran de partage du lien.
+                return redirect()->route('tagtoa.pay.dashboard.share', $page->id)
+                    ->with('success', __('Lien de paiement créé. Partagez-le à vos clients.'));
 
             case 'links':
             default:

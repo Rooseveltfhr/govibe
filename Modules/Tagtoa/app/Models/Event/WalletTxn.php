@@ -6,12 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA EVENT — en-tête de transaction wallet. timestamps désactivés (created_at seul).
  */
 class WalletTxn extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_ev_wallet_txns';
 
     public $timestamps = false;

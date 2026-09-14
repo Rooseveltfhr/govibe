@@ -3,12 +3,15 @@
 namespace Modules\Tagtoa\App\Models\Billing;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA — abonnement marchand (forfait). Un actif par tenant.
  */
 class Subscription extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_subscriptions';
 
     protected $fillable = ['tenant_id', 'plan', 'status', 'started_at', 'expires_at'];

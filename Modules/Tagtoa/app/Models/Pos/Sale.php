@@ -22,11 +22,15 @@ class Sale extends Model
     protected $table = 'tagtoa_pos_sales';
 
     protected $fillable = [
-        'terminal_id', 'reference', 'subtotal', 'discount', 'total', 'currency',
+        'terminal_id', 'staff_id', 'reference', 'subtotal', 'discount', 'total', 'currency', 'tax_total', 'tax_base', 'tax_inclusive', 'tax_label', 'tax_breakdown',
         'payments', 'customer_phone', 'client_uuid', 'status', 'sold_at',
     ];
 
     protected $casts = [
+        'tax_total'     => 'decimal:2',
+        'tax_base'      => 'decimal:2',
+        'tax_inclusive' => 'boolean',
+        'tax_breakdown' => 'array',
         'subtotal' => 'decimal:2', 'discount' => 'decimal:2', 'total' => 'decimal:2',
         'payments' => 'array', 'status' => 'integer', 'sold_at' => 'datetime',
     ];
@@ -34,6 +38,24 @@ class Sale extends Model
     public function terminal(): BelongsTo
     {
         return $this->belongsTo(Terminal::class, 'terminal_id');
+    }
+
+    /**
+     * Caissier qui a encaissé. Facultatif : les ventes d'avant n'en ont pas, et
+     * un commerce sans employé vend sous le seul nom du patron.
+     *
+     * La vente SURVIT au départ de l'employé (nullOnDelete) : une recette
+     * appartient au commerce, pas à la personne qui l'a encaissée.
+     */
+    public function staff(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\Tagtoa\App\Models\Staff\Staff::class, 'staff_id');
+    }
+
+    /** Nom à afficher dans un rapport, même si l'employé a quitté le commerce. */
+    public function getCashierNameAttribute(): string
+    {
+        return $this->staff?->name ?: __('Patron');
     }
 
     public function items(): HasMany

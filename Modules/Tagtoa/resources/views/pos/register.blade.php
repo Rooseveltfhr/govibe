@@ -14,6 +14,10 @@
     <link rel="apple-touch-icon" href="{{ route('tagtoa.pos.icon') }}">
     <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
     <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
+    {{-- Scanner : auto-hébergé comme le reste. Un CDN injoignable, c'est un
+         scanner cassé le jour où la connexion est mauvaise. --}}
+    <script src="{{ route('tagtoa.asset', 'html5-qrcode.min.js') }}" defer></script>
+    <script src="{{ route('tagtoa.asset', 'tagtoa-scanner.js') }}" defer></script>
     <style>
         :root{--blk:#0A0A0A;--blue:#2cb809;--green:#1D9E75;--red:#E0473E;--bg:#F5F5F3;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -37,11 +41,63 @@
     </style>
 </head>
 <body data-terminal="{{ $terminal->id }}" data-currency="{{ $terminal->currency }}">
+    <style>
+        .grid .p{position:relative}
+        .grid .p .st{position:absolute;top:5px;right:7px;background:rgba(0,0,0,.34);color:#fff;
+               border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700}
+        .who{width:30px;height:30px;border-radius:50%;background:var(--blue);color:#fff;
+             display:inline-flex;align-items:center;justify-content:center;
+             font:700 12px var(--fh,sans-serif);flex:0 0 30px}
+        .poste{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+               padding:9px 12px;background:#fff;border-bottom:1px solid var(--bd);font-size:14px}
+        .poste form{display:flex;align-items:center;gap:8px;margin:0}
+        .poste label{color:#666;font-size:13px}
+        .poste input{width:96px;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;
+                     font-size:17px;letter-spacing:.3em;text-align:center}
+        .poste button{padding:9px 15px;border:0;border-radius:8px;background:var(--blue);
+                      color:#fff;font-weight:600;font-size:14px;cursor:pointer}
+        .poste .err{color:var(--red);font-weight:600;font-size:13px}
+    </style>
     <div class="app">
-        <div class="top"><i class="fa-solid fa-cash-register" style="color:var(--blue)"></i><h1>{{ $terminal->name }}</h1><button id="installBtn" class="net" style="display:none;border:0;cursor:pointer;background:var(--blue)" title="{{ __('Installer l\'application') }}"><i class="fa-solid fa-download"></i> {{ __('Installer') }}</button><span class="net" id="net">●</span><a href="{{ route('tagtoa.pos.report',$terminal->id) }}"><i class="fa-solid fa-chart-simple"></i></a></div>
+        <div class="top"><i class="fa-solid fa-cash-register" style="color:var(--blue)"></i><h1>{{ $terminal->name }}</h1><button id="installBtn" class="net" style="display:none;border:0;cursor:pointer;background:var(--blue)" title="{{ __('Installer l\'application') }}"><i class="fa-solid fa-download"></i> {{ __('Installer') }}</button><button id="scanBtn" class="net" style="border:0;cursor:pointer;background:var(--blue)" title="{{ __('Scanner un code-barres') }}"><i class="fa-solid fa-barcode"></i></button><span class="net" id="net">●</span>
+            @if($staff)
+                <span class="who" title="{{ $staff->role_label }}">{{ $staff->initials }}</span>
+            @endif
+            <a href="{{ route('tagtoa.pos.report',$terminal->id) }}"><i class="fa-solid fa-chart-simple"></i></a></div>
+
+        {{-- Qui tient la caisse. Tant que le commerce n'a créé aucun employé,
+             ce bandeau n'apparaît pas et la caisse fonctionne comme avant. --}}
+        @if($hasStaff)
+            <div class="poste">
+                @if($staff)
+                    <span><b>{{ $staff->name }}</b> · {{ $staff->role_label }}</span>
+                    <form method="POST" action="{{ route('tagtoa.pos.staff.logout',$terminal->id) }}">@csrf
+                        <button type="submit">{{ __('Fermer le poste') }}</button>
+                    </form>
+                @else
+                    <form method="POST" action="{{ route('tagtoa.pos.staff.login',$terminal->id) }}">@csrf
+                        <label for="pin">{{ __('Votre code') }}</label>
+                        <input id="pin" name="pin" type="password" inputmode="numeric" autocomplete="off"
+                               maxlength="6" pattern="[0-9]*" placeholder="••••" required>
+                        <button type="submit">{{ __('Ouvrir') }}</button>
+                    </form>
+                @endif
+                @if(session('error'))<span class="err">{{ session('error') }}</span>@endif
+            </div>
+        @endif
         <div class="grid" id="grid">
-            @foreach($products as $p)
-                <button class="p" style="background:{{ $p->color }}" onclick="add({{ $p->id }},'{{ addslashes($p->name) }}',{{ $p->price }})"><span class="em">{{ $p->emoji ?: '🛒' }}</span><span>{{ $p->name }}</span><span class="pr">{{ number_format($p->price,2) }}</span></button>
+            {{-- Boutons de la caisse ET articles du menu du commerce. Chaque
+                 article porte sa référence d'origine (« menu:7 », « pos:7 ») :
+                 le plat n°7 et le bouton n°7 sont deux choses différentes. --}}
+            @foreach($sellable as $a)
+                <button class="p" style="background:{{ $a['color'] }}"
+                        data-ref="{{ $a['ref'] }}" data-name="{{ $a['name'] }}" data-price="{{ $a['price'] }}"
+                        @if($a['group']) title="{{ $a['group'] }}" @endif>
+                    <span class="em">{{ $a['emoji'] ?: ($a['source'] === 'menu' ? '🍽️' : '🛒') }}</span>
+                    <span>{{ $a['name'] }}</span>
+                    <span class="pr">{{ number_format($a['price'], 2) }}</span>
+                    @if($a['stock'] !== null)<span class="st">{{ $a['stock'] }}</span>@endif
+                </button>
             @endforeach
         </div>
         <div class="cart">
@@ -50,6 +106,7 @@
             <div class="tot">
                 <div class="r"><span>{{ __('Sous-total') }}</span><span id="sub">0.00</span></div>
                 <div class="r"><span>{{ __('Remise') }}</span><span><input id="disc" type="number" value="0" min="0" style="width:80px;text-align:right;border:1px solid var(--bd);border-radius:6px" oninput="render()"></span></div>
+                <div class="r" id="taxrow" style="display:none"><span id="taxlbl">{{ __('Taxe') }}</span><span id="taxval">0.00</span></div>
                 <div class="r g"><span>{{ __('Total') }}</span><span id="tot">0.00</span></div>
                 <button class="pay" id="paybtn" onclick="openPay()" disabled><i class="fa-solid fa-credit-card"></i> {{ __('Encaisser') }}</button>
             </div>
@@ -72,14 +129,176 @@
 var T=document.body.dataset.terminal,CUR=document.body.dataset.currency,CSRF=document.querySelector('meta[name=csrf-token]').content;
 var SALE_URL="{{ route('tagtoa.pos.sale',$terminal->id) }}",SYNC_URL="{{ route('tagtoa.pos.sync',$terminal->id) }}",QKEY='tagtoa_pos_q_'+T;
 var cart={},method='cash';
-function add(id,name,price){if(!cart[id])cart[id]={product_id:id,name:name,price:price,qty:0};cart[id].qty++;beep('add');render();}
+
+/* Le régime de taxe du commerce. La caisse s'en sert UNIQUEMENT pour
+   annoncer le bon montant : avec des prix hors taxe, afficher le sous-total
+   ferait annoncer moins que ce que le client paiera. Le calcul qui compte
+   reste celui du serveur. */
+var TAX = {
+    on:        @json($tax->enabled),
+    rate:      @json($tax->rate ?? 0),
+    inclusive: @json($tax->inclusive),
+    label:     @json($tax->enabled ? $tax->label() : null)
+};
+var TAUX_ARTICLE = {};
+@foreach($sellable as $a)
+    TAUX_ARTICLE[@json($a['ref'])] = @json($a['tax_rate']);
+@endforeach
+
+function tauxDe(ref){
+    if(!TAX.on) return 0;
+    var t = TAUX_ARTICLE[ref];
+    return (t === null || t === undefined) ? TAX.rate : t;
+}
+
+/* Taxe du panier, remise répartie au prorata — même règle qu'au serveur.
+   L'imputer sur une seule ligne changerait la taxe selon l'ordre des
+   articles. */
+function taxeDuPanier(){
+    if(!TAX.on) return 0;
+
+    var brut = sub();
+    if(brut <= 0) return 0;
+
+    var remise = Math.min(parseFloat(document.getElementById('disc').value) || 0, brut);
+    var facteur = (brut - remise) / brut;
+    var taxe = 0;
+
+    for(var k in cart){
+        var montant = Math.round(cart[k].price * cart[k].qty * facteur * 100) / 100;
+        var taux = tauxDe(k);
+        if(taux <= 0) continue;
+
+        taxe += TAX.inclusive
+            ? montant - Math.round(montant / (1 + taux/100) * 100) / 100
+            : Math.round(montant * taux) / 100;
+    }
+
+    return Math.round(taxe * 100) / 100;
+}
+/* Panier indexé par RÉFÉRENCE : sans cela, le plat n°7 et le bouton n°7
+   partageraient la même ligne et l'un écraserait l'autre. */
+function add(ref,name,price){if(!cart[ref])cart[ref]={ref:ref,name:name,price:price,qty:0};cart[ref].qty++;beep('add');render();}
+/* ------------------------------------------------------------------
+   Scanner — vendre sans chercher l'article dans la grille.
+
+   La table des codes est EMBARQUÉE avec le catalogue. La caisse doit
+   continuer de vendre quand la connexion tombe, et c'est justement le
+   moment où le commerçant ne peut pas se permettre de chercher.
+
+   Le serveur n'est interrogé qu'en dernier recours, pour un code qu'on ne
+   connaît pas encore (article créé sur une autre caisse il y a dix
+   minutes). Hors ligne, ce recours n'existe pas : on le dit, on ne fait
+   pas semblant.
+   ------------------------------------------------------------------ */
+var SCAN_URL = "{{ route('tagtoa.catalog.scan') }}";
+var PAR_CODE = {};   // code -> {ref, name, price}
+
+(function indexerLesCodes(){
+    @foreach($sellable as $a)
+        @foreach($a['codes'] as $c)
+            PAR_CODE[@json($c)] = {ref:@json($a['ref']), name:@json($a['name']), price:{{ (float) $a['price'] }}};
+        @endforeach
+    @endforeach
+})();
+
+function nettoyerCode(c){ return String(c||'').toUpperCase().replace(/[^A-Z0-9\-]/g,''); }
+
+/* Message court en haut de la grille : le caissier ne lit pas un roman
+   entre deux clients. */
+function direScan(texte, erreur){
+    var el = document.getElementById('scanmsg');
+    if(!el){
+        el = document.createElement('div');
+        el.id = 'scanmsg';
+        el.style.cssText = 'grid-column:1/-1;padding:10px 12px;border-radius:10px;font-size:14px';
+        var g = document.getElementById('grid');
+        g.insertBefore(el, g.firstChild);
+    }
+    el.textContent = texte;
+    el.style.background = erreur ? 'rgba(224,71,62,.12)' : 'rgba(44,184,9,.12)';
+    el.style.color = erreur ? 'var(--red)' : '#1a7a05';
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 4000);
+}
+
+function vendreParCode(code){
+    code = nettoyerCode(code);
+    if(code.length < 4) return;
+
+    var a = PAR_CODE[code];
+    if(a){ add(a.ref, a.name, a.price); direScan(a.name); return; }
+
+    if(!navigator.onLine){
+        beep('error');
+        direScan("{{ __('Code inconnu de cette caisse, et pas de connexion pour vérifier.') }}", true);
+        return;
+    }
+
+    fetch(SCAN_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},
+        body:JSON.stringify({code:code})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+          if(d && d.found){
+              // Retenu pour la suite de la journée : le même article repasse
+              // souvent à la caisse.
+              PAR_CODE[code] = {ref:d.article.ref, name:d.article.name, price:d.article.price};
+              add(d.article.ref, d.article.name, d.article.price);
+              direScan(d.article.name + (d.article.out ? " — {{ __('stock épuisé') }}" : ''));
+              return;
+          }
+          // Code inconnu : on ne devine JAMAIS un article. Encaisser le
+          // mauvais prix coûte plus cher que de taper l'article à la main.
+          beep('error');
+          if(window.TagtoaScanner) TagtoaScanner.reject();
+          direScan("{{ __('Code inconnu : ') }}" + code, true);
+      })
+      .catch(function(){
+          beep('error');
+          direScan("{{ __('Vérification impossible. Touchez l\'article dans la grille.') }}", true);
+      });
+}
+
+window.addEventListener('load', function(){
+    if(!window.TagtoaScanner) return;
+
+    // La douchette USB/Bluetooth marche sans rien ouvrir : c'est le matériel
+    // le plus courant derrière un comptoir.
+    TagtoaScanner.listenWedge(vendreParCode);
+
+    var b = document.getElementById('scanBtn');
+    if(b) b.addEventListener('click', function(){
+        TagtoaScanner.open({
+            onCode: vendreParCode,
+            title:  "{{ __('Scanner pour vendre') }}",
+            hint:   "{{ __('Visez le code-barres. Chaque lecture ajoute l\'article au panier.') }}",
+            submit: "{{ __('Ajouter') }}"
+        });
+    });
+});
+
+document.querySelectorAll('.grid .p').forEach(function(b){
+    b.addEventListener('click',function(){add(this.dataset.ref,this.dataset.name,parseFloat(this.dataset.price));});
+});
 function chg(id,d){if(cart[id]){cart[id].qty+=d;if(cart[id].qty<=0)delete cart[id];render();}}
 function sub(){var s=0;for(var k in cart)s+=cart[k].price*cart[k].qty;return s;}
-function total(){return Math.max(0,sub()-(parseFloat(document.getElementById('disc').value)||0));}
+/* Ce que le client va payer. Prix taxe comprise : la taxe est déjà dedans.
+   Prix hors taxe : elle s'ajoute, et c'est CE montant que le caissier
+   annonce — sinon il annoncerait moins que ce qui sera encaissé. */
+function total(){
+    var net = Math.max(0, sub() - (parseFloat(document.getElementById('disc').value) || 0));
+
+    return TAX.on && !TAX.inclusive ? Math.round((net + taxeDuPanier()) * 100) / 100 : net;
+}
 function render(){var L=document.getElementById('lines'),ks=Object.keys(cart);
-    L.innerHTML=ks.length?ks.map(function(k){var c=cart[k];return '<div class="ln"><div class="nm">'+c.name+'<small>'+c.price.toFixed(2)+'</small></div><div class="q"><button onclick="chg('+k+',-1)">−</button> '+c.qty+' <button onclick="chg('+k+',1)">+</button></div></div>';}).join(''):'<p style="color:#999;padding:14px;font-size:14px">{{ __('Touchez un produit') }}</p>';
+    L.innerHTML=ks.length?ks.map(function(k){var c=cart[k];return '<div class="ln"><div class="nm">'+c.name+'<small>'+c.price.toFixed(2)+'</small></div><div class="q"><button onclick="chg(\''+k+'\',-1)">−</button> '+c.qty+' <button onclick="chg(\''+k+'\',1)">+</button></div></div>';}).join(''):'<p style="color:#999;padding:14px;font-size:14px">{{ __('Touchez un produit') }}</p>';
     document.getElementById('sub').textContent=sub().toFixed(2);document.getElementById('tot').textContent=total().toFixed(2);document.getElementById('pt').textContent=total().toFixed(2);document.getElementById('paybtn').disabled=!ks.length;
+    // La taxe se voit AVANT d'encaisser : un client qui découvre 10 % de plus
+    // au moment de payer, c'est une discussion au comptoir.
+    var lt=document.getElementById('taxrow');
+    if(lt){var t=taxeDuPanier();lt.style.display=(TAX.on&&t>0)?'flex':'none';document.getElementById('taxval').textContent=t.toFixed(2);}
     var sb=document.getElementById('splitbox'),on=document.getElementById('splitchk').checked;sb.style.display=on?'block':'none';if(on&&!sb.innerHTML)sb.innerHTML='{{ __('MonCash') }}: <input type="number" id="sp1" value="0"> · {{ __('Cash') }}: <input type="number" id="sp2" value="0">';}
+if(TAX.label){var _l=document.getElementById('taxlbl');if(_l)_l.textContent=TAX.label;}
 function pickM(m,el){method=m;document.querySelectorAll('.m').forEach(function(x){x.classList.remove('on');});el.classList.add('on');}
 function openPay(){document.getElementById('modal').classList.add('show');}function closePay(){document.getElementById('modal').classList.remove('show');}
 function payments(){if(document.getElementById('splitchk').checked){var a=parseFloat((document.getElementById('sp1')||{}).value||0),b=parseFloat((document.getElementById('sp2')||{}).value||0);return [{method:'moncash',amount:a},{method:'cash',amount:b}];}return [{method:method,amount:total()}];}
@@ -90,9 +309,15 @@ window.addEventListener('online',setNet);window.addEventListener('offline',setNe
 function q(){return JSON.parse(localStorage.getItem(QKEY)||'[]');}function setQ(a){localStorage.setItem(QKEY,JSON.stringify(a));}
 function flush(){var a=q();if(!a.length)return;fetch(SYNC_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify({sales:a})}).then(function(r){return r.json();}).then(function(){setQ([]);}).catch(function(){});}
 function confirmSale(){var p={items:Object.values(cart),discount:parseFloat(document.getElementById('disc').value)||0,payments:payments(),customer_phone:document.getElementById('phone').value,client_uuid:uuid()};
-    if(navigator.onLine){fetch(SALE_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(function(d){ok(d.reference,p);}).catch(function(){off(p);});}else off(p);}
+    if(navigator.onLine){fetch(SALE_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(function(d){ok(d.reference,p,d);}).catch(function(){off(p);});}else off(p);}
 function off(p){var a=q();a.push(p);setQ(a);ok(p.client_uuid.substr(0,8).toUpperCase()+' ({{ __('hors-ligne') }})',p);}
-function ok(ref,p){beep('success');closePay();document.getElementById('dref').textContent=ref;document.getElementById('dtot').textContent=total().toFixed(2)+' '+CUR;
+function ok(ref,p,srv){beep('success');closePay();document.getElementById('dref').textContent=ref;
+    // Le montant qui s'affiche est celui que le SERVEUR a enregistré. Hors
+    // ligne il n'y en a pas encore : on montre le calcul local, qui est le
+    // même tant que le catalogue n'a pas changé.
+    var montant=(srv&&srv.total!=null)?srv.total:total();
+    document.getElementById('dtot').textContent=Number(montant).toFixed(2)+' '+CUR
+        +((srv&&srv.tax>0)?'  ('+(srv.tax_label||'{{ __('Taxe') }}')+' '+Number(srv.tax).toFixed(2)+')':'');
     var lines=Object.values(cart).map(function(c){return c.qty+'x '+c.name+' = '+(c.qty*c.price).toFixed(2);}).join('%0A');
     var msg='{{ __('Reçu') }} TAGTOA%0A'+ref+'%0A'+lines+'%0A{{ __('Total') }}: '+total().toFixed(2)+' '+CUR;
     document.getElementById('wa').href='https://wa.me/'+(p.customer_phone||'').replace(/[^0-9]/g,'')+'?text='+msg;document.getElementById('done').classList.add('show');}

@@ -5,6 +5,7 @@ namespace Modules\Tagtoa\App\Models\Event;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA EVENT — compte de valeur (wallet closed-loop).
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class WalletAccount extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_ev_wallet_accounts';
 
     /** Comptes "valeur" (porteur) vs comptes "système" (contreparties). */

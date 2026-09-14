@@ -53,6 +53,9 @@ class PayPalDriver implements GatewayDriver
                         'brand_name'          => 'TAGTOA',
                         'shipping_preference'  => 'NO_SHIPPING',
                         'user_action'          => 'PAY_NOW',
+                        // « Carte bancaire » ouvre le formulaire carte, pas l'écran
+                        // de connexion : le client sans compte PayPal paie quand même.
+                        'landing_page'         => PayPal::landingPage($txn->meta['method_type'] ?? null),
                         'return_url'           => route('tagtoa.pay.online.return', ['gateway' => 'paypal']).'?reference='.urlencode($txn->reference),
                         'cancel_url'           => route('tagtoa.pay.result'),
                     ],

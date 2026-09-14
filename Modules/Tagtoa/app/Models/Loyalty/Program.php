@@ -8,12 +8,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA Loyalty — programme de fidélité.
  */
 class Program extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_loyalty_programs';
 
     protected $fillable = [

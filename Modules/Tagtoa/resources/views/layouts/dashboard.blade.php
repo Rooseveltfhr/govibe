@@ -93,27 +93,22 @@
     <aside class="sb" id="sb">
         <div class="brand"><span class="logo">⚡</span><b>TAGTOA</b></div>
         <nav class="nav">
+            {{-- Barre latérale et page d'accueil lisent la MÊME source
+                 (DashboardModules) : elles ne peuvent plus diverger. --}}
+            @php $mods = \Modules\Tagtoa\App\Support\DashboardModules::class; @endphp
             <a href="{{ url('/tagtoa/home') }}" class="{{ request()->is('tagtoa/home') ? 'on' : '' }}"><i class="fa-solid fa-grip"></i> {{ __('Accueil') }}</a>
-            <a href="{{ url('/dashboard') }}"><i class="fa-solid fa-address-card"></i> {{ __('Ma carte de visite') }}</a>
             <span class="sep">{{ __('Modules') }}</span>
-            <a href="{{ url('/tagtoa/site') }}" class="{{ request()->is('tagtoa/site*') ? 'on' : '' }}"><i class="fa-solid fa-globe"></i> {{ __('Site web') }}</a>
-            <a href="{{ url('/tagtoa/menu') }}" class="{{ request()->is('tagtoa/menu*') ? 'on' : '' }}"><i class="fa-solid fa-utensils"></i> {{ __('Menu') }}</a>
-            <a href="{{ url('/tagtoa/store') }}" class="{{ request()->is('tagtoa/store*') ? 'on' : '' }}"><i class="fa-solid fa-bag-shopping"></i> {{ __('Boutique') }}</a>
-            <a href="{{ url('/tagtoa/pay') }}" class="{{ request()->is('tagtoa/pay*') ? 'on' : '' }}"><i class="fa-solid fa-money-bill-transfer"></i> {{ __('Paiements') }}</a>
-            <a href="{{ url('/tagtoa/cards') }}" class="{{ request()->is('tagtoa/cards*') ? 'on' : '' }}"><i class="fa-solid fa-credit-card"></i> {{ __('Cartes TAGTOA') }}</a>
-            <a href="{{ url('/tagtoa/loyalty') }}" class="{{ request()->is('tagtoa/loyalty*') ? 'on' : '' }}"><i class="fa-solid fa-id-card"></i> {{ __('Fidélité') }}</a>
-            <a href="{{ url('/tagtoa/links') }}" class="{{ request()->is('tagtoa/links*') ? 'on' : '' }}"><i class="fa-solid fa-link"></i> {{ __('Liens') }}</a>
-            <a href="{{ url('/tagtoa/event') }}" class="{{ request()->is('tagtoa/event*') ? 'on' : '' }}"><i class="fa-solid fa-ticket"></i> {{ __('Événements') }}</a>
-            <a href="{{ url('/tagtoa/booking') }}" class="{{ request()->is('tagtoa/booking*') ? 'on' : '' }}"><i class="fa-solid fa-calendar-check"></i> {{ __('Réservations') }}</a>
-            <a href="{{ url('/tagtoa/pos') }}" class="{{ request()->is('tagtoa/pos*') ? 'on' : '' }}"><i class="fa-solid fa-cash-register"></i> {{ __('Caisse (POS)') }}</a>
+            @foreach($mods::enabled('module') as $m)
+                <a href="{{ url($m['url']) }}" class="{{ request()->is(ltrim($m['url'],'/').'*') ? 'on' : '' }}">
+                    <i class="fa-solid {{ $m['icon'] }}"></i> {{ __($m['label']) }}
+                </a>
+            @endforeach
             <span class="sep">{{ __('Compte') }}</span>
-            <a href="{{ url('/tagtoa/analytics') }}" class="{{ request()->is('tagtoa/analytics*') ? 'on' : '' }}"><i class="fa-solid fa-chart-line"></i> {{ __('Analytics') }}</a>
-            <a href="{{ url('/tagtoa/customers') }}" class="{{ request()->is('tagtoa/customers*') ? 'on' : '' }}"><i class="fa-solid fa-users"></i> {{ __('Clients') }}</a>
-            <a href="{{ url('/tagtoa/reviews') }}" class="{{ request()->is('tagtoa/reviews*') ? 'on' : '' }}"><i class="fa-solid fa-star"></i> {{ __('Avis clients') }}</a>
-            <a href="{{ url('/tagtoa/qr') }}" class="{{ request()->is('tagtoa/qr*') ? 'on' : '' }}"><i class="fa-solid fa-qrcode"></i> {{ __('QR & Partage') }}</a>
-            <a href="{{ url('/tagtoa/plan') }}" class="{{ request()->is('tagtoa/plan*') ? 'on' : '' }}"><i class="fa-solid fa-crown"></i> {{ __('Abonnement') }}</a>
-            <a href="{{ url('/tagtoa/billing') }}" class="{{ request()->is('tagtoa/billing*') ? 'on' : '' }}"><i class="fa-solid fa-wallet"></i> {{ __('Revenu & forfait') }}</a>
-            <a href="{{ url('/tagtoa/audit') }}" class="{{ request()->is('tagtoa/audit*') ? 'on' : '' }}"><i class="fa-solid fa-clipboard-list"></i> {{ __('Journal d\'audit') }}</a>
+            @foreach($mods::enabled('account') as $m)
+                <a href="{{ url($m['url']) }}" class="{{ request()->is(ltrim($m['url'],'/').'*') ? 'on' : '' }}">
+                    <i class="fa-solid {{ $m['icon'] }}"></i> {{ __($m['label']) }}
+                </a>
+            @endforeach
             @php
                 $u = auth()->user();
                 $isSuper = false;
@@ -123,6 +118,11 @@
                 <span class="sep">{{ __('Plateforme') }}</span>
                 <a href="{{ url('/tagtoa/admin/plans') }}" class="{{ request()->is('tagtoa/admin/plans*') ? 'on' : '' }}"><i class="fa-solid fa-layer-group"></i> {{ __('Forfaits TAGTOA') }}</a>
                 <a href="{{ url('/tagtoa/admin/card-credits') }}" class="{{ request()->is('tagtoa/admin/card-credits*') ? 'on' : '' }}"><i class="fa-solid fa-coins"></i> {{ __('Crédits cartes') }}</a>
+                {{-- Journal d'audit : retiré du menu marchand, mais c'est une pièce
+                     de conformité (BRH) — elle reste accessible au fondateur. --}}
+                @unless($mods::isEnabled('audit'))
+                    <a href="{{ url('/tagtoa/audit') }}" class="{{ request()->is('tagtoa/audit*') ? 'on' : '' }}"><i class="fa-solid fa-clipboard-list"></i> {{ __('Journal d\'audit') }}</a>
+                @endunless
                 <a href="{{ url('/sadmin/dashboard') }}"><i class="fa-solid fa-shield-halved"></i> {{ __('Super Admin') }}</a>
             @endif
         </nav>

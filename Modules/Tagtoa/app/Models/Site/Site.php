@@ -10,12 +10,15 @@ use Illuminate\Support\Str;
 use Modules\Tagtoa\App\Models\Links\LinkPage;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA SITE — site web professionnel (vitrine) servi sur tagtoa.com/site/{alias}.
  */
 class Site extends Model
 {
+    use BelongsToTenant;
+
     public const THEMES = ['light', 'dark'];
 
     protected $table = 'tagtoa_sites';

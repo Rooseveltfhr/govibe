@@ -17,7 +17,7 @@ class SuperAdminService
     /** Revenu brut + commission par devise (toutes commissions non annulées). */
     public function revenueByCurrency(): array
     {
-        return Commission::where('status', '!=', Commission::STATUS_VOID)
+        return Commission::allTenants()->where('status', '!=', Commission::STATUS_VOID)
             ->selectRaw('currency, SUM(gross_amount) AS gross, SUM(commission_amount) AS commission, COUNT(*) AS n')
             ->groupBy('currency')->get()
             ->map(fn ($r) => [
@@ -45,7 +45,7 @@ class SuperAdminService
     /** Revenu brut par module (menu, store, event, booking…). */
     public function revenueByModule(): array
     {
-        return Commission::where('status', '!=', Commission::STATUS_VOID)
+        return Commission::allTenants()->where('status', '!=', Commission::STATUS_VOID)
             ->selectRaw('module, SUM(gross_amount) AS gross, COUNT(*) AS n')
             ->groupBy('module')->orderByDesc('gross')->get()
             ->map(fn ($r) => ['module' => $r->module, 'gross' => (float) $r->gross, 'count' => (int) $r->n])
@@ -55,7 +55,7 @@ class SuperAdminService
     /** Top marchands par revenu brut cumulé. */
     public function topMerchants(int $limit = 10): array
     {
-        return Commission::where('status', '!=', Commission::STATUS_VOID)
+        return Commission::allTenants()->where('status', '!=', Commission::STATUS_VOID)
             ->selectRaw('tenant_id, SUM(gross_amount) AS gross, COUNT(*) AS n')
             ->groupBy('tenant_id')->orderByDesc('gross')->limit($limit)->get()
             ->map(fn ($r) => ['tenant_id' => $r->tenant_id, 'gross' => (float) $r->gross, 'count' => (int) $r->n])
@@ -86,14 +86,14 @@ class SuperAdminService
     /** Liste des marchands (abonnements) avec forfait + statut, paginable. */
     public function merchants(int $perPage = 25)
     {
-        return Subscription::orderByDesc('started_at')->paginate($perPage);
+        return Subscription::allTenants()->orderByDesc('started_at')->paginate($perPage);
     }
 
     /** Compteurs de tête : marchands, abonnements actifs. */
     public function totals(): array
     {
         $tenants = Subscription::distinct('tenant_id')->count('tenant_id');
-        $active = Subscription::where('status', 'active')->count();
+        $active = Subscription::allTenants()->where('status', 'active')->count();
 
         return ['merchants' => $tenants, 'active_subscriptions' => $active];
     }

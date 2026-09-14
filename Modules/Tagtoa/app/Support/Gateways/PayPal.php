@@ -29,6 +29,23 @@ class PayPal
         return in_array(strtoupper((string) $currency), self::CURRENCIES, true);
     }
 
+    /**
+     * Page d'atterrissage chez PayPal selon le moyen que le client a cliqué. PUR.
+     *
+     * TAGTOA propose « PayPal » et « Carte bancaire » comme deux entrées
+     * distinctes, toutes deux traitées par PayPal. Sans cette distinction, les
+     * deux ouvriraient l'écran de connexion PayPal — et le client qui n'a pas de
+     * compte croirait qu'il ne peut pas payer, alors que PayPal accepte les
+     * cartes sans compte.
+     *
+     * BILLING ouvre directement le formulaire carte. NO_PREFERENCE laisse PayPal
+     * décider, ce qui convient à tous les autres cas.
+     */
+    public static function landingPage(?string $methodType): string
+    {
+        return $methodType === 'card' ? 'BILLING' : 'NO_PREFERENCE';
+    }
+
     /** Montant formaté PayPal : chaîne à 2 décimales (« 10.00 »), min 0.01. PUR. */
     public static function amount($value): string
     {

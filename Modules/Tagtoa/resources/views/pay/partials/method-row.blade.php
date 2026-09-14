@@ -1,12 +1,11 @@
-{{-- TAGTOA Pay — une ligne du catalogue de passerelles.
+{{-- TAGTOA Pay — une ligne de « Mes moyens de paiement ».
      Variables : $type (clé), $meta (métadonnées effectives), $m (PaymentMethod|null).
 
-     Le formulaire est indexé PAR CLÉ DE PASSERELLE (methods[moncash][…]) et non
-     par index numérique : le serveur peut donc rejeter toute clé inconnue avant
-     d'écrire quoi que ce soit. --}}
+     Formulaire indexé PAR CLÉ DE PASSERELLE (methods[moncash][…]) : le serveur
+     peut donc rejeter toute clé inconnue avant d'écrire quoi que ce soit. --}}
 @php
     $on       = $m ? (bool) $m->is_active : false;
-    // Une passerelle auto réellement branchée encaisse seule : rien à saisir.
+    $isAuto   = $meta['mode'] === \Modules\Tagtoa\App\Support\PaymentGateway::MODE_AUTO;
     $apiReady = ! empty($meta['online_ready']);
 @endphp
 <div class="gwrow">
@@ -14,11 +13,11 @@
         <span class="gwicon" style="background:{{ $meta['color'] }}"><i class="{{ $meta['icon'] }}"></i></span>
         <span class="gwname">{{ $meta['label'] }}</span>
 
-        @if($meta['mode'] === \Modules\Tagtoa\App\Support\PaymentGateway::MODE_AUTO)
+        @if($isAuto)
             @if($apiReady)
-                <span class="gwtag ok">{{ __('API prête') }}</span>
+                <span class="gwtag ok">{{ __('Prêt') }}</span>
             @else
-                <span class="gwtag off">{{ __('Identifiants manquants') }}</span>
+                <span class="gwtag off">{{ __('Pas encore disponible') }}</span>
             @endif
         @endif
 
@@ -29,22 +28,24 @@
     </label>
 
     <div class="gwbody" style="{{ $on ? '' : 'display:none' }}">
-        @if($apiReady)
-            <p style="color:var(--muted);font-size:13px;margin-top:12px">
-                <i class="fa-solid fa-bolt" style="color:#2cb809"></i>
-                {{ __('Encaissement automatique : le client paie en ligne, aucune coordonnée à saisir ici.') }}
-            </p>
-            <label class="lbl">{{ __('Libellé affiché') }} <span style="font-weight:400;color:var(--muted)">({{ __('optionnel') }})</span></label>
-            <input name="methods[{{ $type }}][label]" class="inp" maxlength="120"
-                   value="{{ old('methods.'.$type.'.label', $m->label ?? '') }}" placeholder="{{ $meta['label'] }}">
-        @else
-            @if($meta['mode'] === \Modules\Tagtoa\App\Support\PaymentGateway::MODE_AUTO)
+        @if($isAuto)
+            @if($apiReady)
+                <p style="color:var(--muted);font-size:13px;margin-top:12px">
+                    <i class="fa-solid fa-bolt" style="color:#2cb809"></i>
+                    {{ __('Encaissement automatique. Rien à saisir : TAGTOA gère la connexion au fournisseur.') }}
+                </p>
+            @else
                 <p style="color:#7a5200;font-size:13px;margin-top:12px">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    {{ __('Les identifiants API ne sont pas encore configurés : cette passerelle fonctionnera sur preuve manuelle en attendant.') }}
+                    <i class="fa-solid fa-clock"></i>
+                    {{ __('Cette passerelle n\'est pas encore activée par TAGTOA. Vous pouvez la préparer : elle fonctionnera sur preuve manuelle en attendant, et basculera toute seule en automatique dès qu\'elle sera disponible.') }}
                 </p>
             @endif
+            <label class="lbl">{{ __('Libellé affiché au client') }} <span style="font-weight:400;color:var(--muted)">({{ __('optionnel') }})</span></label>
+            <input name="methods[{{ $type }}][label]" class="inp" maxlength="120"
+                   value="{{ old('methods.'.$type.'.label', $m->label ?? '') }}" placeholder="{{ $meta['label'] }}">
+        @endif
 
+        @if(! $isAuto || ! $apiReady)
             <div class="row" style="margin-top:12px">
                 <div>
                     <label class="lbl">{{ __('Nom du compte') }}</label>
@@ -67,11 +68,13 @@
                            value="{{ old('methods.'.$type.'.institution', $m->institution ?? '') }}"
                            placeholder="{{ __('Banque / opérateur') }}">
                 </div>
-                <div>
-                    <label class="lbl">{{ __('Libellé affiché') }} <span style="font-weight:400;color:var(--muted)">({{ __('optionnel') }})</span></label>
-                    <input name="methods[{{ $type }}][label]" class="inp" maxlength="120"
-                           value="{{ old('methods.'.$type.'.label', $m->label ?? '') }}" placeholder="{{ $meta['label'] }}">
-                </div>
+                @if(! $isAuto)
+                    <div>
+                        <label class="lbl">{{ __('Libellé affiché') }} <span style="font-weight:400;color:var(--muted)">({{ __('optionnel') }})</span></label>
+                        <input name="methods[{{ $type }}][label]" class="inp" maxlength="120"
+                               value="{{ old('methods.'.$type.'.label', $m->label ?? '') }}" placeholder="{{ $meta['label'] }}">
+                    </div>
+                @endif
             </div>
 
             <label class="lbl" style="margin-top:8px">{{ __('Instructions pour le client') }}</label>

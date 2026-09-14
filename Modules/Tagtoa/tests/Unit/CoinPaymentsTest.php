@@ -50,4 +50,75 @@ class CoinPaymentsTest extends TestCase
         $this->assertSame('10.00', CoinPayments::amount(10));
         $this->assertSame('0.01', CoinPayments::amount(0));
     }
+
+    /* ------------------------------------------------------------------
+       Vérification du MONTANT — le trou trouvé à l'audit.
+       Le statut CoinPayments seul disait « payé » même si le payeur avait
+       envoyé moins que le montant dû.
+       ------------------------------------------------------------------ */
+
+    public function test_a_full_payment_is_accepted(): void
+    {
+        $this->assertSame('paid', CoinPayments::resolve([
+            'status' => 100, 'amountf' => '25.00000000', 'receivedf' => '25.00000000',
+        ]));
+    }
+
+    public function test_an_overpayment_is_accepted(): void
+    {
+        // Le payeur a envoyé plus que demandé : la commande est due, pas bloquée.
+        $this->assertSame('paid', CoinPayments::resolve([
+            'status' => 100, 'amountf' => '25.00000000', 'receivedf' => '25.40000000',
+        ]));
+    }
+
+    public function test_an_underpayment_is_never_marked_paid(): void
+    {
+        // 1 gourde envoyée sur une facture de 10 000 : le statut disait « payé ».
+        $this->assertSame('pending', CoinPayments::resolve([
+            'status' => 100, 'amountf' => '250.00000000', 'receivedf' => '0.00002500',
+        ]));
+
+        // Même un centime manquant ne suffit pas.
+        $this->assertSame('pending', CoinPayments::resolve([
+            'status' => 100, 'amountf' => '25.00000000', 'receivedf' => '24.99000000',
+        ]));
+    }
+
+    public function test_an_underpayment_stays_open_rather_than_failing(): void
+    {
+        // « failed » figerait une transaction où de la crypto RÉELLE a été reçue
+        // et que le payeur peut encore compléter. CoinPayments finit par expirer
+        // la transaction lui-même, et le statut négatif donne alors « failed ».
+        $this->assertNotSame('failed', CoinPayments::resolve([
+            'status' => 100, 'amountf' => '25.00000000', 'receivedf' => '10.00000000',
+        ]));
+    }
+
+    public function test_a_rounding_of_one_satoshi_does_not_block_a_full_payment(): void
+    {
+        $this->assertSame('paid', CoinPayments::resolve([
+            'status' => 100, 'amountf' => '0.00250000', 'receivedf' => '0.00249999',
+        ]));
+    }
+
+    public function test_without_amount_fields_nothing_is_declared_paid(): void
+    {
+        // Réponse tronquée ou API modifiée : on refuse de conclure au paiement
+        // plutôt que de faire confiance au seul statut.
+        $this->assertSame('pending', CoinPayments::resolve(['status' => 100]));
+        $this->assertSame('pending', CoinPayments::resolve([]));
+    }
+
+    public function test_a_failed_or_pending_status_is_passed_through_unchanged(): void
+    {
+        // Le montant n'entre en jeu que pour CONFIRMER un paiement, jamais pour
+        // en inventer un.
+        $this->assertSame('failed', CoinPayments::resolve([
+            'status' => -1, 'amountf' => '25.00000000', 'receivedf' => '25.00000000',
+        ]));
+        $this->assertSame('pending', CoinPayments::resolve([
+            'status' => 0, 'amountf' => '25.00000000', 'receivedf' => '0.00000000',
+        ]));
+    }
 }

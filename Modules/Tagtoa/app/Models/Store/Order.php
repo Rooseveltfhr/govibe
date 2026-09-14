@@ -6,12 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA STORE — commande boutique.
  */
 class Order extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_store_orders';
 
     public const STATUSES = ['pending', 'confirmed', 'shipped', 'completed', 'cancelled'];

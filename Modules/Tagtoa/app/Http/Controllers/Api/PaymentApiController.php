@@ -48,7 +48,7 @@ class PaymentApiController
         return response()->json([
             'ok'      => true,
             'page'    => ['alias' => $page->alias, 'currency' => $page->default_currency],
-            'methods' => $this->payments->methodsFor($page->load('activeMethods')),
+            'methods' => $this->payments->methodsFor($page),
         ]);
     }
 

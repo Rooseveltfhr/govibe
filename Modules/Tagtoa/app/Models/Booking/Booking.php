@@ -5,12 +5,15 @@ namespace Modules\Tagtoa\App\Models\Booking;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA BOOKING — rendez-vous pris par un client (capturé en base).
  */
 class Booking extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_bookings';
 
     /** Cycle de vie d'un rendez-vous. */

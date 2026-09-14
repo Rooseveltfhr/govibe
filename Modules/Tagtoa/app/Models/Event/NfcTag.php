@@ -5,6 +5,7 @@ namespace Modules\Tagtoa\App\Models\Event;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Modules\Tagtoa\App\Support\BelongsToTenant;
 
 /**
  * TAGTOA EVENT — tag NFC (carte/bracelet/virtuel) relié à un billet et/ou un wallet.
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  */
 class NfcTag extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tagtoa_ev_nfc_tags';
 
     public const KINDS = ['card', 'wristband', 'virtual'];

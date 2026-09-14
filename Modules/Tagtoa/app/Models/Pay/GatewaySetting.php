@@ -13,7 +13,7 @@ class GatewaySetting extends Model
     protected $table = 'tagtoa_gateway_settings';
 
     protected $fillable = [
-        'gateway', 'is_enabled', 'credential_mode', 'fee_percent', 'fee_fixed', 'notes',
+        'gateway', 'is_enabled', 'credential_mode', 'driver', 'fee_percent', 'fee_fixed', 'notes',
     ];
 
     protected $casts = [
