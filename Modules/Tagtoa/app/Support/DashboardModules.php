@@ -13,6 +13,21 @@ namespace Modules\Tagtoa\App\Support;
  * cartes de fidélité ou une boutique en ligne ne perd rien — on cesse seulement
  * de mettre ces modules en avant. Rallumer un module = ajouter sa clé dans
  * `config('tagtoa.modules_enabled')`, sans toucher au code.
+ *
+ * ── Hiérarchie ───────────────────────────────────────────────────────────────
+ * La barre latérale était PLATE : « Stock » et « Équipe » se retrouvaient au
+ * même niveau que « Caisse », alors qu'on ne les ouvre JAMAIS pour eux-mêmes —
+ * on les ouvre parce qu'on tient une caisse. Résultat : treize entrées de même
+ * poids, et le marchand devait reconstruire mentalement ce qui va avec quoi.
+ *
+ * Chaque module déclare donc maintenant ses propres écrans (`children`). Trois
+ * groupes :
+ *   - 'module'  → outil métier, visible en haut de la barre, ouvre ses écrans
+ *   - 'account' → suivi et compte, une seule page chacun
+ *   - 'feature' → écran RÉEL, atteint DEPUIS son module parent, jamais seul
+ *
+ * 'feature' ne désactive rien : la route est servie, la clé reste « activée »,
+ * l'onboarding la voit. Seule la place dans le menu change.
  */
 class DashboardModules
 {
@@ -23,29 +38,64 @@ class DashboardModules
     ];
 
     /**
-     * Catalogue complet. `group` : 'module' (les outils qui font gagner de
-     * l'argent) ou 'account' (les écrans de suivi et de compte).
+     * Catalogue complet.
+     *
+     * `group`    : 'module' | 'account' | 'feature' (voir l'en-tête de classe)
+     * `children` : les écrans du module, dans l'ordre où on s'en sert.
+     *              `needs` = la clé dont dépend l'écran ; si elle est masquée,
+     *              le lien disparaît au lieu de mener à un module éteint.
+     *              `alias` = raccourci vers un écran qui appartient à un AUTRE
+     *              module ; il s'affiche, mais n'attire pas l'écran à lui quand
+     *              on cherche où l'on se trouve (voir `locate`).
      */
     public const CATALOG = [
         // --- Les quatre outils métier de TAGTOA ---
         'menu' => [
             'label' => 'Menu', 'icon' => 'fa-utensils', 'group' => 'module',
             'desc'  => 'Menu digital NFC/QR : restaurant, hôtel, club, bar, lounge — photos, prix, commande.',
+            'children' => [
+                ['label' => 'Ma carte',     'icon' => 'fa-utensils',       'url' => '/tagtoa/menu'],
+                // Le stock est le MÊME qu'en caisse : un plat vendu au comptoir
+                // et un plat commandé au QR sortent du même inventaire. Le lien
+                // est donc volontairement présent des deux côtés — un marchand
+                // qui n'a QUE le menu doit pouvoir y arriver sans passer par POS.
+                ['label' => 'Stock',        'icon' => 'fa-boxes-stacked',  'url' => '/tagtoa/inventory', 'needs' => 'inventory', 'alias' => true],
+                ['label' => 'Smart Stands', 'icon' => 'fa-sign-hanging',   'url' => '/tagtoa/stands',    'needs' => 'stands'],
+                ['label' => 'Avis clients', 'icon' => 'fa-star',           'url' => '/tagtoa/reviews',   'needs' => 'reviews'],
+            ],
         ],
         'pos' => [
             'label' => 'Caisse (POS)', 'icon' => 'fa-cash-register', 'group' => 'module',
             'desc'  => 'Caisse tactile qui marche même sans internet, multi-paiement.',
+            'children' => [
+                ['label' => 'Mes caisses',        'icon' => 'fa-cash-register',  'url' => '/tagtoa/pos'],
+                ['label' => 'Catalogue & codes',  'icon' => 'fa-barcode',        'url' => '/tagtoa/catalog/codes'],
+                ['label' => 'Stock',              'icon' => 'fa-boxes-stacked',  'url' => '/tagtoa/inventory',            'needs' => 'inventory'],
+                ['label' => 'Mouvements',         'icon' => 'fa-right-left',     'url' => '/tagtoa/inventory/movements',  'needs' => 'inventory'],
+                ['label' => 'Fournisseurs',       'icon' => 'fa-truck-field',    'url' => '/tagtoa/inventory/suppliers',  'needs' => 'inventory'],
+                ['label' => 'Équipe',             'icon' => 'fa-users-gear',     'url' => '/tagtoa/staff',                'needs' => 'staff'],
+            ],
         ],
         'event' => [
             'label' => 'Événements', 'icon' => 'fa-ticket', 'group' => 'module',
             'desc'  => 'Billetterie et contrôle d\'entrée NFC/QR.',
+            'children' => [
+                ['label' => 'Mes événements',    'icon' => 'fa-ticket', 'url' => '/tagtoa/event'],
+                ['label' => 'Nouvel événement',  'icon' => 'fa-plus',   'url' => '/tagtoa/event/create'],
+            ],
         ],
         'pay' => [
             'label' => 'Paiements', 'icon' => 'fa-money-bill-transfer', 'group' => 'module',
             'desc'  => 'Liens de paiement et de don : MonCash, NatCash, Zelle, PayPal, carte, crypto.',
+            'children' => [
+                ['label' => 'Liens de paiement',  'icon' => 'fa-link',        'url' => '/tagtoa/pay'],
+                ['label' => 'Moyens de paiement', 'icon' => 'fa-sliders',     'url' => '/tagtoa/pay/methods'],
+                ['label' => 'Revenu & forfait',   'icon' => 'fa-wallet',      'url' => '/tagtoa/billing', 'needs' => 'billing'],
+                ['label' => 'Cartes TAGTOA',      'icon' => 'fa-credit-card', 'url' => '/tagtoa/cards',   'needs' => 'cards'],
+            ],
         ],
 
-        // --- Suivi et compte ---
+        // --- Suivi et compte : une page chacun, pas de sous-écran ---
         'analytics' => [
             'label' => 'Analytics', 'icon' => 'fa-chart-line', 'group' => 'account',
             'desc'  => 'Revenus, ventes, visites et meilleurs produits en temps réel.',
@@ -53,10 +103,6 @@ class DashboardModules
         'customers' => [
             'label' => 'Clients (CRM)', 'icon' => 'fa-users', 'group' => 'account',
             'desc'  => 'Base clients agrégée de tous vos modules.',
-        ],
-        'reviews' => [
-            'label' => 'Avis clients', 'icon' => 'fa-star', 'group' => 'account',
-            'desc'  => 'Collectez et modérez les avis sur vos pages publiques.',
         ],
         'qr' => [
             'label' => 'QR & Partage', 'icon' => 'fa-qrcode', 'group' => 'account',
@@ -66,21 +112,27 @@ class DashboardModules
             'label' => 'Mes commerces', 'icon' => 'fa-shop', 'group' => 'account',
             'desc'  => 'Votre commerce : nom, métier, catégories, devise. Et un second si vous en ouvrez un.',
         ],
-        'stands' => [
-            'label' => 'Mes stands', 'icon' => 'fa-qrcode', 'group' => 'account',
-            'desc'  => 'Vos TAGTOA Smart Stands : où va chacun, et ce que le client voit en scannant.',
-        ],
-        'inventory' => [
-            'label' => 'Stock', 'icon' => 'fa-boxes-stacked', 'group' => 'account',
-            'desc'  => 'Ce qu\'il reste en réserve, ce qu\'il faut recommander, et où sont passés les articles manquants.',
-        ],
-        'staff' => [
-            'label' => 'Équipe', 'icon' => 'fa-users-gear', 'group' => 'account',
-            'desc'  => 'Les personnes qui tiennent vos caisses : rôle, code d\'accès, ce que chacune peut faire.',
-        ],
         'plan' => [
             'label' => 'Abonnement', 'icon' => 'fa-crown', 'group' => 'account',
             'desc'  => 'Votre forfait TAGTOA et vos factures.',
+        ],
+
+        // --- Écrans rattachés à un module (voir 'feature' en en-tête) ---
+        'inventory' => [
+            'label' => 'Stock', 'icon' => 'fa-boxes-stacked', 'group' => 'feature',
+            'desc'  => 'Ce qu\'il reste en réserve, ce qu\'il faut recommander, et où sont passés les articles manquants.',
+        ],
+        'staff' => [
+            'label' => 'Équipe', 'icon' => 'fa-users-gear', 'group' => 'feature',
+            'desc'  => 'Les personnes qui tiennent vos caisses : rôle, code d\'accès, ce que chacune peut faire.',
+        ],
+        'stands' => [
+            'label' => 'Mes stands', 'icon' => 'fa-sign-hanging', 'group' => 'feature',
+            'desc'  => 'Vos TAGTOA Smart Stands : où va chacun, et ce que le client voit en scannant.',
+        ],
+        'reviews' => [
+            'label' => 'Avis clients', 'icon' => 'fa-star', 'group' => 'feature',
+            'desc'  => 'Collectez et modérez les avis sur vos pages publiques.',
         ],
 
         // --- Existants, masqués par défaut (routes et données conservées) ---
@@ -139,11 +191,35 @@ class DashboardModules
     }
 
     /**
-     * Modules activés, dans l'ordre du catalogue (donc un ordre d'affichage
-     * stable, quel que soit l'ordre de la config). Chaque entrée porte sa clé
-     * et son URL, pour que les vues n'aient plus rien à deviner.
+     * Les écrans d'un module, débarrassés de ceux qui mènent à un module éteint.
      *
-     * @param  string|null  $group  'module', 'account', ou null pour tout
+     * Un module sans `children` en renvoie un seul : lui-même. Les vues ont donc
+     * toujours une liste à parcourir, sans avoir à traiter deux cas.
+     */
+    public static function children(string $key): array
+    {
+        $meta = self::CATALOG[$key] ?? null;
+        if ($meta === null) {
+            return [];
+        }
+
+        $enfants = $meta['children'] ?? [];
+        if ($enfants === []) {
+            return [['label' => $meta['label'], 'icon' => $meta['icon'], 'url' => '/tagtoa/'.$key]];
+        }
+
+        return array_values(array_filter(
+            $enfants,
+            fn ($c) => ! isset($c['needs']) || self::isEnabled($c['needs'])
+        ));
+    }
+
+    /**
+     * Modules activés, dans l'ordre du catalogue (donc un ordre d'affichage
+     * stable, quel que soit l'ordre de la config). Chaque entrée porte sa clé,
+     * son URL et ses écrans, pour que les vues n'aient plus rien à deviner.
+     *
+     * @param  string|null  $group  'module', 'account', 'feature', ou null pour tout
      */
     public static function enabled(?string $group = null): array
     {
@@ -157,9 +233,61 @@ class DashboardModules
             if ($group !== null && $meta['group'] !== $group) {
                 continue;
             }
-            $out[$key] = $meta + ['key' => $key, 'url' => '/tagtoa/'.$key];
+            $out[$key] = array_merge($meta, [
+                'key'      => $key,
+                'url'      => '/tagtoa/'.$key,
+                'children' => self::children($key),
+            ]);
         }
 
         return $out;
+    }
+
+    /**
+     * Le module auquel appartient le chemin courant — et l'écran exact dedans.
+     *
+     * Sert à deux choses : ouvrir le bon groupe dans la barre latérale, et
+     * afficher la barre d'écrans du module en haut de la page (la seule façon
+     * de voir « tout ce qu'il y a dans POS » sur un téléphone, où la barre
+     * latérale est repliée).
+     *
+     * Le premier module qui correspond gagne : le stock est listé sous Menu ET
+     * sous Caisse (c'est le même stock), et on ne veut pas deux groupes ouverts.
+     *
+     * @return array{0:?string,1:?string} [clé du module, URL de l'écran actif]
+     */
+    public static function locate(string $path): array
+    {
+        $path = '/'.trim($path, '/');
+
+        // Deux passes : les écrans qui appartiennent VRAIMENT au module, puis
+        // seulement les raccourcis. Sans cela, « Stock » ouvrirait le groupe
+        // Menu alors que l'écran est celui de la Caisse.
+        foreach ([false, true] as $alias) {
+            $meilleur = null; // l'URL la plus longue qui préfixe le chemin gagne
+            $module   = null;
+
+            foreach (self::enabled() as $key => $m) {
+                foreach ($m['children'] as $c) {
+                    if ((bool) ($c['alias'] ?? false) !== $alias) {
+                        continue;
+                    }
+                    $u = rtrim($c['url'], '/');
+                    if ($path !== $u && ! str_starts_with($path, $u.'/')) {
+                        continue;
+                    }
+                    if ($meilleur === null || strlen($u) > strlen($meilleur)) {
+                        $meilleur = $u;
+                        $module   = $key;
+                    }
+                }
+            }
+
+            if ($module !== null) {
+                return [$module, $meilleur];
+            }
+        }
+
+        return [null, null];
     }
 }
