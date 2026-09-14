@@ -132,6 +132,10 @@ class TenantScopeCoverageTest extends TestCase
             'Services/Billing/SuperAdminService.php',   // revenu global du fondateur
             'Services/Card/CardCreditService.php',      // crédite un AUTRE commerce
             'Http/Controllers/SuperAdmin/CardCreditController.php',
+            // Les commandes de matériel de TOUS les commerces : c'est TAGTOA
+            // qui expédie, donc le fondateur doit les voir. Sortie nommée,
+            // derrière le rôle super-admin, dans ce seul contrôleur.
+            'Http/Controllers/SuperAdmin/ShopAdminController.php',
             'Support/BelongsToTenant.php',              // définition
         ];
 

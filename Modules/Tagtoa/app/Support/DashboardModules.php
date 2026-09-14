@@ -34,7 +34,7 @@ class DashboardModules
     /** Modules mis en avant par défaut. Le reste existe mais reste discret. */
     public const DEFAULT_ENABLED = [
         'menu', 'pos', 'event', 'pay',
-        'business', 'staff', 'stands', 'inventory', 'orders', 'analytics', 'customers', 'reviews', 'qr', 'plan',
+        'business', 'staff', 'stands', 'inventory', 'orders', 'analytics', 'customers', 'reviews', 'qr', 'shop', 'plan',
     ];
 
     /**
@@ -139,6 +139,14 @@ class DashboardModules
         'business' => [
             'label' => 'Mes commerces', 'icon' => 'fa-shop', 'group' => 'account',
             'desc'  => 'Votre commerce : nom, métier, catégories, devise. Et un second si vous en ouvrez un.',
+        ],
+        'shop' => [
+            'label' => 'Boutique TAGTOA', 'icon' => 'fa-truck-fast', 'group' => 'account',
+            'desc'  => 'Commandez votre matériel : Smart Stands, cartes NFC, affiches QR.',
+            'children' => [
+                ['label' => 'Commander',     'icon' => 'fa-cart-shopping',  'url' => '/tagtoa/shop'],
+                ['label' => 'Mes commandes', 'icon' => 'fa-clipboard-list', 'url' => '/tagtoa/shop/orders'],
+            ],
         ],
         'plan' => [
             'label' => 'Abonnement', 'icon' => 'fa-crown', 'group' => 'account',
