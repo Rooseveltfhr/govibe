@@ -4,6 +4,7 @@ namespace Modules\Tagtoa\Tests\Stubs;
 
 use Illuminate\Support\ServiceProvider;
 use Modules\Tagtoa\App\Console\BackfillOrdersCommand;
+use Modules\Tagtoa\App\Console\MintStandsCommand;
 
 /**
  * Enregistre les commandes de console du module pour les tests.
@@ -19,6 +20,7 @@ class ConsoleProvider extends ServiceProvider
     /** Doit refléter TagtoaServiceProvider::registerCommands(). */
     public const COMMANDS = [
         BackfillOrdersCommand::class,
+        MintStandsCommand::class,
     ];
 
     public function boot(): void

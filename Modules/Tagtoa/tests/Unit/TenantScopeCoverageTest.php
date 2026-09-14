@@ -16,6 +16,26 @@ use PHPUnit\Framework\TestCase;
  */
 class TenantScopeCoverageTest extends TestCase
 {
+    /**
+     * Les SEULS modèles autorisés à porter un commerce sans être isolés
+     * automatiquement — chacun avec la raison qui le justifie.
+     *
+     * Toute entrée ici est un trou dans l'isolation : elle doit se défendre en
+     * relecture, et le test plus bas empêche la liste de s'allonger.
+     */
+    private const EXEMPTS = [
+        // Un stand NON RÉCLAMÉ n'appartient à aucun commerce. La portée
+        // automatique le rendrait introuvable au scan — c'est-à-dire au moment
+        // précis où il faut le trouver pour proposer son activation. Le
+        // cloisonnement du marchand passe par scopeOfBusiness(), explicite.
+        'Stand/Stand.php',
+
+        // L'histoire d'un stand commence AVANT qu'un commerce existe :
+        // fabriqué, affecté à un revendeur, vendu. Isoler ce journal cacherait
+        // exactement les événements qui prouvent la provenance dans un litige.
+        'Stand/StandEvent.php',
+    ];
+
     /** Modèles portant `tenant_id`, avec ou sans le trait. */
     private function scan(): array
     {
@@ -32,6 +52,10 @@ class TenantScopeCoverageTest extends TestCase
                 continue; // le commerce est atteint via le parent (item, ligne…)
             }
             $rel = str_replace($dir.'/', '', $file->getPathname());
+
+            if (in_array($rel, self::EXEMPTS, true)) {
+                continue; // exemption nommée et justifiée ci-dessus
+            }
 
             str_contains($code, 'use BelongsToTenant;') ? $with[] = $rel : $without[] = $rel;
         }
@@ -58,6 +82,36 @@ class TenantScopeCoverageTest extends TestCase
         // Garde-fou du garde-fou : un scan qui ne trouve plus rien passerait
         // silencieusement alors que le chemin des modèles serait cassé.
         $this->assertGreaterThan(20, count($with), 'Scan des modèles vide ou chemin cassé ?');
+    }
+
+    public function test_the_exemption_list_stays_short(): void
+    {
+        // Une liste d'exceptions qui s'allonge est une règle qui se dissout. Si
+        // elle doit grandir, c'est le signe qu'il manque une portée au trait,
+        // pas qu'il faut assouplir la garde.
+        $this->assertLessThanOrEqual(2, count(self::EXEMPTS),
+            "Trop de modèles échappent à l'isolation automatique.");
+    }
+
+    public function test_every_exempt_model_still_exists(): void
+    {
+        // Une exemption qui désigne un fichier disparu masquerait un modèle
+        // homonyme recréé ailleurs — sans isolation, et sans que rien n'échoue.
+        foreach (self::EXEMPTS as $rel) {
+            $this->assertFileExists(__DIR__.'/../../app/Models/'.$rel,
+                "L'exemption « $rel » ne correspond plus à aucun modèle : retirez-la.");
+        }
+    }
+
+    public function test_every_exempt_model_carries_its_own_explicit_scope(): void
+    {
+        // Échapper à la portée automatique n'autorise pas à n'en avoir aucune :
+        // il faut alors un chemin NOMMÉ par lequel le marchand ne voit que le
+        // sien, sinon l'exemption devient une fuite.
+        $stand = (string) file_get_contents(__DIR__.'/../../app/Models/Stand/Stand.php');
+
+        $this->assertStringContainsString('scopeOfBusiness', $stand,
+            'Un modèle exempté doit offrir une portée explicite.');
     }
 
     public function test_the_escape_hatch_is_named_and_easy_to_find(): void
