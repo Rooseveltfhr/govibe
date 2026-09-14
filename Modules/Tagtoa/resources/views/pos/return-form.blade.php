@@ -77,6 +77,12 @@
         <label class="lbl" for="reason">{{ __('Note') }}</label>
         <input class="ic" id="reason" name="reason" maxlength="160" placeholder="{{ __('Facultatif') }}">
 
+        {{-- Le champ caché porte le « non ». Une case décochée n'est PAS
+             envoyée par le navigateur : sans lui, le serveur ne peut pas
+             distinguer « ne remets pas en stock » de « le champ n'existe
+             pas », et la marchandise revenait en rayon contre l'avis du
+             caissier. --}}
+        <input type="hidden" name="restock" value="0">
         <label class="switch" style="margin-top:12px">
             <input type="checkbox" name="restock" value="1" checked>
             {{ __('Remettre la marchandise en stock') }}

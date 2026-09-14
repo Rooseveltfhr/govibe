@@ -401,6 +401,50 @@ class PosReturnTest extends TestCase
         $this->assertSame('Trop chaud', $r->reason);
     }
 
+    public function test_unticking_restock_through_the_form_really_does_not_restock(): void
+    {
+        // UNE CASE DÉCOCHÉE N'EST PAS ENVOYÉE. Le service reçoit donc « rien »,
+        // et un défaut à `true` remettait la marchandise en rayon alors que le
+        // caissier venait de dire le contraire — un stock faux, et une
+        // commande qui n'est jamais passée parce que l'écran dit qu'il en reste.
+        //
+        // Ce test passe par le FORMULAIRE, pas par le service : c'est là que le
+        // défaut vivait, et un test au niveau du service ne l'aurait jamais vu.
+        $this->patron();
+        $sale = $this->vente(qty: 2);
+        $ligne = $sale->items->first();
+        $avant = (float) Product::find($ligne->product_id)->stock;
+
+        $this->post(route('tagtoa.pos.returns.store', $sale->id), [
+            'qty'             => [$ligne->id => 1],
+            'kind'            => 'customer',
+            // « restock » absent : c'est exactement ce qu'envoie un navigateur
+            // quand la case est décochée.
+            'idempotency_key' => 'sans-restock',
+        ])->assertRedirect();
+
+        $this->assertSame($avant, (float) Product::find($ligne->product_id)->stock,
+            'Case décochée : la marchandise ne doit PAS revenir en stock.');
+        $this->assertFalse((bool) SaleReturn::firstOrFail()->restocked);
+    }
+
+    public function test_the_default_still_restocks_when_the_box_is_ticked(): void
+    {
+        // Le cas normal ne doit pas être cassé par la correction du précédent.
+        $this->patron();
+        $sale = $this->vente(qty: 2);
+        $ligne = $sale->items->first();
+        $avant = (float) Product::find($ligne->product_id)->stock;
+
+        $this->post(route('tagtoa.pos.returns.store', $sale->id), [
+            'qty'             => [$ligne->id => 1],
+            'restock'         => '1',
+            'idempotency_key' => 'avec-restock',
+        ])->assertRedirect();
+
+        $this->assertSame($avant + 1, (float) Product::find($ligne->product_id)->stock);
+    }
+
     public function test_the_form_never_accepts_an_amount(): void
     {
         // Le formulaire dit QUELLES lignes et COMBIEN d'unités — jamais combien

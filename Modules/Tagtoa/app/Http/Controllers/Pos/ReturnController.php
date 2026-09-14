@@ -73,7 +73,12 @@ class ReturnController extends Controller
             'tenant_id'       => Tenant::id(),
             'kind'            => $data['kind'] ?? 'customer',
             'reason'          => $data['reason'] ?? null,
-            'restock'         => (bool) ($data['restock'] ?? true),
+            // `boolean()` et NON `?? true` : une case décochée n'est pas
+            // envoyée du tout, si bien qu'un défaut à `true` remettait la
+            // marchandise en rayon alors que le caissier venait de dire le
+            // contraire. Le formulaire pose aussi un champ caché à 0, pour que
+            // l'intention arrive même sans cette lecture.
+            'restock'         => $request->boolean('restock'),
             'idempotency_key' => $data['idempotency_key'],
             'staff_id'        => null,
         ]);
