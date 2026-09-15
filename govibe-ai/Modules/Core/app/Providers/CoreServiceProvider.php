@@ -3,6 +3,7 @@
 namespace Modules\Core\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
+use Modules\Core\Console\CreateAdminCommand;
 use Nwidart\Modules\Support\ModuleServiceProvider;
 
 class CoreServiceProvider extends ModuleServiceProvider
@@ -22,7 +23,10 @@ class CoreServiceProvider extends ModuleServiceProvider
      *
      * @var string[]
      */
-    // protected array $commands = [];
+    /** @var string[] */
+    protected array $commands = [
+        CreateAdminCommand::class,
+    ];
 
     /**
      * Provider classes to register.

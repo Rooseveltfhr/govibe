@@ -2,10 +2,12 @@
 
 namespace Modules\AIServices\Speech;
 
+use Illuminate\Database\Eloquent\Collection;
 use Modules\AIProvider\Contracts\SupportsVoiceLibrary;
 use Modules\AIProvider\DTO\VoiceDescriptor;
 use Modules\AIProvider\Exceptions\NoProviderAvailableException;
 use Modules\AIProvider\Exceptions\ProviderException;
+use Modules\AIProvider\Models\VoiceProfile;
 use Modules\AIProvider\Registry\ProviderRegistry;
 
 /**
@@ -63,6 +65,42 @@ class VoiceLibrary
         }
 
         return null;
+    }
+
+    /**
+     * Bibliyotèk platfòm nan — vwa NOU chwazi, ak lang chak vwa bon pou li.
+     *
+     * Se sa yon machann wè. Lis konplè founisè a (dè santèn vwa) rete pou
+     * paj administrasyon an: yon lis konsa pa yon chwa, se yon abandon.
+     *
+     * @return Collection<int, VoiceProfile>
+     */
+    public function curated(?string $language = null)
+    {
+        return VoiceProfile::query()
+            ->when($language !== null, fn ($query) => $query->where('language', $language))
+            ->orderByDesc('is_default')
+            ->orderBy('position')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * Vwa pa defo pou yon lang.
+     *
+     * Se sa ki fè « yon vwa pou kreyòl » reyèl: yon ajan ki pale kreyòl epi
+     * ki pa gen pwòp vwa l pran vwa kreyòl la, pa yon vwa anglè.
+     */
+    public function defaultFor(?string $language): ?VoiceProfile
+    {
+        if ($language === null || $language === '') {
+            return null;
+        }
+
+        return VoiceProfile::query()
+            ->where('language', $language)
+            ->where('is_default', true)
+            ->first();
     }
 
     /** @param list<string> $samplePaths */

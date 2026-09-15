@@ -17,7 +17,10 @@ use Modules\AIProvider\Registry\ProviderRegistry;
  */
 class SpeechService
 {
-    public function __construct(private readonly ProviderRegistry $providers) {}
+    public function __construct(
+        private readonly ProviderRegistry $providers,
+        private readonly VoiceLibrary $library,
+    ) {}
 
     public function available(): bool
     {
@@ -31,6 +34,10 @@ class SpeechService
         if ($provider === null) {
             throw new NoProviderAvailableException('Pa gen okenn founisè vwa (tèks→vwa) konfigire.');
         }
+
+        // Si ajan an pa gen pwòp vwa l, nou pran vwa pa defo pou lang lan —
+        // se sa ki fè yon ajan kreyòl sonnen kreyòl olye li sonnen anglè.
+        $voice ??= $this->library->defaultFor($language)?->voice_id;
 
         return $provider->speak(new SpeechRequest(
             text: $text,
