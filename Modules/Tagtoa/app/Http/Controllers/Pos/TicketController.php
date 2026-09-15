@@ -5,6 +5,7 @@ namespace Modules\Tagtoa\App\Http\Controllers\Pos;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Models\Business\Business;
 use Modules\Tagtoa\App\Models\Pos\Sale;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Support\Tenant;
@@ -67,6 +68,10 @@ class TicketController extends Controller
      * Page autonome, sans le tableau de bord autour : on imprime un reçu, pas
      * une barre latérale. Et sur une imprimante thermique de 58 mm, tout ce qui
      * dépasse la largeur est simplement coupé.
+     *
+     * Le COMMERCE est passé à la vue, pas seulement la caisse : un client qui
+     * revient contester présente son ticket, et il doit y lire chez qui il a
+     * acheté et comment le joindre. « Caisse 1 » ne lui dit rien.
      */
     public function show(int $id): View
     {
@@ -77,6 +82,36 @@ class TicketController extends Controller
             ->whereKey($id)
             ->firstOrFail();
 
-        return view('tagtoa::pos.receipt', ['sale' => $sale]);
+        return view('tagtoa::pos.receipt', [
+            'sale'     => $sale,
+            'business' => Business::whereKey(Tenant::id())->first(),
+        ]);
+    }
+
+    /**
+     * Le reçu de la DERNIÈRE vente d'une caisse, par sa référence.
+     *
+     * La caisse ne connaît que la référence qu'elle vient d'afficher — pas
+     * l'identifiant en base. Sans ce chemin, le bouton « Imprimer » de l'écran
+     * de confirmation ne pouvait qu'imprimer l'écran lui-même : une page A4
+     * presque blanche, avec les boutons dessus. C'est ce qui sortait.
+     *
+     * Cloisonné comme le reste : la référence est cherchée UNIQUEMENT parmi les
+     * caisses de ce commerce.
+     */
+    public function byReference(string $reference): View
+    {
+        $caisses = Terminal::where('tenant_id', Tenant::id())->pluck('id');
+
+        $sale = Sale::whereIn('terminal_id', $caisses)
+            ->with(['items', 'terminal', 'staff:id,name'])
+            ->where('reference', $reference)
+            ->orderByDesc('id')
+            ->firstOrFail();
+
+        return view('tagtoa::pos.receipt', [
+            'sale'     => $sale,
+            'business' => Business::whereKey(Tenant::id())->first(),
+        ]);
     }
 }

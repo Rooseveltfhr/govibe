@@ -51,6 +51,7 @@ require_once $base.'/Support/Order/OrderStatus.php';
 require_once $base.'/Support/Stand/StandId.php';
 require_once $base.'/Support/Stand/StandState.php';
 require_once $base.'/Support/Stand/StandScratch.php';
+require_once $base.'/Support/Stand/TransferCode.php';
 require_once $base.'/Support/Dev/RouteNames.php';
 require_once $base.'/Support/Nfc/AesCmac.php';
 require_once $base.'/Support/Nfc/Ntag424.php';

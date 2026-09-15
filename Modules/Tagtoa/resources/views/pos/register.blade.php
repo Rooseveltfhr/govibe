@@ -22,9 +22,41 @@
     <style>
         :root{--blk:#0A0A0A;--blue:#2cb809;--green:#1D9E75;--red:#E0473E;--bg:#F5F5F3;--bd:rgba(0,0,0,.08);--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif}
         *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-        body{font-family:var(--fb);background:var(--bg);color:var(--blk);height:100vh;overflow:hidden}
-        .app{display:grid;grid-template-columns:1fr 320px;height:100vh}
-        @media(max-width:760px){.app{grid-template-columns:1fr}.cart{position:fixed;inset:auto 0 0 0;max-height:48vh;border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.15)}}
+        body{font-family:var(--fb);background:var(--bg);color:var(--blk);height:100vh;height:100dvh;overflow:hidden}
+        .app{display:grid;grid-template-columns:1fr 320px;height:100vh;height:100dvh}
+        /* ------------------------------------------------------------------
+           TÉLÉPHONE — la grille défile, et le panier ne mange plus l'écran.
+
+           AVANT : `.app` était une grille dont la ligne du catalogue se
+           dimensionnait sur SON CONTENU. `.grid` avait bien `overflow-y:auto`,
+           mais aucune hauteur à ne pas dépasser : elle poussait donc sous le
+           pli, et `body{overflow:hidden}` coupait net le reste. Les articles
+           au-delà du sixième existaient et étaient INATTEIGNABLES — aucun
+           défilement, aucune erreur.
+
+           MAINTENANT : colonne flexible, et la grille prend « tout ce qui
+           reste » (`flex:1` + `min-height:0`, sans quoi un enfant flex refuse
+           de rétrécir sous son contenu et le défaut revient à l'identique).
+
+           Et le panier n'est plus un tiroir collé en bas qui prenait la moitié
+           de la hauteur en permanence : il s'ouvre par son icône, en haut.
+           ------------------------------------------------------------------ */
+        @media(max-width:760px){
+            .app{display:flex;flex-direction:column}
+            .top,.poste{flex:0 0 auto}
+            .grid{flex:1 1 auto;min-height:0}
+            .cart{position:fixed;left:0;right:0;bottom:0;top:auto;max-height:84dvh;
+                  border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.2);
+                  border-left:0;z-index:55;transform:translateY(100%);transition:transform .18s ease-out}
+            .cart.show{transform:translateY(0)}
+            /* Voile : on ferme le panier en touchant à côté, le geste que tout
+               le monde tente en premier. */
+            .voile{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:54;display:none}
+            .voile.show{display:block}
+        }
+        /* Sur grand écran le panier reste une colonne : il y a la place, et le
+           caissier veut voir le total pendant qu'il compose la commande. */
+        @media(min-width:761px){.cartbtn{display:none}.cart{transform:none}.voile{display:none}}
         .top{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--blk);color:#fff}.top h1{font:600 16px var(--fh);flex:1}.top .net{font-size:12px;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.15)}.top .net.off{background:#E08A1E}.top a{color:#fff;opacity:.8;text-decoration:none}
         .grid{padding:14px;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:10px;align-content:start}
         /* Le bouton de caisse porte une PHOTO quand il en a une. Un emoji ne
@@ -70,7 +102,10 @@
         .poste .err{color:var(--red);font-weight:600;font-size:13px}
     </style>
     <div class="app">
-        <div class="top"><i class="fa-solid fa-cash-register" style="color:var(--blue)"></i><h1>{{ $terminal->name }}</h1><button id="installBtn" class="net" style="display:none;border:0;cursor:pointer;background:var(--blue)" title="{{ __('Installer l\'application') }}"><i class="fa-solid fa-download"></i> {{ __('Installer') }}</button><button id="scanBtn" class="net" style="border:0;cursor:pointer;background:var(--blue)" title="{{ __('Scanner un code-barres') }}"><i class="fa-solid fa-barcode"></i></button><span class="net" id="net">●</span>
+        <div class="top"><i class="fa-solid fa-cash-register" style="color:var(--blue)"></i><h1>{{ $terminal->name }}</h1><button id="installBtn" class="net" style="display:none;border:0;cursor:pointer;background:var(--blue)" title="{{ __('Installer l\'application') }}"><i class="fa-solid fa-download"></i> {{ __('Installer') }}</button><button id="scanBtn" class="net" style="border:0;cursor:pointer;background:var(--blue)" title="{{ __('Scanner un code-barres') }}"><i class="fa-solid fa-barcode"></i></button>{{-- Le panier s'ouvre d'ICI, à côté du scanner : les deux gestes de la
+             caisse sont côte à côte, et l'écran reste entier pour le catalogue.
+             Le compteur dit combien d'articles attendent — sans lui, un panier
+             fermé est un panier qu'on oublie. --}}<button id="cartBtn" class="net cartbtn" style="border:0;cursor:pointer;background:var(--blue);position:relative" onclick="openCart()" title="{{ __('Voir le panier') }}"><i class="fa-solid fa-basket-shopping"></i><span id="cartN" style="display:none;position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;border-radius:999px;background:#E0473E;color:#fff;font:700 11px/18px var(--fh);text-align:center;padding:0 4px">0</span></button><span class="net" id="net">●</span>
             @if($staff)
                 <span class="who" title="{{ $staff->role_label }}">{{ $staff->initials }}</span>
             @endif
@@ -105,7 +140,16 @@
                         data-ref="{{ $a['ref'] }}" data-name="{{ $a['name'] }}" data-price="{{ $a['price'] }}"
                         @if($a['group']) title="{{ $a['group'] }}" @endif>
                     @if(!empty($a['image']))
-                        <img class="ph" src="{{ $a['image'] }}" alt="" loading="lazy">
+                        {{-- Si la photo ne charge pas — lien /storage absent sur
+                             le serveur, fichier effacé, réseau coupé — on
+                             retombe sur l'initiale. Une icône « image cassée »
+                             sur un bouton de caisse est pire que pas de photo :
+                             elle ne se reconnaît pas d'un coup d'œil, et c'est
+                             précisément ce qu'on demande au caissier en pleine
+                             affluence. --}}
+                        <img class="ph" src="{{ $a['image'] }}" alt="" loading="lazy"
+                             data-initiale="{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($a['name'], 0, 1)) }}"
+                             onerror="tagtoaPhotoCassee(this)">
                     @else
                         <span class="ph">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($a['name'], 0, 1)) }}</span>
                     @endif
@@ -117,8 +161,16 @@
                 </button>
             @endforeach
         </div>
-        <div class="cart">
-            <h2>{{ __('Panier') }}</h2>
+        <div class="cart" id="cart">
+            <h2 style="display:flex;align-items:center;gap:10px">
+                <span style="flex:1">{{ __('Panier') }}</span>
+                {{-- Visible seulement sur téléphone : sur grand écran le panier
+                     est une colonne, elle ne se ferme pas. --}}
+                <button class="cartbtn" onclick="closeCart()" aria-label="{{ __('Fermer') }}"
+                        style="border:0;background:transparent;font-size:20px;cursor:pointer;color:#666;padding:0 2px">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </h2>
             <div class="lines" id="lines"><p style="color:#999;padding:14px;font-size:14px">{{ __('Touchez un produit') }}</p></div>
             <div class="tot">
                 <div class="r"><span>{{ __('Sous-total') }}</span><span id="sub">0.00</span></div>
@@ -130,6 +182,8 @@
         </div>
     </div>
 
+    <div class="voile" id="voile" onclick="closeCart()"></div>
+
     <div class="modal" id="modal"><div class="sheet">
         <h3>{{ __('Paiement') }} — <span id="pt">0.00</span> {{ $terminal->currency }}</h3>
         <div class="methods" id="methods">@foreach($methods as $k=>$label)<div class="m" data-m="{{ $k }}" onclick="pickM('{{ $k }}',this)">{{ $label }}</div>@endforeach</div>
@@ -140,9 +194,19 @@
     </div></div>
 
     <div class="done" id="done"><i class="fa-solid fa-circle-check"></i><h2 id="dref"></h2><p id="dtot"></p>
-        <div class="acts"><a id="wa" target="_blank"><i class="fa-brands fa-whatsapp"></i> {{ __('Reçu') }}</a><button onclick="print()"><i class="fa-solid fa-print"></i></button><button onclick="newSale()"><i class="fa-solid fa-plus"></i> {{ __('Nouvelle') }}</button></div>
+        <div class="acts"><a id="wa" target="_blank"><i class="fa-brands fa-whatsapp"></i> {{ __('Reçu') }}</a><button onclick="imprimerRecu()"><i class="fa-solid fa-print"></i> {{ __('Imprimer') }}</button><button onclick="newSale()"><i class="fa-solid fa-plus"></i> {{ __('Nouvelle') }}</button></div>
     </div>
 <script>
+/* Photo introuvable → l'initiale, sur la couleur du bouton. Fonction globale
+   parce qu'elle est appelée depuis l'attribut onerror des images, qui est
+   évalué AVANT que le reste du script soit descendu. */
+function tagtoaPhotoCassee(img){
+    var span = document.createElement('span');
+    span.className = 'ph';
+    span.textContent = img.getAttribute('data-initiale') || '';
+    if (img.parentNode) { img.parentNode.replaceChild(span, img); }
+}
+
 var T=document.body.dataset.terminal,CUR=document.body.dataset.currency,CSRF=document.querySelector('meta[name=csrf-token]').content;
 var SALE_URL="{{ route('tagtoa.pos.sale',$terminal->id) }}",SYNC_URL="{{ route('tagtoa.pos.sync',$terminal->id) }}",QKEY='tagtoa_pos_q_'+T;
 var cart={},method='cash';
@@ -310,6 +374,14 @@ function total(){
 function render(){var L=document.getElementById('lines'),ks=Object.keys(cart);
     L.innerHTML=ks.length?ks.map(function(k){var c=cart[k];return '<div class="ln"><div class="nm">'+c.name+'<small>'+c.price.toFixed(2)+'</small></div><div class="q"><button onclick="chg(\''+k+'\',-1)">−</button> '+c.qty+' <button onclick="chg(\''+k+'\',1)">+</button></div></div>';}).join(''):'<p style="color:#999;padding:14px;font-size:14px">{{ __('Touchez un produit') }}</p>';
     document.getElementById('sub').textContent=sub().toFixed(2);document.getElementById('tot').textContent=total().toFixed(2);document.getElementById('pt').textContent=total().toFixed(2);document.getElementById('paybtn').disabled=!ks.length;
+    // Le compteur sur l'icône. Panier fermé, c'est le SEUL signe qu'un article
+    // est entré : sans lui, on rescanne le même article en croyant l'avoir raté.
+    var n=0;for(var kk in cart)n+=cart[kk].qty;
+    var bulle=document.getElementById('cartN');
+    if(bulle){bulle.textContent=n;bulle.style.display=n?'block':'none';}
+    // Le dernier article retiré referme le panier : garder un tiroir vide
+    // ouvert par-dessus le catalogue n'aide personne.
+    if(!ks.length) closeCart();
     // La taxe se voit AVANT d'encaisser : un client qui découvre 10 % de plus
     // au moment de payer, c'est une discussion au comptoir.
     var lt=document.getElementById('taxrow');
@@ -317,7 +389,15 @@ function render(){var L=document.getElementById('lines'),ks=Object.keys(cart);
     var sb=document.getElementById('splitbox'),on=document.getElementById('splitchk').checked;sb.style.display=on?'block':'none';if(on&&!sb.innerHTML)sb.innerHTML='{{ __('MonCash') }}: <input type="number" id="sp1" value="0"> · {{ __('Cash') }}: <input type="number" id="sp2" value="0">';}
 if(TAX.label){var _l=document.getElementById('taxlbl');if(_l)_l.textContent=TAX.label;}
 function pickM(m,el){method=m;document.querySelectorAll('.m').forEach(function(x){x.classList.remove('on');});el.classList.add('on');}
-function openPay(){document.getElementById('modal').classList.add('show');}function closePay(){document.getElementById('modal').classList.remove('show');}
+/* ------------------------------------------------------------------
+   Le panier s'ouvre et se ferme. Sur grand écran il ne bouge pas : la
+   règle est dans la feuille de style, pas ici — deux endroits qui
+   décident de la même chose finissent par se contredire.
+   ------------------------------------------------------------------ */
+function openCart(){document.getElementById('cart').classList.add('show');document.getElementById('voile').classList.add('show');}
+function closeCart(){document.getElementById('cart').classList.remove('show');document.getElementById('voile').classList.remove('show');}
+
+function openPay(){closeCart();document.getElementById('modal').classList.add('show');}function closePay(){document.getElementById('modal').classList.remove('show');}
 function payments(){if(document.getElementById('splitchk').checked){var a=parseFloat((document.getElementById('sp1')||{}).value||0),b=parseFloat((document.getElementById('sp2')||{}).value||0);return [{method:'moncash',amount:a},{method:'cash',amount:b}];}return [{method:method,amount:total()}];}
 function uuid(){return 'pxxxxxxxxyxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);})+Date.now();}
 /* Le retour sonore passe par le module commun de TAGTOA : même son à la
@@ -343,6 +423,9 @@ function confirmSale(){var p={items:Object.values(cart),discount:parseFloat(docu
     if(navigator.onLine){fetch(SALE_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(function(d){ok(d.reference,p,d);}).catch(function(){off(p);});}else off(p);}
 function off(p){var a=q();a.push(p);setQ(a);ok(p.client_uuid.substr(0,8).toUpperCase()+' ({{ __('hors-ligne') }})',p);}
 function ok(ref,p,srv){beep('success');closePay();document.getElementById('dref').textContent=ref;
+    // La référence n'est retenue que si le SERVEUR l'a donnée : hors ligne, la
+    // vente n'existe pas encore en base et son reçu n'est pas imprimable.
+    derniereRef=(srv&&srv.reference)?srv.reference:null;
     // Le montant qui s'affiche est celui que le SERVEUR a enregistré. Hors
     // ligne il n'y en a pas encore : on montre le calcul local, qui est le
     // même tant que le catalogue n'a pas changé.
@@ -352,6 +435,30 @@ function ok(ref,p,srv){beep('success');closePay();document.getElementById('dref'
     var lines=Object.values(cart).map(function(c){return c.qty+'x '+c.name+' = '+(c.qty*c.price).toFixed(2);}).join('%0A');
     var msg='{{ __('Reçu') }} TAGTOA%0A'+ref+'%0A'+lines+'%0A{{ __('Total') }}: '+total().toFixed(2)+' '+CUR;
     document.getElementById('wa').href='https://wa.me/'+(p.customer_phone||'').replace(/[^0-9]/g,'')+'?text='+msg;document.getElementById('done').classList.add('show');}
+/* ------------------------------------------------------------------
+   IMPRIMER — le vrai reçu, pas l'écran de confirmation.
+
+   `window.print()` imprimait CETTE page : une feuille A4 presque blanche
+   avec les boutons dessus, sur deux pages. Le reçu de caisse est une page
+   à part, calée sur 58 mm, qui porte l'en-tête du commerce, toutes les
+   lignes et le mot du patron.
+
+   Hors ligne, la vente n'est pas encore en base : il n'y a rien à
+   imprimer, et on le dit plutôt que d'ouvrir une page en erreur. Le reçu
+   s'imprimera depuis Tickets une fois la caisse resynchronisée.
+   ------------------------------------------------------------------ */
+var RECU_URL="{{ route('tagtoa.pos.receipt', ['reference' => '__REF__']) }}";
+var derniereRef=null;
+
+function imprimerRecu(){
+    if(!derniereRef){
+        beep('error');
+        alert("{{ __('Vente enregistrée hors ligne : le reçu s\'imprimera depuis Tickets dès le retour du réseau.') }}");
+        return;
+    }
+    window.open(RECU_URL.replace('__REF__', encodeURIComponent(derniereRef)) + '?print=1', '_blank');
+}
+
 function newSale(){cart={};document.getElementById('disc').value=0;document.getElementById('phone').value='';document.getElementById('done').classList.remove('show');render();}
 window.addEventListener('load',function(){setNet();render();});
 

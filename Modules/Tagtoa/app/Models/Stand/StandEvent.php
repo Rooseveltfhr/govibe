@@ -36,6 +36,8 @@ class StandEvent extends Model
     public const CLAIMED   = 'claimed';     // réclamé par un commerce
     public const RELEASED  = 'released';    // rendu à l'état non réclamé
     public const TRANSFER  = 'transferred'; // cédé à un autre commerce
+    public const TRANSFER_OFFERED   = 'transfer_offered';   // cession proposée
+    public const TRANSFER_CANCELLED = 'transfer_cancelled'; // cession retirée ou expirée
     public const SUSPENDED = 'suspended';
     public const REVOKED   = 'revoked';
     public const LOST      = 'lost';

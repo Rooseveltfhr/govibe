@@ -12,9 +12,15 @@
         <br>
         {{ __('Pour activer un stand : grattez le film au dos et scannez-le avec votre téléphone.') }}
     </p>
-    <a class="btn btn-p" href="{{ route('tagtoa.stand.activate') }}" style="margin-top:12px">
-        <i class="fa-solid fa-camera"></i> {{ __('Activer mes stands') }}
-    </a>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <a class="btn btn-p" href="{{ route('tagtoa.stand.activate') }}">
+            <i class="fa-solid fa-camera"></i> {{ __('Activer mes stands') }}
+        </a>
+        {{-- Le jour où l'on vend son commerce, on cherche ce bouton ici. --}}
+        <a class="btn btn-o" href="{{ route('tagtoa.stand.transfer.index') }}">
+            <i class="fa-solid fa-right-left"></i> {{ __('Céder / Reprendre') }}
+        </a>
+    </div>
 </div>
 
 @if($stands->isEmpty())

@@ -129,6 +129,11 @@ class BusinessController extends Controller
             'tax_rate'      => ['nullable', 'numeric', 'min:0', 'max:99.999'],
             'tax_inclusive' => ['nullable', 'boolean'],
             'tax_number'    => ['nullable', 'string', 'max:40'],
+
+            // Le mot du patron en bas du ticket. Court à dessein : un reçu
+            // thermique de 58 mm qui sort sur trente centimètres coûte du
+            // papier à chaque vente, et personne ne le lit.
+            'receipt_footer' => ['nullable', 'string', 'max:240'],
         ]);
     }
 

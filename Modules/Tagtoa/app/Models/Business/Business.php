@@ -32,6 +32,7 @@ class Business extends Model
         'sells_products', 'sells_services',
         'logo_path', 'address', 'phone', 'currency', 'is_active',
         'tax_enabled', 'tax_label', 'tax_rate', 'tax_inclusive', 'tax_number',
+        'receipt_footer',
     ];
 
     protected $casts = [
