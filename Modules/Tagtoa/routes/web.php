@@ -552,6 +552,32 @@ Route::middleware(['auth', 'valid.user', 'role:super_admin'])->prefix('tagtoa/ad
     Route::put('/resellers/{id}', [$reseau, 'update'])->whereNumber('id')->name('tagtoa.superadmin.resellers.update');
     Route::post('/resellers/{id}/allocate', [$reseau, 'allocate'])->whereNumber('id')->name('tagtoa.superadmin.resellers.allocate');
 
+    // LE PARC DE STANDS — ce qui dort, ce qui sert, et ce qui est MUET.
+    //
+    // Un stand MUET est un objet VENDU dont personne n'a jamais gratté le
+    // panneau : le marchand a payé et n'a jamais eu son compte. C'est la seule
+    // fuite qui ne produit aucune erreur — le marchand croit que « le truc ne
+    // marche pas » et le range dans un tiroir.
+    $parc = \Modules\Tagtoa\App\Http\Controllers\SuperAdmin\StandAdminController::class;
+    Route::get('/stands', [$parc, 'index'])->name('tagtoa.superadmin.stands');
+
+    // L'identifiant imprimé, pas une clé de base : c'est ce que le fondateur a
+    // sous les yeux quand il tient l'objet, ou au téléphone avec un revendeur.
+    Route::get('/stands/{publicId}', [$parc, 'show'])
+        ->where('publicId', '[A-Za-z0-9\-]{1,24}')->name('tagtoa.superadmin.stand');
+    Route::put('/stands/{publicId}/physical', [$parc, 'physical'])
+        ->where('publicId', '[A-Za-z0-9\-]{1,24}')->name('tagtoa.superadmin.stand.physical');
+    Route::put('/stands/{publicId}/digital', [$parc, 'digital'])
+        ->where('publicId', '[A-Za-z0-9\-]{1,24}')->name('tagtoa.superadmin.stand.digital');
+
+    // La cession forcée : le pouvoir le plus dangereux de la plateforme.
+    // Limité en débit, non pour arrêter une attaque — le fondateur est déjà
+    // identifié — mais pour qu'un script lancé par erreur ne déplace pas un
+    // parc entier avant qu'on s'en aperçoive.
+    Route::put('/stands/{publicId}/force', [$parc, 'force'])
+        ->where('publicId', '[A-Za-z0-9\-]{1,24}')
+        ->middleware('throttle:30,1')->name('tagtoa.superadmin.stand.force');
+
     // État système en lecture seule (environnement, DB, cache, sécurité NFC, limites connues).
     Route::get('/status', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\StatusController::class, 'index'])->name('tagtoa.superadmin.status');
     // Passerelles de paiement : activation, frais, et qui encaisse (plateforme vs marchand).
