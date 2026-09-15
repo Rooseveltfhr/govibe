@@ -528,17 +528,24 @@ jobs:
 
           # Yon 200 ka toujou se paj defo a. Nou egzije siyati LOUVIA a —
           # verifye sa nou TANN, pa sèlman absans erè.
+          # ⚠️ Pa mete yon `printf "$BODY" | grep -q …` isit la. `grep -q` sòti
+          # depi li jwenn sa l ap chèche a; si kò a pi gwo pase tanpon tiyo a
+          # (64 Kio), printf rete ap ekri epi li pran yon SIGPIPE (141). Ak
+          # `pipefail`, se 141 ki vin eta tiyo a — kidonk tès la ECHWE
+          # egzakteman paske li JWENN sa l t ap chèche a. Se konsa deplwaman
+          # #17 la te bay yon fo echèk lè paj akèy la vin pi gwo.
+          # Yon herestring pase pa yon fichye tanporè: pa gen tiyo, pa gen SIGPIPE.
           echo "== Kontni paj la =="
           BODY=$(curl -sS -L --max-time 30 "$SCHEME://$SUBDOMAIN/" 2>/dev/null)
-          if printf '%s' "$BODY" | grep -qi "webserver is functioning normally"; then
+          if grep -qi "webserver is functioning normally" <<<"$BODY"; then
             echo "::error::Se paj DEFO sèvè a k ap sèvi piblikman, PA LOUVIA."
             exit 1
           fi
-          if printf '%s' "$BODY" | grep -q "LOUVIA"; then
+          if grep -q "LOUVIA" <<<"$BODY"; then
             echo "✓ Se byen LOUVIA k ap sèvi."
-            printf '%s\n' "$BODY" | grep -oE "Chwazi yon modèl|Choisissez un modèle|Restoran|Klinik|Lekòl" | sort -u | sed 's/^/    /'
+            grep -oE "Trouver vos employés|Chwazi yon modèl|Choisissez un modèle|Restoran|Klinik|Lekòl" <<<"$BODY" | sort -u | sed 's/^/    /'
           else
             echo "::error::Paj la pa gen siyati LOUVIA a. Premye liy yo:"
-            printf '%s\n' "$BODY" | head -10
+            head -10 <<<"$BODY"
             exit 1
           fi
