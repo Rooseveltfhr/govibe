@@ -165,6 +165,14 @@ class DashboardModules
         'stands' => [
             'label' => 'Mes stands', 'icon' => 'fa-sign-hanging', 'group' => 'feature',
             'desc'  => 'Vos TAGTOA Smart Stands : où va chacun, et ce que le client voit en scannant.',
+            'children' => [
+                ['label' => 'Mes stands',      'icon' => 'fa-sign-hanging', 'url' => '/tagtoa/stands'],
+                ['label' => 'Activer',         'icon' => 'fa-camera',       'url' => '/tagtoa/stands/activate'],
+                // La cession se trouve ICI et nulle part ailleurs : on la
+                // cherche le jour où l'on vend son commerce, c'est-à-dire
+                // depuis l'écran de ses stands, pas depuis un réglage.
+                ['label' => 'Céder / Reprendre', 'icon' => 'fa-right-left',  'url' => '/tagtoa/stands/transfers'],
+            ],
         ],
         'reviews' => [
             'label' => 'Avis clients', 'icon' => 'fa-star', 'group' => 'feature',

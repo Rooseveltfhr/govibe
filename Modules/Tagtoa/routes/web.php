@@ -306,6 +306,27 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/activate', [$activation, 'activate'])
             ->middleware('throttle:120,1')->name('activate.scan');
 
+        // CESSION — quand le commerce change de main.
+        //
+        // Un bar se vend, un restaurant est repris par une fille. Sans ce
+        // chemin, quarante stands mouraient le jour de la vente : un stand
+        // activé n'est plus réclamable, et c'est VOULU — le panneau à gratter
+        // a déjà été gratté, donc le rendre réclamable redonnerait le parc à
+        // l'ancien propriétaire, qui a pu photographier le code.
+        $transfert = \Modules\Tagtoa\App\Http\Controllers\Stand\TransferController::class;
+        Route::prefix('transfers')->name('transfer.')->group(function () use ($transfert) {
+            Route::get('/', [$transfert, 'index'])->name('index');
+            Route::post('/', [$transfert, 'store'])->middleware('throttle:30,1')->name('store');
+            Route::delete('/{id}', [$transfert, 'cancel'])->whereNumber('id')->name('cancel');
+
+            // La saisie du code est limitée : c'est le seul endroit où un code
+            // de cession se présente, donc le seul par lequel on pourrait en
+            // essayer au hasard.
+            Route::get('/accept', [$transfert, 'acceptForm'])->name('accept.form');
+            Route::post('/accept', [$transfert, 'accept'])
+                ->middleware('throttle:20,1')->name('accept');
+        });
+
         // La réclamation exige un compte : c'est lui qui deviendra propriétaire.
         Route::get('/claim/{standId}', [$public, 'claimForm'])->name('claim.form');
         Route::post('/claim/{standId}', [$public, 'claim'])
