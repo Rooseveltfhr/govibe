@@ -1,0 +1,120 @@
+<?php
+
+namespace Modules\AIProvider\Connectors\Gemini;
+
+use Generator;
+use Illuminate\Http\Client\ConnectionException;
+use Modules\AIProvider\Connectors\BaseProvider;
+use Modules\AIProvider\Contracts\SupportsChat;
+use Modules\AIProvider\DTO\ChatRequest;
+use Modules\AIProvider\DTO\ChatResponse;
+use Modules\AIProvider\Exceptions\ProviderException;
+use Modules\AIProvider\Translators\GeminiChatTranslator;
+
+/**
+ * Google Generative Language : le modèle fait partie du chemin d'URL et la
+ * clé passe en en-tête `x-goog-api-key`.
+ */
+class GeminiProvider extends BaseProvider implements SupportsChat
+{
+    protected GeminiChatTranslator $translator;
+
+    /** @param array<string, mixed> $config */
+    public function __construct(array $config = [], ?GeminiChatTranslator $translator = null)
+    {
+        parent::__construct($config);
+
+        $this->translator = $translator ?? new GeminiChatTranslator;
+    }
+
+    public function key(): string
+    {
+        return 'gemini';
+    }
+
+    protected function defaultBaseUrl(): string
+    {
+        return 'https://generativelanguage.googleapis.com/v1beta';
+    }
+
+    /** @return array<string, string> */
+    protected function headers(): array
+    {
+        return [
+            'x-goog-api-key' => $this->apiKey(),
+            'Content-Type' => 'application/json',
+        ];
+    }
+
+    public function chat(ChatRequest $request): ChatResponse
+    {
+        $model = $request->model ?? $this->defaultModel();
+        $payload = $this->translator->buildPayload($request, $model);
+
+        try {
+            $response = $this->http()->post("/models/{$model}:generateContent", $payload);
+        } catch (ConnectionException $e) {
+            throw new ProviderException(
+                sprintf('Connexion impossible à %s : %s', $this->key(), $e->getMessage()),
+                $this->key(),
+                true,
+                null,
+                $e,
+            );
+        }
+
+        if ($response->failed()) {
+            throw ProviderException::fromHttpStatus($this->key(), $response->status(), $response->body());
+        }
+
+        /** @var array<string, mixed> $data */
+        $data = $response->json() ?? [];
+
+        return $this->translator->parseResponse($data, $this->key(), $model);
+    }
+
+    public function streamChat(ChatRequest $request): Generator
+    {
+        $model = $request->model ?? $this->defaultModel();
+        $payload = $this->translator->buildPayload($request, $model);
+
+        try {
+            $response = $this->http()
+                ->withOptions(['stream' => true])
+                ->post("/models/{$model}:streamGenerateContent?alt=sse", $payload);
+        } catch (ConnectionException $e) {
+            throw new ProviderException(
+                sprintf('Connexion impossible à %s : %s', $this->key(), $e->getMessage()),
+                $this->key(),
+                true,
+                null,
+                $e,
+            );
+        }
+
+        if ($response->failed()) {
+            throw ProviderException::fromHttpStatus($this->key(), $response->status(), $response->body());
+        }
+
+        foreach ($this->streamLines($response->toPsrResponse()->getBody()) as $line) {
+            $chunk = $this->translator->parseStreamLine($line);
+
+            if ($chunk !== null) {
+                yield $chunk;
+            }
+        }
+    }
+
+    public function defaultModel(): string
+    {
+        $configured = $this->config['default_model'] ?? null;
+
+        if (is_string($configured) && $configured !== '') {
+            return $configured;
+        }
+
+        $models = $this->models();
+
+        return $models === [] ? '' : $models[0]->key;
+    }
+}

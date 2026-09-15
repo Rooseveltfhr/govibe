@@ -1,0 +1,8 @@
+{
+    "Core": true,
+    "AIProvider": true,
+    "AIRouter": true,
+    "AIServices": true,
+    "Usage": true,
+    "Agents": true
+}

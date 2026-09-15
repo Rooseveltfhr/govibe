@@ -1,0 +1,19 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 5
+    paths:
+        - app
+        - Modules
+        - config
+        - routes
+
+    ignoreErrors:
+        # Les fichiers `Modules/*/config/*.php` SONT des fichiers de
+        # configuration : nwidart les fusionne dans le dépôt de config au
+        # démarrage. Larastan ne reconnaît que le dossier `config/` racine et
+        # signale donc à tort les appels à env() qui s'y trouvent.
+        -
+            identifier: larastan.noEnvCallsOutsideOfConfig
+            path: Modules/*/config/*.php

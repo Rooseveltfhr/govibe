@@ -1,0 +1,9 @@
+# Vwa moun reyèl = done pèsonèl. Pa janm nan git.
+clips/
+manifest.csv
+
+# Rezilta
+rapo.html
+rapo.json
+*.pyc
+__pycache__/
