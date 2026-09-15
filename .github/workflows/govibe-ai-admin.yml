@@ -1,0 +1,136 @@
+name: LOUVIA — Kreye administratè
+
+# Kreye (oswa mete ajou) yon kont administratè pou panèl /admin, san
+# okenn koneksyon SSH manyèl. Menm VPS ak deplwaman an (menm secrets
+# VPS_HOST/VPS_USER/VPS_SSH_KEY/VPS_PORT).
+#
+# Sekirite: modpas la soti nan secrets.LOUVIA_ADMIN_PASSWORD — li pa parèt
+# nan yon input (kidonk pa nan jounal Actions la), epi li pa janm parèt nan
+# yon liy kòmand sou sèvè a (kidonk pa nan `ps`). Li vwayaje nan yon fichye
+# (scp) epi li antre nan `php artisan govibe:admin` pa yon varyab
+# anviwònman ki dire yon sèl apèl. Fichye a efase sou de bò yo kèlkeswa
+# rezilta a.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Imèl kont administratè a (kreye si li pa la, mete ajou si li la)"
+        type: string
+        required: true
+      subdomain:
+        description: "Sou-domèn sib"
+        type: string
+        default: "louvia.govibeht.com"
+
+jobs:
+  create-admin:
+    name: Kreye administratè
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh-keyscan -p "$PORT" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # Menm rezolisyon chemen ak deplwaman an: si dosye a deplase, nou swiv.
+      - name: Rezoud chemen domèn nan
+        id: paths
+        env:
+          SUBDOMAIN: ${{ inputs.subdomain }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          DIR=$(ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "ls -d /home/*/domains/$SUBDOMAIN \$HOME/domains/$SUBDOMAIN 2>/dev/null | head -1") || true
+          if [ -z "$DIR" ]; then
+            echo "::error::Dosye domèn nan pa jwenn pou $SUBDOMAIN."
+            exit 1
+          fi
+          if ! ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+              "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "test -f '$DIR/laravel/artisan'"; then
+            echo "::error::$DIR/laravel/artisan pa jwenn — deplwaye kòd la anvan (workflow Deploy GOVIBE AI)."
+            exit 1
+          fi
+          echo "domain=$DIR" >> "$GITHUB_OUTPUT"
+          echo "==> Domèn: $DIR"
+
+      - name: Voye modpas la (fichye, jamè liy kòmand)
+        env:
+          DOMAIN: ${{ steps.paths.outputs.domain }}
+          ADMIN_PASSWORD: ${{ secrets.LOUVIA_ADMIN_PASSWORD }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+
+          if [ -z "${ADMIN_PASSWORD:-}" ]; then
+            echo "::error::secrets.LOUVIA_ADMIN_PASSWORD vid. Ajoute l nan Settings > Secrets and variables > Actions, epi relanse."
+            exit 1
+          fi
+
+          umask 077
+          printf '%s\n' "$ADMIN_PASSWORD" > /tmp/louvia-admin.secret
+          scp -i ~/.ssh/id_deploy -P "$PORT" -o StrictHostKeyChecking=accept-new \
+            /tmp/louvia-admin.secret \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$DOMAIN/laravel/.admin-secret.pending"
+          rm -f /tmp/louvia-admin.secret
+
+      - name: Kreye/mete ajou administratè a
+        env:
+          DOMAIN: ${{ steps.paths.outputs.domain }}
+          EMAIL: ${{ inputs.email }}
+        run: |
+          PORT="${{ secrets.VPS_PORT }}"; PORT="${PORT:-22}"
+          ssh -i ~/.ssh/id_deploy -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "DOMAIN='$DOMAIN' EMAIL='$EMAIL' bash -s" <<'EOSSH'
+          set -uo pipefail
+          APP="$DOMAIN/laravel"
+          cd "$APP" || exit 1
+          SECRET="$APP/.admin-secret.pending"
+
+          # Toujou efase fichye a, menm si kòmand lan echwe.
+          trap 'rm -f "$SECRET"' EXIT
+
+          if [ ! -f "$SECRET" ]; then
+            echo "::error::Fichye modpas la pa jwenn sou sèvè a."
+            exit 1
+          fi
+
+          # Menm rezolisyon PHP ak deplwaman an (composer.json mande ^8.3).
+          PHP_BIN=""
+          for cand in /usr/local/php84/bin/php /opt/alt/php84/usr/bin/php php8.4 php84 \
+                      /usr/local/php83/bin/php /opt/alt/php83/usr/bin/php php8.3 php83 \
+                      php; do
+            c=$(command -v "$cand" 2>/dev/null || { [ -x "$cand" ] && echo "$cand"; })
+            [ -n "$c" ] || continue
+            if "$c" -r 'exit(PHP_VERSION_ID >= 80300 ? 0 : 1);' 2>/dev/null; then
+              PHP_BIN="$c"; break
+            fi
+          done
+
+          if [ -z "$PHP_BIN" ]; then
+            echo "::error::Pa gen PHP >= 8.3 sou sèvè a."
+            exit 1
+          fi
+
+          # Modpas la antre pa yon varyab anviwònman pou PWOSÈS SA A sèlman
+          # — li pa janm parèt kòm agiman kòmand, kidonk li pa nan `ps` sou
+          # sèvè a. `export` + `unset` imedyatman apre limite lavi varyab
+          # la a yon sèl apèl.
+          export GOVIBE_ADMIN_PASSWORD
+          GOVIBE_ADMIN_PASSWORD="$(cat "$SECRET")"
+          "$PHP_BIN" artisan govibe:admin "$EMAIL"
+          STATUS=$?
+          unset GOVIBE_ADMIN_PASSWORD
+          exit $STATUS
+          EOSSH
+
+      - name: Rezime
+        env:
+          EMAIL: ${{ inputs.email }}
+          SUBDOMAIN: ${{ inputs.subdomain }}
+        run: |
+          echo "Kont administratè pare: $EMAIL"
+          echo "Konekte sou https://$SUBDOMAIN/admin/login"

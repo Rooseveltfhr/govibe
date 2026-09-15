@@ -14,7 +14,10 @@ use Illuminate\Support\Facades\Hash;
  * kont lan pase isit la, nan liy kòmand, sou sèvè a.
  *
  * Modpas la pa nan siyati kòmand lan: yon modpas nan yon liy kòmand rete
- * nan istorik shell la. Kòmand lan mande l.
+ * nan istorik shell la (visib pa `ps` sou sèvè a). Kòmand lan aksepte l pa
+ * TWA chemen, nan lòd sa a: `--password`, varyab anviwònman
+ * `GOVIBE_ADMIN_PASSWORD` (pou automatizasyon — CI, script), oswa yon
+ * kesyon kache si okenn nan de a pa la (pou yon moun ki tape l alamen).
  */
 class CreateAdminCommand extends Command
 {
@@ -32,7 +35,8 @@ class CreateAdminCommand extends Command
             return self::FAILURE;
         }
 
-        $password = (string) ($this->option('password') ?: $this->secret('Modpas'));
+        $fromEnv = getenv('GOVIBE_ADMIN_PASSWORD');
+        $password = (string) ($this->option('password') ?: ($fromEnv !== false ? $fromEnv : $this->secret('Modpas')));
 
         if (strlen($password) < 12) {
             $this->error('Modpas la dwe gen omwen 12 karaktè.');

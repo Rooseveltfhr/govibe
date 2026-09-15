@@ -362,6 +362,40 @@ it('refuses a password that is too short to be worth anything', function () {
     expect(User::count())->toBe(0);
 });
 
+// Chemen otomatizasyon an (GitHub Actions): modpas la pa nan `--password`,
+// li nan yon varyab anviwònman ki dire yon sèl apèl — jamè nan `ps` sou
+// sèvè a. `--password` genyen si de a prezan alafwa.
+it('accepts the password from an environment variable for automation', function () {
+    putenv('GOVIBE_ADMIN_PASSWORD=yon-modpas-ki-soti-nan-anviwonman');
+
+    try {
+        $this->artisan('govibe:admin', ['email' => 'ops@govibe.ht'])->assertExitCode(0);
+    } finally {
+        putenv('GOVIBE_ADMIN_PASSWORD');
+    }
+
+    $user = User::where('email', 'ops@govibe.ht')->firstOrFail();
+
+    expect(Hash::check('yon-modpas-ki-soti-nan-anviwonman', $user->password))->toBeTrue();
+});
+
+it('lets --password win over the environment variable', function () {
+    putenv('GOVIBE_ADMIN_PASSWORD=modpas-anviwonman');
+
+    try {
+        $this->artisan('govibe:admin', [
+            'email' => 'ops2@govibe.ht',
+            '--password' => 'modpas-eksplisit-la',
+        ])->assertExitCode(0);
+    } finally {
+        putenv('GOVIBE_ADMIN_PASSWORD');
+    }
+
+    $user = User::where('email', 'ops2@govibe.ht')->firstOrFail();
+
+    expect(Hash::check('modpas-eksplisit-la', $user->password))->toBeTrue();
+});
+
 it('does not leave a settings row readable in clear text either', function () {
     app(Settings::class)->set('secret_thing', 'valè-sekrè', secret: true);
 
