@@ -90,9 +90,19 @@ abstract class TestCase extends BaseTestCase
         // On n'ajoute QUE le démarrage de session : le groupe « web » complet
         // apporterait aussi la vérification CSRF, qui ferait échouer les
         // requêtes POST des tests sans rien prouver de plus.
+        //
+        // SetLocale EST inclus, volontairement — c'est le module lui-même qui
+        // le pose dans RouteServiceProvider::mapWebRoutes(), non chargé ici
+        // (voir getPackageProviders). Sans lui, `?lang=` ne produirait AUCUN
+        // effet en test, et une suite entière pourrait sembler vérifier le
+        // changement de langue tout en ne testant, silencieusement, que la
+        // langue par défaut de Laravel — ce qui EST arrivé avant que cette
+        // ligne n'existe : la moitié d'une suite de tests multilingue passait
+        // par coïncidence, l'autre échouait sans qu'on comprenne pourquoi.
         $router->middleware([
             \Illuminate\Session\Middleware\StartSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+            \Modules\Tagtoa\App\Http\Middleware\SetLocale::class,
         ])->group(function () {
             require __DIR__.'/../routes/web.php';
         });
