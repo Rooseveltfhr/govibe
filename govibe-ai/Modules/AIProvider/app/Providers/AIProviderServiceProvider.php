@@ -8,6 +8,7 @@ use Modules\AIProvider\Console\SyncCatalogCommand;
 use Modules\AIProvider\Console\VoicesCommand;
 use Modules\AIProvider\Health\CircuitBreaker;
 use Modules\AIProvider\Health\ProviderMetrics;
+use Modules\AIProvider\Registry\CredentialStore;
 use Modules\AIProvider\Registry\ModelCatalog;
 use Modules\AIProvider\Registry\ProviderRegistry;
 use Modules\AIProvider\Support\CircuitBreakerState;
@@ -36,9 +37,14 @@ class AIProviderServiceProvider extends ModuleServiceProvider
     {
         parent::register();
 
-        $this->app->singleton(ProviderRegistry::class, function (): ProviderRegistry {
+        $this->app->singleton(CredentialStore::class);
+
+        $this->app->singleton(ProviderRegistry::class, function ($app): ProviderRegistry {
             /** @var array<string, array<string, mixed>> $definitions */
             $definitions = (array) config('aiprovider.providers', []);
+
+            // Kle ki nan baz la konplete `.env` — li pa janm ranplase l.
+            $definitions = $app->make(CredentialStore::class)->merge($definitions);
 
             return new ProviderRegistry($definitions);
         });

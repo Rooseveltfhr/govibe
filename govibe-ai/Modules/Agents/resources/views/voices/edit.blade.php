@@ -1,4 +1,8 @@
 @php
+    $languageLabels = ['ht' => 'Kreyòl', 'fr' => 'Français', 'en' => 'English', 'es' => 'Español'];
+
+    // Bibliyotèk platfòm nan pase anvan: se yon lis kout, teste, ak lang
+    // chak vwa. Lis konplè founisè a se yon dènye rekou.
     $mine = [];
     $library = [];
 
@@ -29,6 +33,40 @@
             {{ __("La bibliothèque est vide tant qu'une clé ElevenLabs n'est pas ajoutée : l'agent répondra par écrit.") }}
         </div>
     @endunless
+
+    @if ($curated->isNotEmpty())
+        <h2>{{ __('Bibliothèque de voix') }}</h2>
+        <form method="POST" action="{{ route('agents.voice.update', $agent) }}">
+            @csrf
+            <div class="choices">
+                <label class="choice">
+                    <input type="radio" name="voice_id" value="" @checked($current === null)>
+                    <span>
+                        <strong>{{ __('Voix par défaut de la langue') }}</strong>
+                        <small>{{ __("L'agent prend la voix marquée par défaut pour la langue qu'il parle.") }}</small>
+                    </span>
+                </label>
+                @foreach ($curated as $voice)
+                    <label class="choice">
+                        <input type="radio" name="voice_id" value="{{ $voice->voice_id }}" @checked($current === $voice->voice_id)>
+                        <span>
+                            <strong>{{ $voice->name }}</strong>
+                            <small>
+                                {{ $languageLabels[$voice->language] ?? $voice->language }}
+                                @if ($voice->is_default) · {{ __('Par défaut') }} @endif
+                            </small>
+                            @if ($voice->preview_url)
+                                <audio controls preload="none" src="{{ $voice->preview_url }}"></audio>
+                            @endif
+                        </span>
+                    </label>
+                @endforeach
+            </div>
+            <div class="row" style="margin-top:1rem">
+                <button type="submit" class="btn btn-primary">{{ __('Utiliser cette voix') }}</button>
+            </div>
+        </form>
+    @endif
 
     <h2>{{ __('Vos voix') }}</h2>
     @if ($mine === [])

@@ -10,7 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * évite la collision avec le contrat `AIProvider`.
  *
  * @property string $key
+ * @property string $name
  * @property string $status
+ * @property string|null $api_key chiffre nan baz la — jamè an klè
  */
 class AiProviderRecord extends Model
 {
@@ -21,7 +23,11 @@ class AiProviderRecord extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['meta' => 'array'];
+        return [
+            'meta' => 'array',
+            // Chiffre: yon moun ki li tab la pa jwenn kle a san APP_KEY la.
+            'api_key' => 'encrypted',
+        ];
     }
 
     /** @return HasMany<AiModelRecord, $this> */

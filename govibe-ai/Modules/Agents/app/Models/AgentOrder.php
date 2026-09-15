@@ -3,6 +3,7 @@
 namespace Modules\Agents\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 /**
@@ -27,6 +28,9 @@ class AgentOrder extends Model
     public const MODE_SELF = 'self';
 
     public const CHANNELS = ['whatsapp', 'website', 'phone'];
+
+    /** Etap yon dosye. Lòd la se lòd travay la, se pa yon detay. */
+    public const STATUSES = ['nouvo', 'an_kou', 'fèt', 'anile'];
 
     protected $fillable = [
         'reference', 'sector', 'business_name', 'contact_name', 'whatsapp',
@@ -56,6 +60,38 @@ class AgentOrder extends Model
         }
 
         return 'LV-'.now()->format('Ymd').'-'.$suffix;
+    }
+
+    /** @return HasMany<AgentPayment, $this> */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(AgentPayment::class, 'agent_order_id');
+    }
+
+    /**
+     * Total ki peye, pa deviz.
+     *
+     * Pa deviz epi pa yon sèl chif: yon avans an goud ak yon rès an dola pa
+     * s ajoute. Yon total ki melanje de deviz se yon chif ki bay manti.
+     *
+     * @return array<string, int> deviz => total an inite minè
+     */
+    public function paidByCurrency(): array
+    {
+        $totals = [];
+
+        foreach ($this->payments as $payment) {
+            $totals[$payment->currency] = ($totals[$payment->currency] ?? 0) + $payment->amount_minor;
+        }
+
+        ksort($totals);
+
+        return $totals;
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->payments()->exists();
     }
 
     /** Nimewo a an chif sèlman, pou yon lyen wa.me. */

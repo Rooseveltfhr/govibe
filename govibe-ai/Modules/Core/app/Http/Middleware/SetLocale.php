@@ -5,6 +5,7 @@ namespace Modules\Core\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Modules\Core\Support\LocaleNegotiator;
+use Modules\Core\Support\Settings;
 use Symfony\Component\HttpFoundation\Response;
 
 class SetLocale
@@ -14,10 +15,15 @@ class SetLocale
         /** @var list<string> $supported */
         $supported = (array) config('govibe.locales', []);
 
-        $negotiator = new LocaleNegotiator(
-            $supported,
+        // Lang pa defo a: sa administratè a chwazi nan panèl la, sinon config,
+        // sinon franse. Yon paramèt ki pa chanje anyen se yon paramèt ki bay
+        // manti — se poutèt sa li pase ISIT LA, pa sèlman nan yon paj.
+        $default = app(Settings::class)->get(
+            'default_language',
             (string) config('govibe.default_locale', 'fr'),
         );
+
+        $negotiator = new LocaleNegotiator($supported, (string) $default);
 
         $queryLang = $request->query('lang');
         $queryLang = is_string($queryLang) ? $queryLang : null;

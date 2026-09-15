@@ -9,6 +9,7 @@ use Illuminate\Routing\Controller;
 use Modules\Agents\Models\Agent;
 use Modules\AIProvider\Exceptions\NoProviderAvailableException;
 use Modules\AIProvider\Exceptions\ProviderException;
+use Modules\AIProvider\Models\VoiceProfile;
 use Modules\AIServices\Speech\VoiceLibrary;
 
 /**
@@ -23,9 +24,15 @@ class VoiceController extends Controller
 
     public function edit(Agent $agent): View
     {
+        // Machann nan wè bibliyotèk platfòm nan — vwa nou chwazi, ak lang
+        // chak vwa bon pou li. Si bibliyotèk la vid, nou tonbe sou lis
+        // konplè founisè a pou paj la pa rete vid nèt.
+        $curated = $this->voices->curated();
+
         return view('agents::voices.edit', [
             'agent' => $agent,
-            'voices' => $this->voices->all(),
+            'curated' => $curated,
+            'voices' => $curated->isEmpty() ? $this->voices->all() : [],
             'available' => $this->voices->available(),
             'current' => $agent->voice_id,
         ]);
@@ -43,7 +50,13 @@ class VoiceController extends Controller
         // Yon vwa ki pa nan bibliyotèk la ta bay yon 404 ElevenLabs sou
         // chak repons — epi machann nan t ap dekouvri sa nan yon apèl ak
         // yon kliyan. Nou refize l isit la.
-        if ($chosen !== '' && $this->voices->find($chosen) === null) {
+        //
+        // Bibliyotèk platfòm nan konte an premye: yon vwa nou deja chwazi
+        // rete valab menm lè API founisè a pa reponn nan moman an. Sinon
+        // yon pann kay yon tyès ta anpeche yon machann chanje vwa l.
+        $known = $chosen !== '' && VoiceProfile::query()->where('voice_id', $chosen)->exists();
+
+        if ($chosen !== '' && ! $known && $this->voices->find($chosen) === null) {
             return back()->withErrors(['voice_id' => __("Cette voix n'existe pas dans la bibliothèque.")]);
         }
 
