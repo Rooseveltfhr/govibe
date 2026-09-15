@@ -201,6 +201,15 @@
             'height:132px;border:2px solid rgba(44,184,9,.9);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.45)}',
             '#' + OVERLAY_ID + ' .sc-foot{padding:14px 16px 22px;background:#141414}',
             '#' + OVERLAY_ID + ' .sc-hint{font-size:13px;opacity:.75;margin:0 0 10px}',
+            /* LE RETOUR DE LECTURE, DANS L'ÉCRAN DU SCANNER.
+               La caméra occupe tout l'écran : ce qui se passe DERRIÈRE elle
+               est invisible. Sans cette ligne, un article ajouté au panier ne
+               se manifestait que par un bip — et le caissier concluait que
+               « ça a fait le son, puis plus rien ». */
+            '#' + OVERLAY_ID + ' .sc-msg{font:700 15px/1.35 system-ui,sans-serif;margin:0 0 10px;',
+            'padding:11px 13px;border-radius:11px;background:rgba(44,184,9,.18);color:#8ef07a;display:none}',
+            '#' + OVERLAY_ID + ' .sc-msg.on{display:block}',
+            '#' + OVERLAY_ID + ' .sc-msg.err{background:rgba(224,71,62,.22);color:#ffb3ae}',
             '#' + OVERLAY_ID + ' .sc-manual{display:flex;gap:8px}',
             '#' + OVERLAY_ID + ' .sc-manual input{flex:1;padding:13px;border-radius:10px;border:0;font-size:17px;',
             'letter-spacing:.06em;background:#fff;color:#0A0A0A}',
@@ -232,6 +241,7 @@
                 '<div class="sc-flash"></div>' +
             '</div>' +
             '<div class="sc-foot">' +
+                '<p class="sc-msg" role="status" aria-live="polite"></p>' +
                 '<p class="sc-hint"></p>' +
                 '<form class="sc-manual">' +
                     '<input type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false">' +
@@ -411,6 +421,26 @@
         listenWedge: function (rappel) {
             if (typeof rappel === 'function') ecouterDouchette(rappel);
         },
+
+        /**
+         * Dit ce qui vient de se passer, DANS l'écran du scanner.
+         *
+         * Indispensable : la caméra couvre la page, donc tout ce que l'écran
+         * appelant affiche derrière elle est invisible. Un article ajouté au
+         * panier sans cette ligne ne se manifeste que par un bip, et le
+         * caissier conclut que le scanner ne fait rien.
+         */
+        say: function (texte, erreur) {
+            var o = document.getElementById(OVERLAY_ID);
+            if (!o) return;
+            var m = o.querySelector('.sc-msg');
+            if (!m) return;
+            m.textContent = texte || '';
+            m.className = 'sc-msg' + (texte ? ' on' : '') + (erreur ? ' err' : '');
+        },
+
+        /** Le scanner est-il ouvert ? L'appelant décide selon la réponse. */
+        isOpen: function () { return !!etat.ouvert; },
 
         /** Signale un code refusé par le serveur (article introuvable). */
         reject: function () { bip('error'); },
