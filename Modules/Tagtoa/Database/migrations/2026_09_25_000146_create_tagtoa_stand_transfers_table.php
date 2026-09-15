@@ -103,12 +103,16 @@ return new class extends Migration
                 $t->unsignedBigInteger('transfer_id')->index();
                 $t->unsignedBigInteger('stand_id')->index();
 
-                // Un stand ne peut être dans deux offres à la fois : sinon deux
-                // codes circulent pour le même objet, et le second repreneur
-                // découvre qu'il a acheté un stand déjà parti. La contrainte
-                // double l'état `transfer_pending`, qui dit déjà la même chose —
-                // deux verrous, parce qu'un seul finit toujours par s'oublier
-                // dans un chemin nouveau.
+                // Un stand n'apparaît pas deux fois DANS LA MÊME offre.
+                //
+                // Et rien de plus : cette contrainte ne dit rien de deux offres
+                // différentes. Ce qui empêche un stand d'être dans deux offres à
+                // la fois — donc deux codes en circulation pour le même objet,
+                // et un second repreneur qui découvre avoir acheté un stand déjà
+                // parti — c'est le filtre `digital_state = ACTIVE` posé sous
+                // `lockForUpdate` dans `offer()`. Le dire exactement : un
+                // commentaire qui promet plus que le code ne tient est pire
+                // qu'aucun commentaire, parce qu'on cesse d'aller vérifier.
                 $t->unique(['transfer_id', 'stand_id']);
 
                 $t->timestamps();

@@ -218,7 +218,12 @@ class StandTransferService
                 // On rend les stands en passant : une offre périmée ne doit pas
                 // laisser un parc bloqué en « cession en attente » jusqu'à ce
                 // que quelqu'un pense à ouvrir l'écran.
-                $this->rendre($transfer, $contexte);
+                //
+                // Contexte VIDE, volontairement : celui qui présente un code
+                // périmé n'est pas l'auteur de ce balayage, et signer les lignes
+                // du journal de son nom et de son adresse les rendrait trompeuses
+                // le jour où elles servent à trancher un litige.
+                $this->rendre($transfer, []);
 
                 return ['result' => self::EXPIREE, 'transfer' => $transfer, 'count' => 0];
             }

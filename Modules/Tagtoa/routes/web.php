@@ -395,6 +395,13 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/tickets', [$tick, 'index'])->name('tickets');
         Route::get('/tickets/{id}', [$tick, 'show'])->whereNumber('id')->name('ticket');
 
+        // Le reçu par sa RÉFÉRENCE. La caisse ne connaît que celle-ci — pas
+        // l'identifiant en base — et sans ce chemin son bouton « Imprimer » ne
+        // pouvait qu'imprimer l'écran courant : une page A4 presque blanche,
+        // avec les boutons dessus.
+        Route::get('/receipt/{reference}', [$tick, 'byReference'])
+            ->where('reference', '[A-Za-z0-9\-_.]{1,64}')->name('receipt');
+
         $set = \Modules\Tagtoa\App\Http\Controllers\Pos\SettingsController::class;
         Route::get('/settings', [$set, 'index'])->name('settings');
         Route::put('/settings/{id}', [$set, 'update'])->whereNumber('id')->name('settings.update');

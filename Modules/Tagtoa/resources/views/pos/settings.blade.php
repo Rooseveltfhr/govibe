@@ -72,6 +72,10 @@
             <i class="fa-solid fa-percent"></i>
             <span><b>{{ __('Taxe (TCA / TVA)') }}</b><span>{{ __('Taux, libellé, numéro fiscal') }}</span></span>
         </a>
+        <a href="{{ route('tagtoa.business.index') }}">
+            <i class="fa-solid fa-receipt"></i>
+            <span><b>{{ __('Mot en bas des reçus') }}</b><span>{{ __('« Merci… », « pas de retour »') }}</span></span>
+        </a>
         <a href="{{ route('tagtoa.pay.methods') }}">
             <i class="fa-solid fa-credit-card"></i>
             <span><b>{{ __('Moyens de paiement') }}</b><span>{{ __('Ce que vous acceptez') }}</span></span>

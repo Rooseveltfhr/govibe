@@ -146,6 +146,21 @@
                 </p>
             </div>
 
+            {{-- Le mot du patron en bas du ticket.
+                 Ce n'est pas décoratif : c'est là que se règle une
+                 contestation au comptoir. Ce qui est imprimé sur le reçu que
+                 le client tient fait foi, et une règle annoncée APRÈS la vente
+                 ne vaut rien. --}}
+            <div style="grid-column:1/-1">
+                <label class="lbl" for="rf">{{ __('Mot imprimé en bas de vos reçus') }}</label>
+                <textarea class="inp" id="rf" name="receipt_footer" rows="2" maxlength="240"
+                          placeholder="{{ __('ex. Merci d\'avoir choisi notre maison. Pas de retour sur ces produits.') }}"
+                          style="resize:vertical;font:14.5px var(--fb)">{{ old('receipt_footer', $business->receipt_footer) }}</textarea>
+                <p style="color:var(--muted);font-size:12.5px;margin-top:5px">
+                    {{ __('Il s\'imprime sur chaque ticket de caisse, sous le total. Gardez-le court : le papier thermique fait 58 mm de large.') }}
+                </p>
+            </div>
+
             {{-- LE réglage à ne pas se tromper : dans un sens le client paie
                  10 % de trop, dans l'autre le commerce paie la taxe de sa
                  poche à chaque vente. --}}

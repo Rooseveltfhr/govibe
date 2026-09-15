@@ -80,6 +80,36 @@ if [ -d "$PH" ] && [ -d "$APP/public" ]; then
   done
 fi
 
+# 4.75) LE LIEN /storage — sans lui, TOUTE image téléversée est cassée.
+#
+#       `php artisan storage:link` crée public/storage, mais le serveur web
+#       sert public_html/ : le lien est donc fabriqué là où personne ne le
+#       cherche. Résultat visible en caisse : une photo de produit remplacée
+#       par l'icône « image cassée », sur le bouton que le caissier doit
+#       reconnaître d'un coup d'œil en pleine affluence. Et le même trou vaut
+#       pour les couvertures de menu, les logos et les preuves de paiement.
+#
+#       On relie donc dans le DOCROOT, là où /storage/... est réellement
+#       demandé. Idempotent, et non destructif : si public_html/storage existe
+#       déjà en vrai dossier (fichiers posés là par un ancien déploiement), on
+#       n'y touche pas — l'écraser perdrait les images.
+mkdir -p "$APP/storage/app/public"
+php artisan storage:link >/dev/null 2>&1 || true
+
+if [ -n "${PH:-}" ] && [ -d "$PH" ]; then
+  # Lien mort (l'app a été déplacée) : on le refait plutôt que de le garder.
+  if [ -L "$PH/storage" ] && [ ! -e "$PH/storage" ]; then
+    rm -f "$PH/storage" && echo "storage : lien mort retiré"
+  fi
+  if [ ! -e "$PH/storage" ]; then
+    ln -s "$APP/storage/app/public" "$PH/storage" 2>/dev/null \
+      && echo "storage : lien créé dans le docroot" \
+      || echo "WARN: storage non relié (droits ?)"
+  else
+    echo "storage : déjà en place"
+  fi
+fi
+
 # 4.8) Perf HTTP pour connexions faibles (Haïti) : compression gzip + cache
 #      navigateur. Ajout IDEMPOTENT (marqueur TAGTOA-PERF-BLOCK) en fin du
 #      .htaccess existant du docroot — jamais d'écrasement, jamais de doublon.
