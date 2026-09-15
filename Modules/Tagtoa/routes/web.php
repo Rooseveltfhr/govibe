@@ -402,6 +402,12 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/receipt/{reference}', [$tick, 'byReference'])
             ->where('reference', '[A-Za-z0-9\-_.]{1,64}')->name('receipt');
 
+        // Le MÊME reçu, en JSON — pour une imprimante Bluetooth. Les montants
+        // sont déjà formatés par Money::format() : aucun calcul ne doit se
+        // refaire dans le JavaScript qui dessine le ticket sur le papier.
+        Route::get('/receipt/{reference}/data', [$tick, 'data'])
+            ->where('reference', '[A-Za-z0-9\-_.]{1,64}')->name('receipt.data');
+
         $set = \Modules\Tagtoa\App\Http\Controllers\Pos\SettingsController::class;
         Route::get('/settings', [$set, 'index'])->name('settings');
         Route::put('/settings/{id}', [$set, 'update'])->whereNumber('id')->name('settings.update');

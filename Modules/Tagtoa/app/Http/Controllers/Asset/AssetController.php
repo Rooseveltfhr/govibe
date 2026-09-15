@@ -33,6 +33,10 @@ class AssetController extends Controller
         // Sons synthétisés, aucun fichier à télécharger — donc ils marchent
         // encore quand la connexion est coupée.
         'tagtoa-sound.js'          => 'application/javascript; charset=utf-8',
+        // Impression Bluetooth BLE directe, pour les imprimantes qui le
+        // supportent. Les imprimantes Bluetooth Classique (SPP) — majoritaires
+        // sur le marché bon marché — restent servies par window.print().
+        'tagtoa-bt-printer.js'     => 'application/javascript; charset=utf-8',
         // Font Awesome 6.5.1 auto-hébergé (CSS + webfonts woff2) — plus de CDN externe.
         'fontawesome-6.5.1.css'    => 'text/css; charset=utf-8',
         'fa-solid-900.woff2'       => 'font/woff2',
