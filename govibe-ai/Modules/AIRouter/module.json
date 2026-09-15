@@ -1,0 +1,11 @@
+{
+    "name": "AIRouter",
+    "alias": "airouter",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\AIRouter\\Providers\\AIRouterServiceProvider"
+    ],
+    "files": []
+}

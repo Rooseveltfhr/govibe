@@ -1,0 +1,11 @@
+{
+    "name": "Agents",
+    "alias": "agents",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Agents\\Providers\\AgentsServiceProvider"
+    ],
+    "files": []
+}
