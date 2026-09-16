@@ -2,6 +2,8 @@
 
 namespace Modules\Tagtoa\App\Services\Notifications;
 
+use Modules\Tagtoa\App\Models\Loyalty\Transaction;
+
 /**
  * TAGTOA — notifications (e-mail) sur les événements clés.
  *
@@ -134,6 +136,119 @@ class NotificationService
     {
         try {
             \Modules\Tagtoa\App\Jobs\SendNotification::dispatch($payload);
+        } catch (\Throwable $e) {
+            if (function_exists('report')) {
+                report($e);
+            }
+        }
+    }
+
+    /**
+     * Compose le message d'un mouvement de carte de fidélité, à partir de
+     * FAITS déjà calculés — jamais un objet Eloquent ici, même principe que
+     * CustomerSegment::classify() : pur, testable sans base de données.
+     *
+     * `null` pour un type de mouvement inconnu (aucun cas prévu) : appelant
+     * responsable de ne rien envoyer dans ce cas.
+     *
+     * @param  array{
+     *     type: string, reward: bool, cardholder_name: string, program_name: string,
+     *     currency: string, amount: float, points_delta: int, balance: float,
+     *     points: int, reward_note: ?string,
+     * }  $faits
+     * @return array{subject:string,body:string}|null
+     */
+    public static function loyaltyMovementMessage(array $faits): ?array
+    {
+        $devise = $faits['currency'] ?? '';
+        $solde = __('Solde').' : '.number_format((float) ($faits['balance'] ?? 0), 2).' '.$devise;
+        $points = __('Points').' : '.number_format((int) ($faits['points'] ?? 0));
+        $salutation = __('Bonjour').' '.($faits['cardholder_name'] ?? '').',';
+        $programme = ' — '.($faits['program_name'] ?? '');
+
+        return match (true) {
+            $faits['type'] === Transaction::TYPE_TOP_UP => self::compose(
+                __('Carte rechargée').$programme,
+                [
+                    $salutation,
+                    '',
+                    __('Votre carte a été rechargée de :montant.', ['montant' => number_format((float) $faits['amount'], 2).' '.$devise]),
+                    $solde,
+                    $points,
+                ]
+            ),
+            $faits['type'] === Transaction::TYPE_EARN => self::compose(
+                __('Points gagnés').$programme,
+                [
+                    $salutation,
+                    '',
+                    __('Vous avez gagné :n points.', ['n' => number_format((int) $faits['points_delta'])]),
+                    $points,
+                ]
+            ),
+            $faits['type'] === Transaction::TYPE_REDEEM && ! empty($faits['reward']) => self::compose(
+                __('Récompense échangée').$programme,
+                [
+                    $salutation,
+                    '',
+                    $faits['reward_note'] ?: __('Votre récompense a été appliquée.'),
+                    $solde,
+                    $points,
+                ]
+            ),
+            $faits['type'] === Transaction::TYPE_REDEEM => self::compose(
+                __('Paiement effectué').$programme,
+                [
+                    $salutation,
+                    '',
+                    __('Un paiement de :montant a été débité de votre carte.', ['montant' => number_format((float) $faits['amount'], 2).' '.$devise]),
+                    $solde,
+                    $points,
+                ]
+            ),
+            default => null,
+        };
+    }
+
+    /**
+     * Notifie un mouvement de carte de fidélité (recharge, points gagnés,
+     * paiement, récompense) au TITULAIRE de la carte — jamais au marchand :
+     * ce sont des mouvements courants, pas des alertes à traiter.
+     *
+     * Reçoit la carte ET la transaction déjà enregistrées (jamais un montant
+     * recalculé ici) — le message affiché doit être un miroir exact de ce qui
+     * a été écrit dans le ledger, pas une seconde source de vérité.
+     *
+     * Tolérant : aucune exception ne remonte.
+     */
+    public function notifyLoyaltyMovement($card, $transaction): void
+    {
+        try {
+            $card->loadMissing('program');
+            $program = $card->program;
+            if (! $program) {
+                return;
+            }
+
+            $message = self::loyaltyMovementMessage([
+                'type' => $transaction->type,
+                'reward' => (bool) $transaction->reward_id,
+                'cardholder_name' => (string) $card->cardholder_name,
+                'program_name' => (string) $program->name,
+                'currency' => (string) ($program->currency ?: ''),
+                'amount' => (float) $transaction->amount,
+                'points_delta' => (int) $transaction->points_delta,
+                'balance' => (float) $card->balance,
+                'points' => (int) $card->points,
+                'reward_note' => $transaction->note,
+            ]);
+
+            if ($message === null) {
+                return;
+            }
+
+            $this->email($card->cardholder_email, $message['subject'], $message['body']);
+            $this->whatsapp($card->cardholder_phone, $message['subject']."\n".$message['body']);
         } catch (\Throwable $e) {
             if (function_exists('report')) {
                 report($e);

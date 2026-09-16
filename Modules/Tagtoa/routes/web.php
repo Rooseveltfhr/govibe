@@ -194,6 +194,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/edit', [LoyaltyDashboard::class, 'edit'])->name('edit');
         Route::put('/{id}', [LoyaltyDashboard::class, 'update'])->name('update');
         Route::get('/{id}/cards', [LoyaltyDashboard::class, 'cards'])->name('cards');
+        Route::get('/{id}/report', [LoyaltyDashboard::class, 'report'])->name('report');
         Route::post('/{id}/cards', [LoyaltyDashboard::class, 'issueCard'])->name('cards.issue');
         Route::post('/cards/{id}/top-up', [LoyaltyDashboard::class, 'topUp'])->name('cards.topup');
         Route::post('/cards/{id}/redeem', [LoyaltyDashboard::class, 'redeem'])->name('cards.redeem');
