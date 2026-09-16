@@ -10,11 +10,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Models\Event\Delivery;
 use Modules\Tagtoa\App\Models\Event\Event;
+use Modules\Tagtoa\App\Models\Event\Order;
 use Modules\Tagtoa\App\Models\Event\Ticket;
+use Modules\Tagtoa\App\Models\Event\TicketType;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Services\Audit\AuditService;
 use Modules\Tagtoa\App\Services\Event\TicketImportService;
+use Modules\Tagtoa\App\Services\Event\TicketService;
 use Modules\Tagtoa\App\Support\Tenant;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -130,6 +134,57 @@ $data = $this->validateEvent($request);
         }, "event-{$event->alias}-orders.csv", ['Content-Type' => 'text/csv']);
     }
 
+    /* ---------------- Invités VIP (billets offerts, hors panier) ---------------- */
+
+    public function guests(int $id): View
+    {
+        $event = $this->own($id, ['ticketTypes']);
+        $guests = $event->orders()->where('source', Order::SOURCE_INVITE)
+            ->with('tickets.ticketType')->latest()->paginate(20);
+
+        return view('tagtoa::event.guests', compact('event', 'guests'));
+    }
+
+    public function inviteGuest(Request $request, int $id): RedirectResponse
+    {
+        $event = $this->own($id);
+        $data = $request->validate([
+            'ticket_type_id' => ['required', 'integer', Rule::exists('tagtoa_ev_ticket_types', 'id')->where('event_id', $event->id)],
+            'name'           => ['required', 'string', 'max:120'],
+            'phone'          => ['nullable', 'string', 'max:40'],
+            'email'          => ['nullable', 'email', 'max:120'],
+        ]);
+
+        $type = TicketType::where('event_id', $event->id)->findOrFail($data['ticket_type_id']);
+
+        try {
+            app(TicketService::class)->inviteGuest($event, $type, $data);
+        } catch (\RuntimeException $e) {
+            return back()->withInput()->withErrors(['ticket_type_id' => $e->getMessage()]);
+        }
+
+        return back()->with('success', __('Invité ajouté — billet émis.'));
+    }
+
+    /**
+     * Statistiques de livraison : les confirmations envoyées au CLIENT
+     * (achat, entrée) sont-elles réellement arrivées ? Voir EventNotifier —
+     * ce compteur n'existait pas avant : un échec d'envoi passait inaperçu.
+     */
+    public function deliveries(int $id): View
+    {
+        $event = $this->own($id);
+
+        $rows = Delivery::where('event_id', $event->id)
+            ->selectRaw('context, channel, status, count(*) as total')
+            ->groupBy('context', 'channel', 'status')
+            ->get();
+
+        $recent = Delivery::where('event_id', $event->id)->with('ticket')->latest()->paginate(30);
+
+        return view('tagtoa::event.deliveries', compact('event', 'rows', 'recent'));
+    }
+
     /* ---------------- Import de billets pré-imprimés (hors système) ---------------- */
 
     public function ticketsImport(int $id): View
@@ -213,6 +268,7 @@ $data = $this->validateEvent($request);
             }
             $compare = ($row['compare_at_price'] ?? '') === '' ? null : (float) $row['compare_at_price'];
             $price = (float) ($row['price'] ?? 0);
+            $gates = array_values(array_filter(array_map('trim', explode(',', (string) ($row['allowed_gates'] ?? '')))));
             $attrs = [
                 'name'             => $row['name'],
                 'price'            => $price,
@@ -220,6 +276,9 @@ $data = $this->validateEvent($request);
                 'compare_at_price' => ($compare !== null && $compare > $price) ? $compare : null,
                 'quantity'         => ($row['quantity'] ?? '') === '' ? null : (int) $row['quantity'],
                 'is_active'        => ! empty($row['is_active']),
+                'is_vip'           => ! empty($row['is_vip']),
+                // Vide = aucune restriction de porte (voir TicketType::allowsGate()).
+                'allowed_gates'    => $gates ?: null,
                 'sort'             => (int) ($row['sort'] ?? $i),
             ];
             $t = ! empty($row['id']) ? $event->ticketTypes()->whereKey($row['id'])->first() : null;

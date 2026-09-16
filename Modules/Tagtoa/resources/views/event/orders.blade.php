@@ -6,6 +6,8 @@
 <div class="h-row">
     <a href="{{ route('tagtoa.event.dashboard.index') }}" style="color:var(--muted);font-size:14px"><i class="fa-solid fa-arrow-left"></i> {{ __('Retour') }}</a>
     <span style="flex:1"></span>
+    <a href="{{ route('tagtoa.event.dashboard.guests',$event->id) }}" class="btn btn-o btn-sm"><i class="fa-solid fa-star"></i> {{ __('Invités VIP') }}</a>
+    <a href="{{ route('tagtoa.event.dashboard.deliveries',$event->id) }}" class="btn btn-o btn-sm"><i class="fa-solid fa-paper-plane"></i> {{ __('Livraison') }}</a>
     <a href="{{ route('tagtoa.event.dashboard.orders.export',$event->id) }}" class="btn btn-o btn-sm"><i class="fa-solid fa-file-csv"></i> {{ __('Export CSV') }}</a>
 </div>
 

@@ -10,6 +10,7 @@ use Modules\Tagtoa\App\Models\Loyalty\Card;
 use Modules\Tagtoa\App\Models\Loyalty\Program;
 use Modules\Tagtoa\App\Models\Loyalty\Reward;
 use Modules\Tagtoa\App\Models\Loyalty\Transaction;
+use Modules\Tagtoa\App\Services\Notifications\NotificationService;
 
 /**
  * TAGTOA Loyalty — numéros Luhn 16 chiffres (préfixe 4297), émission, top-up/redeem.
@@ -17,6 +18,10 @@ use Modules\Tagtoa\App\Models\Loyalty\Transaction;
 class LoyaltyCardService
 {
     private const PREFIX = '4297';
+
+    public function __construct(private NotificationService $notifications = new NotificationService())
+    {
+    }
 
     public function generateCardNumber(): string
     {
@@ -86,7 +91,7 @@ class LoyaltyCardService
 
     public function topUp(Card $card, float $amount, array $opts = []): Transaction
     {
-        return DB::transaction(function () use ($card, $amount, $opts) {
+        $transaction = DB::transaction(function () use ($card, $amount, $opts) {
             $card = Card::lockForUpdate()->findOrFail($card->id);
             $points = $opts['points'] ?? $card->program->pointsForAmount($amount);
             $card->balance += $amount;
@@ -104,6 +109,12 @@ class LoyaltyCardService
                 'status'         => 1,
             ]);
         });
+
+        // APRÈS le commit, jamais dedans : une notification qui échoue ne doit
+        // pas faire échouer la recharge elle-même (voir NotificationService).
+        $this->notifications->notifyLoyaltyMovement($transaction->card, $transaction);
+
+        return $transaction;
     }
 
     /**
@@ -116,7 +127,7 @@ class LoyaltyCardService
             return null;
         }
 
-        return DB::transaction(function () use ($card, $points, $opts) {
+        $transaction = DB::transaction(function () use ($card, $points, $opts) {
             $card = Card::lockForUpdate()->findOrFail($card->id);
             if (! $card->isActive()) {
                 return null;
@@ -134,11 +145,17 @@ class LoyaltyCardService
                 'status'        => 1,
             ]);
         });
+
+        if ($transaction !== null) {
+            $this->notifications->notifyLoyaltyMovement($transaction->card, $transaction);
+        }
+
+        return $transaction;
     }
 
     public function redeem(Card $card, float $amount, array $opts = []): Transaction
     {
-        return DB::transaction(function () use ($card, $amount, $opts) {
+        $transaction = DB::transaction(function () use ($card, $amount, $opts) {
             $card = Card::lockForUpdate()->findOrFail($card->id);
             if (! $card->isActive()) {
                 throw new \RuntimeException(__('Carte inactive ou expirée.'));
@@ -166,6 +183,10 @@ class LoyaltyCardService
                 'status'        => 1,
             ]);
         });
+
+        $this->notifications->notifyLoyaltyMovement($transaction->card, $transaction);
+
+        return $transaction;
     }
 
     public function redeemReward(Card $card, Reward $reward): Transaction

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Support\BelongsToTenant;
+use Modules\Tagtoa\App\Support\Menu\Translatable;
 
 /**
  * TAGTOA MENU — menu digital d'un établissement (tagtoa.com/menu/{alias}).
@@ -39,7 +40,7 @@ class Menu extends Model
         'vcard_id', 'tenant_id', 'name', 'alias', 'type', 'tagline', 'description',
         'logo_path', 'cover_path', 'currency', 'whatsapp', 'phone', 'address',
         'pay_page_id', 'accent_color', 'theme', 'show_prices', 'ordering_enabled',
-        'is_active', 'views',
+        'is_active', 'views', 'translations',
     ];
 
     protected $casts = [
@@ -47,7 +48,11 @@ class Menu extends Model
         'ordering_enabled' => 'boolean',
         'is_active'        => 'boolean',
         'views'            => 'integer',
+        'translations'     => 'array',
     ];
+
+    /** Les seuls champs qu'une traduction peut porter — jamais le prix, jamais l'alias. */
+    public const CHAMPS_TRADUISIBLES = ['tagline', 'description'];
 
     public static function generateAlias(string $base): string
     {
@@ -113,5 +118,17 @@ class Menu extends Model
     public function getWhatsappDigitsAttribute(): ?string
     {
         return $this->whatsapp ? preg_replace('/\D+/', '', $this->whatsapp) : null;
+    }
+
+    /**
+     * Le texte de ce champ, dans une langue — le slogan ou la description.
+     *
+     * Retombe sur le texte de base dès qu'aucune traduction n'existe pour
+     * cette langue : un menu sans traduction s'affiche exactement comme avant.
+     */
+    public function translated(string $champ, ?string $locale = null): string
+    {
+        return Translatable::resolve($this->translations, $this->{$champ}, $champ,
+            $locale ?? \Modules\Tagtoa\App\Support\Locale::current());
     }
 }

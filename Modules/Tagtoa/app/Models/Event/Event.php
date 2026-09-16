@@ -60,6 +60,11 @@ class Event extends Model
         return $this->hasMany(Ticket::class, 'event_id');
     }
 
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(Delivery::class, 'event_id');
+    }
+
     public function payPage(): BelongsTo
     {
         return $this->belongsTo(PaymentPage::class, 'pay_page_id');

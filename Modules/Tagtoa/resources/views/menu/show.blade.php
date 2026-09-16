@@ -146,13 +146,13 @@
         @if($menu->logo_url)<img class="logo" src="{{ $menu->logo_url }}" alt="">
         @else<div class="logo">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($menu->name,0,1)) }}</div>@endif
         <div class="title">{{ $menu->name }} <span class="badge-type"><i class="{{ $tm['icon'] }}"></i> {{ __($tm['label']) }}</span></div>
-        @if($menu->tagline)<div class="tag">{{ $menu->tagline }}</div>@endif
+        @if($menu->translated('tagline'))<div class="tag">{{ $menu->translated('tagline') }}</div>@endif
         <div class="meta">
             @if($menu->address)<span><i class="fa-solid fa-location-dot"></i> {{ $menu->address }}</span>@endif
             @if($menu->phone)<a href="tel:{{ $menu->phone }}"><i class="fa-solid fa-phone"></i> {{ $menu->phone }}</a>@endif
             @if($menu->whatsapp_digits)<a href="https://wa.me/{{ $menu->whatsapp_digits }}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>@endif
         </div>
-        @if($menu->description)<p class="tag" style="margin-top:12px">{{ $menu->description }}</p>@endif
+        @if($menu->translated('description'))<p class="tag" style="margin-top:12px">{{ $menu->translated('description') }}</p>@endif
     </div>
 
     @if($categories->isEmpty())
@@ -163,9 +163,12 @@
                  sur chaque téléphone et tombe en carré blanc sur beaucoup
                  d'Android bon marché — juste à côté du nom du restaurant. --}}
             @foreach($categories as $c)
+                {{-- L'ICÔNE se déduit du nom de BASE, jamais de la traduction :
+                     un mot-clé anglais ne doit pas soudain changer l'icône
+                     d'une catégorie déjà réglée dans la langue du marchand. --}}
                 <div class="chip" data-target="cat{{ $c->id }}">
                     <i class="fa-solid {{ \Modules\Tagtoa\App\Support\Menu\CategoryIcon::resolve($c->icon, $c->name) }}"></i>
-                    {{ $c->name }}
+                    {{ $c->translated() }}
                 </div>
             @endforeach
         </nav>
@@ -179,21 +182,25 @@
             <section class="sec" id="cat{{ $c->id }}">
                 <h2>
                     <i class="fa-solid {{ \Modules\Tagtoa\App\Support\Menu\CategoryIcon::resolve($c->icon, $c->name) }}"></i>
-                    {{ $c->name }}
+                    {{ $c->translated() }}
                 </h2>
                 <div class="grille">
                 @foreach($c->availableItems as $it)
-                    @php $out = ! $it->in_stock; @endphp
+                    {{-- Un seul nom résolu, réutilisé partout dans la carte :
+                         demander la traduction cinq fois de suite pour le même
+                         article gaspillerait du calcul sans rien changer au
+                         résultat. --}}
+                    @php $out = ! $it->in_stock; $itNom = $it->translated('name'); $itDesc = $it->translated('description'); @endphp
                     <div class="item" @if($out) style="opacity:.55" @endif>
                         {{-- La photo d'abord : c'est elle qui fait commander,
                              pas le nom. À défaut, l'initiale du plat sur la
                              couleur du commerce — jamais un emoji, qui tombe en
                              carré blanc sur la moitié des téléphones. --}}
-                        @if($it->image_url)<img class="ph" src="{{ $it->image_url }}" alt="{{ $it->name }}" loading="lazy">
-                        @else<div class="ph">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($it->name, 0, 1)) }}</div>@endif
+                        @if($it->image_url)<img class="ph" src="{{ $it->image_url }}" alt="{{ $itNom }}" loading="lazy">
+                        @else<div class="ph">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($itNom, 0, 1)) }}</div>@endif
                         <div class="body">
-                            <div class="nm">{{ $it->name }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ __('Épuisé') }}</span>@endif</div>
-                            @if($it->description)<div class="ds">{{ $it->description }}</div>@endif
+                            <div class="nm">{{ $itNom }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ __('Épuisé') }}</span>@endif</div>
+                            @if($itDesc)<div class="ds">{{ $itDesc }}</div>@endif
                             {{-- Détails propres au métier : capacité et équipements d'une
                                  chambre, degré d'alcool d'une boisson, temps de préparation
                                  d'un plat. C'est ce qui permet au client de comparer. --}}
@@ -219,7 +226,7 @@
                                             'choices' => $o->choices->map(fn ($c) => ['id' => $c->id, 'label' => $c->label, 'price_delta' => (float) $c->price_delta])->values(),
                                         ])->values();
                                     @endphp
-                                    <button class="add" aria-label="{{ __('Ajouter') }} — {{ $it->name }}" data-id="{{ $it->id }}" data-name="{{ $it->name }}" data-price="{{ (float) $it->price }}" data-options='@json($opts)' onclick="add(this)"><i class="fa-solid fa-plus"></i></button>
+                                    <button class="add" aria-label="{{ __('Ajouter') }} — {{ $itNom }}" data-id="{{ $it->id }}" data-name="{{ $itNom }}" data-price="{{ (float) $it->price }}" data-options='@json($opts)' onclick="add(this)"><i class="fa-solid fa-plus"></i></button>
                                 @endif
                             </div>
                         </div>

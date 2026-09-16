@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 use Modules\Tagtoa\App\Support\Catalog\HasCommercialFields;
+use Modules\Tagtoa\App\Support\Menu\Translatable;
 
 /**
  * TAGTOA MENU — produit ou service vendu (appartient à une catégorie).
@@ -19,6 +20,7 @@ class Item extends Model
     protected $fillable = [
         'menu_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'image_path',
         'emoji', 'badge', 'specs', 'is_available', 'is_featured', 'stock', 'sort',
+        'translations',
     ];
 
     protected $casts = [
@@ -33,7 +35,11 @@ class Item extends Model
         'is_featured'  => 'boolean',
         'stock'        => 'float',
         'sort'         => 'integer',
+        'translations' => 'array',
     ];
+
+    /** Le prix, la photo, le stock ne se traduisent PAS : un seul plat, un seul prix. */
+    public const CHAMPS_TRADUISIBLES = ['name', 'description'];
 
     /** Disponible à la vente : stock non suivi (null) OU stock > 0. */
     /** Le fournisseur habituel. Nullable : rien ne dépend de sa présence. */
@@ -65,5 +71,12 @@ class Item extends Model
     public function options(): HasMany
     {
         return $this->hasMany(ItemOption::class, 'item_id')->orderBy('sort');
+    }
+
+    /** Le nom ou la description de cet article, dans une langue. Voir Menu::translated(). */
+    public function translated(string $champ, ?string $locale = null): string
+    {
+        return Translatable::resolve($this->translations, $this->{$champ}, $champ,
+            $locale ?? \Modules\Tagtoa\App\Support\Locale::current());
     }
 }

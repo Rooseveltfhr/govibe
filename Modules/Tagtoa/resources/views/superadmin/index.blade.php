@@ -10,6 +10,10 @@
     <a href="{{ route('tagtoa.superadmin.credits') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-credit-card"></i> {{ __('Crédits cartes') }}</a>
     <a href="{{ route('tagtoa.superadmin.gateways') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-money-check-dollar"></i> {{ __('Passerelles') }}</a>
     <a href="{{ route('tagtoa.superadmin.status') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-server"></i> {{ __('État système') }}</a>
+    {{-- Le matériel : ce qu'on fabrique, qui le distribue, et ce qu'il devient. --}}
+    <a href="{{ route('tagtoa.superadmin.stands') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-sign-hanging"></i> {{ __('Parc de stands') }}</a>
+    <a href="{{ route('tagtoa.superadmin.resellers') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-handshake"></i> {{ __('Revendeurs') }}</a>
+    <a href="{{ route('tagtoa.superadmin.shop') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-truck-fast"></i> {{ __('Boutique') }}</a>
 </div>
 
 {{-- Compteurs de tête --}}

@@ -17,6 +17,7 @@
                 <div style="color:var(--muted);font-size:13px;margin-top:6px">{{ $p->points_per_dollar }} pts / {{ $p->currency }} · {{ $p->cards_count }} {{ __('cartes') }}</div>
                 <div class="row" style="margin-top:14px;gap:8px">
                     <a href="{{ route('tagtoa.loyalty.dashboard.cards',$p->id) }}" class="btn btn-d btn-sm" style="flex:0"><i class="fa-solid fa-credit-card"></i> {{ __('Cartes') }}</a>
+                    <a href="{{ route('tagtoa.loyalty.dashboard.report',$p->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-chart-line"></i> {{ __('Rapport') }}</a>
                     <a href="{{ route('tagtoa.loyalty.dashboard.edit',$p->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-pen"></i> {{ __('Modifier') }}</a>
                 </div>
             </div>

@@ -18,6 +18,29 @@
         <div style="display:flex;align-items:center;gap:8px"><span style="color:var(--muted);font-size:14px">tagtoa.com/menu/</span><input class="inp" name="alias" value="{{ old('alias',$menu->alias) }}" placeholder="{{ __('auto si vide') }}"></div>
         <label class="lbl">{{ __('Slogan') }}</label><input class="inp" name="tagline" value="{{ old('tagline',$menu->tagline) }}" placeholder="{{ __('Cuisine créole • Ambiance lounge') }}">
         <label class="lbl">{{ __('Description') }}</label><textarea class="inp" name="description" rows="2" maxlength="600">{{ old('description',$menu->description) }}</textarea>
+
+        {{-- TRADUCTIONS — le client choisit sa langue, vous écrivez une fois.
+             Le champ ci-dessus reste VOTRE langue, celle que vous tapez sans y
+             penser. Ici, seulement pour qui veut aussi accueillir un client qui
+             lit en anglais ou en espagnol — repliable, jamais imposé. --}}
+        <details style="margin-top:10px">
+            <summary style="cursor:pointer;font:600 13px var(--fh,inherit);color:var(--muted)">
+                <i class="fa-solid fa-language"></i> {{ __('Traductions du slogan et de la description') }}
+            </summary>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
+                @foreach(\Modules\Tagtoa\App\Support\Locale::all() as $code => $meta)
+                    @continue($code === \Modules\Tagtoa\App\Support\Locale::default())
+                    <div style="border-top:1px dashed var(--bd);padding-top:10px">
+                        <label class="lbl">{{ $meta['flag'] }} {{ $meta['label'] }} — {{ __('Slogan') }}</label>
+                        <input class="inp" name="translations[{{ $code }}][tagline]" maxlength="160"
+                               value="{{ old("translations.$code.tagline", $menu->translations[$code]['tagline'] ?? '') }}">
+                        <label class="lbl">{{ $meta['flag'] }} {{ $meta['label'] }} — {{ __('Description') }}</label>
+                        <textarea class="inp" name="translations[{{ $code }}][description]" rows="2" maxlength="600">{{ old("translations.$code.description", $menu->translations[$code]['description'] ?? '') }}</textarea>
+                    </div>
+                @endforeach
+            </div>
+        </details>
+        <input type="hidden" name="translations_sent" value="1">
         <div class="row">
             <div><label class="lbl">{{ __('Logo') }}</label><input class="inp" type="file" name="logo" accept="image/*">@if($editing && $menu->logo_url)<img src="{{ $menu->logo_url }}" style="height:42px;border-radius:10px;margin-top:8px">@endif</div>
             <div><label class="lbl">{{ __('Couverture') }}</label><input class="inp" type="file" name="cover" accept="image/*">@if($editing && $menu->cover_url)<img src="{{ $menu->cover_url }}" style="height:42px;border-radius:10px;margin-top:8px">@endif</div>
@@ -86,6 +109,17 @@
             <button type="button" class="btn btn-o btn-sm delcat" style="flex:0;color:var(--red)"
                     title="{{ __('Supprimer la catégorie') }}"><i class="fa-solid fa-trash"></i></button>
         </div>
+        <button type="button" class="btn btn-o btn-sm togcattr" style="margin-top:8px">
+            <i class="fa-solid fa-language"></i> {{ __('Traductions du nom') }}
+        </button>
+        <div class="cattr" hidden style="display:flex;flex-direction:column;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)">
+            @foreach(\Modules\Tagtoa\App\Support\Locale::all() as $code => $meta)
+                @continue($code === \Modules\Tagtoa\App\Support\Locale::default())
+                <input class="inp" name="cats[CIDX][translations][{{ $code }}][name]"
+                       placeholder="{{ $meta['flag'] }} {{ $meta['label'] }} — {{ __('nom de la catégorie') }}">
+            @endforeach
+        </div>
+        <input type="hidden" name="cats[CIDX][translations_sent]" value="1">
         <div class="items" style="margin-top:10px"></div>
         <button type="button" class="btn btn-o btn-sm tt-additem" onclick="addItem(this.closest('.catblock'))" style="margin-top:6px"><i class="fa-solid fa-plus"></i> {{ __('Ajouter') }}</button>
     </div>
@@ -148,6 +182,24 @@
                 </select>
             </label>
         </div>
+
+        {{-- TRADUCTIONS — comme au menu : le champ « Nom » ci-dessus reste
+             votre langue ; ceci n'est que pour le client qui lit ailleurs. --}}
+        <button type="button" class="btn btn-o btn-sm togitemtr" style="margin-top:8px">
+            <i class="fa-solid fa-language"></i> {{ __('Traductions') }}
+        </button>
+        <div class="itemtr" hidden style="display:flex;flex-direction:column;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)">
+            @foreach(\Modules\Tagtoa\App\Support\Locale::all() as $code => $meta)
+                @continue($code === \Modules\Tagtoa\App\Support\Locale::default())
+                <div>
+                    <input class="inp" name="cats[CIDX][items][IIDX][translations][{{ $code }}][name]"
+                           placeholder="{{ $meta['flag'] }} {{ $meta['label'] }} — {{ __('nom') }}" style="margin-bottom:4px">
+                    <input class="inp" name="cats[CIDX][items][IIDX][translations][{{ $code }}][description]"
+                           placeholder="{{ $meta['flag'] }} {{ $meta['label'] }} — {{ __('description') }}">
+                </div>
+            @endforeach
+        </div>
+        <input type="hidden" name="cats[CIDX][items][IIDX][translations_sent]" value="1">
 
         {{-- Champs propres au métier, injectés selon le type d'établissement. --}}
         <div class="specs"></div>
@@ -416,9 +468,23 @@ function addItem(catEl, d){
             row.querySelector('.removeimgwrap').style.display = 'flex';
         }
         (d.options || []).forEach(function(o){ addOption(row, o); });
+        // Traductions : un champ par langue connue, rempli seulement si le
+        // plat en porte une. `querySelector` renvoie null pour une langue sans
+        // champ dans le gabarit (ne devrait pas arriver, mais un menu du passé
+        // ne doit jamais planter la page pour autant).
+        var trad = d.translations || {};
+        Object.keys(trad).forEach(function(langue){
+            var nomEl = row.querySelector('[name="cats['+ci+'][items]['+ii+'][translations]['+langue+'][name]"]');
+            var descEl = row.querySelector('[name="cats['+ci+'][items]['+ii+'][translations]['+langue+'][description]"]');
+            if (nomEl) nomEl.value = trad[langue].name || '';
+            if (descEl) descEl.value = trad[langue].description || '';
+        });
     }
     row.querySelector('.togdet').addEventListener('click', function(){
         var det = row.querySelector('.itemdet'); det.hidden = !det.hidden;
+    });
+    row.querySelector('.togitemtr').addEventListener('click', function(){
+        var tr = row.querySelector('.itemtr'); tr.hidden = !tr.hidden;
     });
     row.querySelector('.delitem').addEventListener('click', function(){
         var nom = (row.querySelector('[name$="[name]"]').value || '').trim();
@@ -438,8 +504,16 @@ function addCat(d){
         block.querySelector('[name$="[icon]"]').value = d.icon || '';
         block.querySelector('[name$="[name]"]').value = d.name || '';
         var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][id]'; h.value=d.id; block.appendChild(h);
+        var trad = d.translations || {};
+        Object.keys(trad).forEach(function(langue){
+            var nomEl = block.querySelector('[name="cats['+ci+'][translations]['+langue+'][name]"]');
+            if (nomEl) nomEl.value = trad[langue].name || '';
+        });
         (d.items || []).forEach(function(it){ addItem(block, it); });
     }
+    block.querySelector('.togcattr').addEventListener('click', function(){
+        var tr = block.querySelector('.cattr'); tr.hidden = !tr.hidden;
+    });
     block.querySelector('.delcat').addEventListener('click', function(){
         var nom = (block.querySelector('[name$="[name]"]').value || '').trim();
         supprimer(block, DEL_CAT_URL, "{{ __('Supprimer cette catégorie ET tous ses articles ? Cette action est définitive.') }}\n\n" + nom);
@@ -451,6 +525,7 @@ function addCat(d){
     $catData = $menu->relationLoaded('categories')
         ? $menu->categories->map(fn ($c) => [
             'id' => $c->id, 'name' => $c->name, 'icon' => $c->icon,
+            'translations' => $c->translations ?: (object) [],
             'items' => $c->items->map(fn ($i) => [
                 'id' => $i->id, 'name' => $i->name, 'emoji' => $i->emoji, 'price' => $i->price,
                 'description' => $i->description, 'badge' => $i->badge, 'is_available' => $i->is_available,
@@ -458,6 +533,7 @@ function addCat(d){
                 'cost_price' => $i->cost_price, 'unit' => $i->unit_key,
                 'low_stock_threshold' => $i->low_stock_threshold, 'sku' => $i->sku,
                 'supplier_id' => $i->supplier_id,
+                'translations' => $i->translations ?: (object) [],
                 'specs' => $i->specs ?: (object) [],
                 'options' => $i->options->map(fn ($o) => [
                     'id' => $o->id, 'name' => $o->name, 'required' => $o->required, 'multiple' => $o->multiple,

@@ -17,6 +17,7 @@ use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Services\Menu\MenuOrderService;
 use Modules\Tagtoa\App\Support\Locale;
 use Modules\Tagtoa\App\Support\Menu\BusinessProfile;
+use Modules\Tagtoa\App\Support\Menu\Translatable;
 use Modules\Tagtoa\App\Support\Catalog\Pricing;
 use Modules\Tagtoa\App\Support\Tenant;
 
@@ -58,6 +59,7 @@ $data = $this->validateMenu($request);
         $menu = new Menu($data);
         $menu->tenant_id = Tenant::id();
         $menu->alias = $data['alias'] ?: Menu::generateAlias($data['name'] ?? 'menu');
+        $this->syncTranslations($menu, $request);
         $this->handleUploads($menu, $request);
         $menu->save();
         $this->syncContent($menu, $request);
@@ -86,6 +88,7 @@ $data = $this->validateMenu($request);
         // planter. Une clé manquante ne doit jamais rendre une page blanche.
         $data['alias'] = ($data['alias'] ?? null) ?: $menu->alias;
         $menu->fill($data);
+        $this->syncTranslations($menu, $request);
         $this->handleUploads($menu, $request);
         $menu->save();
         $this->syncContent($menu, $request);
@@ -273,6 +276,9 @@ $data = $this->validateMenu($request);
             'cats.*.items.*.supplier_id'         => ['nullable', 'integer'],
             'cats.*.items.*.description'         => ['nullable', 'string', 'max:600'],
             'cats.*.items.*.badge'               => ['nullable', 'string', 'max:60'],
+            'cats.*.translations.*.name'                => ['nullable', 'string', 'max:120'],
+            'cats.*.items.*.translations.*.name'        => ['nullable', 'string', 'max:160'],
+            'cats.*.items.*.translations.*.description' => ['nullable', 'string', 'max:600'],
         ]);
     }
 
@@ -357,6 +363,25 @@ $data = $this->validateMenu($request);
     }
 
     /**
+     * Le slogan et la description de l'établissement, dans chaque langue.
+     *
+     * Même garde que pour un article : rien ne s'écrit sans le marqueur du
+     * formulaire, pour qu'un envoi qui ne connaît pas ce panneau (vieux
+     * gabarit en cache, appel API direct) ne remette jamais les traductions à
+     * zéro.
+     */
+    protected function syncTranslations(Menu $menu, Request $request): void
+    {
+        if (! $request->boolean('translations_sent')) {
+            return;
+        }
+
+        $menu->translations = Translatable::sanitize(
+            $request->input('translations'), Locale::codes(), Menu::CHAMPS_TRADUISIBLES
+        );
+    }
+
+    /**
      * Synchronise catégories + items depuis le formulaire imbriqué (cats[][items][]).
      * Important : on NE réindexe PAS les tableaux (pas d'array_values) — les clés
      * $ci/$ii doivent rester celles soumises par le navigateur pour que
@@ -378,6 +403,16 @@ $data = $this->validateMenu($request);
                     'sort'      => (int) $ci,
                     'is_active' => true,
                 ];
+                // Marqueur posé par le formulaire, comme `options_sent` pour
+                // les options d'article : sans lui, on n'écrit RIEN — un envoi
+                // partiel ou un vieux gabarit sans le panneau de traduction ne
+                // doit jamais effacer une traduction déjà enregistrée.
+                if (! empty($c['translations_sent'])) {
+                    $catAttrs['translations'] = Translatable::sanitize(
+                        $c['translations'] ?? null, Locale::codes(),
+                        \Modules\Tagtoa\App\Models\Menu\Category::CHAMPS_TRADUISIBLES
+                    );
+                }
                 $cat = ! empty($c['id']) ? $menu->categories()->whereKey($c['id'])->first() : null;
                 $cat ? $cat->update($catAttrs) : $cat = $menu->categories()->create($catAttrs);
                 $keepCats[] = $cat->id;
@@ -414,6 +449,14 @@ $data = $this->validateMenu($request);
                         // rattacher le fournisseur du commerce d'à côté.
                         'supplier_id'         => $this->fournisseur($it['supplier_id'] ?? null),
                     ];
+                    // Même garde qu'à la catégorie : jamais écrit sans le
+                    // marqueur du formulaire.
+                    if (! empty($it['translations_sent'])) {
+                        $itemAttrs['translations'] = Translatable::sanitize(
+                            $it['translations'] ?? null, Locale::codes(),
+                            Item::CHAMPS_TRADUISIBLES
+                        );
+                    }
                     $item = ! empty($it['id']) ? $cat->items()->whereKey($it['id'])->first() : null;
 
                     $file = $request->file("cats.$ci.items.$ii.image");

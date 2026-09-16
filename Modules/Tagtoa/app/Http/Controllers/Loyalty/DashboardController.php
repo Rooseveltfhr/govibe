@@ -7,11 +7,13 @@ use Modules\Tagtoa\App\Support\EnforcesPlan;
 use App\Models\Vcard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Loyalty\Card;
 use Modules\Tagtoa\App\Models\Loyalty\Program;
 use Modules\Tagtoa\App\Services\Loyalty\LoyaltyCardService;
+use Modules\Tagtoa\App\Services\Loyalty\LoyaltyReportService;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -120,6 +122,32 @@ $data = $this->validateProgram($request);
         }
 
         return back()->with('success', __('Paiement effectué.'));
+    }
+
+    /**
+     * Rapport de fidélisation : mouvements sur une période + qui compose la
+     * base de cartes en ce moment (segments). Bornes par défaut : 30 derniers
+     * jours — la fenêtre qu'un marchand compare d'un coup d'œil au mois passé.
+     */
+    public function report(Request $request, int $id, LoyaltyReportService $reports): View
+    {
+        $program = $this->own($id);
+
+        $bounds = $request->validate([
+            'from' => ['nullable', 'date'],
+            'to'   => ['nullable', 'date'],
+        ]);
+
+        $to = isset($bounds['to']) ? Carbon::parse($bounds['to']) : Carbon::now();
+        $from = isset($bounds['from']) ? Carbon::parse($bounds['from']) : $to->copy()->subDays(29);
+        if ($from->gt($to)) {
+            [$from, $to] = [$to, $from];
+        }
+
+        $period = $reports->forPeriod($program, $from, $to);
+        $segments = $reports->segments($program);
+
+        return view('tagtoa::loyalty.report', compact('program', 'period', 'segments', 'from', 'to'));
     }
 
     public function storeReward(Request $request, int $id): RedirectResponse
