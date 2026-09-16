@@ -33,7 +33,7 @@ class DashboardModules
 {
     /** Modules mis en avant par défaut. Le reste existe mais reste discret. */
     public const DEFAULT_ENABLED = [
-        'menu', 'pos', 'event', 'pay', 'cards',
+        'activate', 'menu', 'pos', 'event', 'pay', 'cards',
         'business', 'staff', 'stands', 'inventory', 'orders', 'analytics', 'customers', 'reviews', 'qr', 'shop', 'plan',
     ];
 
@@ -52,6 +52,20 @@ class DashboardModules
      *              on trouve sans lire.
      */
     public const CATALOG = [
+        // ACTIVER UN PRODUIT — avant même les outils métier, parce que c'est le
+        // tout premier geste : un marchand qui vient de recevoir un carton ne
+        // sait pas encore, en l'ouvrant, si ce qu'il tient est un Smart Stand ou
+        // une Carte TAGTOA — deux modules différents, deux mécanismes de code
+        // différents (secret à gratter / UID NFC). Cet écran pose la question
+        // AVANT de demander où chercher, plutôt que de le laisser deviner.
+        //
+        // Une seule page (pas de `children`) : le choix du type et la saisie du
+        // code se font sur le même écran, voir ActivationController.
+        'activate' => [
+            'label' => 'Activer un produit', 'icon' => 'fa-bolt', 'group' => 'module',
+            'desc'  => 'Le premier geste quand un carton TAGTOA arrive : choisissez ce que vous tenez, entrez son code, c\'est activé.',
+        ],
+
         // --- Les quatre outils métier de TAGTOA ---
         'menu' => [
             'label' => 'Menu', 'icon' => 'fa-utensils', 'group' => 'module',

@@ -21,6 +21,13 @@ use PHPUnit\Framework\TestCase;
  *     s'affichait donc NULLE PART : il n'existait aucun chemin, dans toute
  *     l'application, pour activer une carte.
  *
+ * Un TROISIÈME manque s'est vu ensuite : les deux entrées ci-dessus existaient
+ * bien, mais chacune sous SON module — un marchand devait déjà savoir si son
+ * carton contient un Stand ou une Carte pour trouver le bon menu. `activate`
+ * pose la question en premier (« que tenez-vous ? ») avant de renvoyer vers
+ * l'un des deux mécanismes existants ; c'est pourquoi elle précède tout le
+ * reste dans le catalogue.
+ *
  * Point capital, inchangé : masquer n'est PAS supprimer. Un module absent du
  * menu garde ses routes et ses données.
  */
@@ -30,7 +37,7 @@ class DashboardModulesTest extends TestCase
     {
         $modules = array_keys(DashboardModules::enabled('module'));
 
-        $this->assertSame(['menu', 'pos', 'event', 'pay', 'stands', 'cards'], $modules);
+        $this->assertSame(['activate', 'menu', 'pos', 'event', 'pay', 'stands', 'cards'], $modules);
     }
 
     public function test_the_hardware_the_merchant_bought_is_never_buried(): void

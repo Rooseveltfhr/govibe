@@ -7,6 +7,7 @@ use Modules\Tagtoa\App\Http\Controllers\Booking\PublicController as BookingPubli
 use Modules\Tagtoa\App\Http\Controllers\Event\CheckinController as EventCheckin;
 use Modules\Tagtoa\App\Http\Controllers\Event\DashboardController as EventDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Event\PublicController as EventPublic;
+use Modules\Tagtoa\App\Http\Controllers\Activation\ActivationController;
 use Modules\Tagtoa\App\Http\Controllers\Hub\HubController;
 use Modules\Tagtoa\App\Http\Controllers\LandingController;
 use Modules\Tagtoa\App\Http\Controllers\Links\DashboardController as LinksDashboard;
@@ -291,6 +292,13 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/sell', [$rev, 'sell'])->middleware('throttle:60,1')->name('sell');
         Route::get('/{id}', [$rev, 'history'])->whereNumber('id')->name('history');
     });
+
+    // ACTIVER UN PRODUIT — le premier geste quand un carton TAGTOA arrive :
+    // choisir ce qu'on tient (Carte / Stand Menu / Stand Paiement / Stand
+    // Liens), puis entrer son code. N'implémente rien de nouveau : achemine
+    // vers StandActivator (tagtoa.stand.activate.scan) ou CardWalletService
+    // (tagtoa.cards.store), tous deux inchangés.
+    Route::get('/activate', [ActivationController::class, 'screen'])->name('tagtoa.activate');
 
     // SMART STAND — réclamer un stand, et gérer les siens.
     Route::prefix('stands')->name('tagtoa.stand.')->group(function () {
