@@ -105,6 +105,33 @@ class BusinessProfileTest extends TestCase
         $this->assertSame([['label' => 'Temps de préparation', 'value' => '15 min']], $rows);
     }
 
+    public function test_a_pharmacy_speaks_of_medications_and_prescriptions(): void
+    {
+        $pharmacie = BusinessProfile::for('pharmacy');
+
+        $this->assertSame('Médicament', $pharmacie['noun']);
+        $this->assertArrayHasKey('requires_prescription', $pharmacie['fields']);
+        $this->assertArrayHasKey('dosage', $pharmacie['fields']);
+    }
+
+    public function test_a_bar_speaks_of_bottles_and_alcohol_by_volume(): void
+    {
+        $bar = BusinessProfile::for('bar');
+
+        $this->assertArrayHasKey('serving', $bar['fields']);
+        $this->assertArrayHasKey('abv', $bar['fields']);
+        $this->assertContains('Bouteille', $bar['fields']['serving']['options']);
+    }
+
+    public function test_a_boutique_speaks_of_size_and_brand_not_of_dishes(): void
+    {
+        $boutique = BusinessProfile::for('boutique');
+
+        $this->assertArrayHasKey('size', $boutique['fields']);
+        $this->assertArrayHasKey('brand', $boutique['fields']);
+        $this->assertArrayNotHasKey('prep_time', $boutique['fields']);
+    }
+
     public function test_every_declared_field_is_usable_by_the_form_and_the_validator(): void
     {
         $known = [BusinessProfile::T_TEXT, BusinessProfile::T_NUMBER,

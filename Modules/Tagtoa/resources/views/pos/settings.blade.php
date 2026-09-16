@@ -20,6 +20,25 @@
 
 @section('content')
 <div class="card">
+    <div class="h-row" style="margin-bottom:6px"><h2>{{ __('Type d\'activité') }}</h2></div>
+    <p style="color:var(--muted);font-size:12.5px;margin-bottom:12px">
+        {{ __('La caisse s\'adapte à votre commerce : pharmacie, bar, boutique… Ce choix change par exemple les unités proposées quand vous ajoutez un produit (comprimé, plaquette pour une pharmacie ; bouteille, verre, shot pour un bar).') }}
+    </p>
+    <form method="POST" action="{{ route('tagtoa.pos.settings.business-type') }}" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+        @csrf @method('PUT')
+        <div style="min-width:220px">
+            <label class="lbl" style="display:block;font:600 11px var(--fh);color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em">{{ __('Activité') }}</label>
+            <select class="ic" name="type" required>
+                @foreach($types as $code => $meta)
+                    <option value="{{ $code }}" @selected(optional($business)->type === $code)>{{ __($meta['label']) }}</option>
+                @endforeach
+            </select>
+        </div>
+        <button class="btn btn-p btn-sm"><i class="fa-solid fa-check"></i> {{ __('Enregistrer') }}</button>
+    </form>
+</div>
+
+<div class="card">
     <div class="h-row" style="margin-bottom:6px"><h2>{{ __('Vos postes de caisse') }}</h2></div>
     <p style="color:var(--muted);font-size:12.5px;margin-bottom:12px">
         {{ __('Un poste, c\'est un appareil qui encaisse. Le catalogue, lui, est celui du commerce : tous les postes vendent les mêmes articles.') }}

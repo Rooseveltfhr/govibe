@@ -32,9 +32,42 @@ class Pricing
         'sac'    => ['label' => 'Sac',        'decimal' => false],
         'boite'  => ['label' => 'Boîte',      'decimal' => false],
         'douzaine' => ['label' => 'Douzaine', 'decimal' => false],
+        // Bar, club, lounge : la bière se compte à la caisse, le rhum à la
+        // bouteille, le cocktail au verre ou au shot.
+        'bouteille' => ['label' => 'Bouteille',  'decimal' => false],
+        'caisse'    => ['label' => 'Caisse',     'decimal' => false],
+        'verre'     => ['label' => 'Verre',      'decimal' => false],
+        'shot'      => ['label' => 'Shot',       'decimal' => false],
+        // Pharmacie : le comprimé à l'unité, la plaquette pour un traitement
+        // complet, l'ampoule pour l'injectable.
+        'comprime'  => ['label' => 'Comprimé',   'decimal' => false],
+        'plaquette' => ['label' => 'Plaquette',  'decimal' => false],
+        'ampoule'   => ['label' => 'Ampoule',    'decimal' => false],
     ];
 
     public const DEFAULT_UNIT = 'piece';
+
+    /**
+     * Unités mises en avant pour un type de commerce, dans l'ordre. PUR.
+     *
+     * Une suggestion, jamais une restriction : la validation continue
+     * d'accepter toute clé d'UNITS pour tout type de commerce, car un
+     * commerce réel vend rarement une seule sorte d'article (une pharmacie
+     * vend aussi des biberons à la pièce). Ceci ne sert qu'à réordonner le
+     * menu déroulant pour que les unités les plus probables soient en tête ;
+     * le reste de la liste reste sélectionnable derrière.
+     */
+    public static function unitsFor(?string $businessType): array
+    {
+        return match ($businessType) {
+            'pharmacy'  => ['comprime', 'plaquette', 'boite', 'ampoule', 'ml', 'l', 'piece'],
+            'clinic'    => ['piece', 'boite'],
+            'bar', 'club', 'lounge' => ['bouteille', 'caisse', 'verre', 'shot', 'piece'],
+            'restaurant', 'cafe', 'hotel' => ['piece', 'kg', 'g', 'l', 'ml', 'douzaine'],
+            'boutique'  => ['piece', 'douzaine', 'kg', 'boite'],
+            default     => ['piece', 'kg', 'l', 'boite', 'sac', 'douzaine'],
+        };
+    }
 
     /** Unité connue, sinon la pièce. PUR. */
     public static function unit(?string $unit): string

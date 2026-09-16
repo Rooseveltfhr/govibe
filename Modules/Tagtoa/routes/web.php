@@ -426,6 +426,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         $set = \Modules\Tagtoa\App\Http\Controllers\Pos\SettingsController::class;
         Route::get('/settings', [$set, 'index'])->name('settings');
         Route::put('/settings/{id}', [$set, 'update'])->whereNumber('id')->name('settings.update');
+        Route::put('/settings/business-type', [$set, 'updateBusinessType'])->name('settings.business-type');
 
         $ret = \Modules\Tagtoa\App\Http\Controllers\Pos\ReturnController::class;
         Route::get('/returns', [$ret, 'index'])->name('returns');

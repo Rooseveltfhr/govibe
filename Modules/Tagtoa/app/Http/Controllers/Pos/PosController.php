@@ -173,11 +173,17 @@ class PosController extends Controller
     {
         $terminal = $this->own($id, ['products']);
 
+        // Type d'activité du commerce (pharmacie, bar, boutique…) : décide
+        // quelles unités mettre en tête du menu déroulant, sans en interdire
+        // aucune — un commerce réel vend rarement une seule sorte d'article.
+        $type = \Modules\Tagtoa\App\Models\Business\Business::whereKey($terminal->tenant_id)->value('type');
+
         return view('tagtoa::pos.products', [
             'terminal'   => $terminal,
             'suppliers'  => \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)
                 ->orderBy('name')->get(['id', 'name']),
             'categories' => \Modules\Tagtoa\App\Models\Pos\Category::shown()->get(['id', 'name']),
+            'suggestedUnits' => Pricing::unitsFor($type),
         ]);
     }
 

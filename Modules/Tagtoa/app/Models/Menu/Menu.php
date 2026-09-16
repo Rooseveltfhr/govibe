@@ -31,6 +31,9 @@ class Menu extends Model
         'club'       => ['label' => 'Club',        'icon' => 'fa-solid fa-record-vinyl'],
         'lounge'     => ['label' => 'Lounge',      'icon' => 'fa-solid fa-couch'],
         'hotel'      => ['label' => 'Hôtel',       'icon' => 'fa-solid fa-hotel'],
+        'pharmacy'   => ['label' => 'Pharmacie',   'icon' => 'fa-solid fa-prescription-bottle-medical'],
+        'clinic'     => ['label' => 'Clinique',    'icon' => 'fa-solid fa-stethoscope'],
+        'boutique'   => ['label' => 'Boutique / Commerce', 'icon' => 'fa-solid fa-bag-shopping'],
         'other'      => ['label' => 'Autre',       'icon' => 'fa-solid fa-store'],
     ];
 
