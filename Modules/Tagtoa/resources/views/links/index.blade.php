@@ -15,7 +15,11 @@
             <div class="card">
                 <div style="display:flex;justify-content:space-between"><b style="font-family:var(--fh);font-size:16px">{{ $p->title ?: $p->alias }}</b><span class="pill {{ $p->is_active ? 'g' : 'n' }}">{{ $p->is_active ? __('Active') : __('Inactive') }}</span></div>
                 <a href="{{ url('/links/'.$p->alias) }}" target="_blank" style="color:var(--blue);font-size:13px">tagtoa.com/links/{{ $p->alias }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
-                <div style="display:flex;gap:16px;margin-top:12px;color:var(--muted);font-size:13px"><span><i class="fa-solid fa-link"></i> {{ $p->links_count }}</span><span><i class="fa-solid fa-eye"></i> {{ $p->views }}</span></div>
+                <div style="display:flex;gap:16px;margin-top:12px;color:var(--muted);font-size:13px">
+                    <span><i class="fa-solid fa-link"></i> {{ $p->links_count }}</span>
+                    <span><i class="fa-solid fa-eye"></i> {{ $p->views }}</span>
+                    <span title="{{ __('Clics sur tous les liens de cette page') }}"><i class="fa-solid fa-arrow-pointer"></i> {{ $p->links_sum_clicks ?? 0 }}</span>
+                </div>
                 <div class="row" style="margin-top:14px;gap:8px">
                     <a href="{{ route('tagtoa.links.dashboard.edit',$p->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-pen"></i> {{ __('Modifier') }}</a>
                     <form method="POST" action="{{ route('tagtoa.links.dashboard.destroy',$p->id) }}" onsubmit="return confirm('{{ __('Supprimer?') }}')" style="flex:0">@csrf @method('DELETE')<button class="btn btn-o btn-sm" style="color:var(--red)"><i class="fa-solid fa-trash"></i></button></form>

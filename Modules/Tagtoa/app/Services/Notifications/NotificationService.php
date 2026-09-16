@@ -257,6 +257,81 @@ class NotificationService
     }
 
     /**
+     * Compose les deux messages d'un paiement reçu sur un lien TAGTOA PAY —
+     * alerte marchand + reçu payeur. PUR, même principe que
+     * loyaltyMovementMessage() : aucun Eloquent, aucun I/O.
+     *
+     * @param  array{page_title:string, payer_name:string, amount:float, currency:string, method_label:?string}  $faits
+     * @return array{merchant:array{subject:string,body:string}, payer:array{subject:string,body:string}}
+     */
+    public static function paymentReceivedMessages(array $faits): array
+    {
+        $montant = number_format((float) $faits['amount'], 2).' '.($faits['currency'] ?? '');
+        $methode = $faits['method_label'] ?? null;
+        $payeur = $faits['payer_name'] !== '' ? $faits['payer_name'] : __('Client');
+
+        $merchant = self::compose(
+            __('Paiement reçu').' — '.$faits['page_title'],
+            [
+                __('Vous avez reçu un paiement.'),
+                __('Montant').' : '.$montant,
+                __('De').' : '.$payeur,
+                $methode ? __('Méthode').' : '.$methode : null,
+            ]
+        );
+
+        $payer = self::compose(
+            __('Reçu de paiement').' — '.$faits['page_title'],
+            [
+                __('Bonjour').' '.$payeur.',',
+                '',
+                __('Votre paiement de :montant a bien été reçu.', ['montant' => $montant]),
+                __('Merci!'),
+            ]
+        );
+
+        return ['merchant' => $merchant, 'payer' => $payer];
+    }
+
+    /**
+     * Notifie un paiement reçu sur un lien PAY : alerte au marchand (e-mail) +
+     * reçu au payeur (WhatsApp, seul canal dont on dispose pour un payeur —
+     * une preuve de paiement ne porte pas d'e-mail).
+     *
+     * Couvre les deux chemins où l'argent arrive SANS revue manuelle — carte
+     * TAGTOA et passerelle en ligne — qui créaient jusqu'ici une preuve
+     * APPROUVÉE en silence, sans que personne ne l'apprenne. La soumission
+     * manuelle d'une preuve (en attente de revue) reste notifiée par
+     * PayProofReceived, un mécanisme différent et déjà en place.
+     *
+     * Tolérant : aucune exception ne remonte jusqu'au paiement lui-même.
+     */
+    public function notifyPaymentReceived($page, $proof): void
+    {
+        try {
+            $messages = self::paymentReceivedMessages([
+                'page_title'   => (string) $page->title,
+                'payer_name'   => (string) ($proof->payer_name ?? ''),
+                'amount'       => (float) $proof->amount,
+                'currency'     => (string) $proof->currency,
+                'method_label' => optional($proof->method)->display_label,
+            ]);
+
+            $email = optional($page->vcard)->email;
+            if ($email) {
+                $this->email($email, $messages['merchant']['subject'], $messages['merchant']['body']);
+            }
+            if ($proof->payer_phone) {
+                $this->whatsapp($proof->payer_phone, $messages['payer']['subject']."\n".$messages['payer']['body']);
+            }
+        } catch (\Throwable $e) {
+            if (function_exists('report')) {
+                report($e);
+            }
+        }
+    }
+
+    /**
      * Notifie un nouveau rendez-vous : alerte au marchand + confirmation au client.
      * Tolérant : aucune exception ne remonte.
      */

@@ -31,6 +31,7 @@
                     <a href="{{ route('tagtoa.pay.dashboard.edit',$p->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-pen"></i> {{ __('Modifier') }}</a>
                     <a href="{{ route('tagtoa.pay.dashboard.share',$p->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-share-nodes"></i> {{ __('Partager') }}</a>
                     <a href="{{ route('tagtoa.pay.dashboard.proofs',$p->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-receipt"></i> {{ __('Preuves') }}</a>
+                    <a href="{{ route('tagtoa.pay.dashboard.report',$p->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-chart-line"></i> {{ __('Rapport') }}</a>
                     <form method="POST" action="{{ route('tagtoa.pay.dashboard.destroy',$p->id) }}" onsubmit="return confirm('{{ __('Supprimer?') }}')" style="flex:0">
                         @csrf @method('DELETE')<button class="btn btn-o btn-sm" style="color:var(--red)"><i class="fa-solid fa-trash"></i></button>
                     </form>

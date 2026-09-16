@@ -126,6 +126,15 @@ class PublicController extends Controller
             return back()->withInput()->with('error', __('Tapez la carte ou saisissez son code.'));
         }
 
+        // Le marchand doit avoir explicitement activé « Carte TAGTOA » — comme
+        // pour une passerelle (voir checkout()) — AVANT de débiter qui que ce
+        // soit. Sans cette garde, un POST direct sur cette route (le formulaire
+        // n'est même pas affiché sinon) débiterait une carte cliente pour un
+        // marchand qui n'accepte pas ce moyen, avec une preuve orpheline —
+        // `payment_method_id` est NOT NULL et n'a jamais toléré ce cas.
+        $method = app(MerchantMethods::class)->active($page->tenant_id)->firstWhere('type', 'tagtoa_card');
+        abort_unless($method, 404);
+
         $svc = app(\Modules\Tagtoa\App\Services\Card\CardWalletService::class);
         $card = ! empty($data['card_uid'])
             ? $svc->resolveByUid($data['card_uid'])
@@ -147,11 +156,10 @@ class PublicController extends Controller
         }
 
         // Trace la recette pour le marchand (preuve APPROUVÉE au tableau de bord).
-        \Modules\Tagtoa\App\Models\Pay\PaymentProof::firstOrCreate(
+        $proof = \Modules\Tagtoa\App\Models\Pay\PaymentProof::firstOrCreate(
             ['reference' => $res['txn']->reference, 'payment_page_id' => $page->id],
             [
-                'payment_method_id' => app(MerchantMethods::class)->active($page->tenant_id)
-                    ->firstWhere('type', 'tagtoa_card')?->id,
+                'payment_method_id' => $method->id,
                 'payer_name'        => $card->holder_name ?: __('Carte TAGTOA'),
                 'payer_phone'       => $card->holder_phone,
                 'amount'            => $amount,
@@ -161,6 +169,14 @@ class PublicController extends Controller
                 'reviewed_at'       => now(),
             ]
         );
+
+        if ($proof->wasRecentlyCreated) {
+            // Jamais loadMissing('vcard') ici : Vcard appartient à l'hôte Biztap
+            // et peut être absent — notifyPaymentReceived() y accède en lazy,
+            // dans son propre bloc tolérant.
+            app(\Modules\Tagtoa\App\Services\Notifications\NotificationService::class)
+                ->notifyPaymentReceived($page, $proof);
+        }
 
         return redirect()->route('tagtoa.pay.show', $page->alias)
             ->with('proof_submitted', true)
