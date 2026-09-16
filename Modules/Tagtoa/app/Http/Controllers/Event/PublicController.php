@@ -10,7 +10,9 @@ use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Event\Order;
 use Modules\Tagtoa\App\Models\Event\Ticket;
 use Modules\Tagtoa\App\Models\Event\WalletTxn;
+use Modules\Tagtoa\App\Models\Event\Delivery;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
+use Modules\Tagtoa\App\Services\Event\EventNotifier;
 use Modules\Tagtoa\App\Services\Event\TicketService;
 
 /**
@@ -203,7 +205,6 @@ class PublicController extends Controller
     protected function notifyBuyer(Event $event, Order $order): void
     {
         try {
-            $svc = app(\Modules\Tagtoa\App\Services\Notifications\NotificationService::class);
             $url = route('tagtoa.event.order', $order->reference);
             $status = $order->isPaid()
                 ? __('Vos billets sont confirmés — présentez le QR à l\'entrée.')
@@ -216,12 +217,14 @@ class PublicController extends Controller
                 'url'    => $url,
             ]);
 
-            if ($order->buyer_phone) {
-                $svc->push(['channels' => ['whatsapp'], 'phone' => $order->buyer_phone, 'subject' => $event->title, 'body' => $body]);
-            }
-            if ($order->buyer_email) {
-                $svc->push(['channels' => ['email'], 'email' => $order->buyer_email, 'subject' => __('Vos billets').' — '.$event->title, 'body' => $body]);
-            }
+            app(EventNotifier::class)->notifyCustomer(
+                $event,
+                Delivery::CONTEXT_ORDER_CONFIRMATION,
+                __('Vos billets').' — '.$event->title,
+                $body,
+                $order->buyer_email,
+                $order->buyer_phone
+            );
         } catch (\Throwable $e) {
             if (function_exists('report')) {
                 report($e);

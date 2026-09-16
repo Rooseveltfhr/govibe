@@ -221,6 +221,11 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/orders', [EventDashboard::class, 'orders'])->name('orders');
         Route::get('/{id}/orders/export', [EventDashboard::class, 'exportOrders'])->name('orders.export');
         Route::post('/{id}/orders/{orderId}/paid', [EventDashboard::class, 'markOrderPaid'])->name('orders.paid');
+        // Invités VIP (billets offerts, hors panier)
+        Route::get('/{id}/guests', [EventDashboard::class, 'guests'])->name('guests');
+        Route::post('/{id}/guests', [EventDashboard::class, 'inviteGuest'])->name('guests.invite');
+        // Statistiques de livraison des confirmations (achat, entrée)
+        Route::get('/{id}/deliveries', [EventDashboard::class, 'deliveries'])->name('deliveries');
         Route::get('/{id}/scanner', [EventCheckin::class, 'scanner'])->name('scanner');
         Route::post('/{id}/scan', [EventCheckin::class, 'scan'])->name('scan');
         Route::post('/{id}/scan-nfc', [EventCheckin::class, 'scanNfc'])->name('scan.nfc');

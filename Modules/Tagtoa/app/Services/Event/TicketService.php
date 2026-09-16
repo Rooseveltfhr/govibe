@@ -73,6 +73,47 @@ class TicketService
         });
     }
 
+    /**
+     * Billet OFFERT par l'organisateur à un invité (VIP, presse, staff…) —
+     * jamais passé par le panier public, jamais compté dans le chiffre
+     * d'affaires. Respecte le même stock que la vente normale : un carton de
+     * 20 places VIP offertes en trop resterait un carton trop plein le soir
+     * de l'événement, quel que soit le prix affiché sur le billet.
+     */
+    public function inviteGuest(Event $event, TicketType $type, array $guest): Order
+    {
+        return DB::transaction(function () use ($event, $type, $guest) {
+            $type = TicketType::where('event_id', $event->id)->lockForUpdate()->findOrFail($type->id);
+            if ($type->remaining !== null && $type->remaining < 1) {
+                throw new \RuntimeException(__('Plus de place disponible pour « :n ».', ['n' => $type->name]));
+            }
+            $type->sold += 1;
+            $type->save();
+
+            $order = $event->orders()->create([
+                'reference'   => Order::generateReference(),
+                'buyer_name'  => $guest['name'],
+                'buyer_phone' => $guest['phone'] ?? null,
+                'buyer_email' => $guest['email'] ?? null,
+                'total'       => 0,
+                'currency'    => $event->currency,
+                'status'      => Order::STATUS_PAID,
+                'paid_at'     => now(),
+                'source'      => Order::SOURCE_INVITE,
+            ]);
+
+            Ticket::create([
+                'event_id' => $event->id, 'order_id' => $order->id, 'ticket_type_id' => $type->id,
+                'code' => Ticket::generateCode(), 'holder_name' => $guest['name'],
+                'holder_phone' => $guest['phone'] ?? null, 'status' => Ticket::STATUS_VALID,
+            ]);
+
+            $this->inscrire($event, $order);
+
+            return $order;
+        });
+    }
+
     public function markPaid(Order $order, ?string $method = null): Order
     {
         if (! $order->isPaid()) {
