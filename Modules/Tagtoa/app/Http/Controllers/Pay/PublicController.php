@@ -87,9 +87,19 @@ class PublicController extends Controller
                 ->with('error', __('Le paiement en ligne n\'est pas disponible pour le moment. Utilisez les informations ci-dessous.'));
         }
 
+        // Un numéro invraisemblable (trop court, trop long, avec des lettres)
+        // ne prouve rien de plus qu'un vrai numéro — mais sans cette forme, le
+        // reçu de confirmation ajouté ensuite (notifyPaymentReceived) pourrait
+        // partir vers n'importe quelle chaîne tapée dans le champ, pas
+        // seulement vers un numéro plausible.
+        $payer = $request->validate([
+            'payer_name'  => ['nullable', 'string', 'max:120'],
+            'payer_phone' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+\-\s]{6,20}$/'],
+        ]);
+
         $url = app(\Modules\Tagtoa\App\Services\Pay\CheckoutService::class)->startPayPage($page, $m, $gateway, $amount, [
-            'name'  => (string) $request->input('payer_name', ''),
-            'phone' => (string) $request->input('payer_phone', ''),
+            'name'  => $payer['payer_name'] ?? '',
+            'phone' => $payer['payer_phone'] ?? '',
         ]);
 
         if (! $url) {
