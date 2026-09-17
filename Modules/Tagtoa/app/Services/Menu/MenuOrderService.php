@@ -100,7 +100,12 @@ class MenuOrderService
             foreach ($lines as $l) {
                 $order->items()->create([
                     'item_id'          => $l['item']->id,
-                    'name'             => $l['item']->name,
+                    // Le nom FIGÉ sur la ligne est celui que le CLIENT a vu au
+                    // moment de commander — dans sa langue, pas forcément
+                    // celle du marchand. Un client qui a lu « Fried pork » ne
+                    // doit pas recevoir une confirmation WhatsApp en kreyòl
+                    // pour un plat qu'il a choisi en anglais.
+                    'name'             => $l['item']->translated('name'),
                     'price'            => $l['price'],
                     'qty'              => $l['qty'],
                     'line_total'       => round($l['price'] * $l['qty'], 2),

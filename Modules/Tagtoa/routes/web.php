@@ -7,6 +7,7 @@ use Modules\Tagtoa\App\Http\Controllers\Booking\PublicController as BookingPubli
 use Modules\Tagtoa\App\Http\Controllers\Event\CheckinController as EventCheckin;
 use Modules\Tagtoa\App\Http\Controllers\Event\DashboardController as EventDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Event\PublicController as EventPublic;
+use Modules\Tagtoa\App\Http\Controllers\Activation\ActivationController;
 use Modules\Tagtoa\App\Http\Controllers\Hub\HubController;
 use Modules\Tagtoa\App\Http\Controllers\LandingController;
 use Modules\Tagtoa\App\Http\Controllers\Links\DashboardController as LinksDashboard;
@@ -137,6 +138,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::delete('/{id}', [PayDashboard::class, 'destroy'])->name('destroy');
         Route::get('/{id}/proofs', [PayDashboard::class, 'proofs'])->name('proofs');
         Route::get('/{id}/share', [PayDashboard::class, 'share'])->name('share');
+        Route::get('/{id}/report', [PayDashboard::class, 'report'])->name('report');
         Route::get('/proofs/{id}/image', [PayDashboard::class, 'proofImage'])->name('proof.image');
         Route::post('/proofs/{id}/approve', [PayDashboard::class, 'approveProof'])->name('proofs.approve');
         Route::post('/proofs/{id}/reject', [PayDashboard::class, 'rejectProof'])->name('proofs.reject');
@@ -194,6 +196,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/edit', [LoyaltyDashboard::class, 'edit'])->name('edit');
         Route::put('/{id}', [LoyaltyDashboard::class, 'update'])->name('update');
         Route::get('/{id}/cards', [LoyaltyDashboard::class, 'cards'])->name('cards');
+        Route::get('/{id}/report', [LoyaltyDashboard::class, 'report'])->name('report');
         Route::post('/{id}/cards', [LoyaltyDashboard::class, 'issueCard'])->name('cards.issue');
         Route::post('/cards/{id}/top-up', [LoyaltyDashboard::class, 'topUp'])->name('cards.topup');
         Route::post('/cards/{id}/redeem', [LoyaltyDashboard::class, 'redeem'])->name('cards.redeem');
@@ -220,6 +223,11 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/orders', [EventDashboard::class, 'orders'])->name('orders');
         Route::get('/{id}/orders/export', [EventDashboard::class, 'exportOrders'])->name('orders.export');
         Route::post('/{id}/orders/{orderId}/paid', [EventDashboard::class, 'markOrderPaid'])->name('orders.paid');
+        // Invités VIP (billets offerts, hors panier)
+        Route::get('/{id}/guests', [EventDashboard::class, 'guests'])->name('guests');
+        Route::post('/{id}/guests', [EventDashboard::class, 'inviteGuest'])->name('guests.invite');
+        // Statistiques de livraison des confirmations (achat, entrée)
+        Route::get('/{id}/deliveries', [EventDashboard::class, 'deliveries'])->name('deliveries');
         Route::get('/{id}/scanner', [EventCheckin::class, 'scanner'])->name('scanner');
         Route::post('/{id}/scan', [EventCheckin::class, 'scan'])->name('scan');
         Route::post('/{id}/scan-nfc', [EventCheckin::class, 'scanNfc'])->name('scan.nfc');
@@ -285,6 +293,13 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/sell', [$rev, 'sell'])->middleware('throttle:60,1')->name('sell');
         Route::get('/{id}', [$rev, 'history'])->whereNumber('id')->name('history');
     });
+
+    // ACTIVER UN PRODUIT — le premier geste quand un carton TAGTOA arrive :
+    // choisir ce qu'on tient (Carte / Stand Menu / Stand Paiement / Stand
+    // Liens), puis entrer son code. N'implémente rien de nouveau : achemine
+    // vers StandActivator (tagtoa.stand.activate.scan) ou CardWalletService
+    // (tagtoa.cards.store), tous deux inchangés.
+    Route::get('/activate', [ActivationController::class, 'screen'])->name('tagtoa.activate');
 
     // SMART STAND — réclamer un stand, et gérer les siens.
     Route::prefix('stands')->name('tagtoa.stand.')->group(function () {
@@ -402,9 +417,16 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/receipt/{reference}', [$tick, 'byReference'])
             ->where('reference', '[A-Za-z0-9\-_.]{1,64}')->name('receipt');
 
+        // Le MÊME reçu, en JSON — pour une imprimante Bluetooth. Les montants
+        // sont déjà formatés par Money::format() : aucun calcul ne doit se
+        // refaire dans le JavaScript qui dessine le ticket sur le papier.
+        Route::get('/receipt/{reference}/data', [$tick, 'data'])
+            ->where('reference', '[A-Za-z0-9\-_.]{1,64}')->name('receipt.data');
+
         $set = \Modules\Tagtoa\App\Http\Controllers\Pos\SettingsController::class;
         Route::get('/settings', [$set, 'index'])->name('settings');
         Route::put('/settings/{id}', [$set, 'update'])->whereNumber('id')->name('settings.update');
+        Route::put('/settings/business-type', [$set, 'updateBusinessType'])->name('settings.business-type');
 
         $ret = \Modules\Tagtoa\App\Http\Controllers\Pos\ReturnController::class;
         Route::get('/returns', [$ret, 'index'])->name('returns');
@@ -551,6 +573,32 @@ Route::middleware(['auth', 'valid.user', 'role:super_admin'])->prefix('tagtoa/ad
     Route::post('/resellers', [$reseau, 'store'])->name('tagtoa.superadmin.resellers.store');
     Route::put('/resellers/{id}', [$reseau, 'update'])->whereNumber('id')->name('tagtoa.superadmin.resellers.update');
     Route::post('/resellers/{id}/allocate', [$reseau, 'allocate'])->whereNumber('id')->name('tagtoa.superadmin.resellers.allocate');
+
+    // LE PARC DE STANDS — ce qui dort, ce qui sert, et ce qui est MUET.
+    //
+    // Un stand MUET est un objet VENDU dont personne n'a jamais gratté le
+    // panneau : le marchand a payé et n'a jamais eu son compte. C'est la seule
+    // fuite qui ne produit aucune erreur — le marchand croit que « le truc ne
+    // marche pas » et le range dans un tiroir.
+    $parc = \Modules\Tagtoa\App\Http\Controllers\SuperAdmin\StandAdminController::class;
+    Route::get('/stands', [$parc, 'index'])->name('tagtoa.superadmin.stands');
+
+    // L'identifiant imprimé, pas une clé de base : c'est ce que le fondateur a
+    // sous les yeux quand il tient l'objet, ou au téléphone avec un revendeur.
+    Route::get('/stands/{publicId}', [$parc, 'show'])
+        ->where('publicId', '[A-Za-z0-9\-]{1,24}')->name('tagtoa.superadmin.stand');
+    Route::put('/stands/{publicId}/physical', [$parc, 'physical'])
+        ->where('publicId', '[A-Za-z0-9\-]{1,24}')->name('tagtoa.superadmin.stand.physical');
+    Route::put('/stands/{publicId}/digital', [$parc, 'digital'])
+        ->where('publicId', '[A-Za-z0-9\-]{1,24}')->name('tagtoa.superadmin.stand.digital');
+
+    // La cession forcée : le pouvoir le plus dangereux de la plateforme.
+    // Limité en débit, non pour arrêter une attaque — le fondateur est déjà
+    // identifié — mais pour qu'un script lancé par erreur ne déplace pas un
+    // parc entier avant qu'on s'en aperçoive.
+    Route::put('/stands/{publicId}/force', [$parc, 'force'])
+        ->where('publicId', '[A-Za-z0-9\-]{1,24}')
+        ->middleware('throttle:30,1')->name('tagtoa.superadmin.stand.force');
 
     // État système en lecture seule (environnement, DB, cache, sécurité NFC, limites connues).
     Route::get('/status', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\StatusController::class, 'index'])->name('tagtoa.superadmin.status');

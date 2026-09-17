@@ -124,6 +124,46 @@ class BusinessProfile
             ],
         ],
 
+        'pharmacy' => [
+            'noun'       => 'Médicament',
+            'nouns'      => 'Médicaments',
+            'price_hint' => 'Prix',
+            'price_suffix' => null,
+            'categories' => ['Médicaments', 'Parapharmacie', 'Matériel médical', 'Hygiène & soins', 'Vitamines & compléments'],
+            'fields'     => [
+                'form'          => ['label' => 'Forme',            'type' => self::T_SELECT, 'options' => ['Comprimé', 'Gélule', 'Sirop', 'Injectable', 'Pommade', 'Sachet']],
+                'dosage'        => ['label' => 'Dosage',            'type' => self::T_TEXT,   'max' => 40],
+                'requires_prescription' => ['label' => 'Ordonnance requise', 'type' => self::T_BOOL],
+                'expiry_alert'  => ['label' => 'Alerte péremption', 'type' => self::T_BOOL],
+            ],
+        ],
+
+        'clinic' => [
+            'noun'       => 'Service',
+            'nouns'      => 'Services',
+            'price_hint' => 'Prix de la consultation / de l\'acte',
+            'price_suffix' => null,
+            'categories' => ['Consultations', 'Examens & analyses', 'Soins', 'Vaccinations', 'Urgences'],
+            'fields'     => [
+                'duration'   => ['label' => 'Durée',    'type' => self::T_NUMBER, 'unit' => 'min', 'min' => 0, 'max' => 480],
+                'specialty'  => ['label' => 'Spécialité', 'type' => self::T_TEXT, 'max' => 60],
+                'requires_appointment' => ['label' => 'Sur rendez-vous', 'type' => self::T_BOOL],
+            ],
+        ],
+
+        'boutique' => [
+            'noun'       => 'Article',
+            'nouns'      => 'Articles',
+            'price_hint' => 'Prix',
+            'price_suffix' => null,
+            'categories' => ['Vêtements', 'Chaussures', 'Accessoires', 'Électronique', 'Maison', 'Divers'],
+            'fields'     => [
+                'size'   => ['label' => 'Taille',   'type' => self::T_TEXT, 'max' => 20],
+                'color'  => ['label' => 'Couleur',  'type' => self::T_TEXT, 'max' => 30],
+                'brand'  => ['label' => 'Marque',   'type' => self::T_TEXT, 'max' => 60],
+            ],
+        ],
+
         'other' => [
             'noun'       => 'Article',
             'nouns'      => 'Articles',

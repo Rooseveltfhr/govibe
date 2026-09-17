@@ -41,6 +41,22 @@
              font:600 13px system-ui,sans-serif;cursor:pointer;text-align:center;text-decoration:none}
         .barre .o{background:#fff;color:#0A0A0A;border:1.5px solid var(--bd)}
 
+        /* Bluetooth : masqué par défaut, révélé par le script UNIQUEMENT si
+           `navigator.bluetooth` existe sur cet appareil. Le serveur ne peut
+           pas le savoir — c'est une capacité du navigateur, pas du commerce. */
+        .bt{display:none;max-width:302px;margin:14px auto 0;padding:12px 13px;border-radius:12px;
+            background:#eef2ff;font:13px/1.5 system-ui,sans-serif;color:#1a2a5e}
+        .bt.on{display:block}
+        .bt p{margin:0 0 9px}
+        .bt .rang{display:flex;gap:8px}
+        .bt button{flex:1;padding:9px;border:0;border-radius:9px;background:#2743c7;color:#fff;
+                   font:600 12.5px system-ui,sans-serif;cursor:pointer}
+        .bt button.o{background:#fff;color:#2743c7;border:1.5px solid #2743c7}
+        .bt button:disabled{opacity:.5;cursor:not-allowed}
+        .bt .msg{margin-top:8px;font-size:12px;font-weight:600}
+        .bt .msg.err{color:#a3231b}
+        .bt .msg.ok{color:#0e5f2e}
+
         /* ---------------------------------------------------------------
            À L'IMPRESSION — un rouleau, pas une feuille.
            --------------------------------------------------------------- */
@@ -149,6 +165,24 @@
         <a class="o" href="{{ route('tagtoa.pos.tickets') }}">{{ __('Retour') }}</a>
     </div>
 
+    {{-- IMPRESSION BLUETOOTH DIRECTE — seulement pour les imprimantes BLE.
+         Le bloc reste invisible si le navigateur ne sait pas ce qu'est le
+         Bluetooth Web ; le texte dit clairement à qui il ne s'adresse pas,
+         plutôt que de laisser un commerçant chercher son imprimante SPP dans
+         une liste où elle n'apparaîtra jamais. --}}
+    <div class="bt" id="btBox">
+        <p>
+            <b>{{ __('Imprimante Bluetooth (BLE)') }}</b><br>
+            {{ __('Marche uniquement avec les imprimantes Bluetooth récentes (BLE). Pour un modèle plus ancien (Bluetooth classique), utilisez « Imprimer » ci-dessus avec le service d\'impression installé sur votre téléphone.') }}
+        </p>
+        <div class="rang">
+            <button class="o" id="btChoisir" type="button">{{ __('Choisir mon imprimante') }}</button>
+            <button id="btImprimer" type="button" disabled>{{ __('Imprimer par Bluetooth') }}</button>
+        </div>
+        <p class="msg" id="btMsg" hidden></p>
+    </div>
+
+    <script src="{{ route('tagtoa.asset', 'tagtoa-bt-printer.js') }}" defer></script>
     <script>
     /* Ouvert depuis la caisse avec ?print=1 : on lance l'impression tout de
        suite. Le caissier a déjà appuyé sur « Imprimer » ; lui redemander de
@@ -157,6 +191,52 @@
         if (location.search.indexOf('print=1') === -1) { return; }
         window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 250); });
     })();
+
+    /* Le bloc Bluetooth : révélé seulement si `navigator.bluetooth` existe.
+       Un bouton affiché sur un appareil qui ne sait pas ce qu'il fait produit
+       une erreur silencieuse au clic — pire qu'un bouton absent. */
+    window.addEventListener('load', function () {
+        if (!window.TagtoaBTPrinter || !TagtoaBTPrinter.available()) return;
+
+        var box = document.getElementById('btBox');
+        var msg = document.getElementById('btMsg');
+        var boutonChoisir = document.getElementById('btChoisir');
+        var boutonImprimer = document.getElementById('btImprimer');
+        var url = "{{ route('tagtoa.pos.receipt.data', $sale->reference) }}";
+
+        box.classList.add('on');
+
+        function dire(texte, type) {
+            msg.textContent = texte;
+            msg.className = 'msg' + (type ? ' ' + type : '');
+            msg.hidden = !texte;
+        }
+
+        boutonChoisir.addEventListener('click', function () {
+            dire('');
+            TagtoaBTPrinter.choisir().then(function (device) {
+                dire(@js(__('Imprimante choisie : ')) + (device.name || '?'), 'ok');
+                boutonImprimer.disabled = false;
+            }).catch(function (e) {
+                // L'utilisateur a fermé la fenêtre de choix : ce n'est pas une
+                // panne, on ne l'annonce pas comme telle.
+                if (e && e.name === 'NotFoundError') return;
+                dire(@js(__('Aucune imprimante Bluetooth trouvée à proximité.')), 'err');
+            });
+        });
+
+        boutonImprimer.addEventListener('click', function () {
+            boutonImprimer.disabled = true;
+            dire(@js(__('Impression…')));
+            TagtoaBTPrinter.imprimer(url).then(function () {
+                dire(@js(__('Ticket envoyé.')), 'ok');
+                boutonImprimer.disabled = false;
+            }).catch(function () {
+                dire(@js(__('Échec de l\'impression. Réessayez, ou utilisez « Imprimer ».')), 'err');
+                boutonImprimer.disabled = false;
+            });
+        });
+    });
     </script>
 </body>
 </html>

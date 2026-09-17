@@ -24,7 +24,12 @@ class DashboardController extends Controller
 
     public function index(): View
     {
-        $pages = LinkPage::where('tenant_id', Tenant::id())->withCount('links')->latest()->paginate(12);
+        // withSum : le nombre de clics par lien existait déjà (Link::clicks,
+        // incrémenté à chaque redirection) mais n'était affiché NULLE PART —
+        // un marchand ne pouvait jamais savoir si ses liens servaient vraiment.
+        $pages = LinkPage::where('tenant_id', Tenant::id())
+            ->withCount('links')->withSum('links', 'clicks')
+            ->latest()->paginate(12);
 
         return view('tagtoa::links.index', compact('pages'));
     }

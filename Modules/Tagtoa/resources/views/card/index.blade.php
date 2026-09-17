@@ -110,8 +110,8 @@
 
 <script>
 function nfcInto(input){
-    if(!('NDEFReader' in window)){alert('{{ __('NFC non supporté ici. Saisissez l\'UID manuellement.') }}');return;}
-    try{var r=new NDEFReader();r.scan().then(function(){r.onreading=function(e){if(e.serialNumber){input.value=e.serialNumber;}};}).catch(function(){alert('{{ __('Lecture NFC refusée.') }}');});}catch(err){}
+    if(!('NDEFReader' in window)){alert(@js(__('NFC non supporté ici. Saisissez l\'UID manuellement.')));return;}
+    try{var r=new NDEFReader();r.scan().then(function(){r.onreading=function(e){if(e.serialNumber){input.value=e.serialNumber;}};}).catch(function(){alert(@js(__('Lecture NFC refusée.')));});}catch(err){}
 }
 function readIssue(){nfcInto(document.getElementById('issue-uid'));}
 </script>

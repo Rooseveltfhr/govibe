@@ -22,26 +22,23 @@
     <div class="h-row"><h2>{{ __('Ajouter un fournisseur') }}</h2></div>
     <form method="POST" action="{{ route('tagtoa.inventory.suppliers.store') }}">
         @csrf
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-            <label style="font-size:12px;color:var(--muted);flex:1;min-width:180px">{{ __('Nom') }}
-                <input name="name" class="inp" maxlength="160" required placeholder="{{ __('ex. Dépôt Bon Prix') }}">
-            </label>
-            <label style="font-size:12px;color:var(--muted)">{{ __('Personne à demander') }}
-                <input name="contact_name" class="inp" maxlength="120" style="max-width:190px">
-            </label>
-            <label style="font-size:12px;color:var(--muted)">{{ __('WhatsApp') }}
-                <input name="whatsapp" class="inp" maxlength="40" style="max-width:160px">
-            </label>
-            <label style="font-size:12px;color:var(--muted)">{{ __('Téléphone') }}
-                <input name="phone" class="inp" maxlength="40" style="max-width:160px">
-            </label>
-            <label style="font-size:12px;color:var(--muted)">{{ __('Adresse') }}
-                <input name="address" class="inp" maxlength="240" style="max-width:230px">
-            </label>
-            <label style="font-size:12px;color:var(--muted);flex:1;min-width:200px">{{ __('Notes') }}
-                <input name="notes" class="inp" maxlength="2000" placeholder="{{ __('ex. livre le mardi, paiement à 15 jours') }}">
-            </label>
+        <label class="lbl">{{ __('Nom') }}</label>
+        <input name="name" class="inp" maxlength="160" required placeholder="{{ __('ex. Dépôt Bon Prix') }}">
+
+        {{-- Champs COURTS (contact, WhatsApp, téléphone, adresse) : deux par
+             ligne même sur téléphone. Chacun empilé plein écran sur son
+             propre bloc, comme avant, transformait un numéro de dix chiffres
+             en une ligne entière — l'écran défilait pour rien. --}}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:10px">
+            <div><label class="lbl">{{ __('Personne à demander') }}</label><input name="contact_name" class="inp" maxlength="120"></div>
+            <div><label class="lbl">{{ __('WhatsApp') }}</label><input name="whatsapp" class="inp" maxlength="40"></div>
+            <div><label class="lbl">{{ __('Téléphone') }}</label><input name="phone" class="inp" maxlength="40"></div>
+            <div><label class="lbl">{{ __('Adresse') }}</label><input name="address" class="inp" maxlength="240"></div>
         </div>
+
+        <label class="lbl">{{ __('Notes') }}</label>
+        <input name="notes" class="inp" maxlength="2000" placeholder="{{ __('ex. livre le mardi, paiement à 15 jours') }}">
+
         <button class="btn btn-p" style="margin-top:14px">
             <i class="fa-solid fa-plus"></i> {{ __('Enregistrer') }}
         </button>
@@ -63,26 +60,18 @@
     <div class="card" style="{{ $f->is_active ? '' : 'opacity:.6' }}">
         <form method="POST" action="{{ route('tagtoa.inventory.suppliers.update', $f->id) }}">
             @csrf @method('PUT')
-            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-                <label style="font-size:12px;color:var(--muted);flex:1;min-width:180px">{{ __('Nom') }}
-                    <input name="name" class="inp" maxlength="160" value="{{ $f->name }}" required>
-                </label>
-                <label style="font-size:12px;color:var(--muted)">{{ __('Personne à demander') }}
-                    <input name="contact_name" class="inp" maxlength="120" value="{{ $f->contact_name }}" style="max-width:190px">
-                </label>
-                <label style="font-size:12px;color:var(--muted)">{{ __('WhatsApp') }}
-                    <input name="whatsapp" class="inp" maxlength="40" value="{{ $f->whatsapp }}" style="max-width:160px">
-                </label>
-                <label style="font-size:12px;color:var(--muted)">{{ __('Téléphone') }}
-                    <input name="phone" class="inp" maxlength="40" value="{{ $f->phone }}" style="max-width:160px">
-                </label>
-                <label style="font-size:12px;color:var(--muted)">{{ __('Adresse') }}
-                    <input name="address" class="inp" maxlength="240" value="{{ $f->address }}" style="max-width:230px">
-                </label>
-                <label style="font-size:12px;color:var(--muted);flex:1;min-width:200px">{{ __('Notes') }}
-                    <input name="notes" class="inp" maxlength="2000" value="{{ $f->notes }}">
-                </label>
+            <label class="lbl">{{ __('Nom') }}</label>
+            <input name="name" class="inp" maxlength="160" value="{{ $f->name }}" required>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:10px">
+                <div><label class="lbl">{{ __('Personne à demander') }}</label><input name="contact_name" class="inp" maxlength="120" value="{{ $f->contact_name }}"></div>
+                <div><label class="lbl">{{ __('WhatsApp') }}</label><input name="whatsapp" class="inp" maxlength="40" value="{{ $f->whatsapp }}"></div>
+                <div><label class="lbl">{{ __('Téléphone') }}</label><input name="phone" class="inp" maxlength="40" value="{{ $f->phone }}"></div>
+                <div><label class="lbl">{{ __('Adresse') }}</label><input name="address" class="inp" maxlength="240" value="{{ $f->address }}"></div>
             </div>
+
+            <label class="lbl">{{ __('Notes') }}</label>
+            <input name="notes" class="inp" maxlength="2000" value="{{ $f->notes }}">
 
             <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
                 <button class="btn btn-d btn-sm"><i class="fa-solid fa-floppy-disk"></i> {{ __('Enregistrer') }}</button>

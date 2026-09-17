@@ -61,4 +61,10 @@ class Ticket extends Model
     {
         return $this->status === self::STATUS_UNSOLD;
     }
+
+    /** VIP si son TYPE l'est — jamais une propriété du billet lui-même. */
+    public function isVip(): bool
+    {
+        return (bool) optional($this->ticketType)->is_vip;
+    }
 }

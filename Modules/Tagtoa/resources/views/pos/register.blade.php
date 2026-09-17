@@ -303,18 +303,73 @@ function direScan(texte, erreur){
     el._t = setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 4000);
 }
 
+/* ------------------------------------------------------------------
+   CE QUI SE PASSE QUAND UN CODE EST LU.
+
+   Le défaut d'avant, signalé depuis un comptoir : « ça fait le son quand
+   le code passe devant la caméra, puis plus rien ». L'article ÉTAIT
+   ajouté — mais la caméra couvre tout l'écran, et le panier est
+   désormais une fenêtre fermée. Rien de ce qui changeait n'était
+   visible. Un travail fait sans preuve ressemble à un travail non fait,
+   et le caissier rescanne, ou renonce.
+
+   Deux corrections, et elles vont ensemble :
+
+     • le scanner DIT lui-même ce qu'il vient d'ajouter, dans son propre
+       écran, seul endroit que le caissier regarde à ce moment-là ;
+     • un ajout réussi FERME la caméra et rend la main, comme demandé.
+       On revoit alors le catalogue, le compteur du panier, et le bouton
+       pour scanner le suivant.
+
+   Un code INCONNU ne ferme rien : on reste caméra ouverte pour viser à
+   nouveau, sinon il faudrait rouvrir le scanner après chaque étiquette
+   abîmée.
+   ------------------------------------------------------------------ */
+function direDansScanner(texte, erreur){
+    if(window.TagtoaScanner && TagtoaScanner.isOpen && TagtoaScanner.isOpen()){
+        TagtoaScanner.say(texte, !!erreur);
+        return true;
+    }
+    return false;
+}
+
+/** Article trouvé : on l'ajoute, on le dit, et on rend la main. */
+function ajouterEtRendreLaMain(ref, name, price, note){
+    add(ref, name, price);
+
+    var texte = '\u2713 ' + name + (note ? ' — ' + note : '');
+
+    if(direDansScanner(texte)){
+        // Le message s'affiche, PUIS l'écran se ferme : fermer d'abord
+        // effacerait la seule confirmation que le caissier aura vue.
+        setTimeout(function(){
+            if(window.TagtoaScanner) TagtoaScanner.close();
+            direScan(texte);
+        }, 600);
+        return;
+    }
+
+    // Douchette USB, ou saisie hors scanner : rien à fermer.
+    direScan(texte);
+}
+
 function vendreParCode(code){
     code = nettoyerCode(code);
     if(code.length < 4) return;
 
     var a = PAR_CODE[code];
-    if(a){ add(a.ref, a.name, a.price); direScan(a.name); return; }
+    if(a){ ajouterEtRendreLaMain(a.ref, a.name, a.price); return; }
 
     if(!navigator.onLine){
         beep('error');
-        direScan("{{ __('Code inconnu de cette caisse, et pas de connexion pour vérifier.') }}", true);
+        var horsLigne = @js(__('Code inconnu de cette caisse, et pas de connexion pour vérifier.'));
+        if(!direDansScanner(horsLigne, true)) direScan(horsLigne, true);
         return;
     }
+
+    // Le serveur met un instant à répondre : on le dit, sinon l'attente
+    // ressemble exactement à la panne qu'on vient de corriger.
+    direDansScanner(@js(__('Recherche…')));
 
     fetch(SCAN_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},
         body:JSON.stringify({code:code})})
@@ -324,19 +379,21 @@ function vendreParCode(code){
               // Retenu pour la suite de la journée : le même article repasse
               // souvent à la caisse.
               PAR_CODE[code] = {ref:d.article.ref, name:d.article.name, price:d.article.price};
-              add(d.article.ref, d.article.name, d.article.price);
-              direScan(d.article.name + (d.article.out ? " — {{ __('stock épuisé') }}" : ''));
+              ajouterEtRendreLaMain(d.article.ref, d.article.name, d.article.price,
+                  d.article.out ? @js(__('stock épuisé')) : null);
               return;
           }
           // Code inconnu : on ne devine JAMAIS un article. Encaisser le
           // mauvais prix coûte plus cher que de taper l'article à la main.
           beep('error');
           if(window.TagtoaScanner) TagtoaScanner.reject();
-          direScan("{{ __('Code inconnu : ') }}" + code, true);
+          var inconnu = @js(__('Code inconnu : ')) + code;
+          if(!direDansScanner(inconnu, true)) direScan(inconnu, true);
       })
       .catch(function(){
           beep('error');
-          direScan("{{ __('Vérification impossible. Touchez l\'article dans la grille.') }}", true);
+          var rate = @js(__('Vérification impossible. Touchez l\'article dans la grille.'));
+          if(!direDansScanner(rate, true)) direScan(rate, true);
       });
 }
 
@@ -351,9 +408,13 @@ window.addEventListener('load', function(){
     if(b) b.addEventListener('click', function(){
         TagtoaScanner.open({
             onCode: vendreParCode,
-            title:  "{{ __('Scanner pour vendre') }}",
-            hint:   "{{ __('Visez le code-barres. Chaque lecture ajoute l\'article au panier.') }}",
-            submit: "{{ __('Ajouter') }}"
+            title:  @js(__('Scanner pour vendre')),
+            // Le texte dit ce qui va RÉELLEMENT se passer. Annoncer « chaque
+            // lecture ajoute au panier » alors que l'écran se referme après la
+            // première fabriquait la surprise que le caissier prenait pour une
+            // panne.
+            hint:   @js(__('Visez le code-barres. L\'article s\'ajoute et l\'écran se referme.')),
+            submit: @js(__('Ajouter'))
         });
     });
 });
@@ -453,7 +514,7 @@ var derniereRef=null;
 function imprimerRecu(){
     if(!derniereRef){
         beep('error');
-        alert("{{ __('Vente enregistrée hors ligne : le reçu s\'imprimera depuis Tickets dès le retour du réseau.') }}");
+        alert(@js(__('Vente enregistrée hors ligne : le reçu s\'imprimera depuis Tickets dès le retour du réseau.')));
         return;
     }
     window.open(RECU_URL.replace('__REF__', encodeURIComponent(derniereRef)) + '?print=1', '_blank');

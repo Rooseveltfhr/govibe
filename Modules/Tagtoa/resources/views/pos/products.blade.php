@@ -119,9 +119,7 @@ select.ic{padding:8px 8px}
                 <div>
                     <label for="aUnit">{{ __('Unité') }}</label>
                     <select class="ic" id="aUnit" name="unit">
-                        @foreach (\Modules\Tagtoa\App\Support\Catalog\Pricing::UNITS as $cle => $u)
-                            <option value="{{ $cle }}">{{ __($u['label']) }}</option>
-                        @endforeach
+                        @include('tagtoa::partials.unit-options', ['suggested' => $suggestedUnits ?? []])
                     </select>
                 </div>
                 <div>
@@ -263,9 +261,7 @@ select.ic{padding:8px 8px}
                         <div>
                             <label>{{ __('Unité') }}</label>
                             <select class="ic" name="products[0][unit]">
-                                @foreach (\Modules\Tagtoa\App\Support\Catalog\Pricing::UNITS as $cle => $u)
-                                    <option value="{{ $cle }}" @selected($p->unit_key === $cle)>{{ __($u['label']) }}</option>
-                                @endforeach
+                                @include('tagtoa::partials.unit-options', ['suggested' => $suggestedUnits ?? [], 'selected' => $p->unit_key])
                             </select>
                         </div>
                         <div>

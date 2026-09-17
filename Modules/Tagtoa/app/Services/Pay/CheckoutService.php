@@ -4,6 +4,7 @@ namespace Modules\Tagtoa\App\Services\Pay;
 
 use Modules\Tagtoa\App\Models\Pay\PayTransaction;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
+use Modules\Tagtoa\App\Services\Notifications\NotificationService;
 use Modules\Tagtoa\App\Support\Gateways\GatewayDriver;
 use Modules\Tagtoa\App\Support\Gateways\MonCashDriver;
 use Modules\Tagtoa\App\Support\GatewayManager;
@@ -17,6 +18,10 @@ use Modules\Tagtoa\App\Support\GatewayManager;
  */
 class CheckoutService
 {
+    public function __construct(protected NotificationService $notifications = new NotificationService())
+    {
+    }
+
     /** Modèle + service markPaid par type de commande. */
     protected const ORDERS = [
         'store' => \Modules\Tagtoa\App\Models\Store\Order::class,
@@ -268,7 +273,7 @@ class CheckoutService
     {
         $meta = (array) $txn->meta;
 
-        \Modules\Tagtoa\App\Models\Pay\PaymentProof::firstOrCreate(
+        $proof = \Modules\Tagtoa\App\Models\Pay\PaymentProof::firstOrCreate(
             ['reference' => $txn->reference, 'payment_page_id' => (int) $txn->order_id],
             [
                 'payment_method_id' => $meta['method_id'] ?? null,
@@ -283,5 +288,19 @@ class CheckoutService
         );
 
         app(RevenueService::class)->record('pay_page', (int) $txn->id, 'pay', (float) $txn->amount, $txn->tenant_id, $txn->currency);
+
+        // APRÈS l'écriture, jamais dedans — et seulement si cette preuve vient
+        // de naître : un webhook rejoué (même référence) ne doit pas notifier
+        // deux fois le même paiement.
+        if ($proof->wasRecentlyCreated) {
+            // Jamais `with('vcard')` ici : Vcard appartient à l'hôte Biztap, absent
+            // de certains environnements (voir DashboardController::vcards()) —
+            // notifyPaymentReceived() accède la relation en LAZY, dans son propre
+            // bloc tolérant, exactement pour survivre à son absence.
+            $page = \Modules\Tagtoa\App\Models\Pay\PaymentPage::find((int) $txn->order_id);
+            if ($page) {
+                $this->notifications->notifyPaymentReceived($page, $proof);
+            }
+        }
     }
 }

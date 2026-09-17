@@ -12,11 +12,30 @@ class TicketType extends Model
 {
     protected $table = 'tagtoa_ev_ticket_types';
 
-    protected $fillable = ['event_id', 'name', 'price', 'compare_at_price', 'quantity', 'sold', 'is_active', 'sort'];
+    protected $fillable = [
+        'event_id', 'name', 'price', 'compare_at_price', 'quantity', 'sold', 'is_active', 'sort',
+        'is_vip', 'allowed_gates',
+    ];
 
     protected $casts = [
-        'price' => 'decimal:2', 'compare_at_price' => 'decimal:2', 'quantity' => 'integer', 'sold' => 'integer', 'is_active' => 'boolean',
+        'price' => 'decimal:2', 'compare_at_price' => 'decimal:2', 'quantity' => 'integer', 'sold' => 'integer',
+        'is_active' => 'boolean', 'is_vip' => 'boolean', 'allowed_gates' => 'array',
     ];
+
+    /**
+     * Une porte est-elle autorisée pour ce type de billet ? Liste vide/absente
+     * = aucune restriction, TOUTES les portes acceptent — comportement d'avant
+     * cette fonctionnalité, donc rétro-compatible pour chaque événement déjà créé.
+     * Comparaison insensible à la casse : « vip » et « VIP » sont la même porte.
+     */
+    public function allowsGate(?string $gate): bool
+    {
+        if (empty($this->allowed_gates) || $gate === null || $gate === '') {
+            return true;
+        }
+
+        return in_array(mb_strtolower($gate), array_map('mb_strtolower', $this->allowed_gates), true);
+    }
 
     /** Une réduction est active si un prix barré supérieur au prix courant est défini. */
     public function hasDiscount(): bool
