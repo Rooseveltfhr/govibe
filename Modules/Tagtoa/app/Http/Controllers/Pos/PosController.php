@@ -17,6 +17,7 @@ use Modules\Tagtoa\App\Support\Catalog\Pricing;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Services\Pos\PosService;
 use Modules\Tagtoa\App\Support\EnforcesPlan;
+use Modules\Tagtoa\App\Support\Pos\GuardsStaffAbility;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -25,6 +26,7 @@ use Modules\Tagtoa\App\Support\Tenant;
 class PosController extends Controller
 {
     use EnforcesPlan;
+    use GuardsStaffAbility;
 
     public function __construct(protected PosService $service)
     {
@@ -204,6 +206,7 @@ class PosController extends Controller
     public function addProduct(Request $request, int $id): RedirectResponse
     {
         $terminal = $this->own($id);
+        $this->denyUnless($this->currentStaff($terminal), 'catalog.edit');
 
         $data = $request->validate([
             'name'                => ['required', 'string', 'max:120'],
@@ -282,6 +285,7 @@ class PosController extends Controller
     public function scanProduct(Request $request, int $id): JsonResponse
     {
         $terminal = $this->own($id);
+        $this->denyUnless($this->currentStaff($terminal), 'catalog.edit');
 
         $data = $request->validate([
             'code' => ['required', 'string', 'max:64'],
@@ -330,6 +334,7 @@ class PosController extends Controller
     public function saveProducts(Request $request, int $id): RedirectResponse
     {
         $terminal = $this->own($id);
+        $this->denyUnless($this->currentStaff($terminal), 'catalog.edit');
 
         // ENVOI TRONQUÉ — la panne silencieuse de PHP.
         //
@@ -491,6 +496,7 @@ class PosController extends Controller
     public function destroyProduct(int $id, int $productId): RedirectResponse
     {
         $terminal = $this->own($id);
+        $this->denyUnless($this->currentStaff($terminal), 'catalog.delete');
 
         $product = app(PosCatalog::class)->find($terminal->tenant_id, $productId);
         abort_unless($product, 404);
@@ -518,11 +524,7 @@ class PosController extends Controller
      */
     protected function currentStaff(Terminal $terminal): ?Staff
     {
-        $id = session('tagtoa_pos_staff.'.$terminal->id);
-
-        return $id
-            ? Staff::where('tenant_id', $terminal->tenant_id)->where('is_active', true)->find($id)
-            : null;
+        return app(StaffService::class)->forTerminal($terminal);
     }
 
     /** Ouvre le poste après vérification du code. */

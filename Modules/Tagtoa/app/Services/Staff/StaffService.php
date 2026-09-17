@@ -3,6 +3,7 @@
 namespace Modules\Tagtoa\App\Services\Staff;
 
 use Illuminate\Support\Collection;
+use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Event\StaffPinService;
 use Modules\Tagtoa\App\Support\Pos\StaffAccess;
@@ -98,5 +99,32 @@ class StaffService
     {
         return $staff->is_active
             && StaffPinService::verifyPin($pin, (string) $staff->pin_hash);
+    }
+
+    /**
+     * Employé connecté SUR CE POSTE, ou null.
+     *
+     * Relu en base à chaque requête (pas de cache) : une désactivation ferme
+     * la caisse immédiatement plutôt qu'à la prochaine connexion.
+     */
+    public function forTerminal(Terminal $terminal): ?Staff
+    {
+        $id = session('tagtoa_pos_staff.'.$terminal->id);
+
+        return $id
+            ? Staff::where('tenant_id', $terminal->tenant_id)->where('is_active', true)->find($id)
+            : null;
+    }
+
+    /**
+     * Employé connecté sur N'IMPORTE LEQUEL des postes, pour les écrans qui ne
+     * portent pas de numéro de caisse (rayons, réglages…). En pratique un seul
+     * poste est ouvert à la fois sur un même navigateur.
+     */
+    public function currentAny(): ?Staff
+    {
+        $ids = array_values(array_filter((array) session('tagtoa_pos_staff', [])));
+
+        return $ids ? Staff::where('is_active', true)->whereIn('id', $ids)->first() : null;
     }
 }
