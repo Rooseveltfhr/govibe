@@ -100,6 +100,7 @@ class DashboardModules
 
                 ['label' => 'Produits',       'icon' => 'fa-box',           'url' => '/tagtoa/pos/products',   'sep' => 'Catalogue'],
                 ['label' => 'Catégories',     'icon' => 'fa-folder-tree',   'url' => '/tagtoa/pos/categories'],
+                ['label' => 'Lots & péremption', 'icon' => 'fa-calendar-days', 'url' => '/tagtoa/pos/lots'],
                 ['label' => 'Inventaire',     'icon' => 'fa-boxes-stacked', 'url' => '/tagtoa/inventory',      'needs' => 'inventory'],
                 ['label' => 'Codes-barres',   'icon' => 'fa-barcode',       'url' => '/tagtoa/catalog/codes'],
 

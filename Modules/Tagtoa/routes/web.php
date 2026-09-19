@@ -406,6 +406,12 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::put('/categories/{id}', [$cat, 'update'])->whereNumber('id')->name('categories.update');
         Route::delete('/categories/{id}', [$cat, 'destroy'])->whereNumber('id')->name('categories.destroy');
 
+        // Les lots et leur péremption — pas de numéro de caisse, un lot
+        // appartient au commerce comme le catalogue lui-même.
+        $lots = \Modules\Tagtoa\App\Http\Controllers\Pos\BatchController::class;
+        Route::get('/lots', [$lots, 'index'])->name('lots');
+        Route::post('/lots', [$lots, 'store'])->name('lots.store');
+
         $tick = \Modules\Tagtoa\App\Http\Controllers\Pos\TicketController::class;
         Route::get('/tickets', [$tick, 'index'])->name('tickets');
         Route::get('/tickets/{id}', [$tick, 'show'])->whereNumber('id')->name('ticket');
