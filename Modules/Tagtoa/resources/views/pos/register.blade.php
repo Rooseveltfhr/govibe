@@ -59,6 +59,14 @@
         @media(min-width:761px){.cartbtn{display:none}.cart{transform:none}.voile{display:none}}
         .top{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--blk);color:#fff}.top h1{font:600 16px var(--fh);flex:1}.top .net{font-size:12px;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.15)}.top .net.off{background:#E08A1E}.top a{color:#fff;opacity:.8;text-decoration:none}
         .grid{padding:14px;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:10px;align-content:start}
+        /* Les rayons — quarante articles ne doivent plus être un mur de
+           boutons. Défilement horizontal : sur téléphone, une liste de rayons
+           dépasse vite la largeur de l'écran. */
+        .rayons{flex:0 0 auto;display:flex;gap:8px;padding:10px 14px 0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+        .rayons::-webkit-scrollbar{display:none}
+        .rayons button{flex:0 0 auto;border:0;border-radius:999px;padding:8px 14px;font:600 12.5px var(--fh);
+                       background:#fff;color:var(--blk);border:1px solid var(--bd);cursor:pointer;white-space:nowrap}
+        .rayons button.on{background:var(--blk);color:#fff;border-color:var(--blk)}
         /* Le bouton de caisse porte une PHOTO quand il en a une. Un emoji ne
            distingue pas trois plats de riz ni quatre tailles de la même bière,
            et c'est exactement là que le caissier se trompe de bouton, en pleine
@@ -131,6 +139,18 @@
                 @if(session('error'))<span class="err">{{ session('error') }}</span>@endif
             </div>
         @endif
+        @php($rayons = collect($sellable)->pluck('group')->filter()->unique()->sort()->values())
+        @if($rayons->isNotEmpty())
+            {{-- Quarante articles donnaient quarante boutons d'affilée : le
+                 caissier cherchait à l'œil au moment où il a le moins de temps.
+                 Les rayons existaient déjà côté back-office, invisibles ici. --}}
+            <div class="rayons" id="rayons">
+                <button type="button" class="on" data-rayon="">{{ __('Tout') }}</button>
+                @foreach($rayons as $r)
+                    <button type="button" data-rayon="{{ $r }}">{{ $r }}</button>
+                @endforeach
+            </div>
+        @endif
         <div class="grid" id="grid">
             {{-- Boutons de la caisse ET articles du menu du commerce. Chaque
                  article porte sa référence d'origine (« menu:7 », « pos:7 ») :
@@ -138,6 +158,7 @@
             @foreach($sellable as $a)
                 <button class="p" style="background:{{ $a['color'] }}"
                         data-ref="{{ $a['ref'] }}" data-name="{{ $a['name'] }}" data-price="{{ $a['price'] }}"
+                        data-group="{{ $a['group'] }}"
                         @if($a['group']) title="{{ $a['group'] }}" @endif>
                     @if(!empty($a['image']))
                         {{-- Si la photo ne charge pas — lien /storage absent sur
@@ -422,6 +443,24 @@ window.addEventListener('load', function(){
 document.querySelectorAll('.grid .p').forEach(function(b){
     b.addEventListener('click',function(){add(this.dataset.ref,this.dataset.name,parseFloat(this.dataset.price));});
 });
+
+/* Filtrer par rayon — entièrement côté client, comme le reste de la caisse :
+   fonctionne hors ligne, sans un aller-retour au serveur par onglet touché. */
+(function(){
+    var barre = document.getElementById('rayons');
+    if(!barre) return;
+    var boutons = barre.querySelectorAll('button'),
+        articles = document.querySelectorAll('.grid .p');
+    barre.addEventListener('click', function(e){
+        var b = e.target.closest('button');
+        if(!b) return;
+        boutons.forEach(function(x){x.classList.toggle('on', x === b);});
+        var rayon = b.dataset.rayon;
+        articles.forEach(function(a){
+            a.style.display = (!rayon || a.dataset.group === rayon) ? '' : 'none';
+        });
+    });
+})();
 function chg(id,d){if(cart[id]){cart[id].qty+=d;if(cart[id].qty<=0)delete cart[id];render();}}
 function sub(){var s=0;for(var k in cart)s+=cart[k].price*cart[k].qty;return s;}
 /* Ce que le client va payer. Prix taxe comprise : la taxe est déjà dedans.
