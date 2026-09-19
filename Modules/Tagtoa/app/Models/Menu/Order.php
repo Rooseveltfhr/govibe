@@ -29,6 +29,9 @@ class Order extends Model
         'cancelled' => ['label' => 'Annulée',     'pill' => 'r'],
     ];
 
+    /** Statuts qu'une cuisine doit encore traiter — avant « Prête ». */
+    public const KITCHEN_STATUSES = ['pending', 'confirmed', 'preparing'];
+
     /** Mode de service. */
     public const ORDER_TYPES = ['dine_in', 'pickup', 'delivery'];
 

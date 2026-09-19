@@ -186,6 +186,12 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/orders', [MenuDashboard::class, 'orders'])->name('orders');
         Route::post('/orders/{order}/status', [MenuDashboard::class, 'setStatus'])->name('orders.status');
         Route::post('/orders/{order}/paid', [MenuDashboard::class, 'markPaid'])->name('orders.paid');
+
+        // Écran cuisine : lecture seule, pensé pour rester ouvert toute la
+        // journée sur une tablette au-dessus du plan de travail — pas un
+        // écran qu'on navigue, un écran qu'on surveille du coin de l'œil.
+        Route::get('/{id}/kitchen', [MenuDashboard::class, 'kitchen'])->name('kitchen');
+        Route::get('/{id}/kitchen/feed', [MenuDashboard::class, 'kitchenFeed'])->name('kitchen.feed');
     });
 
     // LOYALTY

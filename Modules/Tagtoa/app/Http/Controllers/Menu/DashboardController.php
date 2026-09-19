@@ -115,6 +115,44 @@ $data = $this->validateMenu($request);
         return view('tagtoa::menu.orders', compact('menu', 'orders', 'pending'));
     }
 
+    /**
+     * Écran cuisine : lecture seule, oldest-first — la commande qui attend
+     * depuis le plus longtemps est celle qu'il faut sortir en premier.
+     */
+    public function kitchen(int $id): View
+    {
+        $menu = $this->own($id);
+
+        return view('tagtoa::menu.kitchen', ['menu' => $menu]);
+    }
+
+    /** Le même écran, en JSON : ce que la page interroge toutes les quelques secondes. */
+    public function kitchenFeed(int $id): \Illuminate\Http\JsonResponse
+    {
+        $menu = $this->own($id);
+        $orders = $menu->orders()
+            ->whereIn('status', Order::KITCHEN_STATUSES)
+            ->with('items')->oldest('placed_at')->get();
+
+        return response()->json([
+            'orders' => $orders->map(fn (Order $o) => [
+                'id'          => $o->id,
+                'reference'   => $o->reference,
+                'status'      => $o->status,
+                'status_label' => __($o->status_meta['label']),
+                'order_type'  => $o->order_type,
+                'order_type_label' => __($o->order_type_label),
+                'table_label' => $o->table_label,
+                'note'        => $o->note,
+                'placed_at'   => optional($o->placed_at)->toIso8601String(),
+                'items'       => $o->items->map(fn ($it) => [
+                    'name' => $it->name, 'qty' => (int) $it->qty,
+                    'options' => collect($it->selected_options ?: [])->pluck('label')->filter()->values(),
+                ]),
+            ]),
+        ]);
+    }
+
     public function setStatus(Request $request, int $orderId): RedirectResponse
     {
         $order = $this->ownOrder($orderId);
