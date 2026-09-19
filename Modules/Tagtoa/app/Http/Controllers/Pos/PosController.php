@@ -251,6 +251,10 @@ class PosController extends Controller
             'sku'                 => ['nullable', 'string', 'max:60'],
             'supplier_id'         => ['nullable', 'integer'],
             'category_id'         => ['nullable', 'integer'],
+            // Vide = taux du commerce ; 0 = article exonéré. Deux choses
+            // différentes (voir TaxProfile::rateFor) : un pharmacien doit
+            // pouvoir exonérer UN médicament sans désactiver la taxe partout.
+            'tax_rate'            => ['nullable', 'numeric', 'min:0', 'max:99.999'],
             // La date d'achat du lot. Elle ne sert pas à vendre : elle répond à
             // « depuis quand cette caisse de bière dort-elle ici ? », la
             // question qui distingue un commerce qui tourne d'un commerce dont
@@ -279,6 +283,7 @@ class PosController extends Controller
             'sku'                 => trim((string) ($data['sku'] ?? '')) ?: null,
             'supplier_id'         => $this->fournisseur($data['supplier_id'] ?? null),
             'category_id'         => $this->rayon($data['category_id'] ?? null),
+            'tax_rate'            => $this->nombreOuNull($data['tax_rate'] ?? null),
             'purchased_at'        => $data['purchased_at'] ?? null,
         ];
 
@@ -397,6 +402,7 @@ class PosController extends Controller
             'products.*.sku'                 => ['nullable', 'string', 'max:60'],
             'products.*.supplier_id'         => ['nullable', 'integer'],
             'products.*.category_id'         => ['nullable', 'integer'],
+            'products.*.tax_rate'            => ['nullable', 'numeric', 'min:0', 'max:99.999'],
             'products.*.purchased_at'        => ['nullable', 'date'],
             'products.*.new_code'            => ['nullable', 'string', 'max:64'],
             'products.*.emoji'               => ['nullable', 'string', 'max:16'],
@@ -451,6 +457,7 @@ class PosController extends Controller
                 // la recherche est cloisonnée par le commerce courant.
                 'supplier_id'         => $this->fournisseur($row['supplier_id'] ?? null),
                 'category_id'         => $this->rayon($row['category_id'] ?? null),
+                'tax_rate'            => $this->nombreOuNull($row['tax_rate'] ?? null),
                 'purchased_at'        => $row['purchased_at'] ?? null,
             ];
 

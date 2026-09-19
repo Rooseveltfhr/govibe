@@ -135,6 +135,11 @@ select.ic{padding:8px 8px}
                     <input class="ic" id="aSku" name="sku" maxlength="60" placeholder="SKU">
                 </div>
                 <div>
+                    <label for="aTaxe">{{ __('Taxe (%)') }}</label>
+                    <input class="ic" id="aTaxe" name="tax_rate" type="number" step="0.01" min="0" max="99.999"
+                           placeholder="{{ __('Du commerce') }}" title="{{ __('Vide = taux du commerce. 0 = article exonéré.') }}">
+                </div>
+                <div>
                     <label for="aRayon">{{ __('Rayon') }}</label>
                     <select class="ic" id="aRayon" name="category_id">
                         <option value="">—</option>
@@ -275,6 +280,12 @@ select.ic{padding:8px 8px}
                         <div>
                             <label>{{ __('Référence') }}</label>
                             <input class="ic" name="products[0][sku]" value="{{ $p->sku }}" maxlength="60">
+                        </div>
+                        <div>
+                            <label>{{ __('Taxe (%)') }}</label>
+                            <input class="ic" name="products[0][tax_rate]" type="number" step="0.01" min="0" max="99.999"
+                                   value="{{ $p->tax_rate }}" placeholder="{{ __('Du commerce') }}"
+                                   title="{{ __('Vide = taux du commerce. 0 = article exonéré.') }}">
                         </div>
                         <div>
                             <label>{{ __('Rayon') }}</label>
