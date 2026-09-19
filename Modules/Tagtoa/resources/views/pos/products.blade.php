@@ -161,6 +161,21 @@ select.ic{padding:8px 8px}
                     <input class="ic" id="aAchat" name="purchased_at" type="date">
                 </div>
                 <div>
+                    <label for="aParent">{{ __('Se vend depuis') }}</label>
+                    <select class="ic" id="aParent" name="parent_product_id">
+                        <option value="">—</option>
+                        @foreach($terminal->products->whereNull('parent_product_id')->where('is_service', false) as $par)
+                            <option value="{{ $par->id }}">{{ $par->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="aRatio">{{ __('Unités par parent') }}</label>
+                    <input class="ic" id="aRatio" name="units_per_parent" type="number" step="0.001" min="0.001"
+                           placeholder="{{ __('Ex. 25 verres / bouteille') }}"
+                           title="{{ __('Un bar tient son stock en bouteilles : combien de verres fait UNE bouteille.') }}">
+                </div>
+                <div>
                     <label for="aColor">{{ __('Couleur du bouton') }}</label>
                     <input class="ic" id="aColor" name="color" type="color" value="#2cb809" style="height:38px;padding:3px">
                 </div>
@@ -316,6 +331,21 @@ select.ic{padding:8px 8px}
                             <label>{{ __('Date d\'achat') }}</label>
                             <input class="ic" name="products[0][purchased_at]" type="date"
                                    value="{{ optional($p->purchased_at)->format('Y-m-d') }}">
+                        </div>
+                        <div>
+                            <label>{{ __('Se vend depuis') }}</label>
+                            <select class="ic" name="products[0][parent_product_id]">
+                                <option value="">—</option>
+                                @foreach($terminal->products->whereNull('parent_product_id')->where('is_service', false)->where('id', '!=', $p->id) as $par)
+                                    <option value="{{ $par->id }}" @selected($p->parent_product_id === $par->id)>{{ $par->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label>{{ __('Unités par parent') }}</label>
+                            <input class="ic" name="products[0][units_per_parent]" type="number" step="0.001" min="0.001"
+                                   value="{{ $p->units_per_parent }}" placeholder="{{ __('Ex. 25 verres / bouteille') }}"
+                                   title="{{ __('Un bar tient son stock en bouteilles : combien de verres fait UNE bouteille.') }}">
                         </div>
                         <div>
                             <label>{{ __('Couleur du bouton') }}</label>
