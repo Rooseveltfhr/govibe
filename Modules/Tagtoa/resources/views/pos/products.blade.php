@@ -106,9 +106,12 @@ select.ic{padding:8px 8px}
                        placeholder="{{ __('Nom de l\'article') }}" aria-label="{{ __('Nom') }}">
                 <input class="ic" name="price" type="number" step="0.01" min="0"
                        placeholder="{{ __('Prix') }}" aria-label="{{ __('Prix de vente') }}">
-                <input class="ic" name="stock" type="number" step="0.001"
+                <input class="ic" id="aStock" name="stock" type="number" step="0.001"
                        placeholder="{{ __('Stock') }}" aria-label="{{ __('Stock') }}">
             </div>
+            <label class="chk" style="margin-top:8px" title="{{ __('Une nuitée, une consultation : rien à compter, rien à scanner.') }}">
+                <input type="checkbox" id="aService" name="is_service" value="1"> {{ __('Service (sans stock physique)') }}
+            </label>
 
             <div class="pf" id="addPlus" hidden style="margin-top:10px">
                 <div>
@@ -126,7 +129,7 @@ select.ic{padding:8px 8px}
                     <label for="aCost">{{ __('Prix d\'achat') }}</label>
                     <input class="ic" id="aCost" name="cost_price" type="number" step="0.01" min="0" placeholder="—">
                 </div>
-                <div>
+                <div id="aSeuilWrap">
                     <label for="aSeuil">{{ __('Alerte sous') }}</label>
                     <input class="ic" id="aSeuil" name="low_stock_threshold" type="number" step="0.001" min="0" placeholder="5">
                 </div>
@@ -255,9 +258,13 @@ select.ic{padding:8px 8px}
                         <input class="ic w2" name="products[0][name]" value="{{ $p->name }}" maxlength="120" aria-label="{{ __('Nom') }}">
                         <input class="ic pv" name="products[0][price]" type="number" step="0.01" min="0"
                                value="{{ $p->price }}" placeholder="{{ __('Prix') }}" aria-label="{{ __('Prix de vente') }}">
-                        <input class="ic" name="products[0][stock]" type="number" step="0.001"
+                        <input class="ic" name="products[0][stock]" type="number" step="0.001" data-role="stock"
                                value="{{ $p->stock }}" placeholder="{{ __('Stock') }}" aria-label="{{ __('Stock') }}">
                     </div>
+                    <label class="chk" style="margin-top:6px" title="{{ __('Une nuitée, une consultation : rien à compter, rien à scanner.') }}">
+                        <input type="checkbox" class="jSvc" name="products[0][is_service]" value="1" @checked($p->is_service)>
+                        {{ __('Service (sans stock physique)') }}
+                    </label>
                     <div class="pf" style="margin-top:8px">
                         <div class="w2">
                             <label>{{ __('Description') }}</label>
@@ -273,7 +280,7 @@ select.ic{padding:8px 8px}
                             <label>{{ __('Prix d\'achat') }}</label>
                             <input class="ic pa" name="products[0][cost_price]" type="number" step="0.01" min="0" value="{{ $p->cost_price }}" placeholder="—">
                         </div>
-                        <div>
+                        <div data-role="seuil-wrap">
                             <label>{{ __('Alerte sous') }}</label>
                             <input class="ic" name="products[0][low_stock_threshold]" type="number" step="0.001" min="0" value="{{ $p->low_stock_threshold }}" placeholder="5">
                         </div>
@@ -379,6 +386,15 @@ window.addEventListener('load', function () {
         var d = document.getElementById('addPlus'); d.hidden = !d.hidden;
     });
 
+    /* Service (nuitée, consultation) : rien à compter, rien à alerter.
+       On ne fait que MASQUER — la valeur elle-même est forcée à null côté
+       serveur (voir PosController::addProduct), jamais fait confiance à ce
+       que cache l'écran. */
+    document.getElementById('aService').addEventListener('change', function () {
+        document.getElementById('aStock').hidden = this.checked;
+        document.getElementById('aSeuilWrap').hidden = this.checked;
+    });
+
     /* ---- Modifier : on le DEMANDE, ce n'est plus l'état par défaut ---- */
     document.querySelectorAll('.art').forEach(function (art) {
         var form = art.querySelector('.edition'),
@@ -404,6 +420,20 @@ window.addEventListener('load', function () {
 
         var f = form.querySelector('input[type=file]');
         if (f) f.addEventListener('change', function () { apercu(f); });
+
+        // Service : rien à compter, rien à alerter. On ne fait que MASQUER —
+        // la valeur est forcée à null côté serveur (PosController::saveProducts).
+        var svc = form.querySelector('.jSvc'),
+            stockField = form.querySelector('[data-role="stock"]'),
+            seuilWrap = form.querySelector('[data-role="seuil-wrap"]');
+        if (svc) {
+            var syncSvc = function () {
+                if (stockField) stockField.hidden = svc.checked;
+                if (seuilWrap) seuilWrap.hidden = svc.checked;
+            };
+            svc.addEventListener('change', syncSvc);
+            syncSvc();
+        }
     });
 
     /* Ce qui reste sur une unité vendue : la seule raison pour laquelle un

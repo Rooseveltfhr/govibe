@@ -248,6 +248,10 @@ class PosController extends Controller
             'cost_price'          => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
+            // Une nuitée, une consultation : rien à compter en stock, rien à
+            // scanner. Une case, pas une restriction — un commerce mixte peut
+            // avoir les deux à la fois selon l'article.
+            'is_service'          => ['nullable', 'boolean'],
             'sku'                 => ['nullable', 'string', 'max:60'],
             'supplier_id'         => ['nullable', 'integer'],
             'category_id'         => ['nullable', 'integer'],
@@ -268,18 +272,25 @@ class PosController extends Controller
             'image'               => ['nullable', 'image', 'max:2048'],
         ]);
 
+        // Un service n'a pas de stock, par définition : le forcer à null ici
+        // (plutôt que de faire confiance à un champ caché côté client) évite
+        // qu'une valeur oubliée dans le formulaire fasse croire à un compteur
+        // qui n'a pas de sens pour une nuitée ou une consultation.
+        $isService = $request->boolean('is_service');
+
         $attrs = [
             'name'                => $data['name'],
             'description'         => trim((string) ($data['description'] ?? '')) ?: null,
             'price'               => (float) ($data['price'] ?? 0),
             'emoji'               => $data['emoji'] ?? null,
             'color'               => $data['color'] ?? '#2cb809',
-            'stock'               => $this->nombreOuNull($data['stock'] ?? null),
+            'stock'               => $isService ? null : $this->nombreOuNull($data['stock'] ?? null),
             'is_active'           => true,
+            'is_service'          => $isService,
             'sort'                => (int) app(PosCatalog::class)->query($terminal->tenant_id)->max('sort') + 1,
             'cost_price'          => $this->nombreOuNull($data['cost_price'] ?? null),
             'unit'                => Pricing::unit($data['unit'] ?? null),
-            'low_stock_threshold' => $this->nombreOuNull($data['low_stock_threshold'] ?? null),
+            'low_stock_threshold' => $isService ? null : $this->nombreOuNull($data['low_stock_threshold'] ?? null),
             'sku'                 => trim((string) ($data['sku'] ?? '')) ?: null,
             'supplier_id'         => $this->fournisseur($data['supplier_id'] ?? null),
             'category_id'         => $this->rayon($data['category_id'] ?? null),
@@ -399,6 +410,7 @@ class PosController extends Controller
             'products.*.stock'               => ['nullable', 'numeric', 'min:-999999', 'max:999999999'],
             'products.*.low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'products.*.unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
+            'products.*.is_service'          => ['nullable', 'boolean'],
             'products.*.sku'                 => ['nullable', 'string', 'max:60'],
             'products.*.supplier_id'         => ['nullable', 'integer'],
             'products.*.category_id'         => ['nullable', 'integer'],
@@ -431,6 +443,10 @@ class PosController extends Controller
                 continue;
             }
 
+            // Un service (nuitée, consultation) n'a pas de stock : forcé à
+            // null côté serveur, jamais laissé au champ caché du formulaire.
+            $isService = ! empty($row['is_service']);
+
             $attrs = [
                 'name'      => $row['name'],
                 'description' => trim((string) ($row['description'] ?? '')) ?: null,
@@ -440,8 +456,9 @@ class PosController extends Controller
                 // Stock DÉCIMAL : le riz se compte à la mamit, la viande à la
                 // livre. Un cast entier ferait disparaître une demi-livre à
                 // chaque enregistrement.
-                'stock'     => $this->nombreOuNull($row['stock'] ?? null),
+                'stock'     => $isService ? null : $this->nombreOuNull($row['stock'] ?? null),
                 'is_active' => ! empty($row['is_active']),
+                'is_service' => $isService,
                 'sort'      => (int) ($row['sort'] ?? $i),
 
                 // Volet commercial : ce qui permet enfin de dire au marchand
@@ -450,7 +467,7 @@ class PosController extends Controller
                 // laisserait croire que la marge est totale.
                 'cost_price'          => $this->nombreOuNull($row['cost_price'] ?? null),
                 'unit'                => Pricing::unit($row['unit'] ?? null),
-                'low_stock_threshold' => $this->nombreOuNull($row['low_stock_threshold'] ?? null),
+                'low_stock_threshold' => $isService ? null : $this->nombreOuNull($row['low_stock_threshold'] ?? null),
                 'sku'                 => trim((string) ($row['sku'] ?? '')) ?: null,
                 // Chez qui cet article est acheté d'habitude. Un identifiant
                 // deviné ne doit pas rattacher le fournisseur du voisin :

@@ -17,7 +17,7 @@ class Product extends Model
 
     protected $table = 'tagtoa_pos_products';
 
-    protected $fillable = ['tenant_id', 'terminal_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'emoji', 'color', 'image_path', 'purchased_at', 'stock', 'is_active', 'sort'];
+    protected $fillable = ['tenant_id', 'terminal_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'unit', 'is_service', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'emoji', 'color', 'image_path', 'purchased_at', 'stock', 'is_active', 'sort'];
 
     protected $casts = [
         'price'      => 'decimal:2',
@@ -28,6 +28,8 @@ class Product extends Model
         'low_stock_threshold' => 'float',
         'stock'               => 'float',
         'is_active'           => 'boolean',
+        // Une nuitée, une consultation : rien à compter, rien à scanner.
+        'is_service'          => 'boolean',
         // Une DATE, pas un instant : « acheté le 3 mars » n'a pas d'heure, et
         // en stocker une ferait diverger l'affichage selon le fuseau.
         'purchased_at'        => 'date',
