@@ -104,7 +104,10 @@
 <template id="cattpl">
     <div class="catblock" data-ci="CIDX" style="border:1.5px solid var(--bd);border-radius:14px;padding:14px;margin-top:12px;background:#fafafa">
         <div style="display:flex;gap:8px;align-items:center">
-            <input name="cats[CIDX][icon]" class="inp" placeholder="🍔" style="max-width:64px;text-align:center">
+            {{-- Pas de champ icône : elle est déduite automatiquement du nom
+                 (« Boissons » → un verre, « Desserts » → un gâteau…), pour que
+                 le formulaire reste simple — personne ne sait quelle classe
+                 Font Awesome choisir. --}}
             <input name="cats[CIDX][name]" class="inp" placeholder="{{ __('Nom de la catégorie') }}" style="font-weight:600">
             <button type="button" class="btn btn-o btn-sm delcat" style="flex:0;color:var(--red)"
                     title="{{ __('Supprimer la catégorie') }}"><i class="fa-solid fa-trash"></i></button>
@@ -129,7 +132,6 @@
 <template id="itemtpl">
     <div class="itemrow" data-ci="CIDX" data-ii="IIDX" style="background:#fff;border:1px solid var(--bd);border-radius:11px;padding:10px;margin-bottom:8px">
         <div style="display:flex;gap:8px;align-items:center">
-            <input name="cats[CIDX][items][IIDX][emoji]" class="inp" placeholder="🍔" style="max-width:56px;text-align:center">
             <input name="cats[CIDX][items][IIDX][name]" class="inp tt-itemname" placeholder="{{ __('Nom') }}">
             <input name="cats[CIDX][items][IIDX][price]" class="inp tt-price" type="number" step="0.01" min="0" placeholder="{{ __('Prix') }}" style="max-width:130px">
             <button type="button" class="btn btn-o btn-sm delitem" style="flex:0;color:var(--red)"
@@ -139,7 +141,10 @@
         <div style="display:flex;gap:16px;align-items:center;margin-top:8px;flex-wrap:wrap">
             <div style="display:flex;align-items:center;gap:8px">
                 <img class="itemphoto" style="height:40px;width:40px;border-radius:8px;object-fit:cover;display:none">
-                <input name="cats[CIDX][items][IIDX][image]" class="inp" type="file" accept="image/*" style="max-width:190px" onchange="previewItemImage(this)">
+                {{-- `capture="environment"` ouvre directement l'appareil photo
+                     arrière sur téléphone, sans empêcher de choisir une photo
+                     déjà prise dans la galerie. --}}
+                <input name="cats[CIDX][items][IIDX][image]" class="inp" type="file" accept="image/*" capture="environment" style="max-width:190px" onchange="previewItemImage(this)">
                 <label class="switch removeimgwrap" style="flex:0;display:none"><input type="checkbox" name="cats[CIDX][items][IIDX][remove_image]" value="1"> {{ __('Retirer') }}</label>
             </div>
             <input name="cats[CIDX][items][IIDX][badge]" class="inp" placeholder="{{ __('Badge: Nouveau, Promo…') }}" style="max-width:200px">
@@ -448,7 +453,6 @@ function addItem(catEl, d){
     var row = box.firstElementChild;
     catEl.querySelector('.items').appendChild(row);
     if (d){
-        row.querySelector('[name$="[emoji]"]').value = d.emoji || '';
         row.querySelector('[name$="[name]"]').value = d.name || '';
         row.querySelector('[name$="[price]"]').value = (d.price != null ? d.price : '');
         row.querySelector('[name$="[description]"]').value = d.description || '';
@@ -501,7 +505,6 @@ function addCat(d){
     var block = box.firstElementChild;
     document.getElementById('cats').appendChild(block);
     if (d){
-        block.querySelector('[name$="[icon]"]').value = d.icon || '';
         block.querySelector('[name$="[name]"]').value = d.name || '';
         var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][id]'; h.value=d.id; block.appendChild(h);
         var trad = d.translations || {};
@@ -527,7 +530,7 @@ function addCat(d){
             'id' => $c->id, 'name' => $c->name, 'icon' => $c->icon,
             'translations' => $c->translations ?: (object) [],
             'items' => $c->items->map(fn ($i) => [
-                'id' => $i->id, 'name' => $i->name, 'emoji' => $i->emoji, 'price' => $i->price,
+                'id' => $i->id, 'name' => $i->name, 'price' => $i->price,
                 'description' => $i->description, 'badge' => $i->badge, 'is_available' => $i->is_available,
                 'is_featured' => $i->is_featured, 'stock' => $i->stock, 'image_url' => $i->image_url,
                 'cost_price' => $i->cost_price, 'unit' => $i->unit_key,

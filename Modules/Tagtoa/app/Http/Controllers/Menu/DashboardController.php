@@ -265,6 +265,9 @@ $data = $this->validateMenu($request);
         $request->validate([
             'cats'                               => ['array', 'max:200'],
             'cats.*.name'                        => ['nullable', 'string', 'max:120'],
+            // Le formulaire ne propose plus ce champ (icône déduite du nom) ;
+            // la règle reste pour tout appel direct à l'API qui en enverrait un.
+            'cats.*.icon'                        => ['nullable', 'string', 'max:40', 'regex:/^fa-[a-z0-9-]+$/'],
             'cats.*.items'                       => ['array', 'max:500'],
             'cats.*.items.*.name'                => ['nullable', 'string', 'max:160'],
             'cats.*.items.*.price'               => ['nullable', 'numeric', 'min:0', 'max:99999999'],

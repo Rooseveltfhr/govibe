@@ -34,8 +34,9 @@
         a{text-decoration:none;color:inherit}
         .wrap{max-width:560px;margin:0 auto;padding-bottom:120px}
         /* Header */
-        .cover{height:180px;background:linear-gradient(150deg,var(--acc),#0A0A0A);position:relative;background-size:cover;background-position:center}
+        .cover{height:180px;background:linear-gradient(150deg,var(--acc),#0A0A0A);position:relative;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;overflow:hidden}
         .cover::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 60%)}
+        .cover-fallback{font-size:96px;color:rgba(255,255,255,.22)}
         .head{padding:0 20px;margin-top:-44px;position:relative;z-index:2}
         .logo{width:84px;height:84px;border-radius:20px;border:3px solid var(--surf);background:var(--surf);object-fit:cover;display:flex;align-items:center;justify-content:center;font:700 30px var(--fh);color:var(--acc);box-shadow:0 8px 26px rgba(0,0,0,.18)}
         .title{font:700 24px var(--fh);margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -141,7 +142,13 @@
 <body>
 <div style="position:fixed;top:12px;right:12px;z-index:50">@include('tagtoa::partials.lang')</div>
 <div class="wrap">
-    <div class="cover" @if($menu->cover_url) style="background-image:url('{{ $menu->cover_url }}')" @endif></div>
+    {{-- Sans couverture envoyée, jamais un bandeau vide : l'icône du métier
+         (restaurant, bar, hôtel…) sert de couverture par défaut, en filigrane
+         sur le dégradé — aucune photo de stock à charger, ça marche même hors
+         ligne. --}}
+    <div class="cover" @if($menu->cover_url) style="background-image:url('{{ $menu->cover_url }}')" @endif>
+        @unless($menu->cover_url)<i class="cover-fallback {{ $tm['icon'] }}" aria-hidden="true"></i>@endunless
+    </div>
     <div class="head">
         @if($menu->logo_url)<img class="logo" src="{{ $menu->logo_url }}" alt="">
         @else<div class="logo">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($menu->name,0,1)) }}</div>@endif
