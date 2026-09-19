@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Exceptions\InsufficientStockException;
 use Modules\Tagtoa\App\Models\Pos\Sale;
 use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Pos\PosCatalog;
@@ -94,7 +95,16 @@ class PosController extends Controller
             'client_uuid'        => ['nullable', 'string', 'max:64'],
         ]);
 
-        $sale = $this->service->recordSale($terminal, $data, $this->currentStaff($terminal));
+        try {
+            $sale = $this->service->recordSale($terminal, $data, $this->currentStaff($terminal));
+        } catch (InsufficientStockException $e) {
+            // 409 (conflit), pas 422 : la requête elle-même était valide, c'est
+            // l'état du stock — lu SOUS VERROU dans StockLedger — qui l'a
+            // refusée. Deux caisses qui vendent le dernier article en même
+            // temps, ou un code scanné deux fois de suite, tombent ici plutôt
+            // que d'écrire un stock négatif en silence.
+            return response()->json(['ok' => false, 'error' => $this->messageStockInsuffisant($e)], 409);
+        }
 
         // Le TOTAL vient du serveur, toujours : avec des prix hors taxe, il est
         // supérieur à ce que la caisse avait calculé, et c'est ce montant-là
@@ -106,6 +116,20 @@ class PosController extends Controller
             'tax'       => (float) $sale->tax_total,
             'tax_label' => $sale->tax_label,
         ]);
+    }
+
+    /** Message lisible depuis une rupture de stock détectée à l'encaissement. */
+    private function messageStockInsuffisant(InsufficientStockException $e): string
+    {
+        if ($e->productName === null) {
+            return __('Stock insuffisant.');
+        }
+
+        // Trois décimales suffisent (une livre, une mamit) ; les zéros de fin
+        // n'apportent rien à qui lit « reste 2 » plutôt que « reste 2.000 ».
+        $reste = rtrim(rtrim(number_format($e->available ?? 0, 3, '.', ''), '0'), '.');
+
+        return __('Stock insuffisant pour « :nom » (reste :reste).', ['nom' => $e->productName, 'reste' => $reste]);
     }
 
     public function sync(Request $request, int $id): JsonResponse
@@ -121,6 +145,12 @@ class PosController extends Controller
             try {
                 $sale = $this->service->recordSale($terminal, $payload, $staff);
                 $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => true, 'reference' => $sale->reference];
+            } catch (InsufficientStockException $e) {
+                // Vente faite hors ligne pendant que le stock s'épuisait
+                // ailleurs : elle ne peut pas être rejouée telle quelle. Le
+                // caissier le voit au retour du réseau plutôt que de croire
+                // une vente acquise qui ne l'est pas.
+                $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => false, 'error' => $this->messageStockInsuffisant($e)];
             } catch (\Throwable $e) {
                 $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => false, 'error' => $e->getMessage()];
             }
