@@ -43,6 +43,13 @@ class MenuOrderService
             return $existing;
         }
 
+        // Horaires configurés et hors plage : refuser AVANT d'ouvrir la
+        // transaction — un client ne doit pas pouvoir commander à 3h du matin
+        // parce que la cuisine ne surveille plus l'écran.
+        if (! $menu->isOpenNow()) {
+            throw new \RuntimeException('closed');
+        }
+
         try {
             $order = $this->insertOrder($menu, $payload, $uuid);
         } catch (QueryException $e) {

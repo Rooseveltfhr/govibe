@@ -79,6 +79,7 @@ class PublicController extends Controller
             $message = match ($e->getMessage()) {
                 'out_of_stock'            => __('Un article est en rupture de stock. Ajustez votre commande.'),
                 'missing_required_option' => __('Choisissez une option obligatoire pour chaque article.'),
+                'closed'                  => __('Ce commerce est fermé pour le moment. Revenez pendant les heures d\'ouverture.'),
                 default                   => __('Votre commande est vide.'),
             };
 

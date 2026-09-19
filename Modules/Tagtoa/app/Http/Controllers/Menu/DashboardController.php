@@ -16,6 +16,7 @@ use Modules\Tagtoa\App\Models\Menu\Order;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Services\Menu\MenuOrderService;
 use Modules\Tagtoa\App\Support\Locale;
+use Modules\Tagtoa\App\Support\Menu\BusinessHours;
 use Modules\Tagtoa\App\Support\Menu\BusinessProfile;
 use Modules\Tagtoa\App\Support\Menu\Translatable;
 use Modules\Tagtoa\App\Support\Catalog\Pricing;
@@ -229,7 +230,7 @@ $data = $this->validateMenu($request);
         $ownVcardIds = $this->vcards()->pluck('id')->all();
         $ownPayIds   = $this->payPages()->pluck('id')->all();
 
-        return $request->validate([
+        $data = $request->validate([
             'vcard_id'         => ['nullable', 'integer', Rule::in($ownVcardIds)],
             'name'             => ['required', 'string', 'max:160'],
             'alias'            => ['nullable', 'string', 'max:120', 'alpha_dash', 'unique:tagtoa_menus,alias'.($ignoreId ? ','.$ignoreId : '')],
@@ -248,7 +249,17 @@ $data = $this->validateMenu($request);
             'is_active'        => ['nullable', 'boolean'],
             'logo'             => ['nullable', 'image', 'max:2048'],
             'cover'            => ['nullable', 'image', 'max:4096'],
+            'show_hours'       => ['nullable', 'boolean'],
+            'timezone'         => ['nullable', 'string', 'max:64', Rule::in(\DateTimeZone::listIdentifiers())],
+            // Structure libre ici : chaque jour est nettoyé par
+            // BusinessHours::sanitize(), qui ignore silencieusement tout ce
+            // qui n'est pas une heure valide plutôt que de rejeter l'envoi.
+            'hours'            => ['nullable', 'array'],
         ]);
+
+        $data['hours'] = BusinessHours::sanitize($data['hours'] ?? null);
+
+        return $data;
     }
 
     /**

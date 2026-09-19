@@ -73,6 +73,46 @@
         <label class="switch"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" @checked(old('is_active',$menu->is_active ?? true))> {{ __('Menu actif (visible au public)') }}</label>
     </div>
 
+    {{-- ----- Horaires ----- --}}
+    <div class="card">
+        <div class="h-row"><h2>{{ __('Horaires d\'ouverture') }}</h2></div>
+        <label class="switch"><input type="hidden" name="show_hours" value="0"><input type="checkbox" name="show_hours" value="1" @checked(old('show_hours',$menu->show_hours ?? false))> {{ __('Afficher les horaires sur le menu public') }}</label>
+        <p style="color:var(--muted);font-size:13px;margin-top:4px">
+            {{ __('Sans horaire renseigné pour un jour, le commerce reste ouvert ce jour-là. Une commande est toujours refusée en dehors des heures indiquées, que cette case soit cochée ou non.') }}
+        </p>
+        <label class="lbl">{{ __('Fuseau horaire') }}</label>
+        <select class="sel" name="timezone">
+            @foreach(['America/Port-au-Prince','America/New_York','America/Santo_Domingo','America/Nassau','America/Toronto','Europe/Paris','America/Miquelon'] as $tz)
+                <option value="{{ $tz }}" @selected(old('timezone',$menu->timezone ?: 'America/Port-au-Prince')===$tz)>{{ $tz }}</option>
+            @endforeach
+        </select>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+            @foreach(\Modules\Tagtoa\App\Support\Menu\BusinessHours::DAYS as $jour)
+                @php
+                    $joursLabels = ['mon'=>__('Lundi'),'tue'=>__('Mardi'),'wed'=>__('Mercredi'),'thu'=>__('Jeudi'),'fri'=>__('Vendredi'),'sat'=>__('Samedi'),'sun'=>__('Dimanche')];
+                    $plage = $menu->hours[$jour] ?? null;
+                    // Un menu qui n'a JAMAIS renseigné d'horaires ne doit pas
+                    // afficher les sept jours cochés « Fermé » — ça alarmerait
+                    // pour rien. Seul un menu qui a déjà des horaires ($menu->hours
+                    // non nul) sait vraiment distinguer un jour fermé d'un jour
+                    // simplement pas encore rempli.
+                    $fermeParDefaut = $menu->hours !== null && ! $plage;
+                @endphp
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <span style="min-width:88px;font-weight:600;font-size:13.5px">{{ $joursLabels[$jour] }}</span>
+                    <label class="switch" style="flex:0">
+                        <input type="checkbox" name="hours[{{ $jour }}][closed]" value="1" @checked(old("hours.$jour.closed", $fermeParDefaut))
+                               onchange="this.closest('div').querySelectorAll('input[type=time]').forEach(function(i){ i.disabled = this.checked; }, this)">
+                        {{ __('Fermé') }}
+                    </label>
+                    <input class="inp" type="time" name="hours[{{ $jour }}][open]" value="{{ old('hours.'.$jour.'.open', $plage['open'] ?? '') }}" style="max-width:120px" @disabled(old("hours.$jour.closed", $fermeParDefaut))>
+                    <span>—</span>
+                    <input class="inp" type="time" name="hours[{{ $jour }}][close]" value="{{ old('hours.'.$jour.'.close', $plage['close'] ?? '') }}" style="max-width:120px" @disabled(old("hours.$jour.closed", $fermeParDefaut))>
+                </div>
+            @endforeach
+        </div>
+    </div>
+
     {{-- ----- Catégories & produits ----- --}}
     <div class="card">
         <div class="h-row">

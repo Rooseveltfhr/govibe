@@ -10,6 +10,7 @@
     $tm   = $menu->type_meta;
     $canOrder = $menu->ordering_enabled && $menu->whatsapp_digits;
     $cur = $menu->currency ?: 'HTG';
+    $ouvert = $menu->isOpenNow();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ app()->getLocale() }}">
@@ -152,13 +153,36 @@
     <div class="head">
         @if($menu->logo_url)<img class="logo" src="{{ $menu->logo_url }}" alt="">
         @else<div class="logo">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($menu->name,0,1)) }}</div>@endif
-        <div class="title">{{ $menu->name }} <span class="badge-type"><i class="{{ $tm['icon'] }}"></i> {{ __($tm['label']) }}</span></div>
+        <div class="title">{{ $menu->name }} <span class="badge-type"><i class="{{ $tm['icon'] }}"></i> {{ __($tm['label']) }}</span>
+            {{-- Le commerce choisit d'afficher ses horaires (show_hours) ; sans
+                 lui, une commande hors plage reste refusée, mais on n'affiche
+                 pas « Fermé » à un visiteur pour un menu jamais configuré. --}}
+            @if($menu->show_hours && $menu->hours)
+                <span class="badge-type" style="{{ $ouvert ? '' : 'background:color-mix(in srgb,#e11 16%,transparent);color:#e11' }}">
+                    <i class="fa-solid fa-clock"></i> {{ $ouvert ? __('Ouvert maintenant') : __('Fermé maintenant') }}
+                </span>
+            @endif
+        </div>
         @if($menu->translated('tagline'))<div class="tag">{{ $menu->translated('tagline') }}</div>@endif
         <div class="meta">
             @if($menu->address)<span><i class="fa-solid fa-location-dot"></i> {{ $menu->address }}</span>@endif
             @if($menu->phone)<a href="tel:{{ $menu->phone }}"><i class="fa-solid fa-phone"></i> {{ $menu->phone }}</a>@endif
             @if($menu->whatsapp_digits)<a href="https://wa.me/{{ $menu->whatsapp_digits }}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>@endif
         </div>
+        @if($menu->show_hours && $menu->hours)
+            <details style="margin-top:10px">
+                <summary style="cursor:pointer;color:var(--mut);font-size:13.5px"><i class="fa-solid fa-clock"></i> {{ __('Horaires') }}</summary>
+                <div style="margin-top:8px;display:flex;flex-direction:column;gap:3px;font-size:13.5px;color:var(--mut)">
+                    @foreach(\Modules\Tagtoa\App\Support\Menu\BusinessHours::DAYS as $jour)
+                        @php $joursLabels = ['mon'=>__('Lundi'),'tue'=>__('Mardi'),'wed'=>__('Mercredi'),'thu'=>__('Jeudi'),'fri'=>__('Vendredi'),'sat'=>__('Samedi'),'sun'=>__('Dimanche')]; @endphp
+                        <div style="display:flex;justify-content:space-between;gap:12px;max-width:280px">
+                            <span>{{ $joursLabels[$jour] }}</span>
+                            <span>{{ \Modules\Tagtoa\App\Support\Menu\BusinessHours::rangeLabel($menu->hours, $jour) }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            </details>
+        @endif
         @if($menu->translated('description'))<p class="tag" style="margin-top:12px">{{ $menu->translated('description') }}</p>@endif
     </div>
 

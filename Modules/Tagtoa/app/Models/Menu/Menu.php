@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Support\BelongsToTenant;
+use Modules\Tagtoa\App\Support\Menu\BusinessHours;
 use Modules\Tagtoa\App\Support\Menu\Translatable;
 
 /**
@@ -43,7 +44,7 @@ class Menu extends Model
         'vcard_id', 'tenant_id', 'name', 'alias', 'type', 'tagline', 'description',
         'logo_path', 'cover_path', 'currency', 'whatsapp', 'phone', 'address',
         'pay_page_id', 'accent_color', 'theme', 'show_prices', 'ordering_enabled',
-        'is_active', 'views', 'translations',
+        'is_active', 'views', 'translations', 'hours', 'show_hours', 'timezone',
     ];
 
     protected $casts = [
@@ -52,6 +53,8 @@ class Menu extends Model
         'is_active'        => 'boolean',
         'views'            => 'integer',
         'translations'     => 'array',
+        'hours'            => 'array',
+        'show_hours'       => 'boolean',
     ];
 
     /** Les seuls champs qu'une traduction peut porter — jamais le prix, jamais l'alias. */
@@ -121,6 +124,17 @@ class Menu extends Model
     public function getWhatsappDigitsAttribute(): ?string
     {
         return $this->whatsapp ? preg_replace('/\D+/', '', $this->whatsapp) : null;
+    }
+
+    /**
+     * Le commerce est-il ouvert MAINTENANT ? Sans horaires configurés,
+     * toujours vrai — voir BusinessHours::isOpenAt(). Le fuseau retombe sur
+     * Haïti : c'est le marché d'origine de TAGTOA, et un menu créé avant
+     * l'ajout de ce champ n'en porte aucun.
+     */
+    public function isOpenNow(): bool
+    {
+        return BusinessHours::isOpenAt($this->hours, now($this->timezone ?: 'America/Port-au-Prince'));
     }
 
     /**
