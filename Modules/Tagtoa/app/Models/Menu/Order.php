@@ -42,13 +42,20 @@ class Order extends Model
         'menu_id', 'tenant_id', 'reference', 'subtotal', 'total', 'tip', 'currency',
         'status', 'payment_status', 'channel', 'order_type', 'customer_name', 'customer_phone',
         'table_label', 'delivery_address', 'note', 'client_uuid', 'placed_at',
+        'tax_total', 'tax_base', 'tax_inclusive', 'tax_label', 'tax_breakdown',
     ];
 
     protected $casts = [
-        'subtotal'  => 'decimal:2',
-        'total'     => 'decimal:2',
-        'tip'       => 'decimal:2',
-        'placed_at' => 'datetime',
+        'subtotal'      => 'decimal:2',
+        'total'         => 'decimal:2',
+        'tip'           => 'decimal:2',
+        'placed_at'     => 'datetime',
+        // Copiés sur la commande : changer le réglage du commerce ne doit
+        // jamais retourner le sens d'une commande déjà passée.
+        'tax_total'     => 'decimal:2',
+        'tax_base'      => 'decimal:2',
+        'tax_inclusive' => 'boolean',
+        'tax_breakdown' => 'array',
     ];
 
     public static function generateReference(): string

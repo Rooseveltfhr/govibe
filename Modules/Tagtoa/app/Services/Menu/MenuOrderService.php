@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Services\Menu;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Loyalty\Card;
 use Modules\Tagtoa\App\Models\Menu\Menu;
@@ -9,6 +10,7 @@ use Modules\Tagtoa\App\Models\Menu\Order;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
 use Modules\Tagtoa\App\Services\Inventory\StockLedger;
 use Modules\Tagtoa\App\Services\Order\OrderSpine;
+use Modules\Tagtoa\App\Services\Tax\TaxProfile;
 use Modules\Tagtoa\App\Support\Order\Channel;
 use Modules\Tagtoa\App\Support\Order\OrderStatus;
 use Modules\Tagtoa\App\Services\Inventory\StockService;
@@ -16,6 +18,7 @@ use Modules\Tagtoa\App\Support\Inventory\MovementType;
 use Modules\Tagtoa\App\Services\Loyalty\LoyaltyCardService;
 use Modules\Tagtoa\App\Services\Notifications\NotificationService;
 use Modules\Tagtoa\App\Support\Menu\ItemOptionPricing;
+use Modules\Tagtoa\App\Support\Tax\Tax;
 
 /**
  * TAGTOA MENU — capture & gestion des commandes.
@@ -40,9 +43,43 @@ class MenuOrderService
             return $existing;
         }
 
-        $order = DB::transaction(function () use ($menu, $payload, $uuid) {
+        try {
+            $order = $this->insertOrder($menu, $payload, $uuid);
+        } catch (QueryException $e) {
+            // Double-tap réseau lent : deux requêtes ont pu passer la
+            // vérification ci-dessus avant que l'une des deux ne pose la
+            // contrainte unique sur client_uuid. Sans ce filet, la seconde
+            // remontait une erreur 500 au client au lieu de lui rendre sa
+            // commande déjà enregistrée par la première.
+            if ($uuid && $this->isDuplicateClientUuid($e)) {
+                $existing = Order::where('client_uuid', $uuid)->first();
+                if ($existing) {
+                    return $existing;
+                }
+            }
+
+            throw $e;
+        }
+
+        // Notifications hors transaction (tolérant, opt-in) : nouvelle commande.
+        $this->notifyMerchant($menu, $order);
+        $this->notifyCustomer($menu, $order);
+
+        return $order;
+    }
+
+    protected function insertOrder(Menu $menu, array $payload, ?string $uuid): Order
+    {
+        return DB::transaction(function () use ($menu, $payload, $uuid) {
             // Catalogue autorisé : articles disponibles de ce menu, indexés par id.
             $catalog = $menu->items()->where('is_available', true)->with('options.choices')->get()->keyBy('id');
+
+            // Régime de taxe du commerce, lu UNE fois : le relire à chaque
+            // ligne ferait autant de requêtes pour une réponse identique.
+            // C'est la même colonne, le même moteur, que la caisse POS —
+            // un commerce qui l'active la voit désormais partout, pas
+            // seulement au comptoir.
+            $taxe = TaxProfile::current($menu->tenant_id);
 
             $lines = [];
             $subtotal = 0.0;
@@ -61,8 +98,16 @@ class MenuOrderService
                 [$optionsExtra, $optionsSnapshot] = $this->resolveOptions($item, $it['options'] ?? []);
 
                 $price = round((float) $item->price + $optionsExtra, 2);
-                $subtotal += $price * $qty;
-                $lines[] = ['item' => $item, 'price' => $price, 'qty' => $qty, 'options' => $optionsSnapshot];
+                $ligneTotal = round($price * $qty, 2);
+                $subtotal += $ligneTotal;
+                // Taux du JOUR de la commande, figé sur la ligne — comme le
+                // prix : un taux relevé demain ne doit pas recalculer une
+                // commande déjà passée aujourd'hui.
+                $tauxLigne = $taxe->rateFor($item);
+                $lines[] = [
+                    'item' => $item, 'price' => $price, 'qty' => $qty, 'options' => $optionsSnapshot,
+                    'line_total' => $ligneTotal, 'tax_rate' => $tauxLigne,
+                ];
             }
 
             if (! $lines) {
@@ -71,7 +116,19 @@ class MenuOrderService
 
             $subtotal = round($subtotal, 2);
             $tip = max(0, round((float) ($payload['tip'] ?? 0), 2));
-            $total = round($subtotal + $tip, 2);
+
+            $recap = Tax::summarize(
+                array_map(fn ($l) => ['amount' => $l['line_total'], 'rate' => $l['tax_rate']], $lines),
+                $taxe->inclusive
+            );
+
+            // Prix TTC (usage haïtien) : le sous-total contient déjà la
+            // taxe, seul le pourboire s'ajoute. Prix HT : la taxe s'ajoute
+            // au total, et le client paie davantage que le sous-total affiché.
+            $total = $taxe->inclusive
+                ? round($subtotal + $tip, 2)
+                : round($recap['total'] + $tip, 2);
+
             $requestedType = $payload['order_type'] ?? 'dine_in';
             $orderType = in_array($requestedType, Order::ORDER_TYPES, true) ? $requestedType : 'dine_in';
             $requestedChannel = $payload['channel'] ?? 'menu';
@@ -95,9 +152,21 @@ class MenuOrderService
                 'note'             => $payload['note'] ?? null,
                 'client_uuid'      => $uuid,
                 'placed_at'        => now(),
+                // Copiés sur la commande, comme sur la vente POS : changer le
+                // réglage du commerce ne doit jamais retourner le sens d'une
+                // commande déjà passée.
+                'tax_total'        => $recap['tax'],
+                'tax_base'         => $recap['base'],
+                'tax_inclusive'    => $taxe->inclusive,
+                'tax_label'        => $taxe->enabled ? $taxe->label() : null,
+                'tax_breakdown'    => $recap['tax'] > 0 ? array_values($recap['byRate']) : null,
             ]);
 
             foreach ($lines as $l) {
+                // Part de taxe de CETTE ligne — pour que le détail se
+                // ré-additionne exactement sur le total de la commande.
+                $partLigne = Tax::split($l['line_total'], $l['tax_rate'], $taxe->inclusive);
+
                 $order->items()->create([
                     'item_id'          => $l['item']->id,
                     // Le nom FIGÉ sur la ligne est celui que le CLIENT a vu au
@@ -108,8 +177,10 @@ class MenuOrderService
                     'name'             => $l['item']->translated('name'),
                     'price'            => $l['price'],
                     'qty'              => $l['qty'],
-                    'line_total'       => round($l['price'] * $l['qty'], 2),
+                    'line_total'       => $l['line_total'],
                     'selected_options' => $l['options'] ?: null,
+                    'tax_rate'         => $taxe->enabled ? $l['tax_rate'] : null,
+                    'tax_amount'       => $taxe->enabled ? $partLigne['tax'] : null,
                 ]);
 
                 // Le stock passe par le journal, jamais par une écriture
@@ -134,6 +205,8 @@ class MenuOrderService
                 'source_id'      => $order->id,
                 'reference'      => $order->reference,
                 'subtotal'       => (float) $order->subtotal,
+                'tax_base'       => $recap['base'],
+                'tax_total'      => $recap['tax'],
                 'total'          => (float) $order->total,
                 'currency'       => $order->currency,
                 'status'         => OrderStatus::PENDING,
@@ -147,12 +220,17 @@ class MenuOrderService
 
             return $order;
         });
+    }
 
-        // Notifications hors transaction (tolérant, opt-in) : nouvelle commande.
-        $this->notifyMerchant($menu, $order);
-        $this->notifyCustomer($menu, $order);
+    /** Vrai si l'exception vient de la contrainte unique sur client_uuid, pas d'autre chose. */
+    private function isDuplicateClientUuid(QueryException $e): bool
+    {
+        $message = $e->getMessage();
 
-        return $order;
+        return str_contains($message, 'client_uuid') && (
+            str_contains($message, 'Integrity constraint violation')
+            || str_contains($message, 'UNIQUE constraint failed')
+        );
     }
 
     /**
