@@ -87,129 +87,6 @@
         </section>
     @endif
 
-    <section id="lieux-historiques" class="border-b border-msn-sand-200 py-16">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Lieux historiques</h2>
-            <p class="mt-2 text-msn-ink-700">Forts, monuments et sites du patrimoine.</p>
-
-            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @forelse ($sites as $site)
-                    <a href="{{ route('lieux-historiques.show', $site->slug) }}"
-                       class="block overflow-hidden rounded-2xl border border-msn-sand-200 bg-white shadow-sm transition hover:shadow-md">
-                        <x-photo-placeholder icon="landmark" class="h-28 w-full" />
-                        <div class="p-5">
-                            <h3 class="font-semibold text-msn-ink-900">{{ $site->name }}</h3>
-                            <p class="mt-1 text-sm text-msn-ink-700 line-clamp-2">{{ $site->description ?: '[Information à compléter]' }}</p>
-                        </div>
-                    </a>
-                @empty
-                    <p class="text-msn-ink-700">[Information à compléter — aucun lieu historique enregistré]</p>
-                @endforelse
-            </div>
-
-            <a href="{{ route('lieux-historiques.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
-                Voir tous les lieux historiques &rarr;
-            </a>
-        </div>
-    </section>
-
-    <section id="territoire" class="border-b border-msn-sand-200 py-16">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Territoire et sections communales</h2>
-            <p class="mt-2 text-msn-ink-700">L'arrondissement de {{ $arrondissement?->name ?? 'Môle-Saint-Nicolas' }} et ses communes.</p>
-
-            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                @forelse ($arrondissement?->communes ?? [] as $commune)
-                    <a href="{{ route('territoire.commune', $commune->slug) }}"
-                       class="block rounded-2xl border border-msn-sand-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-                        <h3 class="font-semibold text-msn-ink-900">{{ $commune->name }}</h3>
-                    </a>
-                @empty
-                    <p class="text-msn-ink-700">[Information à compléter]</p>
-                @endforelse
-            </div>
-
-            <a href="{{ route('territoire.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
-                Voir tout le territoire &rarr;
-            </a>
-        </div>
-    </section>
-
-    <section id="sejour" class="border-b border-msn-sand-200 py-16">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Où séjourner ?</h2>
-            <p class="mt-2 text-msn-ink-700">Hôtels et hébergements à Môle-Saint-Nicolas.</p>
-
-            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @forelse ($hotels as $hotel)
-                    <a href="{{ route('hotels.show', $hotel->slug) }}"
-                       class="block overflow-hidden rounded-2xl border border-msn-sand-200 bg-white shadow-sm transition hover:shadow-md">
-                        <x-photo-placeholder class="h-28 w-full" />
-                        <div class="p-5">
-                            <h3 class="font-semibold text-msn-ink-900">{{ $hotel->name }}</h3>
-                            <p class="mt-1 text-sm text-msn-ink-700 line-clamp-2">{{ $hotel->description ?: '[Information à compléter]' }}</p>
-                        </div>
-                    </a>
-                @empty
-                    <p class="text-msn-ink-700">[Information à compléter — aucun hôtel enregistré]</p>
-                @endforelse
-            </div>
-
-            <a href="{{ route('hotels.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
-                Voir tous les hôtels &rarr;
-            </a>
-        </div>
-    </section>
-
-    <section id="restaurants" class="border-b border-msn-sand-200 py-16">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Restaurants et bars</h2>
-            <p class="mt-2 text-msn-ink-700">Où manger et boire un verre à Môle-Saint-Nicolas.</p>
-
-            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @forelse ($restaurants as $restaurant)
-                    <a href="{{ route('restaurants.show', $restaurant->slug) }}"
-                       class="block overflow-hidden rounded-2xl border border-msn-sand-200 bg-white shadow-sm transition hover:shadow-md">
-                        <x-photo-placeholder class="h-28 w-full" />
-                        <div class="p-5">
-                            <h3 class="font-semibold text-msn-ink-900">{{ $restaurant->name }}</h3>
-                            <p class="mt-1 text-sm text-msn-ink-700 line-clamp-2">{{ $restaurant->description ?: '[Information à compléter]' }}</p>
-                        </div>
-                    </a>
-                @empty
-                    <p class="text-msn-ink-700">[Information à compléter — aucun restaurant enregistré]</p>
-                @endforelse
-            </div>
-
-            <a href="{{ route('restaurants.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
-                Voir tous les restaurants &rarr;
-            </a>
-        </div>
-    </section>
-
-    <section id="actualites" class="border-b border-msn-sand-200 py-16">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Dernières actualités</h2>
-
-            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @forelse ($posts as $post)
-                    <a href="{{ route('actualites.show', $post->slug) }}"
-                       class="block rounded-2xl border border-msn-sand-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-                        <h3 class="font-semibold text-msn-ink-900">{{ $post->title }}</h3>
-                        <p class="mt-1 text-xs uppercase tracking-wide text-msn-ink-700/70">{{ $post->published_at->format('d/m/Y') }}</p>
-                        <p class="mt-2 text-sm text-msn-ink-700 line-clamp-2">{{ $post->excerpt ?: '[Information à compléter]' }}</p>
-                    </a>
-                @empty
-                    <p class="text-msn-ink-700">[Contenu à compléter — aucun article publié pour l'instant]</p>
-                @endforelse
-            </div>
-
-            <a href="{{ route('actualites.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
-                Voir toutes les actualités &rarr;
-            </a>
-        </div>
-    </section>
-
     <section id="carte" class="py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Carte interactive</h2>
@@ -225,81 +102,58 @@
         </div>
     </section>
 
-    <section id="centre-ville" class="border-t border-msn-sand-200 py-16">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Centre-ville</h2>
-            <p class="mt-3 text-msn-ink-700">Découvrir le cœur de Môle-Saint-Nicolas.</p>
-            <a href="{{ route('centre-ville.index') }}" class="mt-4 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
-                Voir la page centre-ville &rarr;
-            </a>
-        </div>
-    </section>
+    @if ($photos->isNotEmpty())
+        <section id="galerie" class="border-t border-msn-sand-200 py-16">
+            <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+                <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Galerie photos</h2>
 
-    <section id="explorer" class="border-t border-msn-sand-200 py-16">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Activités et expériences</h2>
-            <p class="mt-2 text-msn-ink-700">Explorer Môle-Saint-Nicolas autrement.</p>
+                <div class="relative mt-6" x-data="{
+                        slides: {{ $photos->count() }},
+                        current: 0,
+                        auto: null,
+                        start() { this.auto = setInterval(() => this.next(), 5000) },
+                        next() { this.current = (this.current + 1) % this.slides },
+                        prev() { this.current = (this.current - 1 + this.slides) % this.slides },
+                    }"
+                    x-init="start()">
+                    <div class="aspect-video overflow-hidden rounded-2xl border border-msn-sand-200 bg-msn-sand-200">
+                        @foreach ($photos as $index => $photo)
+                            <img x-show="current === {{ $index }}" x-transition.opacity.duration.700ms
+                                 src="{{ $photo->url }}" alt="{{ $photo->title ?: 'Môle-Saint-Nicolas' }}"
+                                 class="h-full w-full object-cover" loading="lazy" style="display: none">
+                        @endforeach
+                    </div>
 
-            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @forelse ($activities as $activity)
-                    <a href="{{ route('explorer.show', $activity->slug) }}"
-                       class="block overflow-hidden rounded-2xl border border-msn-sand-200 bg-white shadow-sm transition hover:shadow-md">
-                        <x-photo-placeholder icon="map" class="h-28 w-full" />
-                        <div class="p-5">
-                            <h3 class="font-semibold text-msn-ink-900">{{ $activity->title }}</h3>
-                            <p class="mt-1 text-sm text-msn-ink-700 line-clamp-2">{{ $activity->description }}</p>
+                    @if ($photos->count() > 1)
+                        <button type="button" @click="auto && clearInterval(auto); prev(); start()"
+                                class="absolute top-1/2 left-3 -translate-y-1/2 rounded-full bg-white/90 p-2 text-msn-ink-900 shadow hover:bg-white"
+                                aria-label="Photo précédente">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+                        <button type="button" @click="auto && clearInterval(auto); next(); start()"
+                                class="absolute top-1/2 right-3 -translate-y-1/2 rounded-full bg-white/90 p-2 text-msn-ink-900 shadow hover:bg-white"
+                                aria-label="Photo suivante">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                        <div class="mt-4 flex justify-center gap-2">
+                            @foreach ($photos as $index => $photo)
+                                <button type="button" @click="auto && clearInterval(auto); current = {{ $index }}; start()"
+                                        class="h-2 w-2 rounded-full"
+                                        :class="current === {{ $index }} ? 'bg-msn-terracotta-500' : 'bg-msn-sand-200'"
+                                        aria-label="Aller à la photo {{ $index + 1 }}"></button>
+                            @endforeach
                         </div>
-                    </a>
-                @empty
-                    <p class="text-msn-ink-700">[Information à compléter — aucune activité enregistrée]</p>
-                @endforelse
+                    @endif
+                </div>
+
+                <a href="{{ route('galerie.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
+                    Voir la galerie complète &rarr;
+                </a>
             </div>
-
-            <a href="{{ route('explorer.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
-                Voir toutes les activités &rarr;
-            </a>
-        </div>
-    </section>
-
-    <section id="evenements" class="border-t border-msn-sand-200 py-16">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Événements</h2>
-
-            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @forelse ($events as $event)
-                    <a href="{{ route('evenements.show', $event->slug) }}"
-                       class="block rounded-2xl border border-msn-sand-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-                        <h3 class="font-semibold text-msn-ink-900">{{ $event->title }}</h3>
-                        <p class="mt-1 text-xs uppercase tracking-wide text-msn-ink-700/70">{{ $event->starts_at->format('d/m/Y') }}</p>
-                        <p class="mt-2 text-sm text-msn-ink-700 line-clamp-2">{{ $event->description }}</p>
-                    </a>
-                @empty
-                    <p class="text-msn-ink-700">[Contenu à compléter — aucun événement enregistré pour l'instant]</p>
-                @endforelse
-            </div>
-
-            <a href="{{ route('evenements.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
-                Voir tous les événements &rarr;
-            </a>
-        </div>
-    </section>
-
-    <section id="galerie" class="border-t border-msn-sand-200 py-16">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Galerie photos</h2>
-
-            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                @forelse ($photos as $photo)
-                    <img src="{{ $photo->url }}" alt="{{ $photo->title ?: 'Môle-Saint-Nicolas' }}"
-                         class="h-32 w-full rounded-2xl border border-msn-sand-200 object-cover" loading="lazy">
-                @empty
-                    <p class="col-span-full text-msn-ink-700">[Information à compléter — aucune photo ajoutée pour l'instant]</p>
-                @endforelse
-            </div>
-
-            <a href="{{ route('galerie.index') }}" class="mt-6 inline-block text-sm font-semibold text-msn-terracotta-500 hover:underline">
-                Voir la galerie complète &rarr;
-            </a>
-        </div>
-    </section>
+        </section>
+    @endif
 @endsection
