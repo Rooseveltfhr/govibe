@@ -7,39 +7,50 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Illustrations de démonstration (générées, pas des photos réelles) pour ne
- * pas laisser la galerie/le diaporama de l'accueil vides en attendant que le
- * client ajoute de vraies photos via /admin/galerie. Idempotent : ne tourne
- * que si la galerie est encore complètement vide, pour ne jamais revenir
- * après un ajout ou une suppression faits depuis l'admin.
+ * Photos de la galerie / diaporama de l'accueil.
+ *
+ * Historique : ce seeder a d'abord posé 5 illustrations générées (pas des
+ * photos réelles) pour ne pas laisser la galerie vide le temps que le client
+ * fournisse de vraies photos. Le client a depuis fourni 6 vraies photos —
+ * elles remplacent maintenant les illustrations, qui sont supprimées si elles
+ * sont encore là (catégorie "demo"). Idempotent au-delà de cette transition
+ * ponctuelle : ne repose jamais rien tant qu'il reste au moins une photo,
+ * pour ne jamais écraser un ajout ou une suppression faits depuis l'admin.
  */
 class PhotoSeeder extends Seeder
 {
     public function run(): void
     {
+        $demoPhotos = Photo::where('category', 'demo')->get();
+        foreach ($demoPhotos as $photo) {
+            Storage::disk('public')->delete($photo->path);
+            $photo->delete();
+        }
+
         if (Photo::count() > 0) {
             return;
         }
 
-        $sourceDir = __DIR__.'/demo-photos';
+        $sourceDir = __DIR__.'/real-photos';
         $photos = [
-            'demo-1-coucher-de-soleil.jpg' => 'Illustration — coucher de soleil sur la mer',
-            'demo-2-palmiers.jpg' => 'Illustration — palmiers',
-            'demo-3-collines.jpg' => 'Illustration — collines',
-            'demo-4-voilier.jpg' => 'Illustration — voilier',
-            'demo-5-fort.jpg' => 'Illustration — fort',
+            '1-rue-de-nuit.jpg' => ['title' => 'Rue de Môle-Saint-Nicolas, de nuit', 'category' => 'paysage'],
+            '2-plage.jpg' => ['title' => 'Plage de Môle-Saint-Nicolas', 'category' => 'plage'],
+            '3-phare.jpg' => ['title' => 'Phare', 'category' => 'patrimoine'],
+            '4-piscine.jpg' => ['title' => 'Piscine en bord de mer', 'category' => 'hebergement'],
+            '5-vue-aerienne.jpg' => ['title' => 'Vue aérienne — piscine et villas', 'category' => 'hebergement'],
+            '6-coucher-de-soleil.jpg' => ['title' => 'Coucher de soleil sur les collines', 'category' => 'paysage'],
         ];
 
-        foreach ($photos as $filename => $title) {
+        foreach ($photos as $filename => $meta) {
             $path = 'galerie/'.$filename;
             Storage::disk('public')->put($path, file_get_contents("$sourceDir/$filename"));
 
             Photo::create([
-                'title' => $title,
-                'category' => 'demo',
+                'title' => $meta['title'],
+                'category' => $meta['category'],
                 'path' => $path,
-                'content_status' => 'needs_review',
-                'source_note' => 'Illustration de démonstration générée (pas une photo réelle) — à remplacer par de vraies photos via Admin → Galerie.',
+                'content_status' => 'submitted',
+                'source_note' => 'Photo fournie directement par le client (Roosevelt).',
             ]);
         }
     }

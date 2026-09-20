@@ -38,14 +38,6 @@
                 de Môle-Saint-Nicolas — réunis dans une seule plateforme, en construction module
                 par module.
             </p>
-            <div class="hero-fade-up mt-10 flex flex-wrap gap-4" style="animation-delay: .45s">
-                <a href="{{ route('histoire.index') }}" class="rounded-full bg-msn-terracotta-500 px-6 py-3 font-semibold text-white hover:bg-msn-terracotta-600">
-                    Découvrir Môle-Saint-Nicolas
-                </a>
-                <a href="{{ route('territoire.index') }}" class="rounded-full border border-msn-sea-700 px-6 py-3 font-semibold hover:bg-msn-sea-950/10">
-                    Explorer le territoire
-                </a>
-            </div>
         </div>
     </section>
 
