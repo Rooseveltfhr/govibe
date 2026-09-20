@@ -68,6 +68,14 @@ Route::post('/s/{standId}/verify', [\Modules\Tagtoa\App\Http\Controllers\Stand\S
 Route::get('/menu/{alias}', [MenuPublic::class, 'show'])->name('tagtoa.menu.show');
 Route::get('/menu/order/{reference}', [MenuPublic::class, 'track'])->name('tagtoa.menu.track');
 Route::get('/menu/order/{reference}/status', [MenuPublic::class, 'status'])->name('tagtoa.menu.track.status');
+
+// PWA (installable + hors ligne) — un client dont la connexion est mauvaise
+// ou coupée doit pouvoir rouvrir une carte déjà vue. Public : c'est le client
+// qui installe, jamais le marchand connecté (voir POS pour l'équivalent
+// back-office, protégé lui par le garde du dashboard).
+Route::get('/menu/{alias}/app.webmanifest', [MenuPublic::class, 'manifest'])->name('tagtoa.menu.manifest');
+Route::get('/menu/{alias}/sw.js', [MenuPublic::class, 'serviceWorker'])->name('tagtoa.menu.sw');
+Route::get('/menu/{alias}/icon.svg', [MenuPublic::class, 'icon'])->name('tagtoa.menu.icon');
 Route::get('/store/{alias}', [\Modules\Tagtoa\App\Http\Controllers\Store\PublicController::class, 'show'])->name('tagtoa.store.show');
 Route::get('/events', [EventPublic::class, 'index'])->name('tagtoa.events.index');
 Route::get('/event/{alias}', [EventPublic::class, 'show'])->name('tagtoa.event.show');

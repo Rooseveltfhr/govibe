@@ -19,6 +19,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $menu->name }} — TAGTOA Menu</title>
+    {{-- Installable + hors ligne : une connexion mauvaise ou coupée ne doit
+         pas empêcher de rouvrir une carte déjà vue. --}}
+    <link rel="manifest" href="{{ route('tagtoa.menu.manifest', $menu->alias) }}">
+    <link rel="apple-touch-icon" href="{{ route('tagtoa.menu.icon', $menu->alias) }}">
+    <meta name="theme-color" content="{{ $accent }}">
     <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
     <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     {{-- Le retour sonore : sons synthétisés, aucun fichier à télécharger — donc
@@ -326,6 +331,12 @@
                     <div style="font:700 18px var(--fh)">{{ __('Commande créée') }}</div>
                     <div style="color:var(--mut);margin-top:4px">{{ __('Référence') }} : <b id="okRef"></b></div>
                     <div style="color:var(--mut)">{{ __('Total') }} : <b id="okTotal"></b></div>
+                    {{-- Visible uniquement quand la commande a été mise en file
+                         faute de réseau — voir showQueued() plus bas. --}}
+                    <div id="okQueuedNote" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(255,180,0,.14);border-radius:10px;font-size:13.5px">
+                        <i class="fa-solid fa-wifi" style="opacity:.7"></i>
+                        {{ __('Pas de connexion : votre commande est enregistrée sur cet appareil et sera envoyée automatiquement dès que la connexion revient. Ne fermez pas cette page tant que ce n\'est pas fait.') }}
+                    </div>
                 </div>
                 <div class="cta" style="margin-top:8px">
                     <a class="pay" id="okTrack" href="#"><i class="fa-solid fa-location-crosshairs"></i> {{ __('Suivre ma commande') }}</a>
@@ -359,6 +370,47 @@
         var tipPct = 0;
         var modItem = null, modChosen = {};
         var ORDER_UUID = 'mo-' + Date.now().toString(36) + Math.random().toString(36).slice(2,10);
+
+        /* ------------------------------------------------------------------
+           HORS LIGNE — une connexion coupée ne doit jamais perdre une
+           commande déjà composée. Ce que le serveur refuse (rupture de
+           stock, article invalide) reste une vraie erreur affichée tout de
+           suite ; seule l'ABSENCE de réseau met la commande de côté, pour
+           l'envoyer dès que la connexion revient — avec le MÊME client_uuid,
+           donc jamais en double (voir MenuOrderService::placeOrder()).
+           ------------------------------------------------------------------ */
+        var QUEUE_KEY = 'tagtoa_menu_queue_' + @json($menu->alias);
+        function lireFile(){ try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch(e){ return []; } }
+        function ecrireFile(f){ try { localStorage.setItem(QUEUE_KEY, JSON.stringify(f)); } catch(e){} }
+
+        /** Envoie une commande. Rejette avec `.horsLigne = true` si c'est le
+            réseau qui a manqué — jamais pour un refus du serveur. */
+        function envoyerCommande(payload){
+            return fetch(ORDER_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF},
+                body:JSON.stringify(payload)})
+                .catch(function(){ var e = new Error(T.err); e.horsLigne = true; throw e; })
+                .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+                .then(function(res){
+                    if(!res.ok||!res.j.ok){ throw new Error(res.j && res.j.message); }
+                    return res.j;
+                });
+        }
+
+        /** Rejoue la file dans l'ORDRE (une addition avant une autre reste
+            servie avant une autre), s'arrête au premier échec pour ne pas
+            envoyer une commande plus récente avant une plus ancienne. */
+        function retenterFile(){
+            var file = lireFile();
+            if (!file.length) return;
+            envoyerCommande(file[0]).then(function(j){
+                file.shift(); ecrireFile(file);
+                son('ok');
+                retenterFile();
+            }).catch(function(){ /* toujours hors ligne : on réessaiera plus tard */ });
+        }
+        window.addEventListener('online', retenterFile);
+        setInterval(retenterFile, 20000); // filet : certains navigateurs ne déclenchent pas 'online' de façon fiable
+        retenterFile(); // la connexion est peut-être déjà revenue depuis la dernière visite
         function fmt(n){
             var d = (CURMETA.decimals==null) ? 2 : CURMETA.decimals;
             var s = Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -464,18 +516,35 @@
         function submitOrder(){
             var s = totals(); if(s.n===0) return;
             var items=[]; for(var k in cart){ items.push({id:cart[k].id, qty:cart[k].qty, options:cart[k].options}); }
+            var payload = {items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
+                customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),delivery_address:val('cAddress')};
             var btn=document.getElementById('confirmBtn'); btn.disabled=true; var old=btn.innerHTML; btn.textContent=T.wait;
-            fetch(ORDER_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF},
-                body:JSON.stringify({items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
-                    customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),delivery_address:val('cAddress')})})
-            .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
-            .then(function(res){
-                if(!res.ok||!res.j.ok){ throw new Error(res.j && res.j.message); }
-                showConfirmed(res.j);
-            })
-            .catch(function(e){ btn.disabled=false; btn.innerHTML=old; alert((e && e.message) || T.err); });
+            envoyerCommande(payload).then(function(j){
+                showConfirmed(j);
+            }).catch(function(e){
+                if (e && e.horsLigne){
+                    // Pas de réseau : la commande part dans la file plutôt
+                    // que de se perdre, et sera envoyée automatiquement.
+                    var file = lireFile(); file.push(payload); ecrireFile(file);
+                    showQueued();
+                    return;
+                }
+                btn.disabled=false; btn.innerHTML=old; alert((e && e.message) || T.err);
+            });
+        }
+        function showQueued(){
+            document.getElementById('okRef').textContent = @json(__('en attente de connexion'));
+            document.getElementById('okTotal').textContent = fmt(totals().t + tipAmount(totals().t));
+            document.getElementById('okTrack').style.display='none';
+            document.getElementById('okWa').style.display='none';
+            document.getElementById('okPay').style.display='none';
+            var note = document.getElementById('okQueuedNote');
+            if (note) { note.style.display=''; }
+            document.getElementById('orderForm').style.display='none';
+            document.getElementById('orderDone').style.display='';
         }
         function showConfirmed(j){
+            document.getElementById('okQueuedNote').style.display='none';
             document.getElementById('okRef').textContent = j.reference;
             document.getElementById('okTotal').textContent = j.total;
             var track=document.getElementById('okTrack');
@@ -500,6 +569,15 @@
         render();
     </script>
 @endif
+
+<script>
+    // Installable + hors ligne — voir PublicController::serviceWorker(). Une
+    // page déjà visitée doit se rouvrir même sans réseau, et rien de plus :
+    // aucune commande (POST) n'est jamais interceptée par le worker.
+    if ('serviceWorker' in navigator){
+        navigator.serviceWorker.register("{{ route('tagtoa.menu.sw', $menu->alias) }}", {scope:"{{ url('/menu/'.$menu->alias) }}"}).catch(function(){});
+    }
+</script>
 
 <script>
     // Surlignage de la catégorie active dans la barre de navigation.
