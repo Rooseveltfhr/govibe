@@ -73,8 +73,9 @@ php artisan serve
   (Côtes de Fer, Mare-Rouge, Damé), Actualités, Lieux historiques, Galerie, Contact. Histoire, Établissements, Projets
   communautaires, À propos et la page Territoire/arrondissement restent accessibles par URL directe mais ne sont plus
   dans le menu — pages non supprimées, seulement retirées de la navigation.
-- [x] Espace vidéo YouTube en autoplay sous le hero de l'accueil (`MSN_HOME_VIDEO_ID` dans `.env`, réglable sans
-  redéploiement) — affiche un repère "vidéo à ajouter" tant que l'identifiant n'est pas fourni
+- [x] Vidéo YouTube en autoplay/boucle/muet, en fond plein cadre : dans le hero et dans une deuxième section plein
+  écran avant la carte (`<x-youtube-background-video>`, `MSN_HOME_VIDEO_ID` dans `.env`, réglable sans redéploiement) —
+  masquée sur mobile (perf/data), section absente tant qu'aucun identifiant n'est fourni
 
 **À noter**
 - Aucune vraie photo n'est encore hébergée pour les entités sans upload dédié (établissements, sites historiques, activités) :
