@@ -230,7 +230,13 @@ function tagtoaPhotoCassee(img){
 
 var T=document.body.dataset.terminal,CUR=document.body.dataset.currency,CSRF=document.querySelector('meta[name=csrf-token]').content;
 var SALE_URL="{{ route('tagtoa.pos.sale',$terminal->id) }}",SYNC_URL="{{ route('tagtoa.pos.sync',$terminal->id) }}",QKEY='tagtoa_pos_q_'+T;
+// Le panier EN COURS (pas encore encaissé) survit à un rechargement ou une
+// coupure de courant — fréquente là où cette caisse tourne. `QKEY` protège
+// déjà la vente une fois ENVOYÉE ; ceci protège ce qui a été sonné avant.
+var CARTKEY='tagtoa_pos_cart_'+T;
 var cart={},method='cash';
+try{cart=JSON.parse(localStorage.getItem(CARTKEY)||'{}');}catch(e){cart={};}
+function sauvegarderPanier(){try{localStorage.setItem(CARTKEY,JSON.stringify(cart));}catch(e){}}
 
 /* Le régime de taxe du commerce. La caisse s'en sert UNIQUEMENT pour
    annoncer le bon montant : avec des prix hors taxe, afficher le sous-total
@@ -486,7 +492,8 @@ function render(){var L=document.getElementById('lines'),ks=Object.keys(cart);
     // au moment de payer, c'est une discussion au comptoir.
     var lt=document.getElementById('taxrow');
     if(lt){var t=taxeDuPanier();lt.style.display=(TAX.on&&t>0)?'flex':'none';document.getElementById('taxval').textContent=t.toFixed(2);}
-    var sb=document.getElementById('splitbox'),on=document.getElementById('splitchk').checked;sb.style.display=on?'block':'none';if(on&&!sb.innerHTML)sb.innerHTML='{{ __('MonCash') }}: <input type="number" id="sp1" value="0"> · {{ __('Cash') }}: <input type="number" id="sp2" value="0">';}
+    var sb=document.getElementById('splitbox'),on=document.getElementById('splitchk').checked;sb.style.display=on?'block':'none';if(on&&!sb.innerHTML)sb.innerHTML='{{ __('MonCash') }}: <input type="number" id="sp1" value="0"> · {{ __('Cash') }}: <input type="number" id="sp2" value="0">';
+    sauvegarderPanier();}
 if(TAX.label){var _l=document.getElementById('taxlbl');if(_l)_l.textContent=TAX.label;}
 function pickM(m,el){method=m;document.querySelectorAll('.m').forEach(function(x){x.classList.remove('on');});el.classList.add('on');}
 /* ------------------------------------------------------------------
@@ -517,6 +524,10 @@ function beep(t){
 }
 function setNet(){var on=navigator.onLine;document.getElementById('net').textContent=on?'● online':'● offline';document.getElementById('net').classList.toggle('off',!on);if(on)flush();}
 window.addEventListener('online',setNet);window.addEventListener('offline',setNet);
+// Filet : certains navigateurs ne déclenchent pas 'online' de façon fiable
+// (même règle que la file d'attente du menu public) — sans lui, une vente
+// en attente pourrait rester bloquée bien après le retour réel du réseau.
+setInterval(flush,20000);
 function q(){return JSON.parse(localStorage.getItem(QKEY)||'[]');}function setQ(a){localStorage.setItem(QKEY,JSON.stringify(a));}
 function flush(){var a=q();if(!a.length)return;fetch(SYNC_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify({sales:a})}).then(function(r){return r.json();}).then(function(){setQ([]);}).catch(function(){});}
 function confirmSale(){var p={items:Object.values(cart),discount:parseFloat(document.getElementById('disc').value)||0,payments:payments(),customer_phone:document.getElementById('phone').value,client_uuid:uuid()};
