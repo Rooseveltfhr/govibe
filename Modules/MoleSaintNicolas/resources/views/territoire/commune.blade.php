@@ -12,7 +12,7 @@
             <x-content-status-badge :status="$commune->content_status" />
         </div>
 
-        <p class="mt-4 max-w-2xl text-msn-ink-700">{{ $commune->description ?: '[Information à compléter]' }}</p>
+        <p class="mt-4 max-w-2xl whitespace-pre-line text-msn-ink-700">{{ $commune->description ?: '[Information à compléter]' }}</p>
 
         @if ($commune->population)
             <p class="mt-2 text-sm text-msn-ink-700">

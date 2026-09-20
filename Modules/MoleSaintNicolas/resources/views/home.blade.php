@@ -62,6 +62,25 @@
         </div>
     </section>
 
+    @php $moleCommune = $arrondissement?->communes->firstWhere('slug', 'mole-saint-nicolas'); @endphp
+    @if ($moleCommune?->description)
+        <section class="border-b border-msn-sand-200 bg-white py-16">
+            <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+                <div class="flex flex-wrap items-center gap-3">
+                    <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Môle-Saint-Nicolas</h2>
+                    <x-content-status-badge :status="$moleCommune->content_status" />
+                </div>
+                <p class="mt-6 whitespace-pre-line leading-relaxed text-msn-ink-700">{{ $moleCommune->description }}</p>
+                @if ($moleCommune->population)
+                    <p class="mt-6 text-sm font-medium text-msn-ink-700">
+                        Population : {{ number_format($moleCommune->population, 0, ',', ' ') }}
+                        @if ($moleCommune->population_year) ({{ $moleCommune->population_year }}) @endif
+                    </p>
+                @endif
+            </div>
+        </section>
+    @endif
+
     <section id="lieux-historiques" class="border-b border-msn-sand-200 py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Lieux historiques</h2>

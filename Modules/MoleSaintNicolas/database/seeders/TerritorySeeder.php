@@ -68,6 +68,35 @@ class TerritorySeeder extends Seeder
             ]);
         }
 
+        // Présentation, limites administratives, histoire et population : texte
+        // fourni directement par le client (Roosevelt) en conversation — traité
+        // comme "vérifié" (source directe du porteur du projet), pas comme le
+        // contenu Wikipedia générique ci-dessus. Coupe-file idempotent classique
+        // (jamais réécrit si déjà rempli, pour ne pas écraser un futur ajustement
+        // fait depuis l'admin).
+        if ($moleCommune->description === null) {
+            $moleCommune->update([
+                'description' => <<<'TEXT'
+                    La commune du Môle-Saint-Nicolas pourrait même être considérée comme la première ville d'Haïti. Elle est actuellement composée du centre-ville du Môle et de ses trois sections communales : Côtes-de-Fer (1), Mare-Rouge (2) et Damé (3). Elle est bornée au nord par l'océan Atlantique, à l'ouest par la mer des Caraïbes, à l'est par la commune de Bombardopolis, au sud-est par la commune de Baie-de-Henne, et au sud et au sud-ouest par la commune de Jean-Rabel. Avant l'arrivée des Européens, Môle-Saint-Nicolas était habitée par des populations amérindiennes, principalement des Tainos, qui occupaient une grande partie de l'île d'Ayiti, appelée plus tard Hispaniola par les Européens.
+
+                    Cette région d'Haïti est là où Christophe Colomb a mis pied pour la première fois, lors de son premier voyage, le 6 décembre 1492. Cette période a marqué un tournant dans l'histoire de la commune du Môle-Saint-Nicolas et de l'île d'Haïti, avec notamment la colonisation du pays par les Européens, l'extermination de la population autochtone et l'arrivée des esclaves noirs en Haïti.
+
+                    Vers 1764, les Français fondent officiellement la ville du Môle-Saint-Nicolas.
+
+                    Après l'indépendance d'Haïti en 1804, Môle-Saint-Nicolas devient une partie du nouvel État haïtien, et en 1821, elle devient officiellement une commune.
+
+                    Actuellement, la population de la commune du Môle-Saint-Nicolas est estimée à plus de 33 000 habitants, puisqu'elle était de 33 863 habitants lors du dernier recensement officiel de référence de l'Institut Haïtien de Statistique et d'Informatique (IHSI), en 2015.
+                    TEXT,
+                'population' => 33863,
+                'population_year' => 2015,
+                // "submitted" (pas "verified") : le contenu vient directement du
+                // client, mais l'attribution verified_by/verified_at attend son
+                // clic explicite depuis /admin/territoire/communes (cf. HasContentStatus).
+                'content_status' => 'submitted',
+                'source_note' => 'Contenu fourni directement par le client (Roosevelt), porteur du projet — population sourcée IHSI 2015.',
+            ]);
+        }
+
         foreach (['Côtes de Fer', 'Mare-Rouge', 'Damé'] as $name) {
             SectionCommunale::firstOrCreate(
                 ['commune_id' => $moleCommune->id, 'slug' => Str::slug($name)],
