@@ -68,6 +68,8 @@ php artisan serve
 - [x] Projets communautaires (`CommunityProject`) + avis visiteurs modérés avant publication — `/projets`
 - [x] Espace admin "Mon compte" (changement de mot de passe), throttle login, cookie de session sécurisé en production, en-têtes de sécurité de base
 - [x] Page "À propos" et page "Contact" (`ContactMessage`, formulaire → notification email admin) rattachées au menu principal — `/a-propos`, `/contact`, CRUD lecture/suppression `/admin/messages`
+- [x] Menu "Arrondissement Môle" (sections communales de Môle-Saint-Nicolas + autres communes de l'arrondissement) en menu déroulant, vers les fiches `/territoire/{commune}` et `/territoire/{commune}/{section}`
+- [x] Mot de passe admin oublié : lien email de réinitialisation (`/admin/mot-de-passe-oublie`) en plus du changement depuis "Mon compte"
 
 **À noter**
 - Aucune vraie photo n'est encore hébergée pour les entités sans upload dédié (établissements, sites historiques, activités) :

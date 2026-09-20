@@ -96,6 +96,23 @@ class TerritoireTest extends TestCase
         $this->assertDatabaseMissing('communes', ['id' => $created->id]);
     }
 
+    public function test_navigation_shows_arrondissement_dropdown_with_sections_and_communes(): void
+    {
+        $baieDeHenne = Commune::create([
+            'arrondissement_id' => $this->commune->arrondissement_id,
+            'name' => 'Baie-de-Henne',
+        ]);
+
+        $response = $this->get('/');
+
+        $response->assertOk()
+            ->assertSee('Arrondissement Môle')
+            ->assertSee('Mare-Rouge')
+            ->assertSee('Baie-de-Henne')
+            ->assertSee(route('territoire.section', [$this->commune->slug, $this->section->slug]), false)
+            ->assertSee(route('territoire.commune', $baieDeHenne->slug), false);
+    }
+
     public function test_marking_a_section_verified_records_who_and_when(): void
     {
         $admin = User::factory()->create();

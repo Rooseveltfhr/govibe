@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\Histoire\HistoricalFigureController as AdminHisto
 use App\Http\Controllers\Admin\Histoire\HistoricalPeriodController as AdminHistoricalPeriodController;
 use App\Http\Controllers\Admin\Histoire\HistoricalSiteController as AdminHistoricalSiteController;
 use App\Http\Controllers\Admin\PageController as AdminPageController;
+use App\Http\Controllers\Admin\PasswordResetController as AdminPasswordResetController;
 use App\Http\Controllers\Admin\PhotoController as AdminPhotoController;
 use App\Http\Controllers\Admin\PostController as AdminPostController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
@@ -99,6 +100,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+
+    Route::get('/mot-de-passe-oublie', [AdminPasswordResetController::class, 'showLinkRequestForm'])->name('password.request');
+    Route::post('/mot-de-passe-oublie', [AdminPasswordResetController::class, 'sendResetLinkEmail'])
+        ->middleware('throttle:5,1')->name('password.email');
+    Route::get('/reinitialiser-mot-de-passe/{token}', [AdminPasswordResetController::class, 'showResetForm'])->name('password.reset');
+    Route::post('/reinitialiser-mot-de-passe', [AdminPasswordResetController::class, 'reset'])
+        ->middleware('throttle:5,1')->name('password.update');
 
     // Admin — zone protégée
     Route::middleware(['auth', 'role:super_admin|admin|editor|moderator'])->group(function () {

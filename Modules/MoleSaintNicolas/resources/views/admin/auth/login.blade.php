@@ -19,17 +19,22 @@
                 <div>
                     <label for="email" class="block text-sm font-medium text-msn-sea-900">E-mail</label>
                     <input id="email" name="email" type="email" required autofocus value="{{ old('email') }}"
-                           class="mt-1 block w-full rounded-lg border-gray-300 focus:border-msn-sea-500 focus:ring-msn-sea-500">
+                           class="mt-1 block w-full rounded-lg border border-gray-300 focus:border-msn-sea-500 focus:ring-msn-sea-500">
                 </div>
                 <div>
                     <label for="password" class="block text-sm font-medium text-msn-sea-900">Mot de passe</label>
                     <input id="password" name="password" type="password" required
-                           class="mt-1 block w-full rounded-lg border-gray-300 focus:border-msn-sea-500 focus:ring-msn-sea-500">
+                           class="mt-1 block w-full rounded-lg border border-gray-300 focus:border-msn-sea-500 focus:ring-msn-sea-500">
                 </div>
-                <label class="flex items-center gap-2 text-sm text-msn-sea-700">
-                    <input type="checkbox" name="remember" class="rounded border-gray-300">
-                    Se souvenir de moi
-                </label>
+                <div class="flex items-center justify-between">
+                    <label class="flex items-center gap-2 text-sm text-msn-sea-700">
+                        <input type="checkbox" name="remember" class="rounded border-gray-300">
+                        Se souvenir de moi
+                    </label>
+                    <a href="{{ route('admin.password.request') }}" class="text-sm font-semibold text-msn-terracotta-500 hover:underline">
+                        Mot de passe oublié ?
+                    </a>
+                </div>
                 <button type="submit"
                         class="w-full rounded-lg bg-msn-terracotta-500 py-2.5 font-semibold text-white hover:bg-msn-terracotta-600">
                     Se connecter
