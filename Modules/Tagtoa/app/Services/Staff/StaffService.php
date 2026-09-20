@@ -42,6 +42,7 @@ class StaffService
                 : StaffAccess::ROLE_CASHIER,   // rôle inconnu ⇒ le moins ouvert
             'terminal_id' => $data['terminal_id'] ?? null,
             'is_active'   => (bool) ($data['is_active'] ?? true),
+            'is_kitchen'  => (bool) ($data['is_kitchen'] ?? false),
         ];
 
         $pin = (string) ($data['pin'] ?? '');
@@ -126,5 +127,20 @@ class StaffService
         $ids = array_values(array_filter((array) session('tagtoa_pos_staff', [])));
 
         return $ids ? Staff::where('is_active', true)->whereIn('id', $ids)->first() : null;
+    }
+
+    /**
+     * Employé identifié SUR CET écran cuisine, ou null (le patron opère
+     * directement — voir GuardsStaffAbility). Espace de session distinct de
+     * `tagtoa_pos_staff` : un menu n'est pas un poste de caisse, et les deux
+     * identifications doivent pouvoir coexister sur le même navigateur.
+     */
+    public function forMenu(\Modules\Tagtoa\App\Models\Menu\Menu $menu): ?Staff
+    {
+        $id = session('tagtoa_menu_staff.'.$menu->id);
+
+        return $id
+            ? Staff::where('tenant_id', $menu->tenant_id)->where('is_active', true)->find($id)
+            : null;
     }
 }

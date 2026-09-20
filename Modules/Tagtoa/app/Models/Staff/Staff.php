@@ -26,13 +26,14 @@ class Staff extends Model
 
     protected $fillable = [
         'tenant_id', 'name', 'email', 'phone', 'role', 'pin_hash',
-        'terminal_id', 'is_active', 'created_by', 'last_login_at',
+        'terminal_id', 'is_active', 'created_by', 'last_login_at', 'is_kitchen',
     ];
 
     protected $hidden = ['pin_hash'];
 
     protected $casts = [
         'is_active'     => 'boolean',
+        'is_kitchen'    => 'boolean',
         'last_login_at' => 'datetime',
     ];
 
@@ -57,6 +58,22 @@ class Staff extends Model
     public function isOwner(): bool
     {
         return $this->role === StaffAccess::ROLE_OWNER;
+    }
+
+    /**
+     * Peut-il faire avancer une commande sur l'écran cuisine du MENU ?
+     *
+     * Axe indépendant du rôle POS (voir la migration qui ajoute `is_kitchen`) :
+     * un patron ou un gérant garde cette possibilité par défaut (ils peuvent
+     * déjà tout faire), un caissier ne l'a QUE si on la lui coche explicitement.
+     */
+    public function canRunKitchen(): bool
+    {
+        return $this->is_active && (
+            $this->is_kitchen
+            || $this->role === StaffAccess::ROLE_OWNER
+            || $this->role === StaffAccess::ROLE_MANAGER
+        );
     }
 
     /** Libellé du rôle, prêt à afficher. */

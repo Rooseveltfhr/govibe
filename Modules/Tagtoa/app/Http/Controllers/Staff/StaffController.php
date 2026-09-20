@@ -134,6 +134,7 @@ class StaffController extends Controller
                 },
             ],
             'is_active' => ['nullable', 'boolean'],
+            'is_kitchen' => ['nullable', 'boolean'],
         ], [
             'pin.required' => __('Choisissez un code à 4 chiffres pour cette personne.'),
         ]);

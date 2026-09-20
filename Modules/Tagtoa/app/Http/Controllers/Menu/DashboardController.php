@@ -134,12 +134,19 @@ $data = $this->validateMenu($request);
             ->whereIn('status', Order::KITCHEN_STATUSES)
             ->with('items')->oldest('placed_at')->get();
 
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
+
         return response()->json([
+            // null = le patron opère directement (toujours autorisé) — voir
+            // kitchenAdvance(). Un employé identifié doit avoir la case cochée.
+            'staff'       => $staff ? ['name' => $staff->name, 'initials' => $staff->initials] : null,
+            'can_advance' => ! $staff || $staff->canRunKitchen(),
             'orders' => $orders->map(fn (Order $o) => [
                 'id'          => $o->id,
                 'reference'   => $o->reference,
                 'status'      => $o->status,
                 'status_label' => __($o->status_meta['label']),
+                'next_status' => self::KITCHEN_NEXT[$o->status] ?? null,
                 'order_type'  => $o->order_type,
                 'order_type_label' => __($o->order_type_label),
                 'table_label' => $o->table_label,
@@ -151,6 +158,68 @@ $data = $this->validateMenu($request);
                 ]),
             ]),
         ]);
+    }
+
+    /**
+     * Étape suivante du cycle cuisine (pending/confirmed → preparing → ready),
+     * jamais au-delà : servir/encaisser/annuler restent sur l'écran
+     * « Commandes », qui seul connaît le reste du cycle (paiement, annulation).
+     */
+    private const KITCHEN_NEXT = [
+        'pending'   => 'preparing',
+        'confirmed' => 'preparing',
+        'preparing' => 'ready',
+    ];
+
+    /**
+     * Fait avancer une commande d'une étape depuis l'écran cuisine.
+     *
+     * AUCUN employé identifié ne veut pas dire « personne » : c'est le patron
+     * qui opère l'écran directement (même convention que GuardsStaffAbility
+     * côté POS) — la vraie frontière de sécurité reste le garde
+     * `role:admin|super_admin` sur ces routes. La restriction par rôle « cuisine »
+     * ne s'applique qu'une fois un employé identifié via son code.
+     */
+    public function kitchenAdvance(int $id, int $orderId): RedirectResponse
+    {
+        $menu = $this->own($id);
+        $order = $menu->orders()->whereKey($orderId)->firstOrFail();
+
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
+        abort_if($staff && ! $staff->canRunKitchen(), 403, __('Vous n\'avez pas le droit de faire cela.'));
+
+        $suivant = self::KITCHEN_NEXT[$order->status] ?? null;
+        if ($suivant) {
+            $order->update(['status' => $suivant]);
+            app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)->touch('menu_order', $order->id, $suivant);
+        }
+
+        return back();
+    }
+
+    /** PIN de l'employé identifié sur CET écran cuisine (espace de session distinct de la caisse). */
+    public function kitchenStaffLogin(Request $request, int $id): RedirectResponse
+    {
+        $menu = $this->own($id);
+        $data = $request->validate(['pin' => ['required', 'string']]);
+
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)
+            ->authenticate($menu->tenant_id, $data['pin']);
+
+        if (! $staff) {
+            return back()->withErrors(['pin' => __('Code incorrect.')]);
+        }
+
+        session(['tagtoa_menu_staff.'.$menu->id => $staff->id]);
+
+        return back()->with('success', __('Bonjour :nom.', ['nom' => $staff->name]));
+    }
+
+    public function kitchenStaffLogout(int $id): RedirectResponse
+    {
+        session()->forget('tagtoa_menu_staff.'.$id);
+
+        return back();
     }
 
     public function setStatus(Request $request, int $orderId): RedirectResponse

@@ -192,6 +192,12 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         // écran qu'on navigue, un écran qu'on surveille du coin de l'œil.
         Route::get('/{id}/kitchen', [MenuDashboard::class, 'kitchen'])->name('kitchen');
         Route::get('/{id}/kitchen/feed', [MenuDashboard::class, 'kitchenFeed'])->name('kitchen.feed');
+        Route::post('/{id}/kitchen/orders/{orderId}/advance', [MenuDashboard::class, 'kitchenAdvance'])
+            ->whereNumber(['id', 'orderId'])->name('kitchen.advance');
+        // Identification (PIN) distincte du login caisse — voir StaffService::forMenu().
+        Route::post('/{id}/kitchen/staff/login', [MenuDashboard::class, 'kitchenStaffLogin'])
+            ->middleware('throttle:10,1')->name('kitchen.staff.login');
+        Route::post('/{id}/kitchen/staff/logout', [MenuDashboard::class, 'kitchenStaffLogout'])->name('kitchen.staff.logout');
     });
 
     // LOYALTY

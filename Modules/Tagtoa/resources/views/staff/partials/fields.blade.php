@@ -61,6 +61,12 @@
     </div>
 </div>
 
+<label class="switch" style="margin-top:8px">
+    <input type="hidden" name="is_kitchen" value="0">
+    <input type="checkbox" name="is_kitchen" value="1" @checked(old('is_kitchen', $staff->is_kitchen ?? false))>
+    {{ __('Peut opérer l\'écran cuisine du menu (marquer une commande en préparation / prête)') }}
+</label>
+
 @if($errors->any())
     <div style="margin-top:10px;color:var(--red);font-size:13.5px">
         @foreach($errors->all() as $erreur)<div>{{ $erreur }}</div>@endforeach

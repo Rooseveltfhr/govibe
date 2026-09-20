@@ -55,6 +55,7 @@
                 @foreach(\Modules\Tagtoa\App\Support\Pos\StaffAccess::abilitiesFor($m->role) as $droit)
                     <span class="cap">{{ __(\Modules\Tagtoa\App\Support\Pos\StaffAccess::label($droit)) }}</span>
                 @endforeach
+                @if($m->is_kitchen)<span class="cap"><i class="fa-solid fa-kitchen-set"></i> {{ __('Écran cuisine') }}</span>@endif
             </div>
 
             <details style="margin-top:14px">
