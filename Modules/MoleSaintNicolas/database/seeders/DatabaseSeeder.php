@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             PageSeeder::class,
             PostSeeder::class,
             CommunityProjectSeeder::class,
+            PhotoSeeder::class,
         ]);
     }
 }

@@ -100,9 +100,17 @@ class HomeTest extends TestCase
     {
         config(['services.home_video.id' => 'dQw4w9WgXcQ']);
 
-        $this->get('/')
-            ->assertOk()
-            ->assertSee('https://www.youtube.com/embed/dQw4w9WgXcQ', false)
-            ->assertSee('autoplay=1&mute=1&loop=1', false);
+        $response = $this->get('/');
+
+        $response->assertOk()
+            ->assertSee('data-video-src="https://www.youtube.com/embed/dQw4w9WgXcQ', false)
+            ->assertSee('autoplay=1&mute=1&loop=1', false)
+            // Voile noir semi-transparent par-dessus pour la lisibilité du texte.
+            ->assertSee('bg-black/50', false);
+
+        // Pas de "src" direct sur l'iframe (seulement "data-video-src") : sur
+        // mobile, le JS ne le pose jamais, donc aucune requête YouTube n'est
+        // déclenchée du tout.
+        $response->assertDontSee(' src="https://www.youtube.com/embed', false);
     }
 }
