@@ -1,8 +1,26 @@
 @extends('layouts.public')
 
 @section('content')
+    @php $homeVideoId = config('services.home_video.id'); @endphp
     <section class="relative overflow-hidden bg-msn-sea-900 text-msn-sand-100">
-        <div class="mx-auto flex min-h-[70vh] max-w-7xl flex-col justify-center px-4 py-24 sm:px-6 lg:px-8">
+        @if ($homeVideoId)
+            {{-- Vidéo en fond du hero (demande client) : source verticale (YouTube
+                 Shorts, 9:16) sur une bannière large — surdimensionnée et centrée
+                 pour couvrir toute la section, forcément recadrée/zoomée puisque son
+                 format d'origine est vertical. Overlay marine par-dessus pour garder
+                 le texte du hero lisible ; contenu en z-10 pour rester au-dessus. --}}
+            <div class="absolute inset-0 overflow-hidden">
+                <iframe
+                    class="pointer-events-none absolute top-1/2 left-1/2 h-[500%] w-auto -translate-x-1/2 -translate-y-1/2"
+                    style="aspect-ratio: 9 / 16"
+                    src="https://www.youtube.com/embed/{{ $homeVideoId }}?autoplay=1&mute=1&loop=1&playlist={{ $homeVideoId }}&controls=0&rel=0&modestbranding=1&playsinline=1"
+                    title="Vidéo de présentation — Môle-Saint-Nicolas"
+                    allow="autoplay; encrypted-media"
+                ></iframe>
+                <div class="absolute inset-0 bg-msn-sea-950/70"></div>
+            </div>
+        @endif
+        <div class="relative z-10 mx-auto flex min-h-[70vh] max-w-7xl flex-col justify-center px-4 py-24 sm:px-6 lg:px-8">
             <p class="hero-fade-up text-sm font-semibold uppercase tracking-[0.3em] text-msn-gold-400" style="animation-delay: .05s">
                 Nord-Ouest, Haïti
             </p>
@@ -40,32 +58,6 @@
                 <a href="{{ route('territoire.index') }}" class="rounded-full border border-msn-sea-700 px-6 py-3 font-semibold hover:bg-msn-sea-950/10">
                     Explorer le territoire
                 </a>
-            </div>
-        </div>
-    </section>
-
-    @php $homeVideoId = config('services.home_video.id'); @endphp
-    <section class="border-b border-msn-sand-200 bg-white py-16">
-        <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-            {{-- YouTube Shorts fourni par le client : format vertical (9:16), d'où le
-                 conteneur étroit plutôt que la largeur pleine d'une vidéo 16:9 classique. --}}
-            <div class="mx-auto aspect-[9/16] w-full max-w-xs overflow-hidden rounded-2xl bg-msn-sand-200 sm:max-w-sm">
-                @if ($homeVideoId)
-                    <iframe
-                        class="h-full w-full"
-                        src="https://www.youtube.com/embed/{{ $homeVideoId }}?autoplay=1&mute=1&loop=1&playlist={{ $homeVideoId }}&controls=1&rel=0"
-                        title="Vidéo de présentation — Môle-Saint-Nicolas"
-                        allow="autoplay; encrypted-media; picture-in-picture"
-                        allowfullscreen
-                    ></iframe>
-                @else
-                    <div class="flex h-full w-full flex-col items-center justify-center gap-2 text-center text-msn-ink-700">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-2.36a.75.75 0 011.03.67v10.38a.75.75 0 01-1.03.67l-4.72-2.36M4.5 6.75h9a1.5 1.5 0 011.5 1.5v7.5a1.5 1.5 0 01-1.5 1.5h-9a1.5 1.5 0 01-1.5-1.5v-7.5a1.5 1.5 0 011.5-1.5z" />
-                        </svg>
-                        <p class="text-sm font-medium">[Vidéo à ajouter — lien YouTube à fournir]</p>
-                    </div>
-                @endif
             </div>
         </div>
     </section>
