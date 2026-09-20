@@ -102,6 +102,13 @@
         .cartbar.show{display:flex}
         .cartbar button{width:100%;max-width:528px;border:0;background:var(--acc);color:#fff;border-radius:15px;padding:15px 20px;font:700 15.5px var(--fh);display:flex;align-items:center;justify-content:space-between;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.25)}
         .cartbar .cnt{background:rgba(255,255,255,.22);border-radius:999px;padding:2px 10px;font-size:13px}
+        /* Agent IA (mots-clés locaux, voir OrderChatParser) */
+        .ai-fab{position:fixed;right:16px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:41;
+                width:54px;height:54px;border-radius:50%;border:0;background:var(--acc);color:#fff;font-size:21px;
+                box-shadow:0 10px 26px rgba(0,0,0,.28);cursor:pointer;display:flex;align-items:center;justify-content:center}
+        .ai-msg{max-width:85%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.4}
+        .ai-msg.me{align-self:flex-end;background:var(--acc);color:#fff;border-bottom-right-radius:4px}
+        .ai-msg.bot{align-self:flex-start;background:color-mix(in srgb,var(--acc) 10%,var(--surf));border-bottom-left-radius:4px}
         .sheet{position:fixed;inset:0;z-index:60;display:none}
         .sheet.show{display:block}
         .sheet .ov{position:absolute;inset:0;background:rgba(0,0,0,.5)}
@@ -371,6 +378,31 @@
         </div>
     </div>
 
+    {{--
+        « Commander via Agent IA » — mots-clés locaux (OrderChatParser), pas
+        de LLM branché (aucun n'existe dans TAGTOA aujourd'hui). Le client
+        décrit sa commande en une phrase ; ce qui est reconnu part
+        directement dans le panier existant, ce qui ne l'est pas reste dit
+        clairement — jamais deviné.
+    --}}
+    <button class="ai-fab" id="aiFab" onclick="openAgent()" aria-label="{{ __('Commander via Agent IA') }}">
+        <i class="fa-solid fa-robot"></i>
+    </button>
+    <div class="sheet" id="aisheet">
+        <div class="ov" onclick="closeAgent()"></div>
+        <div class="pan">
+            <h3><i class="fa-solid fa-robot"></i> {{ __('Commander via Agent IA') }} <button class="x" onclick="closeAgent()">&times;</button></h3>
+            <p style="color:var(--mut);font-size:13px;margin:-6px 0 12px">
+                {{ __('Décrivez ce que vous voulez en une phrase — ex. « 2 griot, un jus naturel ». Les prix restent toujours ceux du menu.') }}
+            </p>
+            <div id="aiLog" style="max-height:44vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+            <div style="display:flex;gap:8px">
+                <input id="aiInput" class="cin" placeholder="{{ __('Ex. 2 griot et un jus naturel') }}" onkeydown="if(event.key==='Enter'){event.preventDefault();sendAgent();}">
+                <button class="wa" id="aiSend" onclick="sendAgent()" style="flex:0;width:auto;padding:0 18px"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
     <script>
         var CURMETA = @json(\Modules\Tagtoa\App\Support\Money::meta($cur));
         var ORDER_URL = @json(route('tagtoa.menu.order', $menu->alias));
@@ -587,6 +619,87 @@
         function esc(x){ return String(x).replace(/[&<>"]/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];}); }
         function openCart(){ document.getElementById('sheet').classList.add('show'); }
         function closeCart(){ document.getElementById('sheet').classList.remove('show'); }
+
+        /* ------------------------------------------------------------------
+           « Commander via Agent IA » — voir OrderChatParser (mots-clés
+           locaux, aucun LLM). Le serveur ne fait que SUGGÉRER des
+           correspondances ; c'est ce même navigateur, avec les mêmes
+           fonctions que le reste de la page, qui remplit le panier — le prix
+           vient toujours de la carte affichée, jamais de la réponse du chat.
+           ------------------------------------------------------------------ */
+        var AGENT_URL = @json(route('tagtoa.menu.agent', $menu->alias));
+        var aiEnCours = false;
+
+        /** Catalogue lu dans la page déjà rendue : id → {name, price, hasOptions}. */
+        function catalogueAffiche(){
+            var out = {};
+            document.querySelectorAll('.add[data-id]').forEach(function(el){
+                var opts = [];
+                try { opts = JSON.parse(el.getAttribute('data-options') || '[]'); } catch(e){}
+                out[el.getAttribute('data-id')] = {
+                    name: el.getAttribute('data-name'),
+                    price: parseFloat(el.getAttribute('data-price')) || 0,
+                    hasOptions: opts.length > 0,
+                };
+            });
+            return out;
+        }
+
+        function aiBulle(texte, cote){
+            var log = document.getElementById('aiLog');
+            var d = document.createElement('div');
+            d.className = 'ai-msg ' + cote;
+            d.textContent = texte;
+            log.appendChild(d);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function openAgent(){
+            document.getElementById('aisheet').classList.add('show');
+            var log = document.getElementById('aiLog');
+            if (!log.children.length){
+                aiBulle({{ json_encode(__('Dites-moi ce que vous voulez commander, en une phrase.')) }}, 'bot');
+            }
+            document.getElementById('aiInput').focus();
+        }
+        function closeAgent(){ document.getElementById('aisheet').classList.remove('show'); }
+
+        function sendAgent(){
+            if (aiEnCours) return;
+            var input = document.getElementById('aiInput');
+            var texte = input.value.trim();
+            if (!texte) return;
+            aiBulle(texte, 'me');
+            input.value = '';
+            aiEnCours = true;
+
+            fetch(AGENT_URL, {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF}, body: JSON.stringify({message: texte})})
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    aiEnCours = false;
+                    if (!res || !res.ok){ aiBulle(T.err, 'bot'); return; }
+
+                    var catalogue = catalogueAffiche();
+                    var ajoutes = [], besoinOptions = [];
+                    (res.matches || []).forEach(function(m){
+                        var article = catalogue[String(m.id)];
+                        if (!article){ return; } // plus au menu depuis le chargement de la page
+                        if (article.hasOptions){ besoinOptions.push(article.name); return; }
+                        for (var i = 0; i < m.qty; i++){ addToCart(m.id, article.name, article.price, [], ''); }
+                        ajoutes.push(m.qty + '× ' + article.name);
+                    });
+
+                    var reponse = [];
+                    if (ajoutes.length){ reponse.push({{ json_encode(__('Ajouté au panier :')) }} + ' ' + ajoutes.join(', ') + '.'); }
+                    if (besoinOptions.length){ reponse.push({{ json_encode(__('Ces articles ont des options à choisir, ajoutez-les depuis la carte :')) }} + ' ' + besoinOptions.join(', ') + '.'); }
+                    if (res.unmatched && res.unmatched.length){ reponse.push({{ json_encode(__('Je n\'ai pas trouvé sur la carte :')) }} + ' ' + res.unmatched.join(', ') + '.'); }
+                    if (!reponse.length){ reponse.push({{ json_encode(__('Je n\'ai rien reconnu. Essayez avec le nom exact d\'un plat de la carte.')) }}); }
+
+                    aiBulle(reponse.join(' '), 'bot');
+                })
+                .catch(function(){ aiEnCours = false; aiBulle(T.err, 'bot'); });
+        }
+
         render();
     </script>
 @endif

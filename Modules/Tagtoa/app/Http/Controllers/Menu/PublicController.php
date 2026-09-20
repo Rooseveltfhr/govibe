@@ -118,6 +118,26 @@ class PublicController extends Controller
         ]);
     }
 
+    /**
+     * « Commander via Agent IA » — mots-clés locaux, aucun appel externe
+     * (voir OrderChatParser). Renvoie des SUGGESTIONS pour remplir le
+     * panier côté client ; ne crée AUCUNE commande — le prix et la
+     * disponibilité de chaque article restent, comme partout ailleurs,
+     * relus du catalogue au moment de la vraie commande.
+     */
+    public function agent(Request $request, string $alias): JsonResponse
+    {
+        $menu = Menu::where('alias', $alias)->where('is_active', true)->firstOrFail();
+        $data = $request->validate(['message' => ['required', 'string', 'max:300']]);
+
+        $catalogue = $menu->items()->where('is_available', true)->get(['id', 'name'])
+            ->map(fn ($i) => ['id' => $i->id, 'name' => $i->translated('name')])->all();
+
+        $resultat = \Modules\Tagtoa\App\Support\Menu\OrderChatParser::parse($catalogue, $data['message']);
+
+        return response()->json(['ok' => true] + $resultat);
+    }
+
     /** Page publique de suivi de commande (statut en temps réel, sans auth). */
     public function track(string $reference): View
     {

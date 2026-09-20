@@ -95,6 +95,9 @@ Route::get('/tagtoa-asset/{file}', [\Modules\Tagtoa\App\Http\Controllers\Asset\A
 Route::middleware('throttle:20,1')->group(function () {
     Route::post('/pay/{alias}/submit-proof', [PayPublic::class, 'submitProof'])->name('tagtoa.pay.submit-proof');
     Route::post('/menu/{alias}/order', [MenuPublic::class, 'order'])->name('tagtoa.menu.order');
+    // « Commander via Agent IA » — mots-clés locaux (OrderChatParser), aucun
+    // service externe, aucune commande créée : ne fait que suggérer.
+    Route::post('/menu/{alias}/agent', [MenuPublic::class, 'agent'])->name('tagtoa.menu.agent');
     Route::post('/event/{alias}/buy', [EventPublic::class, 'buy'])->name('tagtoa.event.buy');
     Route::post('/book/{alias}/reserve', [BookingPublic::class, 'reserve'])->name('tagtoa.booking.reserve');
     Route::post('/reviews', [\Modules\Tagtoa\App\Http\Controllers\Review\PublicController::class, 'store'])->name('tagtoa.reviews.store');

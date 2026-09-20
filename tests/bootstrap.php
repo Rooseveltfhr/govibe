@@ -34,6 +34,7 @@ require_once $base.'/Support/Menu/ItemOptionPricing.php';
 require_once $base.'/Support/Menu/BusinessProfile.php';
 require_once $base.'/Support/Menu/CategoryIcon.php';
 require_once $base.'/Support/Menu/BusinessHours.php';
+require_once $base.'/Support/Menu/OrderChatParser.php';
 require_once $base.'/Support/Menu/Translatable.php';
 require_once $base.'/Support/Loyalty/CustomerSegment.php';
 require_once $base.'/Support/PaymentGateway.php';
