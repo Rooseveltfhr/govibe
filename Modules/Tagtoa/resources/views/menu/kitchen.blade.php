@@ -24,11 +24,11 @@
 
 <div class="card" id="kw-staff-bar" style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <span id="kw-staff-qui" style="font-size:13.5px;color:var(--muted)"></span>
-    <form id="kw-staff-logout" method="POST" action="{{ route('tagtoa.menu.dashboard.kitchen.staff.logout',$menu->id) }}" style="display:none">
+    <form id="kw-staff-logout" method="POST" action="{{ route('tagtoa.menu.dashboard.staff.logout',$menu->id) }}" style="display:none">
         @csrf
         <button class="btn btn-o btn-sm"><i class="fa-solid fa-right-from-bracket"></i> {{ __('Changer de personne') }}</button>
     </form>
-    <form id="kw-staff-login" method="POST" action="{{ route('tagtoa.menu.dashboard.kitchen.staff.login',$menu->id) }}" style="display:flex;gap:8px;align-items:center">
+    <form id="kw-staff-login" method="POST" action="{{ route('tagtoa.menu.dashboard.staff.login',$menu->id) }}" style="display:flex;gap:8px;align-items:center">
         @csrf
         <input class="inp" type="password" inputmode="numeric" name="pin" maxlength="6" placeholder="{{ __('Code employé (optionnel)') }}" style="max-width:180px">
         <button class="btn btn-o btn-sm">{{ __('S\'identifier') }}</button>

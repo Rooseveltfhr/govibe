@@ -151,7 +151,7 @@ class MenuKitchenRoleTest extends TestCase
         $menu = $this->menu();
         $this->staff('t-1', ['name' => 'Junior', 'pin_hash' => StaffPinService::hashPin('7777')]);
 
-        $this->post(route('tagtoa.menu.dashboard.kitchen.staff.login', $menu->id), ['pin' => '7777'])
+        $this->post(route('tagtoa.menu.dashboard.staff.login', $menu->id), ['pin' => '7777'])
             ->assertRedirect();
 
         $json = $this->getJson(route('tagtoa.menu.dashboard.kitchen.feed', $menu->id))->json();
@@ -164,7 +164,7 @@ class MenuKitchenRoleTest extends TestCase
         $menu = $this->menu();
         $this->staff('t-1', ['pin_hash' => StaffPinService::hashPin('7777')]);
 
-        $this->post(route('tagtoa.menu.dashboard.kitchen.staff.login', $menu->id), ['pin' => '0000'])
+        $this->post(route('tagtoa.menu.dashboard.staff.login', $menu->id), ['pin' => '0000'])
             ->assertSessionHasErrors('pin');
 
         $json = $this->getJson(route('tagtoa.menu.dashboard.kitchen.feed', $menu->id))->json();
@@ -178,7 +178,7 @@ class MenuKitchenRoleTest extends TestCase
         $staff = $this->staff('t-1');
         session(['tagtoa_menu_staff.'.$menu->id => $staff->id]);
 
-        $this->post(route('tagtoa.menu.dashboard.kitchen.staff.logout', $menu->id))->assertRedirect();
+        $this->post(route('tagtoa.menu.dashboard.staff.logout', $menu->id))->assertRedirect();
 
         $json = $this->getJson(route('tagtoa.menu.dashboard.kitchen.feed', $menu->id))->json();
         $this->assertNull($json['staff']);
@@ -194,7 +194,7 @@ class MenuKitchenRoleTest extends TestCase
         $terminal = Terminal::create(['tenant_id' => 't-1', 'name' => 'Poste 3', 'currency' => 'HTG', 'is_active' => true]);
         $this->staff('t-1', ['name' => 'Poste 3', 'terminal_id' => $terminal->id, 'pin_hash' => StaffPinService::hashPin('5555')]);
 
-        $this->post(route('tagtoa.menu.dashboard.kitchen.staff.login', $menu->id), ['pin' => '5555'])
+        $this->post(route('tagtoa.menu.dashboard.staff.login', $menu->id), ['pin' => '5555'])
             ->assertRedirect()->assertSessionDoesntHaveErrors();
     }
 

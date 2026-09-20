@@ -162,8 +162,9 @@ $data = $this->validateMenu($request);
 
     /**
      * Étape suivante du cycle cuisine (pending/confirmed → preparing → ready),
-     * jamais au-delà : servir/encaisser/annuler restent sur l'écran
-     * « Commandes », qui seul connaît le reste du cycle (paiement, annulation).
+     * jamais au-delà : servir + encaisser une commande « Prête » se fait sur
+     * l'écran CAISSE (counter*, plus bas), pas ici — annuler une commande
+     * reste sur l'écran « Commandes », qui seul connaît le reste du cycle.
      */
     private const KITCHEN_NEXT = [
         'pending'   => 'preparing',
@@ -218,6 +219,80 @@ $data = $this->validateMenu($request);
     public function kitchenStaffLogout(int $id): RedirectResponse
     {
         session()->forget('tagtoa_menu_staff.'.$id);
+
+        return back();
+    }
+
+    /* =====================================================================
+       ÉCRAN CAISSE — canal MENU. Complète le cycle ouvert par la cuisine :
+       la cuisine amène une commande à « Prête » (kitchen*), le comptoir la
+       sert et encaisse. Deux écrans, deux gestes, jamais confondus — un
+       cuisinier ne doit pas pouvoir marquer une commande payée, et
+       inversement une personne au comptoir n'a pas à voir la file de
+       préparation.
+       ===================================================================== */
+
+    public function counter(int $id): View
+    {
+        $menu = $this->own($id);
+
+        return view('tagtoa::menu.counter', ['menu' => $menu]);
+    }
+
+    /** Le même écran, en JSON — polling, comme la cuisine. */
+    public function counterFeed(int $id): \Illuminate\Http\JsonResponse
+    {
+        $menu = $this->own($id);
+        $orders = $menu->orders()->where('status', 'ready')
+            ->with('items')->oldest('placed_at')->get();
+
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
+
+        return response()->json([
+            'staff'       => $staff ? ['name' => $staff->name, 'initials' => $staff->initials] : null,
+            // « Encaisser » est un droit de caisse ordinaire (StaffAccess::ABILITIES),
+            // pas la case « cuisine » : servir et prendre le paiement, c'est
+            // exactement ce que 'sell' signifie déjà partout ailleurs dans TAGTOA.
+            'can_complete' => ! $staff || $staff->can('sell'),
+            'orders' => $orders->map(fn (Order $o) => [
+                'id'          => $o->id,
+                'reference'   => $o->reference,
+                'order_type'  => $o->order_type,
+                'order_type_label' => __($o->order_type_label),
+                'table_label' => $o->table_label,
+                'total'       => (string) $o->total,
+                'currency'    => $o->currency,
+                'is_paid'     => $o->isPaid(),
+                'placed_at'   => optional($o->placed_at)->toIso8601String(),
+                'items'       => $o->items->map(fn ($it) => [
+                    'name' => $it->name, 'qty' => (int) $it->qty,
+                ]),
+            ]),
+        ]);
+    }
+
+    /**
+     * Sert ET encaisse une commande « Prête » — jamais séparément depuis cet
+     * écran : marquer servi sans encaisser laisserait une addition non
+     * réglée disparaître de la file, invisible jusqu'au rapport du soir.
+     *
+     * Réutilise MenuOrderService::markPaid() (revenu + points fidélité) plutôt
+     * que de réécrire cette logique : un seul endroit sait ce qu'encaisser une
+     * commande MENU veut dire.
+     */
+    public function counterComplete(int $id, int $orderId): RedirectResponse
+    {
+        $menu = $this->own($id);
+        $order = $menu->orders()->whereKey($orderId)->firstOrFail();
+
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
+        abort_if($staff && ! $staff->can('sell'), 403, __('Vous n\'avez pas le droit de faire cela.'));
+
+        if ($order->status === 'ready') {
+            $order->update(['status' => 'completed']);
+            app(MenuOrderService::class)->markPaid($order);
+            app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)->touch('menu_order', $order->id, 'completed');
+        }
 
         return back();
     }

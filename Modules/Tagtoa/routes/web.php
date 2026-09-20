@@ -194,10 +194,19 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/kitchen/feed', [MenuDashboard::class, 'kitchenFeed'])->name('kitchen.feed');
         Route::post('/{id}/kitchen/orders/{orderId}/advance', [MenuDashboard::class, 'kitchenAdvance'])
             ->whereNumber(['id', 'orderId'])->name('kitchen.advance');
-        // Identification (PIN) distincte du login caisse — voir StaffService::forMenu().
-        Route::post('/{id}/kitchen/staff/login', [MenuDashboard::class, 'kitchenStaffLogin'])
-            ->middleware('throttle:10,1')->name('kitchen.staff.login');
-        Route::post('/{id}/kitchen/staff/logout', [MenuDashboard::class, 'kitchenStaffLogout'])->name('kitchen.staff.logout');
+        // Identification (PIN) partagée par la cuisine ET la caisse — un seul
+        // « qui opère ce menu » par navigateur (StaffService::forMenu()),
+        // distinct du login caisse POS (tagtoa_pos_staff).
+        Route::post('/{id}/staff/login', [MenuDashboard::class, 'kitchenStaffLogin'])
+            ->middleware('throttle:10,1')->name('staff.login');
+        Route::post('/{id}/staff/logout', [MenuDashboard::class, 'kitchenStaffLogout'])->name('staff.logout');
+
+        // Écran caisse : complète le cycle ouvert par la cuisine — sert et
+        // encaisse une commande « Prête », jamais avant.
+        Route::get('/{id}/counter', [MenuDashboard::class, 'counter'])->name('counter');
+        Route::get('/{id}/counter/feed', [MenuDashboard::class, 'counterFeed'])->name('counter.feed');
+        Route::post('/{id}/counter/orders/{orderId}/complete', [MenuDashboard::class, 'counterComplete'])
+            ->whereNumber(['id', 'orderId'])->name('counter.complete');
     });
 
     // LOYALTY
