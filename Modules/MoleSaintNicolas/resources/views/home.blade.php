@@ -4,26 +4,7 @@
     @php $homeVideoId = config('services.home_video.id'); @endphp
     <section class="relative isolate overflow-hidden bg-msn-sea-900 text-msn-sand-100">
         @if ($homeVideoId)
-            {{-- Vidéo plein fond du hero (retour client) : "cover" comme un
-                 fond vidéo classique, recadrage assumé. Source réelle 9:16
-                 (YouTube Shorts) — le ratio CSS ci-dessous respecte cette
-                 valeur réelle (16:9 aurait déformé l'image). Pas de vidéo sur
-                 mobile : le "src" n'est posé par JS que si l'écran fait au
-                 moins 768px, donc aucune requête YouTube n'est même déclenchée
-                 sur téléphone (un simple hidden md:block en CSS n'aurait pas
-                 suffi — le navigateur charge un iframe même masqué). --}}
-            <div class="absolute inset-0 overflow-hidden" aria-hidden="true">
-                <iframe
-                    class="pointer-events-none absolute top-1/2 left-1/2 hidden h-[500%] w-auto -translate-x-1/2 -translate-y-1/2 md:block"
-                    style="aspect-ratio: 9 / 16"
-                    data-video-src="https://www.youtube.com/embed/{{ $homeVideoId }}?autoplay=1&mute=1&loop=1&playlist={{ $homeVideoId }}&controls=0&rel=0&modestbranding=1&playsinline=1&disablekb=1&iv_load_policy=3"
-                    title="Vidéo de présentation — Môle-Saint-Nicolas"
-                    allow="autoplay; encrypted-media"
-                    x-data
-                    x-init="if (window.matchMedia('(min-width: 768px)').matches) { $el.src = $el.dataset.videoSrc }"
-                ></iframe>
-                <div class="absolute inset-0 bg-black/50"></div>
-            </div>
+            <x-youtube-background-video :video-id="$homeVideoId" />
         @endif
 
         <div class="relative z-10 mx-auto flex min-h-[70vh] max-w-7xl flex-col justify-center px-4 py-24 sm:px-6 lg:px-8">
@@ -84,6 +65,14 @@
                     </p>
                 @endif
             </div>
+        </section>
+    @endif
+
+    @if ($homeVideoId)
+        {{-- Deuxième apparition de la même vidéo (demande client), en plein
+             écran, juste avant la carte. --}}
+        <section class="relative isolate min-h-screen overflow-hidden bg-msn-sea-900">
+            <x-youtube-background-video :video-id="$homeVideoId" />
         </section>
     @endif
 

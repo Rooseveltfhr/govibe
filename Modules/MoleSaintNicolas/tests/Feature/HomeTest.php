@@ -113,4 +113,33 @@ class HomeTest extends TestCase
         // déclenchée du tout.
         $response->assertDontSee(' src="https://www.youtube.com/embed', false);
     }
+
+    public function test_home_page_shows_the_video_twice_once_in_the_hero_and_once_full_screen_before_the_map(): void
+    {
+        config(['services.home_video.id' => 'dQw4w9WgXcQ']);
+
+        $response = $this->get('/');
+        $content = $response->getContent();
+
+        $this->assertSame(
+            2,
+            substr_count($content, 'data-video-src="https://www.youtube.com/embed/dQw4w9WgXcQ'),
+            'La vidéo doit apparaître deux fois : dans le hero et dans la section plein écran avant la carte.'
+        );
+
+        $heroPos = strpos($content, "porte historique d'Haïti");
+        $secondVideoPos = strpos($content, 'min-h-screen');
+        $cartePos = strpos($content, 'id="carte"');
+
+        $this->assertNotFalse($secondVideoPos);
+        $this->assertTrue($heroPos < $secondVideoPos, 'La deuxième vidéo doit venir après le hero.');
+        $this->assertTrue($secondVideoPos < $cartePos, 'La deuxième vidéo doit venir avant la carte.');
+    }
+
+    public function test_home_page_shows_no_video_at_all_when_none_is_configured(): void
+    {
+        config(['services.home_video.id' => null]);
+
+        $this->get('/')->assertOk()->assertDontSee('min-h-screen', false);
+    }
 }
