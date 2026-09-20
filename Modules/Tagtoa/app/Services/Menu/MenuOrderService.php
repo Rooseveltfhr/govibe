@@ -129,17 +129,22 @@ class MenuOrderService
                 $taxe->inclusive
             );
 
-            // Prix TTC (usage haïtien) : le sous-total contient déjà la
-            // taxe, seul le pourboire s'ajoute. Prix HT : la taxe s'ajoute
-            // au total, et le client paie davantage que le sous-total affiché.
-            $total = $taxe->inclusive
-                ? round($subtotal + $tip, 2)
-                : round($recap['total'] + $tip, 2);
-
             $requestedType = $payload['order_type'] ?? 'dine_in';
             $orderType = in_array($requestedType, Order::ORDER_TYPES, true) ? $requestedType : 'dine_in';
             $requestedChannel = $payload['channel'] ?? 'menu';
             $channel = in_array($requestedChannel, ['menu', 'whatsapp'], true) ? $requestedChannel : 'menu';
+
+            // Comme le pourboire : jamais taxé, s'ajoute tel quel au total.
+            // Seul le mode Livraison le déclenche — sur place ou à emporter,
+            // il n'y a rien à livrer.
+            $deliveryFee = $orderType === 'delivery' ? max(0, round((float) ($menu->delivery_fee ?: 0), 2)) : 0.0;
+
+            // Prix TTC (usage haïtien) : le sous-total contient déjà la
+            // taxe, seul le pourboire s'ajoute. Prix HT : la taxe s'ajoute
+            // au total, et le client paie davantage que le sous-total affiché.
+            $total = $taxe->inclusive
+                ? round($subtotal + $tip + $deliveryFee, 2)
+                : round($recap['total'] + $tip + $deliveryFee, 2);
 
             // Table vérifiée par QR/NFC : quand un code est fourni, il IMPOSE
             // le nom de la table — jamais le texte libre du client, qui reste
@@ -163,6 +168,7 @@ class MenuOrderService
                 'subtotal'         => $subtotal,
                 'total'            => $total,
                 'tip'              => $tip,
+                'delivery_fee'     => $deliveryFee,
                 'currency'         => $menu->currency ?: 'HTG',
                 'status'           => 'pending',
                 'payment_status'   => 'unpaid',

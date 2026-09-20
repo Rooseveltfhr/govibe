@@ -44,7 +44,7 @@ class Menu extends Model
         'vcard_id', 'tenant_id', 'name', 'alias', 'type', 'tagline', 'description',
         'logo_path', 'cover_path', 'currency', 'whatsapp', 'phone', 'address',
         'pay_page_id', 'accent_color', 'theme', 'show_prices', 'ordering_enabled',
-        'is_active', 'views', 'translations', 'hours', 'show_hours', 'timezone',
+        'is_active', 'views', 'translations', 'hours', 'show_hours', 'timezone', 'delivery_fee',
     ];
 
     protected $casts = [
@@ -55,6 +55,7 @@ class Menu extends Model
         'translations'     => 'array',
         'hours'            => 'array',
         'show_hours'       => 'boolean',
+        'delivery_fee'     => 'decimal:2',
     ];
 
     /** Les seuls champs qu'une traduction peut porter — jamais le prix, jamais l'alias. */

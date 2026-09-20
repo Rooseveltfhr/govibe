@@ -476,6 +476,7 @@ $data = $this->validateMenu($request);
             'show_prices'      => ['nullable', 'boolean'],
             'ordering_enabled' => ['nullable', 'boolean'],
             'is_active'        => ['nullable', 'boolean'],
+            'delivery_fee'     => ['nullable', 'numeric', 'min:0', 'max:999999'],
             'logo'             => ['nullable', 'image', 'max:2048'],
             'cover'            => ['nullable', 'image', 'max:4096'],
             'show_hours'       => ['nullable', 'boolean'],

@@ -310,6 +310,7 @@
 
                 <div class="tot" style="font-weight:500;font-size:14px;color:var(--mut)"><span>{{ __('Sous-total') }}</span><span id="subtotal">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
                 <div class="tot" id="tiprowtot" style="display:none;font-weight:500;font-size:14px;color:var(--mut)"><span>{{ __('Pourboire') }}</span><span id="tipamt">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
+                <div class="tot" id="deliveryrowtot" style="display:none;font-weight:500;font-size:14px;color:var(--mut)"><span>{{ __('Frais de livraison') }}</span><span id="deliveryamt">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
                 <div class="tot"><span>{{ __('Total') }}</span><span id="total">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
 
                 <div class="custf">
@@ -373,6 +374,9 @@
     <script>
         var CURMETA = @json(\Modules\Tagtoa\App\Support\Money::meta($cur));
         var ORDER_URL = @json(route('tagtoa.menu.order', $menu->alias));
+        // Affichage seulement : le total réel, avec les frais, est TOUJOURS
+        // recalculé côté serveur (MenuOrderService::insertOrder()).
+        var DELIVERY_FEE = @json((float) ($menu->delivery_fee ?: 0));
         var CSRF = document.querySelector('meta[name=csrf-token]').getAttribute('content');
         var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')) };
         var cart = {};
@@ -462,6 +466,7 @@
             if (cTableFixe) { cTableFixe.style.display = (t==='dine_in') ? '' : 'none'; }
             else { document.getElementById('cTable').style.display = (t==='dine_in') ? '' : 'none'; }
             document.getElementById('cAddress').style.display = (t==='delivery') ? '' : 'none';
+            render();
         }
         function setTipPct(p){
             tipPct = p;
@@ -471,12 +476,15 @@
         function render(){
             var s = totals();
             var tip = tipAmount(s.t);
+            var frais = (orderType==='delivery') ? DELIVERY_FEE : 0;
             document.getElementById('cnt').textContent = s.n;
-            document.getElementById('bartot').textContent = fmt(s.t+tip);
+            document.getElementById('bartot').textContent = fmt(s.t+tip+frais);
             document.getElementById('subtotal').textContent = fmt(s.t);
             document.getElementById('tipamt').textContent = fmt(tip);
             document.getElementById('tiprowtot').style.display = tip>0 ? '' : 'none';
-            document.getElementById('total').textContent = fmt(s.t+tip);
+            document.getElementById('deliveryamt').textContent = fmt(frais);
+            document.getElementById('deliveryrowtot').style.display = frais>0 ? '' : 'none';
+            document.getElementById('total').textContent = fmt(s.t+tip+frais);
             document.getElementById('cartbar').classList.toggle('show', s.n>0);
             var list = document.getElementById('clist'), html='';
             if(s.n===0){ html = '<div class="empty">'+T.empty+'</div>'; }

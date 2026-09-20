@@ -60,6 +60,8 @@
             <div><label class="lbl">{{ __('Page de paiement (TAGTOA Pay)') }}</label><select class="sel" name="pay_page_id"><option value="">{{ __('— Aucune —') }}</option>@foreach($payPages as $pp)<option value="{{ $pp->id }}" @selected(old('pay_page_id',$menu->pay_page_id)==$pp->id)>{{ $pp->title ?: $pp->alias }}</option>@endforeach</select></div>
         </div>
         <label class="switch"><input type="hidden" name="ordering_enabled" value="0"><input type="checkbox" name="ordering_enabled" value="1" @checked(old('ordering_enabled',$menu->ordering_enabled ?? true))> {{ __('Activer la commande WhatsApp') }}</label>
+        <label class="lbl" style="margin-top:10px">{{ __('Frais de livraison') }} <span style="font-weight:400;color:var(--muted)">({{ __('vide ou 0 = livraison gratuite') }})</span></label>
+        <input class="inp" type="number" step="0.01" min="0" name="delivery_fee" value="{{ old('delivery_fee',$menu->delivery_fee) }}" placeholder="0.00" style="max-width:160px">
     </div>
 
     {{-- ----- Apparence ----- --}}
