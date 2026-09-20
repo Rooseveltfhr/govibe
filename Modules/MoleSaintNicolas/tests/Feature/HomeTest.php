@@ -100,38 +100,46 @@ class HomeTest extends TestCase
     {
         config(['services.home_video.id' => 'dQw4w9WgXcQ']);
 
-        $response = $this->get('/');
-
-        $response->assertOk()
+        // Chargement différé sur l'iframe du hero : "data-video-src" (pas de
+        // "src" direct) — sur mobile, le JS ne le pose jamais, donc aucune
+        // requête YouTube n'est déclenchée pour cette apparition-là. La
+        // deuxième apparition (encart avant la carte) utilise elle un "src"
+        // direct, voir test_home_page_shows_the_video_twice_...
+        $this->get('/')
+            ->assertOk()
             ->assertSee('data-video-src="https://www.youtube.com/embed/dQw4w9WgXcQ', false)
             ->assertSee('autoplay=1&mute=1&loop=1', false)
             // Voile noir semi-transparent par-dessus pour la lisibilité du texte.
             ->assertSee('bg-black/50', false);
-
-        // Pas de "src" direct sur l'iframe (seulement "data-video-src") : sur
-        // mobile, le JS ne le pose jamais, donc aucune requête YouTube n'est
-        // déclenchée du tout.
-        $response->assertDontSee(' src="https://www.youtube.com/embed', false);
     }
 
-    public function test_home_page_shows_the_video_twice_once_in_the_hero_and_once_full_screen_before_the_map(): void
+    public function test_home_page_shows_the_video_twice_hero_background_and_contained_embed_before_the_map(): void
     {
         config(['services.home_video.id' => 'dQw4w9WgXcQ']);
 
         $response = $this->get('/');
         $content = $response->getContent();
 
+        // Hero : chargement différé (data-video-src, pas de "src" direct —
+        // pas de vidéo sur mobile pour cette apparition-là).
         $this->assertSame(
-            2,
+            1,
             substr_count($content, 'data-video-src="https://www.youtube.com/embed/dQw4w9WgXcQ'),
-            'La vidéo doit apparaître deux fois : dans le hero et dans la section plein écran avant la carte.'
+            'La vidéo du hero doit être en chargement différé (mobile exclu).'
+        );
+
+        // Deuxième vidéo : encart normal (~16:9, avec marge), visible aussi
+        // sur mobile — donc un "src" direct, pas de data-attribute.
+        $this->assertSame(
+            1,
+            substr_count($content, ' src="https://www.youtube.com/embed/dQw4w9WgXcQ'),
+            'La deuxième vidéo doit être un encart normal, visible immédiatement sur tous les écrans.'
         );
 
         $heroPos = strpos($content, "porte historique d'Haïti");
-        $secondVideoPos = strpos($content, 'min-h-screen');
+        $secondVideoPos = strpos($content, ' src="https://www.youtube.com/embed/dQw4w9WgXcQ');
         $cartePos = strpos($content, 'id="carte"');
 
-        $this->assertNotFalse($secondVideoPos);
         $this->assertTrue($heroPos < $secondVideoPos, 'La deuxième vidéo doit venir après le hero.');
         $this->assertTrue($secondVideoPos < $cartePos, 'La deuxième vidéo doit venir avant la carte.');
     }
@@ -140,6 +148,6 @@ class HomeTest extends TestCase
     {
         config(['services.home_video.id' => null]);
 
-        $this->get('/')->assertOk()->assertDontSee('min-h-screen', false);
+        $this->get('/')->assertOk()->assertDontSee('youtube.com/embed', false);
     }
 }

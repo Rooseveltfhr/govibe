@@ -69,10 +69,20 @@
     @endif
 
     @if ($homeVideoId)
-        {{-- Deuxième apparition de la même vidéo (demande client), en plein
-             écran, juste avant la carte. --}}
-        <section class="relative isolate min-h-screen overflow-hidden bg-msn-sea-900">
-            <x-youtube-background-video :video-id="$homeVideoId" />
+        {{-- Deuxième apparition de la même vidéo (demande client), juste avant
+             la carte — pas en fond plein cadre comme le hero cette fois : un
+             encart contenu (~16:9, avec marge), visible aussi sur mobile. --}}
+        <section class="border-b border-msn-sand-200 bg-white py-16">
+            <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+                <div class="aspect-video overflow-hidden rounded-2xl shadow-lg">
+                    <iframe
+                        class="h-full w-full"
+                        src="https://www.youtube.com/embed/{{ $homeVideoId }}?autoplay=1&mute=1&loop=1&playlist={{ $homeVideoId }}&controls=0&rel=0&modestbranding=1&playsinline=1&disablekb=1&iv_load_policy=3"
+                        title="Vidéo de présentation — Môle-Saint-Nicolas"
+                        allow="autoplay; encrypted-media"
+                    ></iframe>
+                </div>
+            </div>
         </section>
     @endif
 
