@@ -115,6 +115,53 @@ $data = $this->validateMenu($request);
         return view('tagtoa::menu.orders', compact('menu', 'orders', 'pending'));
     }
 
+    /* =====================================================================
+       TABLES — vérifiées par QR/NFC, jamais un numéro tapé par le client.
+       ===================================================================== */
+
+    public function tables(int $id): View
+    {
+        $menu = $this->own($id);
+
+        return view('tagtoa::menu.tables', ['menu' => $menu, 'tables' => $menu->tables]);
+    }
+
+    public function storeTable(Request $request, int $id): RedirectResponse
+    {
+        $menu = $this->own($id);
+        $data = $request->validate(['label' => ['required', 'string', 'max:40']]);
+
+        $menu->tables()->create([
+            'tenant_id' => $menu->tenant_id,
+            'label'     => $data['label'],
+            'code'      => \Modules\Tagtoa\App\Models\Menu\Table::generateCode(),
+            'is_active' => true,
+        ]);
+
+        return back()->with('success', __('Table ajoutée. Imprimez son QR et posez-le dessus.'));
+    }
+
+    public function destroyTable(int $id, int $tableId): RedirectResponse
+    {
+        $menu = $this->own($id);
+        $menu->tables()->whereKey($tableId)->firstOrFail()->delete();
+
+        return back()->with('success', __('Table supprimée.'));
+    }
+
+    /** Affiche imprimable — réutilise le même gabarit que les autres QR TAGTOA. */
+    public function tablePoster(int $id, int $tableId): View
+    {
+        $menu = $this->own($id);
+        $table = $menu->tables()->whereKey($tableId)->firstOrFail();
+
+        return view('tagtoa::qr.poster', [
+            'name'  => $menu->name.' — '.$table->label,
+            'label' => __('Table'),
+            'url'   => url('/menu/'.$menu->alias).'?t='.$table->code,
+        ]);
+    }
+
     /**
      * Écran cuisine : lecture seule, oldest-first — la commande qui attend
      * depuis le plus longtemps est celle qu'il faut sortir en premier.

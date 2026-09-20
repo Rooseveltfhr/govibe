@@ -315,7 +315,17 @@
                 <div class="custf">
                     <input id="cName" class="cin" placeholder="{{ __('Votre nom') }}" maxlength="120">
                     <input id="cPhone" class="cin" type="tel" placeholder="{{ __('Téléphone (WhatsApp)') }}" maxlength="40">
-                    <input id="cTable" class="cin" placeholder="{{ __('N° table (optionnel)') }}" maxlength="40">
+                    @if($table)
+                        {{-- Table vérifiée par le QR scanné : fixe, jamais un
+                             texte que le client pourrait changer pour une
+                             autre table que la sienne. --}}
+                        <div id="cTableFixe" class="cin" style="display:flex;align-items:center;gap:8px;color:var(--acc)">
+                            <i class="fa-solid fa-chair"></i> {{ __('Table') }} : <b>{{ $table->label }}</b>
+                        </div>
+                        <input id="cTable" type="hidden" value="{{ $table->label }}">
+                    @else
+                        <input id="cTable" class="cin" placeholder="{{ __('N° table (optionnel)') }}" maxlength="40">
+                    @endif
                     <input id="cAddress" class="cin" placeholder="{{ __('Adresse de livraison') }}" maxlength="200" style="display:none">
                 </div>
                 <div class="cta">
@@ -448,7 +458,9 @@
         function setOrderType(t){
             orderType = t;
             document.querySelectorAll('#otype .otbtn').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-type')===t); });
-            document.getElementById('cTable').style.display = (t==='dine_in') ? '' : 'none';
+            var cTableFixe = document.getElementById('cTableFixe');
+            if (cTableFixe) { cTableFixe.style.display = (t==='dine_in') ? '' : 'none'; }
+            else { document.getElementById('cTable').style.display = (t==='dine_in') ? '' : 'none'; }
             document.getElementById('cAddress').style.display = (t==='delivery') ? '' : 'none';
         }
         function setTipPct(p){
@@ -517,7 +529,8 @@
             var s = totals(); if(s.n===0) return;
             var items=[]; for(var k in cart){ items.push({id:cart[k].id, qty:cart[k].qty, options:cart[k].options}); }
             var payload = {items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
-                customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),delivery_address:val('cAddress')};
+                customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),
+                table_code:@json($table->code ?? null),delivery_address:val('cAddress')};
             var btn=document.getElementById('confirmBtn'); btn.disabled=true; var old=btn.innerHTML; btn.textContent=T.wait;
             envoyerCommande(payload).then(function(j){
                 showConfirmed(j);

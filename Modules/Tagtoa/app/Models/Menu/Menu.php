@@ -100,6 +100,11 @@ class Menu extends Model
         return $this->hasMany(Order::class, 'menu_id')->latest();
     }
 
+    public function tables(): HasMany
+    {
+        return $this->hasMany(Table::class, 'menu_id')->orderBy('label');
+    }
+
     public function getTypeMetaAttribute(): array
     {
         return self::TYPES[$this->type] ?? self::TYPES['other'];

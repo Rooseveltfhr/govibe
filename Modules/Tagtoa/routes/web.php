@@ -195,6 +195,14 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/orders/{order}/status', [MenuDashboard::class, 'setStatus'])->name('orders.status');
         Route::post('/orders/{order}/paid', [MenuDashboard::class, 'markPaid'])->name('orders.paid');
 
+        // Tables vérifiées par QR/NFC — voir Table::generateCode().
+        Route::get('/{id}/tables', [MenuDashboard::class, 'tables'])->name('tables');
+        Route::post('/{id}/tables', [MenuDashboard::class, 'storeTable'])->name('tables.store');
+        Route::delete('/{id}/tables/{tableId}', [MenuDashboard::class, 'destroyTable'])
+            ->whereNumber(['id', 'tableId'])->name('tables.destroy');
+        Route::get('/{id}/tables/{tableId}/poster', [MenuDashboard::class, 'tablePoster'])
+            ->whereNumber(['id', 'tableId'])->name('tables.poster');
+
         // Écran cuisine : lecture seule, pensé pour rester ouvert toute la
         // journée sur une tablette au-dessus du plan de travail — pas un
         // écran qu'on navigue, un écran qu'on surveille du coin de l'œil.

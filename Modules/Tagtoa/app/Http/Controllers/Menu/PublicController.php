@@ -11,6 +11,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Menu\Order;
+use Modules\Tagtoa\App\Models\Menu\Table;
 use Modules\Tagtoa\App\Models\Review\Review;
 use Modules\Tagtoa\App\Services\Menu\MenuOrderService;
 use Modules\Tagtoa\App\Services\Review\ReviewService;
@@ -49,6 +50,17 @@ class PublicController extends Controller
             return compact('menu', 'categories', 'reviews', 'summary');
         });
 
+        // Vérification de table : JAMAIS dans le cache ci-dessus, qui est
+        // partagé entre tous les visiteurs de CE menu pendant sa fenêtre. Un
+        // code de table appartient à CETTE requête précise — le mettre en
+        // cache ferait porter le numéro d'un premier client à tous les
+        // suivants tant que le cache tient.
+        $data['table'] = null;
+        if ($t = request('t')) {
+            $data['table'] = Table::where('menu_id', $data['menu']->id)
+                ->where('code', $t)->where('is_active', true)->first();
+        }
+
         return view('tagtoa::menu.show', $data);
     }
 
@@ -69,6 +81,10 @@ class PublicController extends Controller
             'customer_name'      => ['nullable', 'string', 'max:120'],
             'customer_phone'     => ['nullable', 'string', 'max:40'],
             'table_label'        => ['nullable', 'string', 'max:40'],
+            // Présent seulement quand le client a scanné le QR d'une vraie
+            // table (jamais tapé) — voir MenuOrderService::insertOrder(),
+            // qui l'impose sur `table_label` et rejette un code invalide.
+            'table_code'         => ['nullable', 'string', 'max:20'],
             'delivery_address'   => ['nullable', 'string', 'max:200'],
             'note'               => ['nullable', 'string', 'max:500'],
             'client_uuid'        => ['nullable', 'string', 'max:64'],
@@ -81,6 +97,7 @@ class PublicController extends Controller
                 'out_of_stock'            => __('Un article est en rupture de stock. Ajustez votre commande.'),
                 'missing_required_option' => __('Choisissez une option obligatoire pour chaque article.'),
                 'closed'                  => __('Ce commerce est fermé pour le moment. Revenez pendant les heures d\'ouverture.'),
+                'invalid_table'           => __('Ce QR de table n\'est plus valide. Rechargez la page en le rescannant.'),
                 default                   => __('Votre commande est vide.'),
             };
 

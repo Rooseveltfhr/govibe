@@ -141,6 +141,22 @@ class MenuOrderService
             $requestedChannel = $payload['channel'] ?? 'menu';
             $channel = in_array($requestedChannel, ['menu', 'whatsapp'], true) ? $requestedChannel : 'menu';
 
+            // Table vérifiée par QR/NFC : quand un code est fourni, il IMPOSE
+            // le nom de la table — jamais le texte libre du client, qui reste
+            // possible seulement en l'ABSENCE de code (menu sans tables
+            // configurées). Un code présent mais invalide/désactivé est
+            // refusé plutôt qu'ignoré : un QR périmé ne doit jamais faire
+            // atterrir silencieusement une commande sans table.
+            $tableLabel = $payload['table_label'] ?? null;
+            if (! empty($payload['table_code'])) {
+                $table = \Modules\Tagtoa\App\Models\Menu\Table::where('menu_id', $menu->id)
+                    ->where('code', $payload['table_code'])->where('is_active', true)->first();
+                if (! $table) {
+                    throw new \RuntimeException('invalid_table');
+                }
+                $tableLabel = $table->label;
+            }
+
             $order = $menu->orders()->create([
                 'tenant_id'        => $menu->tenant_id,
                 'reference'        => Order::generateReference(),
@@ -154,7 +170,7 @@ class MenuOrderService
                 'order_type'       => $orderType,
                 'customer_name'    => $payload['customer_name'] ?? null,
                 'customer_phone'   => $payload['customer_phone'] ?? null,
-                'table_label'      => $orderType === 'dine_in' ? ($payload['table_label'] ?? null) : null,
+                'table_label'      => $orderType === 'dine_in' ? $tableLabel : null,
                 'delivery_address' => $orderType === 'delivery' ? ($payload['delivery_address'] ?? null) : null,
                 'note'             => $payload['note'] ?? null,
                 'client_uuid'      => $uuid,
