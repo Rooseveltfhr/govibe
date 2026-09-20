@@ -47,7 +47,9 @@
     @php $homeVideoId = config('services.home_video.id'); @endphp
     <section class="border-b border-msn-sand-200 bg-white py-16">
         <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-            <div class="aspect-video overflow-hidden rounded-2xl bg-msn-sand-200">
+            {{-- YouTube Shorts fourni par le client : format vertical (9:16), d'où le
+                 conteneur étroit plutôt que la largeur pleine d'une vidéo 16:9 classique. --}}
+            <div class="mx-auto aspect-[9/16] w-full max-w-xs overflow-hidden rounded-2xl bg-msn-sand-200 sm:max-w-sm">
                 @if ($homeVideoId)
                     <iframe
                         class="h-full w-full"
