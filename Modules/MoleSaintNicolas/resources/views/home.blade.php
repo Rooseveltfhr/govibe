@@ -3,62 +3,68 @@
 @section('content')
     @php $homeVideoId = config('services.home_video.id'); @endphp
     <section class="relative overflow-hidden bg-msn-sea-900 text-msn-sand-100">
-        @if ($homeVideoId)
-            {{-- Vidéo en fond du hero (demande client) : source verticale (YouTube
-                 Shorts, 9:16) sur une bannière large — surdimensionnée et centrée
-                 pour couvrir toute la section, forcément recadrée/zoomée puisque son
-                 format d'origine est vertical. Overlay marine par-dessus pour garder
-                 le texte du hero lisible ; contenu en z-10 pour rester au-dessus. --}}
-            <div class="absolute inset-0 overflow-hidden">
-                <iframe
-                    class="pointer-events-none absolute top-1/2 left-1/2 h-[500%] w-auto -translate-x-1/2 -translate-y-1/2"
-                    style="aspect-ratio: 9 / 16"
-                    src="https://www.youtube.com/embed/{{ $homeVideoId }}?autoplay=1&mute=1&loop=1&playlist={{ $homeVideoId }}&controls=0&rel=0&modestbranding=1&playsinline=1"
-                    title="Vidéo de présentation — Môle-Saint-Nicolas"
-                    allow="autoplay; encrypted-media"
-                ></iframe>
-                <div class="absolute inset-0 bg-msn-sea-950/70"></div>
+        <div class="mx-auto flex max-w-7xl flex-col-reverse items-center gap-10 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:gap-16 lg:px-8 lg:py-24">
+            <div class="w-full lg:flex-1">
+                <p class="hero-fade-up text-sm font-semibold uppercase tracking-[0.3em] text-msn-gold-400" style="animation-delay: .05s">
+                    Nord-Ouest, Haïti
+                </p>
+                <h1 class="hero-fade-up mt-4 max-w-3xl text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl" style="animation-delay: .15s">
+                    Môle-Saint-Nicolas, la porte historique d'Haïti
+                </h1>
+                <p class="hero-fade-up mt-6 max-w-2xl text-lg text-msn-sand-200" style="animation-delay: .3s">
+                    Découvrez
+                    <span x-data="{
+                            words: ['l\'histoire', 'le patrimoine', 'le territoire', 'le tourisme'],
+                            i: 0,
+                            word: '',
+                        }"
+                        x-init="
+                            word = words[0];
+                            setInterval(() => {
+                                $el.classList.add('opacity-0');
+                                setTimeout(() => {
+                                    i = (i + 1) % words.length;
+                                    word = words[i];
+                                    $el.classList.remove('opacity-0');
+                                }, 300);
+                            }, 2600);
+                        "
+                        x-text="word"
+                        class="inline-block font-semibold text-msn-gold-400 transition-opacity duration-300"
+                    ></span>
+                    de Môle-Saint-Nicolas — réunis dans une seule plateforme, en construction module
+                    par module.
+                </p>
+                <div class="hero-fade-up mt-10 flex flex-wrap gap-4" style="animation-delay: .45s">
+                    <a href="{{ route('histoire.index') }}" class="rounded-full bg-msn-terracotta-500 px-6 py-3 font-semibold text-white hover:bg-msn-terracotta-600">
+                        Découvrir Môle-Saint-Nicolas
+                    </a>
+                    <a href="{{ route('territoire.index') }}" class="rounded-full border border-msn-sea-700 px-6 py-3 font-semibold hover:bg-msn-sea-950/10">
+                        Explorer le territoire
+                    </a>
+                </div>
             </div>
-        @endif
-        <div class="relative z-10 mx-auto flex min-h-[70vh] max-w-7xl flex-col justify-center px-4 py-24 sm:px-6 lg:px-8">
-            <p class="hero-fade-up text-sm font-semibold uppercase tracking-[0.3em] text-msn-gold-400" style="animation-delay: .05s">
-                Nord-Ouest, Haïti
-            </p>
-            <h1 class="hero-fade-up mt-4 max-w-3xl text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl" style="animation-delay: .15s">
-                Môle-Saint-Nicolas, la porte historique d'Haïti
-            </h1>
-            <p class="hero-fade-up mt-6 max-w-2xl text-lg text-msn-sand-200" style="animation-delay: .3s">
-                Découvrez
-                <span x-data="{
-                        words: ['l\'histoire', 'le patrimoine', 'le territoire', 'le tourisme'],
-                        i: 0,
-                        word: '',
-                    }"
-                    x-init="
-                        word = words[0];
-                        setInterval(() => {
-                            $el.classList.add('opacity-0');
-                            setTimeout(() => {
-                                i = (i + 1) % words.length;
-                                word = words[i];
-                                $el.classList.remove('opacity-0');
-                            }, 300);
-                        }, 2600);
-                    "
-                    x-text="word"
-                    class="inline-block font-semibold text-msn-gold-400 transition-opacity duration-300"
-                ></span>
-                de Môle-Saint-Nicolas — réunis dans une seule plateforme, en construction module
-                par module.
-            </p>
-            <div class="hero-fade-up mt-10 flex flex-wrap gap-4" style="animation-delay: .45s">
-                <a href="{{ route('histoire.index') }}" class="rounded-full bg-msn-terracotta-500 px-6 py-3 font-semibold text-white hover:bg-msn-terracotta-600">
-                    Découvrir Môle-Saint-Nicolas
-                </a>
-                <a href="{{ route('territoire.index') }}" class="rounded-full border border-msn-sea-700 px-6 py-3 font-semibold hover:bg-msn-sea-950/10">
-                    Explorer le territoire
-                </a>
-            </div>
+
+            @if ($homeVideoId)
+                {{-- Vidéo dans le hero (demande client), format d'origine respecté
+                     intégralement : la boîte a exactement le ratio de la source
+                     (YouTube Shorts, 9:16), donc la vidéo la remplit sans jamais
+                     être recadrée ni zoomée. En colonne à côté du texte plutôt
+                     qu'en fond derrière lui : sur petit écran, une vidéo pleine
+                     largeur en fond aurait entièrement recouvert le texte. Pas de
+                     voile sombre par-dessus : le client veut la vidéo bien
+                     visible, contrastée. --}}
+                <div class="w-full max-w-[220px] flex-shrink-0 sm:max-w-xs">
+                    <div class="aspect-[9/16] overflow-hidden rounded-2xl shadow-2xl">
+                        <iframe
+                            class="pointer-events-none h-full w-full"
+                            src="https://www.youtube.com/embed/{{ $homeVideoId }}?autoplay=1&mute=1&loop=1&playlist={{ $homeVideoId }}&controls=0&rel=0&modestbranding=1&playsinline=1&disablekb=1"
+                            title="Vidéo de présentation — Môle-Saint-Nicolas"
+                            allow="autoplay; encrypted-media"
+                        ></iframe>
+                    </div>
+                </div>
+            @endif
         </div>
     </section>
 
