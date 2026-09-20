@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    // Vidéo YouTube en autoplay sous le hero de la page d'accueil (brief client).
+    // Réglable sans redéploiement : juste l'identifiant vidéo (ex. "dQw4w9WgXcQ"),
+    // pas l'URL complète.
+    'home_video' => [
+        'id' => env('MSN_HOME_VIDEO_ID'),
+    ],
+
 ];

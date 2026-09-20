@@ -44,6 +44,30 @@
         </div>
     </section>
 
+    @php $homeVideoId = config('services.home_video.id'); @endphp
+    <section class="border-b border-msn-sand-200 bg-white py-16">
+        <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+            <div class="aspect-video overflow-hidden rounded-2xl bg-msn-sand-200">
+                @if ($homeVideoId)
+                    <iframe
+                        class="h-full w-full"
+                        src="https://www.youtube.com/embed/{{ $homeVideoId }}?autoplay=1&mute=1&loop=1&playlist={{ $homeVideoId }}&controls=1&rel=0"
+                        title="Vidéo de présentation — Môle-Saint-Nicolas"
+                        allow="autoplay; encrypted-media; picture-in-picture"
+                        allowfullscreen
+                    ></iframe>
+                @else
+                    <div class="flex h-full w-full flex-col items-center justify-center gap-2 text-center text-msn-ink-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-2.36a.75.75 0 011.03.67v10.38a.75.75 0 01-1.03.67l-4.72-2.36M4.5 6.75h9a1.5 1.5 0 011.5 1.5v7.5a1.5 1.5 0 01-1.5 1.5h-9a1.5 1.5 0 01-1.5-1.5v-7.5a1.5 1.5 0 011.5-1.5z" />
+                        </svg>
+                        <p class="text-sm font-medium">[Vidéo à ajouter — lien YouTube à fournir]</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </section>
+
     <section id="lieux-historiques" class="border-b border-msn-sand-200 py-16">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Lieux historiques</h2>

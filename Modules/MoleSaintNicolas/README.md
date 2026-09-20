@@ -67,9 +67,14 @@ php artisan serve
 **Hors plan initial (ajouté à la demande du client)**
 - [x] Projets communautaires (`CommunityProject`) + avis visiteurs modérés avant publication — `/projets`
 - [x] Espace admin "Mon compte" (changement de mot de passe), throttle login, cookie de session sécurisé en production, en-têtes de sécurité de base
-- [x] Page "À propos" et page "Contact" (`ContactMessage`, formulaire → notification email admin) rattachées au menu principal — `/a-propos`, `/contact`, CRUD lecture/suppression `/admin/messages`
-- [x] Menu "Arrondissement Môle" (sections communales de Môle-Saint-Nicolas + autres communes de l'arrondissement) en menu déroulant, vers les fiches `/territoire/{commune}` et `/territoire/{commune}/{section}`
+- [x] Page "Contact" (`ContactMessage`, formulaire → notification email admin) — `/contact`, CRUD lecture/suppression `/admin/messages`
 - [x] Mot de passe admin oublié : lien email de réinitialisation (`/admin/mot-de-passe-oublie`) en plus du changement depuis "Mon compte"
+- [x] Menu principal (demande client) : Accueil, Centre-ville, les 3 sections communales de Môle-Saint-Nicolas en liens directs
+  (Côtes de Fer, Mare-Rouge, Damé), Actualités, Lieux historiques, Galerie, Contact. Histoire, Établissements, Projets
+  communautaires, À propos et la page Territoire/arrondissement restent accessibles par URL directe mais ne sont plus
+  dans le menu — pages non supprimées, seulement retirées de la navigation.
+- [x] Espace vidéo YouTube en autoplay sous le hero de l'accueil (`MSN_HOME_VIDEO_ID` dans `.env`, réglable sans
+  redéploiement) — affiche un repère "vidéo à ajouter" tant que l'identifiant n'est pas fourni
 
 **À noter**
 - Aucune vraie photo n'est encore hébergée pour les entités sans upload dédié (établissements, sites historiques, activités) :

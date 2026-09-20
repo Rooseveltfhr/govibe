@@ -31,7 +31,10 @@ class Commune extends Model
 
     public function sectionsCommunales(): HasMany
     {
-        return $this->hasMany(SectionCommunale::class);
+        // Sans tri explicite, l'ordre renvoyé par la requête n'est pas garanti
+        // (dépend du moteur/plan d'exécution) — l'ordre de création est
+        // l'ordre d'affichage attendu (menu principal, fiche commune).
+        return $this->hasMany(SectionCommunale::class)->orderBy('id');
     }
 
     public function creator(): BelongsTo
