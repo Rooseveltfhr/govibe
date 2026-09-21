@@ -67,6 +67,29 @@ class Stripe
     }
 
     /**
+     * La clé secrète colle-t-elle à l'environnement annoncé ? PUR.
+     *
+     * Stripe n'a qu'une seule URL d'API : test et production ne se
+     * distinguent QUE par le préfixe de la clé (sk_test_… / sk_live_…). Sans
+     * cette vérification, une clé sk_live_ collée en pensant être en mode
+     * test facturerait un vrai client pendant un essai ; une clé sk_test_
+     * gardée en production ne facturerait jamais personne alors que le
+     * marchand croit encaisser. Les deux sont graves, dans les deux sens.
+     *
+     * Une clé absente n'est pas un désaccord — rien à comparer.
+     */
+    public static function modeMatchesKey(string $mode, ?string $secret): bool
+    {
+        if (! $secret) {
+            return true;
+        }
+
+        return $mode === 'live'
+            ? str_starts_with($secret, 'sk_live_')
+            : str_starts_with($secret, 'sk_test_');
+    }
+
+    /**
      * Vérifie la signature d'un webhook Stripe (header « Stripe-Signature »). PUR.
      *
      * Format du header : « t=<timestamp>,v1=<hmac>,... ». On recalcule

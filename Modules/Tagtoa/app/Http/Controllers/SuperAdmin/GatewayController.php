@@ -72,6 +72,8 @@ class GatewayController extends Controller
                 'fields'  => GatewayCredentialFields::describe($cfg),
                 'sources' => GatewayCredentialFields::sources($cfg, $stored[$driver] ?? null),
                 'mode'    => GatewayCredentialFields::merge($cfg, $stored[$driver] ?? null)['mode'] ?? null,
+                'note'    => $cfg['note'] ?? null,
+                'warning' => GatewayManager::warning($driver),
                 'ready'   => GatewayManager::enabled($driver),
                 // Types de méthode couverts par ce driver (usdt/btc… → coinpayments).
                 // Types réellement traités par ce driver, réglage compris : sans

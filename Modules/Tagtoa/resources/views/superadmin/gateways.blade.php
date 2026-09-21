@@ -91,6 +91,14 @@
                         </select>
                     </label>
                 @endif
+
+                @if($d['note'])
+                    <p class="gw-note"><i class="fa-solid fa-circle-info"></i> {{ $d['note'] }}</p>
+                @endif
+
+                @if($d['warning'])
+                    <p class="gw-note gw-note-warn"><i class="fa-solid fa-triangle-exclamation"></i> {{ $d['warning'] }}</p>
+                @endif
             </div>
 
             <div class="gw-card-foot">
@@ -240,6 +248,10 @@
     .gw-warn i{color:var(--red);font-size:17px;margin-top:2px}
     .gw-warn b{font-family:var(--fh);font-size:14px;display:block;margin-bottom:4px}
     .gw-warn p{font-size:13px;color:#7a2b25;line-height:1.55}
+    .gw-note{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.5;color:#3d5a80;
+              background:#eef4fb;border-radius:10px;padding:9px 11px;margin-top:11px}
+    .gw-note i{margin-top:2px;font-size:12px}
+    .gw-note-warn{color:#7a2b25;background:#fdecea}
     .gw-dot{width:26px;height:26px;border-radius:7px;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
 </style>
 @endsection
