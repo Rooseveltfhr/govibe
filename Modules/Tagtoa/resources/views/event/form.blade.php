@@ -37,25 +37,31 @@
             <div><label class="lbl">{{ __('Type') }}</label><select class="sel" name="type">@foreach($eventTypes as $val => $label)<option value="{{ $val }}" @selected(old('type',$event->type)===$val)>{{ $label }}</option>@endforeach</select></div>
             <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(['HTG','USD'] as $c)<option @selected(old('currency',$event->currency ?: 'HTG')===$c)>{{ $c }}</option>@endforeach</select></div>
         </div>
-        <div class="row">
-            <div><label class="lbl">{{ __('Mode de billet') }}</label><select class="sel" name="checkin_mode">
-                <option value="both" @selected($cm==='both')>{{ __('En ligne (QR) + Carte NFC') }}</option>
-                <option value="qr" @selected($cm==='qr')>{{ __('En ligne (QR) seulement') }}</option>
-                <option value="nfc" @selected($cm==='nfc')>{{ __('Carte NFC seulement') }}</option>
-            </select></div>
-            <div></div>
-        </div>
+        <label class="lbl">{{ __('Mode de billet') }}</label>
+        <select class="sel" name="checkin_mode">
+            <option value="both" @selected($cm==='both')>{{ __('En ligne (QR) + Carte NFC') }}</option>
+            <option value="qr" @selected($cm==='qr')>{{ __('En ligne (QR) seulement') }}</option>
+            <option value="nfc" @selected($cm==='nfc')>{{ __('Carte NFC seulement') }}</option>
+        </select>
         <div class="row">
             <div><label class="lbl">{{ __('Début') }}</label><input class="inp" type="datetime-local" name="starts_at" value="{{ old('starts_at', optional($event->starts_at)->format('Y-m-d\TH:i')) }}"></div>
             <div><label class="lbl">{{ __('Fin') }}</label><input class="inp" type="datetime-local" name="ends_at" value="{{ old('ends_at', optional($event->ends_at)->format('Y-m-d\TH:i')) }}"></div>
         </div>
-        <label class="lbl">{{ __('Lieu') }}</label><input class="inp" name="venue" value="{{ old('venue',$event->venue) }}">
-        <label class="lbl">{{ __('Adresse') }}</label><input class="inp" name="address" value="{{ old('address',$event->address) }}">
+        <div class="row">
+            <div><label class="lbl">{{ __('Lieu') }}</label><input class="inp" name="venue" value="{{ old('venue',$event->venue) }}"></div>
+            <div><label class="lbl">{{ __('Adresse') }}</label><input class="inp" name="address" value="{{ old('address',$event->address) }}"></div>
+        </div>
         <label class="lbl">{{ __('Description') }}</label><textarea class="inp" name="description" rows="3">{{ old('description',$event->description) }}</textarea>
-        <label class="lbl">{{ __('Cover') }}</label><input class="inp" type="file" name="cover" accept="image/*">
-        @if($editing && $event->cover_url)<img src="{{ $event->cover_url }}" style="height:56px;border-radius:8px;margin-top:8px">@endif
-        <label class="lbl">{{ __('Logo (affiché sur les billets imprimables)') }}</label><input class="inp" type="file" name="logo" accept="image/*">
-        @if($editing && $event->logo_url)<img src="{{ $event->logo_url }}" style="height:56px;border-radius:8px;margin-top:8px">@endif
+        <div class="row">
+            <div>
+                <label class="lbl">{{ __('Cover') }}</label><input class="inp" type="file" name="cover" accept="image/*">
+                @if($editing && $event->cover_url)<img src="{{ $event->cover_url }}" style="height:56px;border-radius:8px;margin-top:8px">@endif
+            </div>
+            <div>
+                <label class="lbl">{{ __('Logo (affiché sur les billets imprimables)') }}</label><input class="inp" type="file" name="logo" accept="image/*">
+                @if($editing && $event->logo_url)<img src="{{ $event->logo_url }}" style="height:56px;border-radius:8px;margin-top:8px">@endif
+            </div>
+        </div>
         <label class="lbl">{{ __('Page de paiement (pour billets payants)') }}</label>
         <select class="sel" name="pay_page_id"><option value="">{{ __('— Aucune —') }}</option>@foreach($payPages as $pp)<option value="{{ $pp->id }}" @selected(old('pay_page_id',$event->pay_page_id)==$pp->id)>{{ $pp->title ?: $pp->alias }}</option>@endforeach</select>
         <div style="display:flex;gap:20px;margin-top:8px">
@@ -73,15 +79,19 @@
 </form>
 
 <template id="tttpl">
-    <div class="ttrow" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-        <input name="ticket_types[IDX][name]" class="inp" placeholder="{{ __('Nom (VIP…)') }}" style="max-width:150px">
-        <input name="ticket_types[IDX][price]" type="number" step="0.01" min="0" class="inp" placeholder="{{ __('Prix') }}" style="max-width:100px">
-        <input name="ticket_types[IDX][compare_at_price]" type="number" step="0.01" min="0" class="inp" placeholder="{{ __('Prix barré') }}" style="max-width:100px">
-        <input name="ticket_types[IDX][quantity]" type="number" class="inp" placeholder="{{ __('Qté (∞)') }}" style="max-width:90px">
-        <input name="ticket_types[IDX][allowed_gates]" class="inp" placeholder="{{ __('Portes (A,VIP…)') }}" style="max-width:120px">
-        <label class="switch" style="flex:0" title="{{ __('Actif') }}"><input type="checkbox" name="ticket_types[IDX][is_active]" value="1" checked></label>
-        <label class="switch" style="flex:0" title="{{ __('VIP') }}"><input type="checkbox" name="ticket_types[IDX][is_vip]" value="1"> ⭐</label>
-        <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.ttrow').remove()"><i class="fa-solid fa-trash"></i></button>
+    <div class="ttrow card" style="padding:14px;margin-bottom:10px">
+        <div class="pf">
+            <div><label>{{ __('Nom (VIP…)') }}</label><input name="ticket_types[IDX][name]" class="inp"></div>
+            <div><label>{{ __('Prix') }}</label><input name="ticket_types[IDX][price]" type="number" step="0.01" min="0" class="inp"></div>
+            <div><label>{{ __('Prix barré') }}</label><input name="ticket_types[IDX][compare_at_price]" type="number" step="0.01" min="0" class="inp"></div>
+            <div><label>{{ __('Qté (∞)') }}</label><input name="ticket_types[IDX][quantity]" type="number" class="inp"></div>
+            <div><label>{{ __('Portes (A,VIP…)') }}</label><input name="ticket_types[IDX][allowed_gates]" class="inp"></div>
+        </div>
+        <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:12px">
+            <label class="switch"><input type="checkbox" name="ticket_types[IDX][is_active]" value="1" checked> {{ __('Actif') }}</label>
+            <label class="switch"><input type="checkbox" name="ticket_types[IDX][is_vip]" value="1"> {{ __('VIP') }} ⭐</label>
+            <button type="button" class="btn btn-o btn-sm" style="margin-left:auto;color:var(--red)" onclick="this.closest('.ttrow').remove()"><i class="fa-solid fa-trash"></i> {{ __('Retirer') }}</button>
+        </div>
     </div>
 </template>
 @push('scripts')
