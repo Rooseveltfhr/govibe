@@ -114,6 +114,25 @@ class CategoryIconTest extends TestCase
         $this->assertMatchesRegularExpression('/^fa-[a-z0-9-]+$/', CategoryIcon::DEFAUT);
     }
 
+    public function test_it_recognises_the_common_grocery_style_presets(): void
+    {
+        // Les rayons de CategoryPresets::COMMON doivent tous retrouver une
+        // icône propre — c'est justement ce qu'un clic sur une suggestion
+        // affiche aussitôt, avant même l'enregistrement.
+        foreach ([
+            'Boisson'              => 'fa-mug-hot',
+            'Alimentation'         => 'fa-basket-shopping',
+            'Légumes'              => 'fa-carrot',
+            'Alcool'               => 'fa-whiskey-glass',
+            'Collations'           => 'fa-cookie-bite',
+            'Nettoyage & hygiène'  => 'fa-pump-soap',
+            'Cosmétique'           => 'fa-pump-soap',
+            'Divers'               => 'fa-box',
+        ] as $nom => $attendu) {
+            $this->assertSame($attendu, CategoryIcon::deduire($nom), "« $nom »");
+        }
+    }
+
     public function test_an_injected_class_cannot_carry_markup(): void
     {
         // La valeur part dans un attribut class. Une chaîne libre y ferait

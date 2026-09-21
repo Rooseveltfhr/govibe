@@ -129,6 +129,16 @@ class CategoryIcon
         'pain'        => 'fa-bread-slice',
         'bread'       => 'fa-bread-slice',
 
+        // Rayons d'un petit commerce (boutik/épicerie) — CategoryPresets::COMMON
+        'alimentation'  => 'fa-basket-shopping',
+        'collation'     => 'fa-cookie-bite',
+        'nettoyage'     => 'fa-pump-soap',
+        'hygiene'       => 'fa-pump-soap',
+        'hygiène'       => 'fa-pump-soap',
+        'cosmetique'    => 'fa-pump-soap',
+        'cosmétique'    => 'fa-pump-soap',
+        'divers'        => 'fa-box',
+
         // Hôtel et autres métiers
         'chambre'     => 'fa-bed',
         'room'        => 'fa-bed',
