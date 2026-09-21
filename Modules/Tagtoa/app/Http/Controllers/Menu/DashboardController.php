@@ -43,16 +43,34 @@ class DashboardController extends Controller
 
     public function create(): View
     {
-        // Le commerce (l'établissement) porte déjà nom, logo, adresse,
-        // téléphone, type et devise — les redemander à la création du menu
-        // fait taper deux fois la même chose, et les deux copies finissent
-        // par diverger. On les reprend comme PRÉ-REMPLISSAGE seulement : le
-        // marchand garde la main pour les changer si ce menu-là diffère (un
-        // hôtel dont le restaurant a son propre numéro, par exemple) — aucun
-        // champ n'est retiré du formulaire.
+        return view('tagtoa::menu.form', $this->creationViewData());
+    }
+
+    /**
+     * Même création, présentée en assistant à sept étapes au lieu d'un long
+     * formulaire — même formulaire, mêmes champs, seulement redécoupé à
+     * l'écran (voir menu/_form-body.blade.php, partagé par les deux vues).
+     */
+    public function wizard(): View
+    {
+        return view('tagtoa::menu.wizard', $this->creationViewData());
+    }
+
+    /**
+     * Données communes aux deux écrans de création (formulaire classique et
+     * assistant). Le commerce (l'établissement) porte déjà nom, logo, adresse,
+     * téléphone, type et devise — les redemander à la création du menu fait
+     * taper deux fois la même chose, et les deux copies finissent par
+     * diverger. On les reprend comme PRÉ-REMPLISSAGE seulement : le marchand
+     * garde la main pour les changer si ce menu-là diffère (un hôtel dont le
+     * restaurant a son propre numéro, par exemple) — aucun champ n'est retiré
+     * du formulaire.
+     */
+    private function creationViewData(): array
+    {
         $business = Business::find(Tenant::id());
 
-        return view('tagtoa::menu.form', [
+        return [
             'menu' => new Menu([
                 'theme'        => 'light',
                 'accent_color' => '#2cb809',
@@ -65,7 +83,7 @@ class DashboardController extends Controller
             'vcards'    => $this->vcards(),
             'payPages'  => $this->payPages(),
             'suppliers' => $this->fournisseurs(),
-        ]);
+        ];
     }
 
     public function store(Request $request): RedirectResponse
