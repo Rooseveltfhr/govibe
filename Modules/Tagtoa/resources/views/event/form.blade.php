@@ -78,7 +78,9 @@
         <input name="ticket_types[IDX][price]" type="number" step="0.01" min="0" class="inp" placeholder="{{ __('Prix') }}" style="max-width:100px">
         <input name="ticket_types[IDX][compare_at_price]" type="number" step="0.01" min="0" class="inp" placeholder="{{ __('Prix barré') }}" style="max-width:100px">
         <input name="ticket_types[IDX][quantity]" type="number" class="inp" placeholder="{{ __('Qté (∞)') }}" style="max-width:90px">
-        <label class="switch" style="flex:0"><input type="checkbox" name="ticket_types[IDX][is_active]" value="1" checked></label>
+        <input name="ticket_types[IDX][allowed_gates]" class="inp" placeholder="{{ __('Portes (A,VIP…)') }}" style="max-width:120px">
+        <label class="switch" style="flex:0" title="{{ __('Actif') }}"><input type="checkbox" name="ticket_types[IDX][is_active]" value="1" checked></label>
+        <label class="switch" style="flex:0" title="{{ __('VIP') }}"><input type="checkbox" name="ticket_types[IDX][is_vip]" value="1"> ⭐</label>
         <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.ttrow').remove()"><i class="fa-solid fa-trash"></i></button>
     </div>
 </template>
@@ -86,11 +88,15 @@
 <script>
 var ttIdx=0;
 function addTT(d){var h=document.getElementById('tttpl').innerHTML.replace(/IDX/g,ttIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('ttlist').appendChild(r);
-    if(d){r.querySelector('[name$="[name]"]').value=d.name||'';r.querySelector('[name$="[price]"]').value=d.price||'';var cp=r.querySelector('[name$="[compare_at_price]"]');if(cp){cp.value=d.compare_at_price==null?'':d.compare_at_price;}r.querySelector('[name$="[quantity]"]').value=d.quantity==null?'':d.quantity;r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;var i=document.createElement('input');i.type='hidden';i.name='ticket_types['+ttIdx+'][id]';i.value=d.id;r.appendChild(i);}
+    if(d){r.querySelector('[name$="[name]"]').value=d.name||'';r.querySelector('[name$="[price]"]').value=d.price||'';var cp=r.querySelector('[name$="[compare_at_price]"]');if(cp){cp.value=d.compare_at_price==null?'':d.compare_at_price;}r.querySelector('[name$="[quantity]"]').value=d.quantity==null?'':d.quantity;r.querySelector('[name$="[allowed_gates]"]').value=d.allowed_gates||'';r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;r.querySelector('[name$="[is_vip]"]').checked=!!d.is_vip;var i=document.createElement('input');i.type='hidden';i.name='ticket_types['+ttIdx+'][id]';i.value=d.id;r.appendChild(i);}
     ttIdx++;}
 @php
     $ttData = $event->relationLoaded('ticketTypes')
-        ? $event->ticketTypes->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'price' => $t->price, 'compare_at_price' => $t->compare_at_price, 'quantity' => $t->quantity, 'is_active' => $t->is_active])->values()
+        ? $event->ticketTypes->map(fn ($t) => [
+            'id' => $t->id, 'name' => $t->name, 'price' => $t->price, 'compare_at_price' => $t->compare_at_price,
+            'quantity' => $t->quantity, 'is_active' => $t->is_active, 'is_vip' => $t->is_vip,
+            'allowed_gates' => $t->allowed_gates ? implode(',', $t->allowed_gates) : '',
+        ])->values()
         : [];
 @endphp
 var ex=@json($ttData);

@@ -85,6 +85,34 @@ class GatewayManager
         return $driver !== null && self::enabled($driver);
     }
 
+    /**
+     * Avertissement propre à un driver, au-delà de « les identifiants sont-ils
+     * remplis » (enabled()) — un cas où les identifiants sont bien là mais se
+     * contredisent. Aujourd'hui, seul Stripe a une règle vérifiable : le
+     * préfixe de la clé secrète (sk_test_…/sk_live_…) doit correspondre à
+     * l'environnement annoncé (voir Stripe::modeMatchesKey()). Sans cet appel,
+     * le super-admin verrait « Prête » alors que StripeDriver refuse en
+     * silence d'opérer — un désaccord invisible jusqu'au premier client bloqué.
+     */
+    public static function warning(string $driver): ?string
+    {
+        if ($driver !== 'stripe') {
+            return null;
+        }
+
+        $cfg = self::config('stripe');
+        $secret = $cfg['credentials']['secret'] ?? null;
+        $mode = $cfg['mode'] ?? 'sandbox';
+
+        if ($secret && ! \Modules\Tagtoa\App\Support\Gateways\Stripe::modeMatchesKey($mode, $secret)) {
+            return $mode === 'live'
+                ? __('La clé enregistrée ressemble à une clé de TEST (sk_test_…) alors que l\'environnement est réglé sur Production : Stripe reste désactivé tant que ce n\'est pas corrigé.')
+                : __('La clé enregistrée ressemble à une clé de PRODUCTION (sk_live_…) alors que l\'environnement est réglé sur Test : Stripe reste désactivé tant que ce n\'est pas corrigé.');
+        }
+
+        return null;
+    }
+
     /** Liste des drivers actuellement activés (pour diagnostic/dashboard). */
     public static function enabledDrivers(): array
     {

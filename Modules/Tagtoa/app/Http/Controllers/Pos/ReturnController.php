@@ -11,6 +11,8 @@ use Modules\Tagtoa\App\Models\Pos\SaleReturn;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Services\Audit\AuditService;
 use Modules\Tagtoa\App\Services\Pos\ReturnService;
+use Modules\Tagtoa\App\Services\Staff\StaffService;
+use Modules\Tagtoa\App\Support\Pos\GuardsStaffAbility;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -27,6 +29,8 @@ use Modules\Tagtoa\App\Support\Tenant;
  */
 class ReturnController extends Controller
 {
+    use GuardsStaffAbility;
+
     public function __construct(protected ReturnService $service)
     {
     }
@@ -69,6 +73,15 @@ class ReturnController extends Controller
 
         $sale = $this->vente($id);
 
+        // Un remboursement fait SORTIR de l'argent : un caissier (qui n'a pas
+        // `sale.refund`, voir StaffAccess::GRANTS) ne doit pas pouvoir
+        // encaisser puis se rembourser lui-même en appelant directement cette
+        // route. Aucun employé connecté = le patron travaille directement
+        // (voir GuardsStaffAbility).
+        $terminal = Terminal::find($sale->terminal_id);
+        $staff = $terminal ? app(StaffService::class)->forTerminal($terminal) : null;
+        $this->denyUnless($staff, 'sale.refund');
+
         $resultat = $this->service->record($sale, $data['qty'], [
             'tenant_id'       => Tenant::id(),
             'kind'            => $data['kind'] ?? 'customer',
@@ -80,7 +93,9 @@ class ReturnController extends Controller
             // l'intention arrive même sans cette lecture.
             'restock'         => $request->boolean('restock'),
             'idempotency_key' => $data['idempotency_key'],
-            'staff_id'        => null,
+            // Un mouvement d'argent laisse une trace nominative : c'était
+            // fixé à null en dur, donc jamais renseigné même employé connecté.
+            'staff_id'        => $staff?->id,
         ]);
 
         if ($resultat['result'] === ReturnService::OK) {

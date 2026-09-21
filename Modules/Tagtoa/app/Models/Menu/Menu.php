@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Support\BelongsToTenant;
+use Modules\Tagtoa\App\Support\Menu\BusinessHours;
+use Modules\Tagtoa\App\Support\Menu\Translatable;
 
 /**
  * TAGTOA MENU — menu digital d'un établissement (tagtoa.com/menu/{alias}).
@@ -30,6 +32,9 @@ class Menu extends Model
         'club'       => ['label' => 'Club',        'icon' => 'fa-solid fa-record-vinyl'],
         'lounge'     => ['label' => 'Lounge',      'icon' => 'fa-solid fa-couch'],
         'hotel'      => ['label' => 'Hôtel',       'icon' => 'fa-solid fa-hotel'],
+        'pharmacy'   => ['label' => 'Pharmacie',   'icon' => 'fa-solid fa-prescription-bottle-medical'],
+        'clinic'     => ['label' => 'Clinique',    'icon' => 'fa-solid fa-stethoscope'],
+        'boutique'   => ['label' => 'Boutique / Commerce', 'icon' => 'fa-solid fa-bag-shopping'],
         'other'      => ['label' => 'Autre',       'icon' => 'fa-solid fa-store'],
     ];
 
@@ -39,7 +44,7 @@ class Menu extends Model
         'vcard_id', 'tenant_id', 'name', 'alias', 'type', 'tagline', 'description',
         'logo_path', 'cover_path', 'currency', 'whatsapp', 'phone', 'address',
         'pay_page_id', 'accent_color', 'theme', 'show_prices', 'ordering_enabled',
-        'is_active', 'views',
+        'is_active', 'views', 'translations', 'hours', 'show_hours', 'timezone', 'delivery_fee',
     ];
 
     protected $casts = [
@@ -47,7 +52,14 @@ class Menu extends Model
         'ordering_enabled' => 'boolean',
         'is_active'        => 'boolean',
         'views'            => 'integer',
+        'translations'     => 'array',
+        'hours'            => 'array',
+        'show_hours'       => 'boolean',
+        'delivery_fee'     => 'decimal:2',
     ];
+
+    /** Les seuls champs qu'une traduction peut porter — jamais le prix, jamais l'alias. */
+    public const CHAMPS_TRADUISIBLES = ['tagline', 'description'];
 
     public static function generateAlias(string $base): string
     {
@@ -89,6 +101,11 @@ class Menu extends Model
         return $this->hasMany(Order::class, 'menu_id')->latest();
     }
 
+    public function tables(): HasMany
+    {
+        return $this->hasMany(Table::class, 'menu_id')->orderBy('label');
+    }
+
     public function getTypeMetaAttribute(): array
     {
         return self::TYPES[$this->type] ?? self::TYPES['other'];
@@ -113,5 +130,28 @@ class Menu extends Model
     public function getWhatsappDigitsAttribute(): ?string
     {
         return $this->whatsapp ? preg_replace('/\D+/', '', $this->whatsapp) : null;
+    }
+
+    /**
+     * Le commerce est-il ouvert MAINTENANT ? Sans horaires configurés,
+     * toujours vrai — voir BusinessHours::isOpenAt(). Le fuseau retombe sur
+     * Haïti : c'est le marché d'origine de TAGTOA, et un menu créé avant
+     * l'ajout de ce champ n'en porte aucun.
+     */
+    public function isOpenNow(): bool
+    {
+        return BusinessHours::isOpenAt($this->hours, now($this->timezone ?: 'America/Port-au-Prince'));
+    }
+
+    /**
+     * Le texte de ce champ, dans une langue — le slogan ou la description.
+     *
+     * Retombe sur le texte de base dès qu'aucune traduction n'existe pour
+     * cette langue : un menu sans traduction s'affiche exactement comme avant.
+     */
+    public function translated(string $champ, ?string $locale = null): string
+    {
+        return Translatable::resolve($this->translations, $this->{$champ}, $champ,
+            $locale ?? \Modules\Tagtoa\App\Support\Locale::current());
     }
 }

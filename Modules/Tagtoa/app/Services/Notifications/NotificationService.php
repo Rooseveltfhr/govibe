@@ -2,6 +2,8 @@
 
 namespace Modules\Tagtoa\App\Services\Notifications;
 
+use Modules\Tagtoa\App\Models\Loyalty\Transaction;
+
 /**
  * TAGTOA — notifications (e-mail) sur les événements clés.
  *
@@ -134,6 +136,194 @@ class NotificationService
     {
         try {
             \Modules\Tagtoa\App\Jobs\SendNotification::dispatch($payload);
+        } catch (\Throwable $e) {
+            if (function_exists('report')) {
+                report($e);
+            }
+        }
+    }
+
+    /**
+     * Compose le message d'un mouvement de carte de fidélité, à partir de
+     * FAITS déjà calculés — jamais un objet Eloquent ici, même principe que
+     * CustomerSegment::classify() : pur, testable sans base de données.
+     *
+     * `null` pour un type de mouvement inconnu (aucun cas prévu) : appelant
+     * responsable de ne rien envoyer dans ce cas.
+     *
+     * @param  array{
+     *     type: string, reward: bool, cardholder_name: string, program_name: string,
+     *     currency: string, amount: float, points_delta: int, balance: float,
+     *     points: int, reward_note: ?string,
+     * }  $faits
+     * @return array{subject:string,body:string}|null
+     */
+    public static function loyaltyMovementMessage(array $faits): ?array
+    {
+        $devise = $faits['currency'] ?? '';
+        $solde = __('Solde').' : '.number_format((float) ($faits['balance'] ?? 0), 2).' '.$devise;
+        $points = __('Points').' : '.number_format((int) ($faits['points'] ?? 0));
+        $salutation = __('Bonjour').' '.($faits['cardholder_name'] ?? '').',';
+        $programme = ' — '.($faits['program_name'] ?? '');
+
+        return match (true) {
+            $faits['type'] === Transaction::TYPE_TOP_UP => self::compose(
+                __('Carte rechargée').$programme,
+                [
+                    $salutation,
+                    '',
+                    __('Votre carte a été rechargée de :montant.', ['montant' => number_format((float) $faits['amount'], 2).' '.$devise]),
+                    $solde,
+                    $points,
+                ]
+            ),
+            $faits['type'] === Transaction::TYPE_EARN => self::compose(
+                __('Points gagnés').$programme,
+                [
+                    $salutation,
+                    '',
+                    __('Vous avez gagné :n points.', ['n' => number_format((int) $faits['points_delta'])]),
+                    $points,
+                ]
+            ),
+            $faits['type'] === Transaction::TYPE_REDEEM && ! empty($faits['reward']) => self::compose(
+                __('Récompense échangée').$programme,
+                [
+                    $salutation,
+                    '',
+                    $faits['reward_note'] ?: __('Votre récompense a été appliquée.'),
+                    $solde,
+                    $points,
+                ]
+            ),
+            $faits['type'] === Transaction::TYPE_REDEEM => self::compose(
+                __('Paiement effectué').$programme,
+                [
+                    $salutation,
+                    '',
+                    __('Un paiement de :montant a été débité de votre carte.', ['montant' => number_format((float) $faits['amount'], 2).' '.$devise]),
+                    $solde,
+                    $points,
+                ]
+            ),
+            default => null,
+        };
+    }
+
+    /**
+     * Notifie un mouvement de carte de fidélité (recharge, points gagnés,
+     * paiement, récompense) au TITULAIRE de la carte — jamais au marchand :
+     * ce sont des mouvements courants, pas des alertes à traiter.
+     *
+     * Reçoit la carte ET la transaction déjà enregistrées (jamais un montant
+     * recalculé ici) — le message affiché doit être un miroir exact de ce qui
+     * a été écrit dans le ledger, pas une seconde source de vérité.
+     *
+     * Tolérant : aucune exception ne remonte.
+     */
+    public function notifyLoyaltyMovement($card, $transaction): void
+    {
+        try {
+            $card->loadMissing('program');
+            $program = $card->program;
+            if (! $program) {
+                return;
+            }
+
+            $message = self::loyaltyMovementMessage([
+                'type' => $transaction->type,
+                'reward' => (bool) $transaction->reward_id,
+                'cardholder_name' => (string) $card->cardholder_name,
+                'program_name' => (string) $program->name,
+                'currency' => (string) ($program->currency ?: ''),
+                'amount' => (float) $transaction->amount,
+                'points_delta' => (int) $transaction->points_delta,
+                'balance' => (float) $card->balance,
+                'points' => (int) $card->points,
+                'reward_note' => $transaction->note,
+            ]);
+
+            if ($message === null) {
+                return;
+            }
+
+            $this->email($card->cardholder_email, $message['subject'], $message['body']);
+            $this->whatsapp($card->cardholder_phone, $message['subject']."\n".$message['body']);
+        } catch (\Throwable $e) {
+            if (function_exists('report')) {
+                report($e);
+            }
+        }
+    }
+
+    /**
+     * Compose les deux messages d'un paiement reçu sur un lien TAGTOA PAY —
+     * alerte marchand + reçu payeur. PUR, même principe que
+     * loyaltyMovementMessage() : aucun Eloquent, aucun I/O.
+     *
+     * @param  array{page_title:string, payer_name:string, amount:float, currency:string, method_label:?string}  $faits
+     * @return array{merchant:array{subject:string,body:string}, payer:array{subject:string,body:string}}
+     */
+    public static function paymentReceivedMessages(array $faits): array
+    {
+        $montant = number_format((float) $faits['amount'], 2).' '.($faits['currency'] ?? '');
+        $methode = $faits['method_label'] ?? null;
+        $payeur = $faits['payer_name'] !== '' ? $faits['payer_name'] : __('Client');
+
+        $merchant = self::compose(
+            __('Paiement reçu').' — '.$faits['page_title'],
+            [
+                __('Vous avez reçu un paiement.'),
+                __('Montant').' : '.$montant,
+                __('De').' : '.$payeur,
+                $methode ? __('Méthode').' : '.$methode : null,
+            ]
+        );
+
+        $payer = self::compose(
+            __('Reçu de paiement').' — '.$faits['page_title'],
+            [
+                __('Bonjour').' '.$payeur.',',
+                '',
+                __('Votre paiement de :montant a bien été reçu.', ['montant' => $montant]),
+                __('Merci!'),
+            ]
+        );
+
+        return ['merchant' => $merchant, 'payer' => $payer];
+    }
+
+    /**
+     * Notifie un paiement reçu sur un lien PAY : alerte au marchand (e-mail) +
+     * reçu au payeur (WhatsApp, seul canal dont on dispose pour un payeur —
+     * une preuve de paiement ne porte pas d'e-mail).
+     *
+     * Couvre les deux chemins où l'argent arrive SANS revue manuelle — carte
+     * TAGTOA et passerelle en ligne — qui créaient jusqu'ici une preuve
+     * APPROUVÉE en silence, sans que personne ne l'apprenne. La soumission
+     * manuelle d'une preuve (en attente de revue) reste notifiée par
+     * PayProofReceived, un mécanisme différent et déjà en place.
+     *
+     * Tolérant : aucune exception ne remonte jusqu'au paiement lui-même.
+     */
+    public function notifyPaymentReceived($page, $proof): void
+    {
+        try {
+            $messages = self::paymentReceivedMessages([
+                'page_title'   => (string) $page->title,
+                'payer_name'   => (string) ($proof->payer_name ?? ''),
+                'amount'       => (float) $proof->amount,
+                'currency'     => (string) $proof->currency,
+                'method_label' => optional($proof->method)->display_label,
+            ]);
+
+            $email = optional($page->vcard)->email;
+            if ($email) {
+                $this->email($email, $messages['merchant']['subject'], $messages['merchant']['body']);
+            }
+            if ($proof->payer_phone) {
+                $this->whatsapp($proof->payer_phone, $messages['payer']['subject']."\n".$messages['payer']['body']);
+            }
         } catch (\Throwable $e) {
             if (function_exists('report')) {
                 report($e);

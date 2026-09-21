@@ -36,6 +36,9 @@
         <input name="links[IDX][label]" class="inp" placeholder="{{ __('Titre') }}" style="max-width:180px">
         <input name="links[IDX][url]" class="inp" placeholder="https://...">
         <label class="switch" style="flex:0" title="{{ __('Mettre en avant') }}"><input type="checkbox" name="links[IDX][is_featured]" value="1"></label>
+        {{-- Lecture seule : le nombre de clics existait déjà (Link::clicks) mais
+             n'était affiché nulle part. Vide pour un lien pas encore enregistré. --}}
+        <span class="clicks-badge" style="flex:0;color:var(--muted);font-size:12px;white-space:nowrap;min-width:64px;text-align:right"></span>
         <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.lrow').remove()"><i class="fa-solid fa-trash"></i></button>
     </div>
 </template>
@@ -43,11 +46,11 @@
 <script>
 var lIdx=0;
 function addL(d){var h=document.getElementById('ltpl').innerHTML.replace(/IDX/g,lIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('llist').appendChild(r);
-    if(d){r.querySelector('[name$="[label]"]').value=d.label||'';r.querySelector('[name$="[url]"]').value=d.url||'';r.querySelector('[name$="[is_featured]"]').checked=!!d.is_featured;var i=document.createElement('input');i.type='hidden';i.name='links['+lIdx+'][id]';i.value=d.id;r.appendChild(i);}
+    if(d){r.querySelector('[name$="[label]"]').value=d.label||'';r.querySelector('[name$="[url]"]').value=d.url||'';r.querySelector('[name$="[is_featured]"]').checked=!!d.is_featured;if(d.id){r.querySelector('.clicks-badge').textContent=(d.clicks||0)+@js(' '.__('clics'));}var i=document.createElement('input');i.type='hidden';i.name='links['+lIdx+'][id]';i.value=d.id;r.appendChild(i);}
     lIdx++;}
 @php
     $linkData = $page->relationLoaded('links')
-        ? $page->links->map(fn ($l) => ['id' => $l->id, 'label' => $l->label, 'url' => $l->url, 'is_featured' => $l->is_featured])->values()
+        ? $page->links->map(fn ($l) => ['id' => $l->id, 'label' => $l->label, 'url' => $l->url, 'is_featured' => $l->is_featured, 'clicks' => $l->clicks])->values()
         : [];
 @endphp
 var ex=@json($linkData);

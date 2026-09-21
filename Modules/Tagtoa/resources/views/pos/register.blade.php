@@ -59,6 +59,14 @@
         @media(min-width:761px){.cartbtn{display:none}.cart{transform:none}.voile{display:none}}
         .top{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--blk);color:#fff}.top h1{font:600 16px var(--fh);flex:1}.top .net{font-size:12px;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.15)}.top .net.off{background:#E08A1E}.top a{color:#fff;opacity:.8;text-decoration:none}
         .grid{padding:14px;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:10px;align-content:start}
+        /* Les rayons — quarante articles ne doivent plus être un mur de
+           boutons. Défilement horizontal : sur téléphone, une liste de rayons
+           dépasse vite la largeur de l'écran. */
+        .rayons{flex:0 0 auto;display:flex;gap:8px;padding:10px 14px 0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+        .rayons::-webkit-scrollbar{display:none}
+        .rayons button{flex:0 0 auto;border:0;border-radius:999px;padding:8px 14px;font:600 12.5px var(--fh);
+                       background:#fff;color:var(--blk);border:1px solid var(--bd);cursor:pointer;white-space:nowrap}
+        .rayons button.on{background:var(--blk);color:#fff;border-color:var(--blk)}
         /* Le bouton de caisse porte une PHOTO quand il en a une. Un emoji ne
            distingue pas trois plats de riz ni quatre tailles de la même bière,
            et c'est exactement là que le caissier se trompe de bouton, en pleine
@@ -131,6 +139,18 @@
                 @if(session('error'))<span class="err">{{ session('error') }}</span>@endif
             </div>
         @endif
+        @php($rayons = collect($sellable)->pluck('group')->filter()->unique()->sort()->values())
+        @if($rayons->isNotEmpty())
+            {{-- Quarante articles donnaient quarante boutons d'affilée : le
+                 caissier cherchait à l'œil au moment où il a le moins de temps.
+                 Les rayons existaient déjà côté back-office, invisibles ici. --}}
+            <div class="rayons" id="rayons">
+                <button type="button" class="on" data-rayon="">{{ __('Tout') }}</button>
+                @foreach($rayons as $r)
+                    <button type="button" data-rayon="{{ $r }}">{{ $r }}</button>
+                @endforeach
+            </div>
+        @endif
         <div class="grid" id="grid">
             {{-- Boutons de la caisse ET articles du menu du commerce. Chaque
                  article porte sa référence d'origine (« menu:7 », « pos:7 ») :
@@ -138,6 +158,7 @@
             @foreach($sellable as $a)
                 <button class="p" style="background:{{ $a['color'] }}"
                         data-ref="{{ $a['ref'] }}" data-name="{{ $a['name'] }}" data-price="{{ $a['price'] }}"
+                        data-group="{{ $a['group'] }}"
                         @if($a['group']) title="{{ $a['group'] }}" @endif>
                     @if(!empty($a['image']))
                         {{-- Si la photo ne charge pas — lien /storage absent sur
@@ -209,7 +230,13 @@ function tagtoaPhotoCassee(img){
 
 var T=document.body.dataset.terminal,CUR=document.body.dataset.currency,CSRF=document.querySelector('meta[name=csrf-token]').content;
 var SALE_URL="{{ route('tagtoa.pos.sale',$terminal->id) }}",SYNC_URL="{{ route('tagtoa.pos.sync',$terminal->id) }}",QKEY='tagtoa_pos_q_'+T;
+// Le panier EN COURS (pas encore encaissé) survit à un rechargement ou une
+// coupure de courant — fréquente là où cette caisse tourne. `QKEY` protège
+// déjà la vente une fois ENVOYÉE ; ceci protège ce qui a été sonné avant.
+var CARTKEY='tagtoa_pos_cart_'+T;
 var cart={},method='cash';
+try{cart=JSON.parse(localStorage.getItem(CARTKEY)||'{}');}catch(e){cart={};}
+function sauvegarderPanier(){try{localStorage.setItem(CARTKEY,JSON.stringify(cart));}catch(e){}}
 
 /* Le régime de taxe du commerce. La caisse s'en sert UNIQUEMENT pour
    annoncer le bon montant : avec des prix hors taxe, afficher le sous-total
@@ -303,18 +330,73 @@ function direScan(texte, erreur){
     el._t = setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 4000);
 }
 
+/* ------------------------------------------------------------------
+   CE QUI SE PASSE QUAND UN CODE EST LU.
+
+   Le défaut d'avant, signalé depuis un comptoir : « ça fait le son quand
+   le code passe devant la caméra, puis plus rien ». L'article ÉTAIT
+   ajouté — mais la caméra couvre tout l'écran, et le panier est
+   désormais une fenêtre fermée. Rien de ce qui changeait n'était
+   visible. Un travail fait sans preuve ressemble à un travail non fait,
+   et le caissier rescanne, ou renonce.
+
+   Deux corrections, et elles vont ensemble :
+
+     • le scanner DIT lui-même ce qu'il vient d'ajouter, dans son propre
+       écran, seul endroit que le caissier regarde à ce moment-là ;
+     • un ajout réussi FERME la caméra et rend la main, comme demandé.
+       On revoit alors le catalogue, le compteur du panier, et le bouton
+       pour scanner le suivant.
+
+   Un code INCONNU ne ferme rien : on reste caméra ouverte pour viser à
+   nouveau, sinon il faudrait rouvrir le scanner après chaque étiquette
+   abîmée.
+   ------------------------------------------------------------------ */
+function direDansScanner(texte, erreur){
+    if(window.TagtoaScanner && TagtoaScanner.isOpen && TagtoaScanner.isOpen()){
+        TagtoaScanner.say(texte, !!erreur);
+        return true;
+    }
+    return false;
+}
+
+/** Article trouvé : on l'ajoute, on le dit, et on rend la main. */
+function ajouterEtRendreLaMain(ref, name, price, note){
+    add(ref, name, price);
+
+    var texte = '\u2713 ' + name + (note ? ' — ' + note : '');
+
+    if(direDansScanner(texte)){
+        // Le message s'affiche, PUIS l'écran se ferme : fermer d'abord
+        // effacerait la seule confirmation que le caissier aura vue.
+        setTimeout(function(){
+            if(window.TagtoaScanner) TagtoaScanner.close();
+            direScan(texte);
+        }, 600);
+        return;
+    }
+
+    // Douchette USB, ou saisie hors scanner : rien à fermer.
+    direScan(texte);
+}
+
 function vendreParCode(code){
     code = nettoyerCode(code);
     if(code.length < 4) return;
 
     var a = PAR_CODE[code];
-    if(a){ add(a.ref, a.name, a.price); direScan(a.name); return; }
+    if(a){ ajouterEtRendreLaMain(a.ref, a.name, a.price); return; }
 
     if(!navigator.onLine){
         beep('error');
-        direScan("{{ __('Code inconnu de cette caisse, et pas de connexion pour vérifier.') }}", true);
+        var horsLigne = @js(__('Code inconnu de cette caisse, et pas de connexion pour vérifier.'));
+        if(!direDansScanner(horsLigne, true)) direScan(horsLigne, true);
         return;
     }
+
+    // Le serveur met un instant à répondre : on le dit, sinon l'attente
+    // ressemble exactement à la panne qu'on vient de corriger.
+    direDansScanner(@js(__('Recherche…')));
 
     fetch(SCAN_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},
         body:JSON.stringify({code:code})})
@@ -324,19 +406,21 @@ function vendreParCode(code){
               // Retenu pour la suite de la journée : le même article repasse
               // souvent à la caisse.
               PAR_CODE[code] = {ref:d.article.ref, name:d.article.name, price:d.article.price};
-              add(d.article.ref, d.article.name, d.article.price);
-              direScan(d.article.name + (d.article.out ? " — {{ __('stock épuisé') }}" : ''));
+              ajouterEtRendreLaMain(d.article.ref, d.article.name, d.article.price,
+                  d.article.out ? @js(__('stock épuisé')) : null);
               return;
           }
           // Code inconnu : on ne devine JAMAIS un article. Encaisser le
           // mauvais prix coûte plus cher que de taper l'article à la main.
           beep('error');
           if(window.TagtoaScanner) TagtoaScanner.reject();
-          direScan("{{ __('Code inconnu : ') }}" + code, true);
+          var inconnu = @js(__('Code inconnu : ')) + code;
+          if(!direDansScanner(inconnu, true)) direScan(inconnu, true);
       })
       .catch(function(){
           beep('error');
-          direScan("{{ __('Vérification impossible. Touchez l\'article dans la grille.') }}", true);
+          var rate = @js(__('Vérification impossible. Touchez l\'article dans la grille.'));
+          if(!direDansScanner(rate, true)) direScan(rate, true);
       });
 }
 
@@ -351,9 +435,13 @@ window.addEventListener('load', function(){
     if(b) b.addEventListener('click', function(){
         TagtoaScanner.open({
             onCode: vendreParCode,
-            title:  "{{ __('Scanner pour vendre') }}",
-            hint:   "{{ __('Visez le code-barres. Chaque lecture ajoute l\'article au panier.') }}",
-            submit: "{{ __('Ajouter') }}"
+            title:  @js(__('Scanner pour vendre')),
+            // Le texte dit ce qui va RÉELLEMENT se passer. Annoncer « chaque
+            // lecture ajoute au panier » alors que l'écran se referme après la
+            // première fabriquait la surprise que le caissier prenait pour une
+            // panne.
+            hint:   @js(__('Visez le code-barres. L\'article s\'ajoute et l\'écran se referme.')),
+            submit: @js(__('Ajouter'))
         });
     });
 });
@@ -361,6 +449,24 @@ window.addEventListener('load', function(){
 document.querySelectorAll('.grid .p').forEach(function(b){
     b.addEventListener('click',function(){add(this.dataset.ref,this.dataset.name,parseFloat(this.dataset.price));});
 });
+
+/* Filtrer par rayon — entièrement côté client, comme le reste de la caisse :
+   fonctionne hors ligne, sans un aller-retour au serveur par onglet touché. */
+(function(){
+    var barre = document.getElementById('rayons');
+    if(!barre) return;
+    var boutons = barre.querySelectorAll('button'),
+        articles = document.querySelectorAll('.grid .p');
+    barre.addEventListener('click', function(e){
+        var b = e.target.closest('button');
+        if(!b) return;
+        boutons.forEach(function(x){x.classList.toggle('on', x === b);});
+        var rayon = b.dataset.rayon;
+        articles.forEach(function(a){
+            a.style.display = (!rayon || a.dataset.group === rayon) ? '' : 'none';
+        });
+    });
+})();
 function chg(id,d){if(cart[id]){cart[id].qty+=d;if(cart[id].qty<=0)delete cart[id];render();}}
 function sub(){var s=0;for(var k in cart)s+=cart[k].price*cart[k].qty;return s;}
 /* Ce que le client va payer. Prix taxe comprise : la taxe est déjà dedans.
@@ -386,7 +492,8 @@ function render(){var L=document.getElementById('lines'),ks=Object.keys(cart);
     // au moment de payer, c'est une discussion au comptoir.
     var lt=document.getElementById('taxrow');
     if(lt){var t=taxeDuPanier();lt.style.display=(TAX.on&&t>0)?'flex':'none';document.getElementById('taxval').textContent=t.toFixed(2);}
-    var sb=document.getElementById('splitbox'),on=document.getElementById('splitchk').checked;sb.style.display=on?'block':'none';if(on&&!sb.innerHTML)sb.innerHTML='{{ __('MonCash') }}: <input type="number" id="sp1" value="0"> · {{ __('Cash') }}: <input type="number" id="sp2" value="0">';}
+    var sb=document.getElementById('splitbox'),on=document.getElementById('splitchk').checked;sb.style.display=on?'block':'none';if(on&&!sb.innerHTML)sb.innerHTML='{{ __('MonCash') }}: <input type="number" id="sp1" value="0"> · {{ __('Cash') }}: <input type="number" id="sp2" value="0">';
+    sauvegarderPanier();}
 if(TAX.label){var _l=document.getElementById('taxlbl');if(_l)_l.textContent=TAX.label;}
 function pickM(m,el){method=m;document.querySelectorAll('.m').forEach(function(x){x.classList.remove('on');});el.classList.add('on');}
 /* ------------------------------------------------------------------
@@ -417,6 +524,10 @@ function beep(t){
 }
 function setNet(){var on=navigator.onLine;document.getElementById('net').textContent=on?'● online':'● offline';document.getElementById('net').classList.toggle('off',!on);if(on)flush();}
 window.addEventListener('online',setNet);window.addEventListener('offline',setNet);
+// Filet : certains navigateurs ne déclenchent pas 'online' de façon fiable
+// (même règle que la file d'attente du menu public) — sans lui, une vente
+// en attente pourrait rester bloquée bien après le retour réel du réseau.
+setInterval(flush,20000);
 function q(){return JSON.parse(localStorage.getItem(QKEY)||'[]');}function setQ(a){localStorage.setItem(QKEY,JSON.stringify(a));}
 function flush(){var a=q();if(!a.length)return;fetch(SYNC_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify({sales:a})}).then(function(r){return r.json();}).then(function(){setQ([]);}).catch(function(){});}
 function confirmSale(){var p={items:Object.values(cart),discount:parseFloat(document.getElementById('disc').value)||0,payments:payments(),customer_phone:document.getElementById('phone').value,client_uuid:uuid()};
@@ -453,7 +564,7 @@ var derniereRef=null;
 function imprimerRecu(){
     if(!derniereRef){
         beep('error');
-        alert("{{ __('Vente enregistrée hors ligne : le reçu s\'imprimera depuis Tickets dès le retour du réseau.') }}");
+        alert(@js(__('Vente enregistrée hors ligne : le reçu s\'imprimera depuis Tickets dès le retour du réseau.')));
         return;
     }
     window.open(RECU_URL.replace('__REF__', encodeURIComponent(derniereRef)) + '?print=1', '_blank');

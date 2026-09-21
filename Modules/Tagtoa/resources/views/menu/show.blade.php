@@ -10,6 +10,7 @@
     $tm   = $menu->type_meta;
     $canOrder = $menu->ordering_enabled && $menu->whatsapp_digits;
     $cur = $menu->currency ?: 'HTG';
+    $ouvert = $menu->isOpenNow();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ app()->getLocale() }}">
@@ -18,6 +19,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $menu->name }} — TAGTOA Menu</title>
+    {{-- Installable + hors ligne : une connexion mauvaise ou coupée ne doit
+         pas empêcher de rouvrir une carte déjà vue. --}}
+    <link rel="manifest" href="{{ route('tagtoa.menu.manifest', $menu->alias) }}">
+    <link rel="apple-touch-icon" href="{{ route('tagtoa.menu.icon', $menu->alias) }}">
+    <meta name="theme-color" content="{{ $accent }}">
     <link rel="stylesheet" href="{{ route('tagtoa.asset', 'tagtoa-fonts.css') }}">
     <link rel="stylesheet" href="/tagtoa-asset/fontawesome-6.5.1.css">
     {{-- Le retour sonore : sons synthétisés, aucun fichier à télécharger — donc
@@ -34,8 +40,9 @@
         a{text-decoration:none;color:inherit}
         .wrap{max-width:560px;margin:0 auto;padding-bottom:120px}
         /* Header */
-        .cover{height:180px;background:linear-gradient(150deg,var(--acc),#0A0A0A);position:relative;background-size:cover;background-position:center}
+        .cover{height:180px;background:linear-gradient(150deg,var(--acc),#0A0A0A);position:relative;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;overflow:hidden}
         .cover::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 60%)}
+        .cover-fallback{font-size:96px;color:rgba(255,255,255,.22)}
         .head{padding:0 20px;margin-top:-44px;position:relative;z-index:2}
         .logo{width:84px;height:84px;border-radius:20px;border:3px solid var(--surf);background:var(--surf);object-fit:cover;display:flex;align-items:center;justify-content:center;font:700 30px var(--fh);color:var(--acc);box-shadow:0 8px 26px rgba(0,0,0,.18)}
         .title{font:700 24px var(--fh);margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -95,6 +102,13 @@
         .cartbar.show{display:flex}
         .cartbar button{width:100%;max-width:528px;border:0;background:var(--acc);color:#fff;border-radius:15px;padding:15px 20px;font:700 15.5px var(--fh);display:flex;align-items:center;justify-content:space-between;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.25)}
         .cartbar .cnt{background:rgba(255,255,255,.22);border-radius:999px;padding:2px 10px;font-size:13px}
+        /* Agent IA (mots-clés locaux, voir OrderChatParser) */
+        .ai-fab{position:fixed;right:16px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:41;
+                width:54px;height:54px;border-radius:50%;border:0;background:var(--acc);color:#fff;font-size:21px;
+                box-shadow:0 10px 26px rgba(0,0,0,.28);cursor:pointer;display:flex;align-items:center;justify-content:center}
+        .ai-msg{max-width:85%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.4}
+        .ai-msg.me{align-self:flex-end;background:var(--acc);color:#fff;border-bottom-right-radius:4px}
+        .ai-msg.bot{align-self:flex-start;background:color-mix(in srgb,var(--acc) 10%,var(--surf));border-bottom-left-radius:4px}
         .sheet{position:fixed;inset:0;z-index:60;display:none}
         .sheet.show{display:block}
         .sheet .ov{position:absolute;inset:0;background:rgba(0,0,0,.5)}
@@ -141,18 +155,47 @@
 <body>
 <div style="position:fixed;top:12px;right:12px;z-index:50">@include('tagtoa::partials.lang')</div>
 <div class="wrap">
-    <div class="cover" @if($menu->cover_url) style="background-image:url('{{ $menu->cover_url }}')" @endif></div>
+    {{-- Sans couverture envoyée, jamais un bandeau vide : l'icône du métier
+         (restaurant, bar, hôtel…) sert de couverture par défaut, en filigrane
+         sur le dégradé — aucune photo de stock à charger, ça marche même hors
+         ligne. --}}
+    <div class="cover" @if($menu->cover_url) style="background-image:url('{{ $menu->cover_url }}')" @endif>
+        @unless($menu->cover_url)<i class="cover-fallback {{ $tm['icon'] }}" aria-hidden="true"></i>@endunless
+    </div>
     <div class="head">
         @if($menu->logo_url)<img class="logo" src="{{ $menu->logo_url }}" alt="">
         @else<div class="logo">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($menu->name,0,1)) }}</div>@endif
-        <div class="title">{{ $menu->name }} <span class="badge-type"><i class="{{ $tm['icon'] }}"></i> {{ __($tm['label']) }}</span></div>
-        @if($menu->tagline)<div class="tag">{{ $menu->tagline }}</div>@endif
+        <div class="title">{{ $menu->name }} <span class="badge-type"><i class="{{ $tm['icon'] }}"></i> {{ __($tm['label']) }}</span>
+            {{-- Le commerce choisit d'afficher ses horaires (show_hours) ; sans
+                 lui, une commande hors plage reste refusée, mais on n'affiche
+                 pas « Fermé » à un visiteur pour un menu jamais configuré. --}}
+            @if($menu->show_hours && $menu->hours)
+                <span class="badge-type" style="{{ $ouvert ? '' : 'background:color-mix(in srgb,#e11 16%,transparent);color:#e11' }}">
+                    <i class="fa-solid fa-clock"></i> {{ $ouvert ? __('Ouvert maintenant') : __('Fermé maintenant') }}
+                </span>
+            @endif
+        </div>
+        @if($menu->translated('tagline'))<div class="tag">{{ $menu->translated('tagline') }}</div>@endif
         <div class="meta">
             @if($menu->address)<span><i class="fa-solid fa-location-dot"></i> {{ $menu->address }}</span>@endif
             @if($menu->phone)<a href="tel:{{ $menu->phone }}"><i class="fa-solid fa-phone"></i> {{ $menu->phone }}</a>@endif
             @if($menu->whatsapp_digits)<a href="https://wa.me/{{ $menu->whatsapp_digits }}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>@endif
         </div>
-        @if($menu->description)<p class="tag" style="margin-top:12px">{{ $menu->description }}</p>@endif
+        @if($menu->show_hours && $menu->hours)
+            <details style="margin-top:10px">
+                <summary style="cursor:pointer;color:var(--mut);font-size:13.5px"><i class="fa-solid fa-clock"></i> {{ __('Horaires') }}</summary>
+                <div style="margin-top:8px;display:flex;flex-direction:column;gap:3px;font-size:13.5px;color:var(--mut)">
+                    @foreach(\Modules\Tagtoa\App\Support\Menu\BusinessHours::DAYS as $jour)
+                        @php $joursLabels = ['mon'=>__('Lundi'),'tue'=>__('Mardi'),'wed'=>__('Mercredi'),'thu'=>__('Jeudi'),'fri'=>__('Vendredi'),'sat'=>__('Samedi'),'sun'=>__('Dimanche')]; @endphp
+                        <div style="display:flex;justify-content:space-between;gap:12px;max-width:280px">
+                            <span>{{ $joursLabels[$jour] }}</span>
+                            <span>{{ \Modules\Tagtoa\App\Support\Menu\BusinessHours::rangeLabel($menu->hours, $jour) }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            </details>
+        @endif
+        @if($menu->translated('description'))<p class="tag" style="margin-top:12px">{{ $menu->translated('description') }}</p>@endif
     </div>
 
     @if($categories->isEmpty())
@@ -163,9 +206,12 @@
                  sur chaque téléphone et tombe en carré blanc sur beaucoup
                  d'Android bon marché — juste à côté du nom du restaurant. --}}
             @foreach($categories as $c)
+                {{-- L'ICÔNE se déduit du nom de BASE, jamais de la traduction :
+                     un mot-clé anglais ne doit pas soudain changer l'icône
+                     d'une catégorie déjà réglée dans la langue du marchand. --}}
                 <div class="chip" data-target="cat{{ $c->id }}">
                     <i class="fa-solid {{ \Modules\Tagtoa\App\Support\Menu\CategoryIcon::resolve($c->icon, $c->name) }}"></i>
-                    {{ $c->name }}
+                    {{ $c->translated() }}
                 </div>
             @endforeach
         </nav>
@@ -179,21 +225,25 @@
             <section class="sec" id="cat{{ $c->id }}">
                 <h2>
                     <i class="fa-solid {{ \Modules\Tagtoa\App\Support\Menu\CategoryIcon::resolve($c->icon, $c->name) }}"></i>
-                    {{ $c->name }}
+                    {{ $c->translated() }}
                 </h2>
                 <div class="grille">
                 @foreach($c->availableItems as $it)
-                    @php $out = ! $it->in_stock; @endphp
+                    {{-- Un seul nom résolu, réutilisé partout dans la carte :
+                         demander la traduction cinq fois de suite pour le même
+                         article gaspillerait du calcul sans rien changer au
+                         résultat. --}}
+                    @php $out = ! $it->in_stock; $itNom = $it->translated('name'); $itDesc = $it->translated('description'); @endphp
                     <div class="item" @if($out) style="opacity:.55" @endif>
                         {{-- La photo d'abord : c'est elle qui fait commander,
                              pas le nom. À défaut, l'initiale du plat sur la
                              couleur du commerce — jamais un emoji, qui tombe en
                              carré blanc sur la moitié des téléphones. --}}
-                        @if($it->image_url)<img class="ph" src="{{ $it->image_url }}" alt="{{ $it->name }}" loading="lazy">
-                        @else<div class="ph">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($it->name, 0, 1)) }}</div>@endif
+                        @if($it->image_url)<img class="ph" src="{{ $it->image_url }}" alt="{{ $itNom }}" loading="lazy">
+                        @else<div class="ph">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($itNom, 0, 1)) }}</div>@endif
                         <div class="body">
-                            <div class="nm">{{ $it->name }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ __('Épuisé') }}</span>@endif</div>
-                            @if($it->description)<div class="ds">{{ $it->description }}</div>@endif
+                            <div class="nm">{{ $itNom }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ __('Épuisé') }}</span>@endif</div>
+                            @if($itDesc)<div class="ds">{{ $itDesc }}</div>@endif
                             {{-- Détails propres au métier : capacité et équipements d'une
                                  chambre, degré d'alcool d'une boisson, temps de préparation
                                  d'un plat. C'est ce qui permet au client de comparer. --}}
@@ -219,7 +269,7 @@
                                             'choices' => $o->choices->map(fn ($c) => ['id' => $c->id, 'label' => $c->label, 'price_delta' => (float) $c->price_delta])->values(),
                                         ])->values();
                                     @endphp
-                                    <button class="add" aria-label="{{ __('Ajouter') }} — {{ $it->name }}" data-id="{{ $it->id }}" data-name="{{ $it->name }}" data-price="{{ (float) $it->price }}" data-options='@json($opts)' onclick="add(this)"><i class="fa-solid fa-plus"></i></button>
+                                    <button class="add" aria-label="{{ __('Ajouter') }} — {{ $itNom }}" data-id="{{ $it->id }}" data-name="{{ $itNom }}" data-price="{{ (float) $it->price }}" data-options='@json($opts)' onclick="add(this)"><i class="fa-solid fa-plus"></i></button>
                                 @endif
                             </div>
                         </div>
@@ -267,12 +317,23 @@
 
                 <div class="tot" style="font-weight:500;font-size:14px;color:var(--mut)"><span>{{ __('Sous-total') }}</span><span id="subtotal">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
                 <div class="tot" id="tiprowtot" style="display:none;font-weight:500;font-size:14px;color:var(--mut)"><span>{{ __('Pourboire') }}</span><span id="tipamt">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
+                <div class="tot" id="deliveryrowtot" style="display:none;font-weight:500;font-size:14px;color:var(--mut)"><span>{{ __('Frais de livraison') }}</span><span id="deliveryamt">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
                 <div class="tot"><span>{{ __('Total') }}</span><span id="total">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
 
                 <div class="custf">
                     <input id="cName" class="cin" placeholder="{{ __('Votre nom') }}" maxlength="120">
                     <input id="cPhone" class="cin" type="tel" placeholder="{{ __('Téléphone (WhatsApp)') }}" maxlength="40">
-                    <input id="cTable" class="cin" placeholder="{{ __('N° table (optionnel)') }}" maxlength="40">
+                    @if($table)
+                        {{-- Table vérifiée par le QR scanné : fixe, jamais un
+                             texte que le client pourrait changer pour une
+                             autre table que la sienne. --}}
+                        <div id="cTableFixe" class="cin" style="display:flex;align-items:center;gap:8px;color:var(--acc)">
+                            <i class="fa-solid fa-chair"></i> {{ __('Table') }} : <b>{{ $table->label }}</b>
+                        </div>
+                        <input id="cTable" type="hidden" value="{{ $table->label }}">
+                    @else
+                        <input id="cTable" class="cin" placeholder="{{ __('N° table (optionnel)') }}" maxlength="40">
+                    @endif
                     <input id="cAddress" class="cin" placeholder="{{ __('Adresse de livraison') }}" maxlength="200" style="display:none">
                 </div>
                 <div class="cta">
@@ -288,6 +349,12 @@
                     <div style="font:700 18px var(--fh)">{{ __('Commande créée') }}</div>
                     <div style="color:var(--mut);margin-top:4px">{{ __('Référence') }} : <b id="okRef"></b></div>
                     <div style="color:var(--mut)">{{ __('Total') }} : <b id="okTotal"></b></div>
+                    {{-- Visible uniquement quand la commande a été mise en file
+                         faute de réseau — voir showQueued() plus bas. --}}
+                    <div id="okQueuedNote" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(255,180,0,.14);border-radius:10px;font-size:13.5px">
+                        <i class="fa-solid fa-wifi" style="opacity:.7"></i>
+                        {{ __('Pas de connexion : votre commande est enregistrée sur cet appareil et sera envoyée automatiquement dès que la connexion revient. Ne fermez pas cette page tant que ce n\'est pas fait.') }}
+                    </div>
                 </div>
                 <div class="cta" style="margin-top:8px">
                     <a class="pay" id="okTrack" href="#"><i class="fa-solid fa-location-crosshairs"></i> {{ __('Suivre ma commande') }}</a>
@@ -311,9 +378,37 @@
         </div>
     </div>
 
+    {{--
+        « Commander via Agent IA » — mots-clés locaux (OrderChatParser), pas
+        de LLM branché (aucun n'existe dans TAGTOA aujourd'hui). Le client
+        décrit sa commande en une phrase ; ce qui est reconnu part
+        directement dans le panier existant, ce qui ne l'est pas reste dit
+        clairement — jamais deviné.
+    --}}
+    <button class="ai-fab" id="aiFab" onclick="openAgent()" aria-label="{{ __('Commander via Agent IA') }}">
+        <i class="fa-solid fa-robot"></i>
+    </button>
+    <div class="sheet" id="aisheet">
+        <div class="ov" onclick="closeAgent()"></div>
+        <div class="pan">
+            <h3><i class="fa-solid fa-robot"></i> {{ __('Commander via Agent IA') }} <button class="x" onclick="closeAgent()">&times;</button></h3>
+            <p style="color:var(--mut);font-size:13px;margin:-6px 0 12px">
+                {{ __('Décrivez ce que vous voulez en une phrase — ex. « 2 griot, un jus naturel ». Les prix restent toujours ceux du menu.') }}
+            </p>
+            <div id="aiLog" style="max-height:44vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+            <div style="display:flex;gap:8px">
+                <input id="aiInput" class="cin" placeholder="{{ __('Ex. 2 griot et un jus naturel') }}" onkeydown="if(event.key==='Enter'){event.preventDefault();sendAgent();}">
+                <button class="wa" id="aiSend" onclick="sendAgent()" style="flex:0;width:auto;padding:0 18px"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
     <script>
         var CURMETA = @json(\Modules\Tagtoa\App\Support\Money::meta($cur));
         var ORDER_URL = @json(route('tagtoa.menu.order', $menu->alias));
+        // Affichage seulement : le total réel, avec les frais, est TOUJOURS
+        // recalculé côté serveur (MenuOrderService::insertOrder()).
+        var DELIVERY_FEE = @json((float) ($menu->delivery_fee ?: 0));
         var CSRF = document.querySelector('meta[name=csrf-token]').getAttribute('content');
         var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')) };
         var cart = {};
@@ -321,6 +416,47 @@
         var tipPct = 0;
         var modItem = null, modChosen = {};
         var ORDER_UUID = 'mo-' + Date.now().toString(36) + Math.random().toString(36).slice(2,10);
+
+        /* ------------------------------------------------------------------
+           HORS LIGNE — une connexion coupée ne doit jamais perdre une
+           commande déjà composée. Ce que le serveur refuse (rupture de
+           stock, article invalide) reste une vraie erreur affichée tout de
+           suite ; seule l'ABSENCE de réseau met la commande de côté, pour
+           l'envoyer dès que la connexion revient — avec le MÊME client_uuid,
+           donc jamais en double (voir MenuOrderService::placeOrder()).
+           ------------------------------------------------------------------ */
+        var QUEUE_KEY = 'tagtoa_menu_queue_' + @json($menu->alias);
+        function lireFile(){ try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch(e){ return []; } }
+        function ecrireFile(f){ try { localStorage.setItem(QUEUE_KEY, JSON.stringify(f)); } catch(e){} }
+
+        /** Envoie une commande. Rejette avec `.horsLigne = true` si c'est le
+            réseau qui a manqué — jamais pour un refus du serveur. */
+        function envoyerCommande(payload){
+            return fetch(ORDER_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF},
+                body:JSON.stringify(payload)})
+                .catch(function(){ var e = new Error(T.err); e.horsLigne = true; throw e; })
+                .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+                .then(function(res){
+                    if(!res.ok||!res.j.ok){ throw new Error(res.j && res.j.message); }
+                    return res.j;
+                });
+        }
+
+        /** Rejoue la file dans l'ORDRE (une addition avant une autre reste
+            servie avant une autre), s'arrête au premier échec pour ne pas
+            envoyer une commande plus récente avant une plus ancienne. */
+        function retenterFile(){
+            var file = lireFile();
+            if (!file.length) return;
+            envoyerCommande(file[0]).then(function(j){
+                file.shift(); ecrireFile(file);
+                son('ok');
+                retenterFile();
+            }).catch(function(){ /* toujours hors ligne : on réessaiera plus tard */ });
+        }
+        window.addEventListener('online', retenterFile);
+        setInterval(retenterFile, 20000); // filet : certains navigateurs ne déclenchent pas 'online' de façon fiable
+        retenterFile(); // la connexion est peut-être déjà revenue depuis la dernière visite
         function fmt(n){
             var d = (CURMETA.decimals==null) ? 2 : CURMETA.decimals;
             var s = Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -358,8 +494,11 @@
         function setOrderType(t){
             orderType = t;
             document.querySelectorAll('#otype .otbtn').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-type')===t); });
-            document.getElementById('cTable').style.display = (t==='dine_in') ? '' : 'none';
+            var cTableFixe = document.getElementById('cTableFixe');
+            if (cTableFixe) { cTableFixe.style.display = (t==='dine_in') ? '' : 'none'; }
+            else { document.getElementById('cTable').style.display = (t==='dine_in') ? '' : 'none'; }
             document.getElementById('cAddress').style.display = (t==='delivery') ? '' : 'none';
+            render();
         }
         function setTipPct(p){
             tipPct = p;
@@ -369,12 +508,15 @@
         function render(){
             var s = totals();
             var tip = tipAmount(s.t);
+            var frais = (orderType==='delivery') ? DELIVERY_FEE : 0;
             document.getElementById('cnt').textContent = s.n;
-            document.getElementById('bartot').textContent = fmt(s.t+tip);
+            document.getElementById('bartot').textContent = fmt(s.t+tip+frais);
             document.getElementById('subtotal').textContent = fmt(s.t);
             document.getElementById('tipamt').textContent = fmt(tip);
             document.getElementById('tiprowtot').style.display = tip>0 ? '' : 'none';
-            document.getElementById('total').textContent = fmt(s.t+tip);
+            document.getElementById('deliveryamt').textContent = fmt(frais);
+            document.getElementById('deliveryrowtot').style.display = frais>0 ? '' : 'none';
+            document.getElementById('total').textContent = fmt(s.t+tip+frais);
             document.getElementById('cartbar').classList.toggle('show', s.n>0);
             var list = document.getElementById('clist'), html='';
             if(s.n===0){ html = '<div class="empty">'+T.empty+'</div>'; }
@@ -426,18 +568,36 @@
         function submitOrder(){
             var s = totals(); if(s.n===0) return;
             var items=[]; for(var k in cart){ items.push({id:cart[k].id, qty:cart[k].qty, options:cart[k].options}); }
+            var payload = {items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
+                customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),
+                table_code:@json($table->code ?? null),delivery_address:val('cAddress')};
             var btn=document.getElementById('confirmBtn'); btn.disabled=true; var old=btn.innerHTML; btn.textContent=T.wait;
-            fetch(ORDER_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF},
-                body:JSON.stringify({items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
-                    customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),delivery_address:val('cAddress')})})
-            .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
-            .then(function(res){
-                if(!res.ok||!res.j.ok){ throw new Error(res.j && res.j.message); }
-                showConfirmed(res.j);
-            })
-            .catch(function(e){ btn.disabled=false; btn.innerHTML=old; alert((e && e.message) || T.err); });
+            envoyerCommande(payload).then(function(j){
+                showConfirmed(j);
+            }).catch(function(e){
+                if (e && e.horsLigne){
+                    // Pas de réseau : la commande part dans la file plutôt
+                    // que de se perdre, et sera envoyée automatiquement.
+                    var file = lireFile(); file.push(payload); ecrireFile(file);
+                    showQueued();
+                    return;
+                }
+                btn.disabled=false; btn.innerHTML=old; alert((e && e.message) || T.err);
+            });
+        }
+        function showQueued(){
+            document.getElementById('okRef').textContent = @json(__('en attente de connexion'));
+            document.getElementById('okTotal').textContent = fmt(totals().t + tipAmount(totals().t));
+            document.getElementById('okTrack').style.display='none';
+            document.getElementById('okWa').style.display='none';
+            document.getElementById('okPay').style.display='none';
+            var note = document.getElementById('okQueuedNote');
+            if (note) { note.style.display=''; }
+            document.getElementById('orderForm').style.display='none';
+            document.getElementById('orderDone').style.display='';
         }
         function showConfirmed(j){
+            document.getElementById('okQueuedNote').style.display='none';
             document.getElementById('okRef').textContent = j.reference;
             document.getElementById('okTotal').textContent = j.total;
             var track=document.getElementById('okTrack');
@@ -459,9 +619,99 @@
         function esc(x){ return String(x).replace(/[&<>"]/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];}); }
         function openCart(){ document.getElementById('sheet').classList.add('show'); }
         function closeCart(){ document.getElementById('sheet').classList.remove('show'); }
+
+        /* ------------------------------------------------------------------
+           « Commander via Agent IA » — voir OrderChatParser (mots-clés
+           locaux, aucun LLM). Le serveur ne fait que SUGGÉRER des
+           correspondances ; c'est ce même navigateur, avec les mêmes
+           fonctions que le reste de la page, qui remplit le panier — le prix
+           vient toujours de la carte affichée, jamais de la réponse du chat.
+           ------------------------------------------------------------------ */
+        var AGENT_URL = @json(route('tagtoa.menu.agent', $menu->alias));
+        var aiEnCours = false;
+
+        /** Catalogue lu dans la page déjà rendue : id → {name, price, hasOptions}. */
+        function catalogueAffiche(){
+            var out = {};
+            document.querySelectorAll('.add[data-id]').forEach(function(el){
+                var opts = [];
+                try { opts = JSON.parse(el.getAttribute('data-options') || '[]'); } catch(e){}
+                out[el.getAttribute('data-id')] = {
+                    name: el.getAttribute('data-name'),
+                    price: parseFloat(el.getAttribute('data-price')) || 0,
+                    hasOptions: opts.length > 0,
+                };
+            });
+            return out;
+        }
+
+        function aiBulle(texte, cote){
+            var log = document.getElementById('aiLog');
+            var d = document.createElement('div');
+            d.className = 'ai-msg ' + cote;
+            d.textContent = texte;
+            log.appendChild(d);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function openAgent(){
+            document.getElementById('aisheet').classList.add('show');
+            var log = document.getElementById('aiLog');
+            if (!log.children.length){
+                aiBulle({{ json_encode(__('Dites-moi ce que vous voulez commander, en une phrase.')) }}, 'bot');
+            }
+            document.getElementById('aiInput').focus();
+        }
+        function closeAgent(){ document.getElementById('aisheet').classList.remove('show'); }
+
+        function sendAgent(){
+            if (aiEnCours) return;
+            var input = document.getElementById('aiInput');
+            var texte = input.value.trim();
+            if (!texte) return;
+            aiBulle(texte, 'me');
+            input.value = '';
+            aiEnCours = true;
+
+            fetch(AGENT_URL, {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF}, body: JSON.stringify({message: texte})})
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    aiEnCours = false;
+                    if (!res || !res.ok){ aiBulle(T.err, 'bot'); return; }
+
+                    var catalogue = catalogueAffiche();
+                    var ajoutes = [], besoinOptions = [];
+                    (res.matches || []).forEach(function(m){
+                        var article = catalogue[String(m.id)];
+                        if (!article){ return; } // plus au menu depuis le chargement de la page
+                        if (article.hasOptions){ besoinOptions.push(article.name); return; }
+                        for (var i = 0; i < m.qty; i++){ addToCart(m.id, article.name, article.price, [], ''); }
+                        ajoutes.push(m.qty + '× ' + article.name);
+                    });
+
+                    var reponse = [];
+                    if (ajoutes.length){ reponse.push({{ json_encode(__('Ajouté au panier :')) }} + ' ' + ajoutes.join(', ') + '.'); }
+                    if (besoinOptions.length){ reponse.push({{ json_encode(__('Ces articles ont des options à choisir, ajoutez-les depuis la carte :')) }} + ' ' + besoinOptions.join(', ') + '.'); }
+                    if (res.unmatched && res.unmatched.length){ reponse.push({{ json_encode(__('Je n\'ai pas trouvé sur la carte :')) }} + ' ' + res.unmatched.join(', ') + '.'); }
+                    if (!reponse.length){ reponse.push({{ json_encode(__('Je n\'ai rien reconnu. Essayez avec le nom exact d\'un plat de la carte.')) }}); }
+
+                    aiBulle(reponse.join(' '), 'bot');
+                })
+                .catch(function(){ aiEnCours = false; aiBulle(T.err, 'bot'); });
+        }
+
         render();
     </script>
 @endif
+
+<script>
+    // Installable + hors ligne — voir PublicController::serviceWorker(). Une
+    // page déjà visitée doit se rouvrir même sans réseau, et rien de plus :
+    // aucune commande (POST) n'est jamais interceptée par le worker.
+    if ('serviceWorker' in navigator){
+        navigator.serviceWorker.register("{{ route('tagtoa.menu.sw', $menu->alias) }}", {scope:"{{ url('/menu/'.$menu->alias) }}"}).catch(function(){});
+    }
+</script>
 
 <script>
     // Surlignage de la catégorie active dans la barre de navigation.

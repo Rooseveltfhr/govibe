@@ -143,6 +143,86 @@ class PosRegisterScreenTest extends TestCase
             'Imprimer l\'écran de caisse produit une page A4 presque vide.');
     }
 
+    /* ==================================================================
+       5. Scanner : un ajout se VOIT, et rend la main
+       ================================================================== */
+
+    public function test_a_scan_speaks_inside_the_scanner_not_behind_it(): void
+    {
+        // LE défaut signalé : « ça fait le son quand le code passe devant la
+        // caméra, puis plus rien ». L'article ÉTAIT ajouté — mais la caméra
+        // couvre tout l'écran et le panier est une fenêtre fermée : rien de ce
+        // qui changeait n'était visible. Un travail fait sans preuve ressemble
+        // à un travail non fait, et le caissier rescanne ou renonce.
+        $html = $this->ecran();
+
+        $this->assertStringContainsString('function direDansScanner', $html);
+        $this->assertStringContainsString('TagtoaScanner.say(', $html,
+            'Le scanner doit dire lui-même ce qu\'il vient d\'ajouter.');
+    }
+
+    public function test_a_successful_scan_adds_then_hands_control_back(): void
+    {
+        // Demandé explicitement : scanner ajoute l'article, puis on ressort
+        // vers l'écran où se trouve le bouton scanner.
+        $html = $this->ecran();
+
+        $this->assertStringContainsString('function ajouterEtRendreLaMain', $html);
+        $this->assertStringContainsString('TagtoaScanner.close();', $html);
+        // La confirmation s'affiche AVANT la fermeture : fermer d'abord
+        // effacerait la seule preuve que le caissier aura vue.
+        $this->assertLessThan(
+            strpos($html, 'TagtoaScanner.close();'),
+            strpos($html, 'if(direDansScanner(texte)){'),
+            'Le message doit précéder la fermeture.'
+        );
+    }
+
+    public function test_an_unknown_code_keeps_the_camera_open(): void
+    {
+        // Une étiquette abîmée se revise. Refermer après chaque échec
+        // obligerait à rouvrir le scanner pour chaque tentative.
+        $html = $this->ecran();
+
+        $this->assertMatchesRegularExpression(
+            '/TagtoaScanner\.reject\(\);\s*\n\s*var inconnu/',
+            $html,
+            'Un code inconnu signale l\'erreur sans fermer la caméra.'
+        );
+    }
+
+    public function test_the_scanner_promises_only_what_it_does(): void
+    {
+        // L'ancien texte annonçait « chaque lecture ajoute l'article au
+        // panier » alors que l'écran se referme après la première : la
+        // surprise se prend pour une panne.
+        $html = $this->ecran();
+
+        $this->assertStringNotContainsString('Chaque lecture ajoute', $html);
+        $this->assertStringContainsString('l\'écran se referme', $html);
+    }
+
+    public function test_the_cashier_never_reads_an_escaped_apostrophe(): void
+    {
+        // GARDE, trouvée au navigateur. `{{ }}` échappe POUR LE HTML : dans un
+        // <script>, « l'article » devient « l&#039;article » — et c'est ce que
+        // le caissier lit à l'écran. Les chaînes du script passent donc par
+        // @js(), qui encode pour JavaScript.
+        //
+        // Dans un ATTRIBUT HTML (title, placeholder), &#039; est correct et
+        // s'affiche bien : on ne regarde que le bloc <script>.
+        $html = $this->ecran();
+
+        $debut = strpos($html, '<script>'.PHP_EOL.'/* Photo introuvable');
+        $this->assertNotFalse($debut, 'Le script de la caisse a changé de forme : garde à réviser.');
+
+        $script = substr($html, $debut);
+
+        $this->assertStringNotContainsString('&#039;', $script,
+            'Une chaîne du script est échappée pour le HTML : le caissier lira « l&#039;article ».');
+        $this->assertStringNotContainsString('&quot;', $script);
+    }
+
     public function test_an_offline_sale_says_so_instead_of_opening_a_broken_page(): void
     {
         // Hors ligne la vente n'est pas encore en base : il n'y a rien à

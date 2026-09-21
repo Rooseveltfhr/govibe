@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Exceptions\InsufficientStockException;
 use Modules\Tagtoa\App\Models\Pos\Sale;
 use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Pos\PosCatalog;
@@ -17,6 +18,7 @@ use Modules\Tagtoa\App\Support\Catalog\Pricing;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Services\Pos\PosService;
 use Modules\Tagtoa\App\Support\EnforcesPlan;
+use Modules\Tagtoa\App\Support\Pos\GuardsStaffAbility;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -25,6 +27,7 @@ use Modules\Tagtoa\App\Support\Tenant;
 class PosController extends Controller
 {
     use EnforcesPlan;
+    use GuardsStaffAbility;
 
     public function __construct(protected PosService $service)
     {
@@ -92,7 +95,16 @@ class PosController extends Controller
             'client_uuid'        => ['nullable', 'string', 'max:64'],
         ]);
 
-        $sale = $this->service->recordSale($terminal, $data, $this->currentStaff($terminal));
+        try {
+            $sale = $this->service->recordSale($terminal, $data, $this->currentStaff($terminal));
+        } catch (InsufficientStockException $e) {
+            // 409 (conflit), pas 422 : la requête elle-même était valide, c'est
+            // l'état du stock — lu SOUS VERROU dans StockLedger — qui l'a
+            // refusée. Deux caisses qui vendent le dernier article en même
+            // temps, ou un code scanné deux fois de suite, tombent ici plutôt
+            // que d'écrire un stock négatif en silence.
+            return response()->json(['ok' => false, 'error' => $this->messageStockInsuffisant($e)], 409);
+        }
 
         // Le TOTAL vient du serveur, toujours : avec des prix hors taxe, il est
         // supérieur à ce que la caisse avait calculé, et c'est ce montant-là
@@ -104,6 +116,20 @@ class PosController extends Controller
             'tax'       => (float) $sale->tax_total,
             'tax_label' => $sale->tax_label,
         ]);
+    }
+
+    /** Message lisible depuis une rupture de stock détectée à l'encaissement. */
+    private function messageStockInsuffisant(InsufficientStockException $e): string
+    {
+        if ($e->productName === null) {
+            return __('Stock insuffisant.');
+        }
+
+        // Trois décimales suffisent (une livre, une mamit) ; les zéros de fin
+        // n'apportent rien à qui lit « reste 2 » plutôt que « reste 2.000 ».
+        $reste = rtrim(rtrim(number_format($e->available ?? 0, 3, '.', ''), '0'), '.');
+
+        return __('Stock insuffisant pour « :nom » (reste :reste).', ['nom' => $e->productName, 'reste' => $reste]);
     }
 
     public function sync(Request $request, int $id): JsonResponse
@@ -119,6 +145,12 @@ class PosController extends Controller
             try {
                 $sale = $this->service->recordSale($terminal, $payload, $staff);
                 $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => true, 'reference' => $sale->reference];
+            } catch (InsufficientStockException $e) {
+                // Vente faite hors ligne pendant que le stock s'épuisait
+                // ailleurs : elle ne peut pas être rejouée telle quelle. Le
+                // caissier le voit au retour du réseau plutôt que de croire
+                // une vente acquise qui ne l'est pas.
+                $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => false, 'error' => $this->messageStockInsuffisant($e)];
             } catch (\Throwable $e) {
                 $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => false, 'error' => $e->getMessage()];
             }
@@ -173,11 +205,17 @@ class PosController extends Controller
     {
         $terminal = $this->own($id, ['products']);
 
+        // Type d'activité du commerce (pharmacie, bar, boutique…) : décide
+        // quelles unités mettre en tête du menu déroulant, sans en interdire
+        // aucune — un commerce réel vend rarement une seule sorte d'article.
+        $type = \Modules\Tagtoa\App\Models\Business\Business::whereKey($terminal->tenant_id)->value('type');
+
         return view('tagtoa::pos.products', [
             'terminal'   => $terminal,
             'suppliers'  => \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)
                 ->orderBy('name')->get(['id', 'name']),
             'categories' => \Modules\Tagtoa\App\Models\Pos\Category::shown()->get(['id', 'name']),
+            'suggestedUnits' => Pricing::unitsFor($type),
         ]);
     }
 
@@ -198,6 +236,7 @@ class PosController extends Controller
     public function addProduct(Request $request, int $id): RedirectResponse
     {
         $terminal = $this->own($id);
+        $this->denyUnless($this->currentStaff($terminal), 'catalog.edit');
 
         $data = $request->validate([
             'name'                => ['required', 'string', 'max:120'],
@@ -209,9 +248,23 @@ class PosController extends Controller
             'cost_price'          => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
+            // Une nuitée, une consultation : rien à compter en stock, rien à
+            // scanner. Une case, pas une restriction — un commerce mixte peut
+            // avoir les deux à la fois selon l'article.
+            'is_service'          => ['nullable', 'boolean'],
             'sku'                 => ['nullable', 'string', 'max:60'],
             'supplier_id'         => ['nullable', 'integer'],
             'category_id'         => ['nullable', 'integer'],
+            // Vide = taux du commerce ; 0 = article exonéré. Deux choses
+            // différentes (voir TaxProfile::rateFor) : un pharmacien doit
+            // pouvoir exonérer UN médicament sans désactiver la taxe partout.
+            'tax_rate'            => ['nullable', 'numeric', 'min:0', 'max:99.999'],
+            // Un bar tient son stock en bouteilles mais vend au verre : cet
+            // article se vend comme une fraction d'un autre (voir stockCible
+            // dans PosService). units_per_parent > 0 exigé QUAND un parent est
+            // choisi, sinon un ratio de zéro diviserait par zéro à la vente.
+            'parent_product_id'   => ['nullable', 'integer'],
+            'units_per_parent'    => ['nullable', 'numeric', 'min:0.001', 'max:999999', 'required_with:parent_product_id'],
             // La date d'achat du lot. Elle ne sert pas à vendre : elle répond à
             // « depuis quand cette caisse de bière dort-elle ici ? », la
             // question qui distingue un commerce qui tourne d'un commerce dont
@@ -225,21 +278,34 @@ class PosController extends Controller
             'image'               => ['nullable', 'image', 'max:2048'],
         ]);
 
+        // Un service n'a pas de stock, par définition : le forcer à null ici
+        // (plutôt que de faire confiance à un champ caché côté client) évite
+        // qu'une valeur oubliée dans le formulaire fasse croire à un compteur
+        // qui n'a pas de sens pour une nuitée ou une consultation.
+        $isService = $request->boolean('is_service');
+        // Un article qui se vend depuis un parent n'a pas non plus SON propre
+        // stock : le sien vit sur le parent (voir PosService::stockCible).
+        $parentId = $this->parentArticle($data['parent_product_id'] ?? null);
+
         $attrs = [
             'name'                => $data['name'],
             'description'         => trim((string) ($data['description'] ?? '')) ?: null,
             'price'               => (float) ($data['price'] ?? 0),
             'emoji'               => $data['emoji'] ?? null,
             'color'               => $data['color'] ?? '#2cb809',
-            'stock'               => $this->nombreOuNull($data['stock'] ?? null),
+            'stock'               => ($isService || $parentId) ? null : $this->nombreOuNull($data['stock'] ?? null),
             'is_active'           => true,
+            'is_service'          => $isService,
             'sort'                => (int) app(PosCatalog::class)->query($terminal->tenant_id)->max('sort') + 1,
             'cost_price'          => $this->nombreOuNull($data['cost_price'] ?? null),
             'unit'                => Pricing::unit($data['unit'] ?? null),
-            'low_stock_threshold' => $this->nombreOuNull($data['low_stock_threshold'] ?? null),
+            'low_stock_threshold' => ($isService || $parentId) ? null : $this->nombreOuNull($data['low_stock_threshold'] ?? null),
             'sku'                 => trim((string) ($data['sku'] ?? '')) ?: null,
             'supplier_id'         => $this->fournisseur($data['supplier_id'] ?? null),
             'category_id'         => $this->rayon($data['category_id'] ?? null),
+            'tax_rate'            => $this->nombreOuNull($data['tax_rate'] ?? null),
+            'parent_product_id'   => $parentId,
+            'units_per_parent'    => $parentId ? $this->nombreOuNull($data['units_per_parent'] ?? null) : null,
             'purchased_at'        => $data['purchased_at'] ?? null,
         ];
 
@@ -276,6 +342,7 @@ class PosController extends Controller
     public function scanProduct(Request $request, int $id): JsonResponse
     {
         $terminal = $this->own($id);
+        $this->denyUnless($this->currentStaff($terminal), 'catalog.edit');
 
         $data = $request->validate([
             'code' => ['required', 'string', 'max:64'],
@@ -324,6 +391,7 @@ class PosController extends Controller
     public function saveProducts(Request $request, int $id): RedirectResponse
     {
         $terminal = $this->own($id);
+        $this->denyUnless($this->currentStaff($terminal), 'catalog.edit');
 
         // ENVOI TRONQUÉ — la panne silencieuse de PHP.
         //
@@ -353,9 +421,13 @@ class PosController extends Controller
             'products.*.stock'               => ['nullable', 'numeric', 'min:-999999', 'max:999999999'],
             'products.*.low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'products.*.unit'                => ['nullable', 'string', Rule::in(array_keys(Pricing::UNITS))],
+            'products.*.is_service'          => ['nullable', 'boolean'],
             'products.*.sku'                 => ['nullable', 'string', 'max:60'],
             'products.*.supplier_id'         => ['nullable', 'integer'],
             'products.*.category_id'         => ['nullable', 'integer'],
+            'products.*.tax_rate'            => ['nullable', 'numeric', 'min:0', 'max:99.999'],
+            'products.*.parent_product_id'   => ['nullable', 'integer'],
+            'products.*.units_per_parent'    => ['nullable', 'numeric', 'min:0.001', 'max:999999', 'required_with:products.*.parent_product_id'],
             'products.*.purchased_at'        => ['nullable', 'date'],
             'products.*.new_code'            => ['nullable', 'string', 'max:64'],
             'products.*.emoji'               => ['nullable', 'string', 'max:16'],
@@ -384,6 +456,14 @@ class PosController extends Controller
                 continue;
             }
 
+            // Un service (nuitée, consultation) n'a pas de stock : forcé à
+            // null côté serveur, jamais laissé au champ caché du formulaire.
+            $isService = ! empty($row['is_service']);
+            // Ni un article qui se vend depuis un parent (le verre depuis la
+            // bouteille) : le sien vit sur le parent. Exclu de lui-même, sinon
+            // un article pourrait se déclarer son propre parent et boucler.
+            $parentId = $this->parentArticle($row['parent_product_id'] ?? null, (int) ($row['id'] ?? 0));
+
             $attrs = [
                 'name'      => $row['name'],
                 'description' => trim((string) ($row['description'] ?? '')) ?: null,
@@ -393,8 +473,9 @@ class PosController extends Controller
                 // Stock DÉCIMAL : le riz se compte à la mamit, la viande à la
                 // livre. Un cast entier ferait disparaître une demi-livre à
                 // chaque enregistrement.
-                'stock'     => $this->nombreOuNull($row['stock'] ?? null),
+                'stock'     => ($isService || $parentId) ? null : $this->nombreOuNull($row['stock'] ?? null),
                 'is_active' => ! empty($row['is_active']),
+                'is_service' => $isService,
                 'sort'      => (int) ($row['sort'] ?? $i),
 
                 // Volet commercial : ce qui permet enfin de dire au marchand
@@ -403,13 +484,16 @@ class PosController extends Controller
                 // laisserait croire que la marge est totale.
                 'cost_price'          => $this->nombreOuNull($row['cost_price'] ?? null),
                 'unit'                => Pricing::unit($row['unit'] ?? null),
-                'low_stock_threshold' => $this->nombreOuNull($row['low_stock_threshold'] ?? null),
+                'low_stock_threshold' => ($isService || $parentId) ? null : $this->nombreOuNull($row['low_stock_threshold'] ?? null),
                 'sku'                 => trim((string) ($row['sku'] ?? '')) ?: null,
                 // Chez qui cet article est acheté d'habitude. Un identifiant
                 // deviné ne doit pas rattacher le fournisseur du voisin :
                 // la recherche est cloisonnée par le commerce courant.
                 'supplier_id'         => $this->fournisseur($row['supplier_id'] ?? null),
                 'category_id'         => $this->rayon($row['category_id'] ?? null),
+                'tax_rate'            => $this->nombreOuNull($row['tax_rate'] ?? null),
+                'parent_product_id'   => $parentId,
+                'units_per_parent'    => $parentId ? $this->nombreOuNull($row['units_per_parent'] ?? null) : null,
                 'purchased_at'        => $row['purchased_at'] ?? null,
             ];
 
@@ -468,6 +552,23 @@ class PosController extends Controller
         return $id ? \Modules\Tagtoa\App\Models\Inventory\Supplier::whereKey((int) $id)->value('id') : null;
     }
 
+    /**
+     * Un article de CE commerce pouvant servir de parent, jamais lui-même.
+     *
+     * Sans `$excludeId`, un article pourrait se déclarer son propre parent —
+     * et diviser une quantité par le ratio d'un article qui n'existe pas
+     * indépendamment de lui-même n'a pas de sens (et bouclerait si on
+     * suivait un jour la chaîne des parents).
+     */
+    private function parentArticle(mixed $id, int $excludeId = 0): ?int
+    {
+        if (! $id || (int) $id === $excludeId) {
+            return null;
+        }
+
+        return \Modules\Tagtoa\App\Models\Pos\Product::whereKey((int) $id)->value('id');
+    }
+
     /** Champ numérique laissé vide = « non renseigné », pas « zéro ». */
     private function nombreOuNull(mixed $valeur): ?float
     {
@@ -485,6 +586,7 @@ class PosController extends Controller
     public function destroyProduct(int $id, int $productId): RedirectResponse
     {
         $terminal = $this->own($id);
+        $this->denyUnless($this->currentStaff($terminal), 'catalog.delete');
 
         $product = app(PosCatalog::class)->find($terminal->tenant_id, $productId);
         abort_unless($product, 404);
@@ -512,11 +614,7 @@ class PosController extends Controller
      */
     protected function currentStaff(Terminal $terminal): ?Staff
     {
-        $id = session('tagtoa_pos_staff.'.$terminal->id);
-
-        return $id
-            ? Staff::where('tenant_id', $terminal->tenant_id)->where('is_active', true)->find($id)
-            : null;
+        return app(StaffService::class)->forTerminal($terminal);
     }
 
     /** Ouvre le poste après vérification du code. */

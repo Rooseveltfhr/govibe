@@ -18,6 +18,29 @@
         <div style="display:flex;align-items:center;gap:8px"><span style="color:var(--muted);font-size:14px">tagtoa.com/menu/</span><input class="inp" name="alias" value="{{ old('alias',$menu->alias) }}" placeholder="{{ __('auto si vide') }}"></div>
         <label class="lbl">{{ __('Slogan') }}</label><input class="inp" name="tagline" value="{{ old('tagline',$menu->tagline) }}" placeholder="{{ __('Cuisine créole • Ambiance lounge') }}">
         <label class="lbl">{{ __('Description') }}</label><textarea class="inp" name="description" rows="2" maxlength="600">{{ old('description',$menu->description) }}</textarea>
+
+        {{-- TRADUCTIONS — le client choisit sa langue, vous écrivez une fois.
+             Le champ ci-dessus reste VOTRE langue, celle que vous tapez sans y
+             penser. Ici, seulement pour qui veut aussi accueillir un client qui
+             lit en anglais ou en espagnol — repliable, jamais imposé. --}}
+        <details style="margin-top:10px">
+            <summary style="cursor:pointer;font:600 13px var(--fh,inherit);color:var(--muted)">
+                <i class="fa-solid fa-language"></i> {{ __('Traductions du slogan et de la description') }}
+            </summary>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
+                @foreach(\Modules\Tagtoa\App\Support\Locale::all() as $code => $meta)
+                    @continue($code === \Modules\Tagtoa\App\Support\Locale::default())
+                    <div style="border-top:1px dashed var(--bd);padding-top:10px">
+                        <label class="lbl">{{ $meta['flag'] }} {{ $meta['label'] }} — {{ __('Slogan') }}</label>
+                        <input class="inp" name="translations[{{ $code }}][tagline]" maxlength="160"
+                               value="{{ old("translations.$code.tagline", $menu->translations[$code]['tagline'] ?? '') }}">
+                        <label class="lbl">{{ $meta['flag'] }} {{ $meta['label'] }} — {{ __('Description') }}</label>
+                        <textarea class="inp" name="translations[{{ $code }}][description]" rows="2" maxlength="600">{{ old("translations.$code.description", $menu->translations[$code]['description'] ?? '') }}</textarea>
+                    </div>
+                @endforeach
+            </div>
+        </details>
+        <input type="hidden" name="translations_sent" value="1">
         <div class="row">
             <div><label class="lbl">{{ __('Logo') }}</label><input class="inp" type="file" name="logo" accept="image/*">@if($editing && $menu->logo_url)<img src="{{ $menu->logo_url }}" style="height:42px;border-radius:10px;margin-top:8px">@endif</div>
             <div><label class="lbl">{{ __('Couverture') }}</label><input class="inp" type="file" name="cover" accept="image/*">@if($editing && $menu->cover_url)<img src="{{ $menu->cover_url }}" style="height:42px;border-radius:10px;margin-top:8px">@endif</div>
@@ -37,6 +60,8 @@
             <div><label class="lbl">{{ __('Page de paiement (TAGTOA Pay)') }}</label><select class="sel" name="pay_page_id"><option value="">{{ __('— Aucune —') }}</option>@foreach($payPages as $pp)<option value="{{ $pp->id }}" @selected(old('pay_page_id',$menu->pay_page_id)==$pp->id)>{{ $pp->title ?: $pp->alias }}</option>@endforeach</select></div>
         </div>
         <label class="switch"><input type="hidden" name="ordering_enabled" value="0"><input type="checkbox" name="ordering_enabled" value="1" @checked(old('ordering_enabled',$menu->ordering_enabled ?? true))> {{ __('Activer la commande WhatsApp') }}</label>
+        <label class="lbl" style="margin-top:10px">{{ __('Frais de livraison') }} <span style="font-weight:400;color:var(--muted)">({{ __('vide ou 0 = livraison gratuite') }})</span></label>
+        <input class="inp" type="number" step="0.01" min="0" name="delivery_fee" value="{{ old('delivery_fee',$menu->delivery_fee) }}" placeholder="0.00" style="max-width:160px">
     </div>
 
     {{-- ----- Apparence ----- --}}
@@ -48,6 +73,46 @@
         </div>
         <label class="switch"><input type="hidden" name="show_prices" value="0"><input type="checkbox" name="show_prices" value="1" @checked(old('show_prices',$menu->show_prices ?? true))> {{ __('Afficher les prix') }}</label>
         <label class="switch"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" @checked(old('is_active',$menu->is_active ?? true))> {{ __('Menu actif (visible au public)') }}</label>
+    </div>
+
+    {{-- ----- Horaires ----- --}}
+    <div class="card">
+        <div class="h-row"><h2>{{ __('Horaires d\'ouverture') }}</h2></div>
+        <label class="switch"><input type="hidden" name="show_hours" value="0"><input type="checkbox" name="show_hours" value="1" @checked(old('show_hours',$menu->show_hours ?? false))> {{ __('Afficher les horaires sur le menu public') }}</label>
+        <p style="color:var(--muted);font-size:13px;margin-top:4px">
+            {{ __('Sans horaire renseigné pour un jour, le commerce reste ouvert ce jour-là. Une commande est toujours refusée en dehors des heures indiquées, que cette case soit cochée ou non.') }}
+        </p>
+        <label class="lbl">{{ __('Fuseau horaire') }}</label>
+        <select class="sel" name="timezone">
+            @foreach(['America/Port-au-Prince','America/New_York','America/Santo_Domingo','America/Nassau','America/Toronto','Europe/Paris','America/Miquelon'] as $tz)
+                <option value="{{ $tz }}" @selected(old('timezone',$menu->timezone ?: 'America/Port-au-Prince')===$tz)>{{ $tz }}</option>
+            @endforeach
+        </select>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+            @foreach(\Modules\Tagtoa\App\Support\Menu\BusinessHours::DAYS as $jour)
+                @php
+                    $joursLabels = ['mon'=>__('Lundi'),'tue'=>__('Mardi'),'wed'=>__('Mercredi'),'thu'=>__('Jeudi'),'fri'=>__('Vendredi'),'sat'=>__('Samedi'),'sun'=>__('Dimanche')];
+                    $plage = $menu->hours[$jour] ?? null;
+                    // Un menu qui n'a JAMAIS renseigné d'horaires ne doit pas
+                    // afficher les sept jours cochés « Fermé » — ça alarmerait
+                    // pour rien. Seul un menu qui a déjà des horaires ($menu->hours
+                    // non nul) sait vraiment distinguer un jour fermé d'un jour
+                    // simplement pas encore rempli.
+                    $fermeParDefaut = $menu->hours !== null && ! $plage;
+                @endphp
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <span style="min-width:88px;font-weight:600;font-size:13.5px">{{ $joursLabels[$jour] }}</span>
+                    <label class="switch" style="flex:0">
+                        <input type="checkbox" name="hours[{{ $jour }}][closed]" value="1" @checked(old("hours.$jour.closed", $fermeParDefaut))
+                               onchange="this.closest('div').querySelectorAll('input[type=time]').forEach(function(i){ i.disabled = this.checked; }, this)">
+                        {{ __('Fermé') }}
+                    </label>
+                    <input class="inp" type="time" name="hours[{{ $jour }}][open]" value="{{ old('hours.'.$jour.'.open', $plage['open'] ?? '') }}" style="max-width:120px" @disabled(old("hours.$jour.closed", $fermeParDefaut))>
+                    <span>—</span>
+                    <input class="inp" type="time" name="hours[{{ $jour }}][close]" value="{{ old('hours.'.$jour.'.close', $plage['close'] ?? '') }}" style="max-width:120px" @disabled(old("hours.$jour.closed", $fermeParDefaut))>
+                </div>
+            @endforeach
+        </div>
     </div>
 
     {{-- ----- Catégories & produits ----- --}}
@@ -81,11 +146,25 @@
 <template id="cattpl">
     <div class="catblock" data-ci="CIDX" style="border:1.5px solid var(--bd);border-radius:14px;padding:14px;margin-top:12px;background:#fafafa">
         <div style="display:flex;gap:8px;align-items:center">
-            <input name="cats[CIDX][icon]" class="inp" placeholder="🍔" style="max-width:64px;text-align:center">
+            {{-- Pas de champ icône : elle est déduite automatiquement du nom
+                 (« Boissons » → un verre, « Desserts » → un gâteau…), pour que
+                 le formulaire reste simple — personne ne sait quelle classe
+                 Font Awesome choisir. --}}
             <input name="cats[CIDX][name]" class="inp" placeholder="{{ __('Nom de la catégorie') }}" style="font-weight:600">
             <button type="button" class="btn btn-o btn-sm delcat" style="flex:0;color:var(--red)"
                     title="{{ __('Supprimer la catégorie') }}"><i class="fa-solid fa-trash"></i></button>
         </div>
+        <button type="button" class="btn btn-o btn-sm togcattr" style="margin-top:8px">
+            <i class="fa-solid fa-language"></i> {{ __('Traductions du nom') }}
+        </button>
+        <div class="cattr" hidden style="display:flex;flex-direction:column;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)">
+            @foreach(\Modules\Tagtoa\App\Support\Locale::all() as $code => $meta)
+                @continue($code === \Modules\Tagtoa\App\Support\Locale::default())
+                <input class="inp" name="cats[CIDX][translations][{{ $code }}][name]"
+                       placeholder="{{ $meta['flag'] }} {{ $meta['label'] }} — {{ __('nom de la catégorie') }}">
+            @endforeach
+        </div>
+        <input type="hidden" name="cats[CIDX][translations_sent]" value="1">
         <div class="items" style="margin-top:10px"></div>
         <button type="button" class="btn btn-o btn-sm tt-additem" onclick="addItem(this.closest('.catblock'))" style="margin-top:6px"><i class="fa-solid fa-plus"></i> {{ __('Ajouter') }}</button>
     </div>
@@ -95,7 +174,6 @@
 <template id="itemtpl">
     <div class="itemrow" data-ci="CIDX" data-ii="IIDX" style="background:#fff;border:1px solid var(--bd);border-radius:11px;padding:10px;margin-bottom:8px">
         <div style="display:flex;gap:8px;align-items:center">
-            <input name="cats[CIDX][items][IIDX][emoji]" class="inp" placeholder="🍔" style="max-width:56px;text-align:center">
             <input name="cats[CIDX][items][IIDX][name]" class="inp tt-itemname" placeholder="{{ __('Nom') }}">
             <input name="cats[CIDX][items][IIDX][price]" class="inp tt-price" type="number" step="0.01" min="0" placeholder="{{ __('Prix') }}" style="max-width:130px">
             <button type="button" class="btn btn-o btn-sm delitem" style="flex:0;color:var(--red)"
@@ -105,7 +183,10 @@
         <div style="display:flex;gap:16px;align-items:center;margin-top:8px;flex-wrap:wrap">
             <div style="display:flex;align-items:center;gap:8px">
                 <img class="itemphoto" style="height:40px;width:40px;border-radius:8px;object-fit:cover;display:none">
-                <input name="cats[CIDX][items][IIDX][image]" class="inp" type="file" accept="image/*" style="max-width:190px" onchange="previewItemImage(this)">
+                {{-- `capture="environment"` ouvre directement l'appareil photo
+                     arrière sur téléphone, sans empêcher de choisir une photo
+                     déjà prise dans la galerie. --}}
+                <input name="cats[CIDX][items][IIDX][image]" class="inp" type="file" accept="image/*" capture="environment" style="max-width:190px" onchange="previewItemImage(this)">
                 <label class="switch removeimgwrap" style="flex:0;display:none"><input type="checkbox" name="cats[CIDX][items][IIDX][remove_image]" value="1"> {{ __('Retirer') }}</label>
             </div>
             <input name="cats[CIDX][items][IIDX][badge]" class="inp" placeholder="{{ __('Badge: Nouveau, Promo…') }}" style="max-width:200px">
@@ -148,6 +229,24 @@
                 </select>
             </label>
         </div>
+
+        {{-- TRADUCTIONS — comme au menu : le champ « Nom » ci-dessus reste
+             votre langue ; ceci n'est que pour le client qui lit ailleurs. --}}
+        <button type="button" class="btn btn-o btn-sm togitemtr" style="margin-top:8px">
+            <i class="fa-solid fa-language"></i> {{ __('Traductions') }}
+        </button>
+        <div class="itemtr" hidden style="display:flex;flex-direction:column;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)">
+            @foreach(\Modules\Tagtoa\App\Support\Locale::all() as $code => $meta)
+                @continue($code === \Modules\Tagtoa\App\Support\Locale::default())
+                <div>
+                    <input class="inp" name="cats[CIDX][items][IIDX][translations][{{ $code }}][name]"
+                           placeholder="{{ $meta['flag'] }} {{ $meta['label'] }} — {{ __('nom') }}" style="margin-bottom:4px">
+                    <input class="inp" name="cats[CIDX][items][IIDX][translations][{{ $code }}][description]"
+                           placeholder="{{ $meta['flag'] }} {{ $meta['label'] }} — {{ __('description') }}">
+                </div>
+            @endforeach
+        </div>
+        <input type="hidden" name="cats[CIDX][items][IIDX][translations_sent]" value="1">
 
         {{-- Champs propres au métier, injectés selon le type d'établissement. --}}
         <div class="specs"></div>
@@ -396,7 +495,6 @@ function addItem(catEl, d){
     var row = box.firstElementChild;
     catEl.querySelector('.items').appendChild(row);
     if (d){
-        row.querySelector('[name$="[emoji]"]').value = d.emoji || '';
         row.querySelector('[name$="[name]"]').value = d.name || '';
         row.querySelector('[name$="[price]"]').value = (d.price != null ? d.price : '');
         row.querySelector('[name$="[description]"]').value = d.description || '';
@@ -416,9 +514,23 @@ function addItem(catEl, d){
             row.querySelector('.removeimgwrap').style.display = 'flex';
         }
         (d.options || []).forEach(function(o){ addOption(row, o); });
+        // Traductions : un champ par langue connue, rempli seulement si le
+        // plat en porte une. `querySelector` renvoie null pour une langue sans
+        // champ dans le gabarit (ne devrait pas arriver, mais un menu du passé
+        // ne doit jamais planter la page pour autant).
+        var trad = d.translations || {};
+        Object.keys(trad).forEach(function(langue){
+            var nomEl = row.querySelector('[name="cats['+ci+'][items]['+ii+'][translations]['+langue+'][name]"]');
+            var descEl = row.querySelector('[name="cats['+ci+'][items]['+ii+'][translations]['+langue+'][description]"]');
+            if (nomEl) nomEl.value = trad[langue].name || '';
+            if (descEl) descEl.value = trad[langue].description || '';
+        });
     }
     row.querySelector('.togdet').addEventListener('click', function(){
         var det = row.querySelector('.itemdet'); det.hidden = !det.hidden;
+    });
+    row.querySelector('.togitemtr').addEventListener('click', function(){
+        var tr = row.querySelector('.itemtr'); tr.hidden = !tr.hidden;
     });
     row.querySelector('.delitem').addEventListener('click', function(){
         var nom = (row.querySelector('[name$="[name]"]').value || '').trim();
@@ -435,11 +547,18 @@ function addCat(d){
     var block = box.firstElementChild;
     document.getElementById('cats').appendChild(block);
     if (d){
-        block.querySelector('[name$="[icon]"]').value = d.icon || '';
         block.querySelector('[name$="[name]"]').value = d.name || '';
         var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][id]'; h.value=d.id; block.appendChild(h);
+        var trad = d.translations || {};
+        Object.keys(trad).forEach(function(langue){
+            var nomEl = block.querySelector('[name="cats['+ci+'][translations]['+langue+'][name]"]');
+            if (nomEl) nomEl.value = trad[langue].name || '';
+        });
         (d.items || []).forEach(function(it){ addItem(block, it); });
     }
+    block.querySelector('.togcattr').addEventListener('click', function(){
+        var tr = block.querySelector('.cattr'); tr.hidden = !tr.hidden;
+    });
     block.querySelector('.delcat').addEventListener('click', function(){
         var nom = (block.querySelector('[name$="[name]"]').value || '').trim();
         supprimer(block, DEL_CAT_URL, "{{ __('Supprimer cette catégorie ET tous ses articles ? Cette action est définitive.') }}\n\n" + nom);
@@ -451,13 +570,15 @@ function addCat(d){
     $catData = $menu->relationLoaded('categories')
         ? $menu->categories->map(fn ($c) => [
             'id' => $c->id, 'name' => $c->name, 'icon' => $c->icon,
+            'translations' => $c->translations ?: (object) [],
             'items' => $c->items->map(fn ($i) => [
-                'id' => $i->id, 'name' => $i->name, 'emoji' => $i->emoji, 'price' => $i->price,
+                'id' => $i->id, 'name' => $i->name, 'price' => $i->price,
                 'description' => $i->description, 'badge' => $i->badge, 'is_available' => $i->is_available,
                 'is_featured' => $i->is_featured, 'stock' => $i->stock, 'image_url' => $i->image_url,
                 'cost_price' => $i->cost_price, 'unit' => $i->unit_key,
                 'low_stock_threshold' => $i->low_stock_threshold, 'sku' => $i->sku,
                 'supplier_id' => $i->supplier_id,
+                'translations' => $i->translations ?: (object) [],
                 'specs' => $i->specs ?: (object) [],
                 'options' => $i->options->map(fn ($o) => [
                     'id' => $o->id, 'name' => $o->name, 'required' => $o->required, 'multiple' => $o->multiple,

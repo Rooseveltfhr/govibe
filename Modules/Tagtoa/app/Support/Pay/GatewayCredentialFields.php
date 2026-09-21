@@ -13,6 +13,9 @@ namespace Modules\Tagtoa\App\Support\Pay;
  * Convention lue dans la config :
  *   'credentials' => [...]  → les identifiants proprement dits
  *   'mode'                  → sélecteur sandbox / live
+ *   'note'                  → texte informatif affiché tel quel (ex. « ce
+ *                             fournisseur n'a pas de mode test ») — jamais un
+ *                             champ à saisir
  *   toute autre clé scalaire (hors 'label') → secret complémentaire
  *                             (ex. webhook_secret, ipn_secret)
  */
@@ -21,7 +24,7 @@ class GatewayCredentialFields
     public const MODES = ['sandbox', 'live'];
 
     /** Clés jamais éditables : purement descriptives. */
-    private const IGNORED = ['label', 'credentials', 'mode'];
+    private const IGNORED = ['label', 'credentials', 'mode', 'note'];
 
     /**
      * @return array{credentials: string[], extras: string[], has_mode: bool}

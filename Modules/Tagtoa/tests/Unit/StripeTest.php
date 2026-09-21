@@ -64,4 +64,19 @@ class StripeTest extends TestCase
         $this->assertFalse(Stripe::verifySignature($payload, '', $secret));
         $this->assertFalse(Stripe::verifySignature($payload, $header, ''));
     }
+
+    public function test_mode_matches_key_prefix(): void
+    {
+        // Environnement et préfixe de clé en accord.
+        $this->assertTrue(Stripe::modeMatchesKey('sandbox', 'sk_test_abc123'));
+        $this->assertTrue(Stripe::modeMatchesKey('live', 'sk_live_abc123'));
+
+        // Environnement et préfixe de clé en désaccord — les deux sens.
+        $this->assertFalse(Stripe::modeMatchesKey('sandbox', 'sk_live_abc123'));
+        $this->assertFalse(Stripe::modeMatchesKey('live', 'sk_test_abc123'));
+
+        // Pas de clé : rien à comparer, donc pas de désaccord.
+        $this->assertTrue(Stripe::modeMatchesKey('sandbox', null));
+        $this->assertTrue(Stripe::modeMatchesKey('live', ''));
+    }
 }

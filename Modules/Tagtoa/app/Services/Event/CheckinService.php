@@ -4,6 +4,7 @@ namespace Modules\Tagtoa\App\Services\Event;
 
 use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Event\Checkin;
+use Modules\Tagtoa\App\Models\Event\Delivery;
 use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Event\NfcTag;
 use Modules\Tagtoa\App\Models\Event\Ticket;
@@ -17,7 +18,7 @@ use Modules\Tagtoa\App\Support\Event\EventDays;
  */
 class CheckinService
 {
-    public function __construct(protected NotificationService $notifications)
+    public function __construct(protected NotificationService $notifications, protected EventNotifier $eventNotifier)
     {
     }
 
@@ -42,6 +43,14 @@ class CheckinService
         }
         if (! $ticket->isValid()) {
             return $this->r(false, 'red', 'error', __('Billet annulé.'), $ticket);
+        }
+        // Contrôle d'accès par porte : un type de billet peut être restreint à
+        // certaines portes (ex. un Standard refusé à la porte « VIP »). Une
+        // porte inconnue ($gate=null, scanner sans sélecteur de porte) ne
+        // restreint jamais rien — c'est le comportement d'avant cette
+        // fonctionnalité, pour tout événement qui ne configure aucune porte.
+        if ($direction === 'in' && ! ($ticket->ticketType?->allowsGate($gate) ?? true)) {
+            return $this->r(false, 'red', 'error', __('Ce billet n\'est pas valable à cette porte.'), $ticket);
         }
         // Anti double-entrée PAR JOUR (multi-jour) : on bloque une 2ᵉ entrée le
         // même jour, mais on autorise l'entrée un autre jour (ex. Pass 2 jours).
@@ -78,7 +87,7 @@ class CheckinService
 
             $entered = ($direction === 'in');
 
-            return $this->r(true, 'green', 'success', $direction === 'in' ? $this->welcomeMessage($event) : __('Sortie enregistrée.'), $ticket->fresh('ticketType'));
+            return $this->r(true, 'green', 'success', $direction === 'in' ? $this->welcomeMessage($event, $ticket) : __('Sortie enregistrée.'), $ticket->fresh('ticketType'));
         });
 
         // Notifications hors transaction (tolérant) : organisateur + participant à l'entrée.
@@ -95,18 +104,24 @@ class CheckinService
      * portail voit clairement que le billet reste valable les jours suivants.
      * Rétro-compatible : événement d'un seul jour ⇒ message simple inchangé.
      */
-    private function welcomeMessage(Event $event): string
+    private function welcomeMessage(Event $event, Ticket $ticket): string
     {
         $days = EventDays::list(optional($event->starts_at)->toDateString(), optional($event->ends_at)->toDateString());
-        if (count($days) <= 1) {
-            return __('Bienvenue!');
-        }
 
-        $today = EventDays::resolveDay($days, now()->toDateString());
-        $index = array_search($today, $days, true);
-        $dayNumber = $index === false ? 1 : $index + 1;
+        $message = count($days) <= 1
+            ? __('Bienvenue!')
+            : (function () use ($days) {
+                $today = EventDays::resolveDay($days, now()->toDateString());
+                $index = array_search($today, $days, true);
+                $dayNumber = $index === false ? 1 : $index + 1;
 
-        return __('Bienvenue! Billet valable :n jours — jour :d/:n', ['n' => count($days), 'd' => $dayNumber]);
+                return __('Bienvenue! Billet valable :n jours — jour :d/:n', ['n' => count($days), 'd' => $dayNumber]);
+            })();
+
+        // Le staff au portail doit voir IMMÉDIATEMENT qu'il fait entrer un
+        // invité VIP — c'est le moment où une file d'attente prioritaire ou un
+        // accueil particulier se décide, pas après coup en consultant le badge.
+        return $ticket->isVip() ? __('⭐ VIP').' — '.$message : $message;
     }
 
     /** Alerte organisateur (email) + confirmation participant (WhatsApp) à l'entrée. */
@@ -125,12 +140,15 @@ class CheckinService
             }
 
             if ($ticket->holder_phone) {
-                $this->notifications->push([
-                    'channels' => ['whatsapp'],
-                    'phone'    => $ticket->holder_phone,
-                    'subject'  => $event->title,
-                    'body'     => __('Bienvenue!').' '.__('Votre entrée est confirmée.').' — '.$name,
-                ]);
+                $this->eventNotifier->notifyCustomer(
+                    $event,
+                    Delivery::CONTEXT_CHECKIN_CONFIRMATION,
+                    $event->title,
+                    __('Bienvenue!').' '.__('Votre entrée est confirmée.').' — '.$name,
+                    null,
+                    $ticket->holder_phone,
+                    $ticket->id
+                );
             }
         } catch (\Throwable $e) {
             if (function_exists('report')) {

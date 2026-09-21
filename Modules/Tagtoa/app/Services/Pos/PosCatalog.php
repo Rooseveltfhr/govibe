@@ -102,7 +102,13 @@ class PosCatalog
         // plus besoin.
         $codes = $this->codesParArticle($tenantId);
 
-        foreach ($this->active($tenantId) as $p) {
+        // Les rayons existent depuis longtemps côté back-office (0.1a) mais
+        // n'atteignaient jamais la grille de vente — `group` restait figé à
+        // null pour tout article POS. Quarante articles sans rayon donnaient
+        // quarante boutons d'affilée, exactement ce que les rayons devaient
+        // éviter. `load()` : une seule requête pour tout le catalogue, pas une
+        // par article.
+        foreach ($this->active($tenantId)->load(['category:id,name', 'parent:id,stock']) as $p) {
             $lignes[] = [
                 'ref'    => CatalogRef::make(CatalogRef::SOURCE_POS, $p->id),
                 'source' => CatalogRef::SOURCE_POS,
@@ -115,8 +121,12 @@ class PosCatalog
                 // caissier se trompe de bouton, en pleine affluence.
                 'image'  => $p->image_url,
                 'color'  => $p->color ?: '#2cb809',
-                'group'  => null,
-                'stock'  => $p->stock,
+                'group'  => $p->category?->name,
+                // Un verre n'a pas de stock à lui : ce qu'il reste se lit sur
+                // la bouteille dont il sort, converti en verres.
+                'stock'  => $p->sells_from_parent
+                    ? ($p->parent?->stock !== null ? floor($p->parent->stock * $p->units_per_parent) : null)
+                    : $p->stock,
                 'codes'  => $codes[CatalogRef::SOURCE_POS.':'.$p->id] ?? [],
                 // Le taux propre à l'article, pour que la caisse affiche le
                 // bon total avant d'encaisser. Null = celui du commerce.

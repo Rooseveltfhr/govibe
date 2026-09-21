@@ -22,7 +22,14 @@ class StripeDriver implements GatewayDriver
     {
         $cfg = GatewayManager::config('stripe');
         // credentials.secret = clé secrète (sk_live_… / sk_test_…).
-        $this->secret = $cfg['credentials']['secret'] ?? null;
+        $secret = $cfg['credentials']['secret'] ?? null;
+
+        // La clé doit correspondre à l'environnement annoncé dans le
+        // super-admin (voir Stripe::modeMatchesKey()) : sinon on désactive le
+        // driver plutôt que de risquer de facturer un vrai client en pensant
+        // tester, ou de ne jamais encaisser en pensant être en production.
+        $mode = $cfg['mode'] ?? 'sandbox';
+        $this->secret = Stripe::modeMatchesKey($mode, $secret) ? $secret : null;
     }
 
     public function createPayment(PayTransaction $txn): ?string

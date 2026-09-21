@@ -27,6 +27,10 @@
     <div class="top"><i class="fa-solid fa-qrcode" style="color:var(--blue)"></i><h1>{{ $event->title }}</h1><span class="net" id="net">●</span></div>
     <div class="stats"><div class="stat"><b id="s-in">{{ $stats['checked_in'] }}</b><span>{{ __('Entrés') }}</span></div><div class="stat"><b>{{ $stats['tickets'] }}</b><span>{{ __('Billets') }}</span></div><div class="stat"><b id="s-pending">0</b><span>{{ __('À sync') }}</span></div></div>
     <div class="toggle"><button id="dir-in" class="on" onclick="setDir('in')"><i class="fa-solid fa-right-to-bracket"></i> {{ __('Entrée') }}</button><button id="dir-out" onclick="setDir('out')"><i class="fa-solid fa-right-from-bracket"></i> {{ __('Sortie') }}</button></div>
+    {{-- Porte de ce poste : un type de billet peut être restreint à certaines portes
+         (TicketType::allowsGate). Laissé vide, aucune restriction ne s'applique — un
+         poste qui ne renseigne jamais ce champ se comporte exactement comme avant. --}}
+    <div class="manual" style="padding-top:0"><input id="gate" placeholder="{{ __('Porte de ce poste (optionnel)') }}" oninput="saveGate()"></div>
     <div id="reader"></div>
     <div class="manual"><input id="m-code" placeholder="{{ __('Code billet (manuel)') }}"><button onclick="manual()">{{ __('OK') }}</button></div>
     <div class="manual" style="padding-top:0"><button style="flex:1;background:var(--blue);color:#fff;border:0;border-radius:10px;padding:12px;font:600 13px var(--fh);cursor:pointer" onclick="startNfc()"><i class="fa-solid fa-wifi"></i> {{ __('Check-in NFC (tap)') }}</button><span id="nfc-hint" style="align-self:center;font-size:12px;opacity:.6"></span></div>
@@ -35,8 +39,12 @@
 <script>
 var EVENT=document.body.dataset.event,DIR='in',lastScan=0;
 var SCAN_URL="{{ route('tagtoa.event.dashboard.scan', $event->id) }}",SYNC_URL="{{ route('tagtoa.event.dashboard.sync', $event->id) }}";
-var CSRF=document.querySelector('meta[name=csrf-token]').content,QKEY='tagtoa_ev_q_'+EVENT;
+var CSRF=document.querySelector('meta[name=csrf-token]').content,QKEY='tagtoa_ev_q_'+EVENT,GKEY='tagtoa_ev_gate_'+EVENT;
 function setDir(d){DIR=d;document.getElementById('dir-in').classList.toggle('on',d==='in');document.getElementById('dir-out').classList.toggle('on',d==='out');}
+// La porte reste choisie tant qu'on ne la change pas : un poste fixé à
+// l'entrée VIP toute la soirée ne doit pas la retaper à chaque scan.
+function saveGate(){localStorage.setItem(GKEY,document.getElementById('gate').value.trim());}
+function gate(){return document.getElementById('gate').value.trim()||null;}
 function uuid(){return 'xxxxxxxxyxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);})+Date.now();}
 var actx;function beep(t){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();var o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);var f={success:[880,1320],error:[200,160],warning:[440,440]}[t]||[600];o.frequency.value=f[0];o.type='sine';g.gain.value=.12;o.start();if(f[1])setTimeout(function(){o.frequency.value=f[1];},90);setTimeout(function(){o.stop();},t==='error'?260:170);}catch(e){}}
 function vib(t){if(navigator.vibrate)navigator.vibrate(t==='success'?80:t==='error'?[60,40,60]:[40]);}
@@ -45,14 +53,14 @@ function setNet(){var on=navigator.onLine;document.getElementById('net').textCon
 window.addEventListener('online',setNet);window.addEventListener('offline',setNet);
 function q(){return JSON.parse(localStorage.getItem(QKEY)||'[]');}
 function setQ(a){localStorage.setItem(QKEY,JSON.stringify(a));var n=a.length;document.getElementById('s-pending').textContent=n;document.getElementById('pending-txt').textContent=n?(n+' {{ __('en attente') }}'):'';}
-function handle(code){var now=Date.now();if(now-lastScan<1200)return;lastScan=now;var p={code:code,direction:DIR,method:'qr',client_uuid:uuid()};if(navigator.onLine){fetch(SCAN_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(showR).catch(function(){enq(p);showR({valid:true,color:'orange',sound:'warning',message:'{{ __('Hors-ligne — en file') }}'});});}else{enq(p);showR({valid:true,color:'orange',sound:'warning',message:'{{ __('Hors-ligne — en file') }}'});}}
+function handle(code){var now=Date.now();if(now-lastScan<1200)return;lastScan=now;var p={code:code,direction:DIR,method:'qr',gate:gate(),client_uuid:uuid()};if(navigator.onLine){fetch(SCAN_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(showR).catch(function(){enq(p);showR({valid:true,color:'orange',sound:'warning',message:'{{ __('Hors-ligne — en file') }}'});});}else{enq(p);showR({valid:true,color:'orange',sound:'warning',message:'{{ __('Hors-ligne — en file') }}'});}}
 function enq(p){var a=q();a.push(p);setQ(a);}
 function flush(){var a=q();if(!a.length)return;fetch(SYNC_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify({scans:a})}).then(function(r){return r.json();}).then(function(){setQ([]);}).catch(function(){});}
 function manual(){var c=document.getElementById('m-code').value.trim();if(c){handle(c);document.getElementById('m-code').value='';}}
 var SCAN_NFC_URL="{{ route('tagtoa.event.dashboard.scan.nfc', $event->id) }}";
-function handleNfc(uid){var now=Date.now();if(now-lastScan<1200)return;lastScan=now;var p={uid:uid,direction:DIR,client_uuid:uuid()};if(navigator.onLine){fetch(SCAN_NFC_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(showR).catch(function(){showR({valid:false,color:'red',sound:'error',message:'{{ __('Réessayez.') }}'});});}else{showR({valid:false,color:'orange',sound:'warning',message:'{{ __('NFC nécessite une connexion.') }}'});}}
+function handleNfc(uid){var now=Date.now();if(now-lastScan<1200)return;lastScan=now;var p={uid:uid,direction:DIR,gate:gate(),client_uuid:uuid()};if(navigator.onLine){fetch(SCAN_NFC_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(showR).catch(function(){showR({valid:false,color:'red',sound:'error',message:'{{ __('Réessayez.') }}'});});}else{showR({valid:false,color:'orange',sound:'warning',message:'{{ __('NFC nécessite une connexion.') }}'});}}
 function startNfc(){var h=document.getElementById('nfc-hint');if(!('NDEFReader' in window)){h.textContent='{{ __('NFC non supporté — QR/manuel.') }}';return;}try{var reader=new NDEFReader();h.textContent='{{ __('Approchez le tag…') }}';reader.scan().then(function(){reader.onreading=function(e){if(e.serialNumber)handleNfc(e.serialNumber);};}).catch(function(){h.textContent='{{ __('NFC non supporté — QR/manuel.') }}';});}catch(err){h.textContent='{{ __('NFC non supporté — QR/manuel.') }}';}}
-window.addEventListener('load',function(){setNet();setQ(q());if(window.Html5Qrcode){var qr=new Html5Qrcode('reader');qr.start({facingMode:'environment'},{fps:10,qrbox:230},handle,function(){}).catch(function(){document.getElementById('reader').innerHTML='<p style="padding:20px;opacity:.6;text-align:center">{{ __('Caméra indisponible — saisie manuelle.') }}</p>';});}});
+window.addEventListener('load',function(){setNet();setQ(q());document.getElementById('gate').value=localStorage.getItem(GKEY)||'';if(window.Html5Qrcode){var qr=new Html5Qrcode('reader');qr.start({facingMode:'environment'},{fps:10,qrbox:230},handle,function(){}).catch(function(){document.getElementById('reader').innerHTML='<p style="padding:20px;opacity:.6;text-align:center">{{ __('Caméra indisponible — saisie manuelle.') }}</p>';});}});
 </script>
 </body>
 </html>

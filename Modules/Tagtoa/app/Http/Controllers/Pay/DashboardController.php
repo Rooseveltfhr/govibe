@@ -7,6 +7,7 @@ use Modules\Tagtoa\App\Support\EnforcesPlan;
 use App\Models\Vcard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -14,6 +15,7 @@ use Modules\Tagtoa\App\Models\Api\ApiPayment;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Models\Pay\PaymentProof;
 use Modules\Tagtoa\App\Services\Api\ApiPaymentService;
+use Modules\Tagtoa\App\Services\Pay\PayReportService;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Modules\Tagtoa\App\Support\Tenant;
 
@@ -163,6 +165,31 @@ $data = $this->validatePage($request);
     public function share(int $id): View
     {
         return view('tagtoa::pay.dashboard.share', ['page' => $this->ownPage($id)]);
+    }
+
+    /**
+     * Rapport : revenu et statut des preuves sur une période, conversion
+     * depuis toujours. Bornes par défaut : 30 derniers jours.
+     */
+    public function report(Request $request, int $id, PayReportService $reports): View
+    {
+        $page = $this->ownPage($id);
+
+        $bounds = $request->validate([
+            'from' => ['nullable', 'date'],
+            'to'   => ['nullable', 'date'],
+        ]);
+
+        $to = isset($bounds['to']) ? Carbon::parse($bounds['to']) : Carbon::now();
+        $from = isset($bounds['from']) ? Carbon::parse($bounds['from']) : $to->copy()->subDays(29);
+        if ($from->gt($to)) {
+            [$from, $to] = [$to, $from];
+        }
+
+        $period = $reports->forPeriod($page, $from, $to);
+        $conversion = $reports->conversion($page);
+
+        return view('tagtoa::pay.dashboard.report', compact('page', 'period', 'conversion', 'from', 'to'));
     }
 
     protected function vcards()

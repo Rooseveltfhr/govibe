@@ -4,6 +4,7 @@ namespace Modules\Tagtoa\App\Services\Pos;
 
 use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Menu\Item as MenuItem;
+use Modules\Tagtoa\App\Models\Pos\Product;
 use Modules\Tagtoa\App\Models\Pos\Sale;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Models\Staff\Staff;
@@ -166,11 +167,18 @@ class PosService
                 // stock qu'une commande passée par QR. Et il passe par le
                 // journal, pour que le patron puisse remonter de l'écart
                 // constaté sur l'étagère jusqu'à la vente qui l'explique.
+                //
+                // Un verre vendu ne retire rien à SON stock (il n'en a pas,
+                // voir Product::is_service/parent_product_id) : c'est la
+                // bouteille dont il sort qui doit bouger.
                 if ($article) {
-                    app(StockLedger::class)->remove(
-                        $article, $qty, MovementType::SALE,
-                        ['staff' => $staff, 'origin_type' => 'pos_sale', 'origin_id' => $sale->id]
-                    );
+                    [$stockArticle, $stockQty] = $this->stockCible($article, $qty);
+                    if ($stockArticle) {
+                        app(StockLedger::class)->remove(
+                            $stockArticle, $stockQty, MovementType::SALE,
+                            ['staff' => $staff, 'origin_type' => 'pos_sale', 'origin_id' => $sale->id]
+                        );
+                    }
                 }
             }
 
@@ -209,5 +217,31 @@ class PosService
 
             return $sale;
         });
+    }
+
+    /**
+     * Quel article — et quelle quantité — doit réellement bouger au stock.
+     *
+     * Un bar tient son stock en bouteilles mais vend au verre. Un « verre »
+     * n'a pas de stock à lui (Product::is_service côté champ, comme un
+     * service) : c'est une FRACTION de la bouteille dont il sort qui doit
+     * être retirée. Sans ce détour, vendre un verre ne ferait jamais bouger
+     * le compteur de la bouteille dont il sort réellement.
+     *
+     * Le parent introuvable (supprimé entre-temps) : rien à décrémenter,
+     * plutôt que de faire échouer toute la vente pour un article accessoire
+     * — voir la contrainte volontairement absente sur parent_product_id.
+     *
+     * @return array{0: ?\Illuminate\Database\Eloquent\Model, 1: float}
+     */
+    private function stockCible(mixed $article, float $qty): array
+    {
+        if (! $article instanceof Product || ! $article->sells_from_parent) {
+            return [$article, $qty];
+        }
+
+        $parent = Product::whereKey($article->parent_product_id)->first();
+
+        return $parent ? [$parent, $qty / (float) $article->units_per_parent] : [null, 0.0];
     }
 }

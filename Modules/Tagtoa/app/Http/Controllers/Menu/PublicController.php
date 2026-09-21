@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Menu\Order;
+use Modules\Tagtoa\App\Models\Menu\Table;
 use Modules\Tagtoa\App\Models\Review\Review;
 use Modules\Tagtoa\App\Services\Menu\MenuOrderService;
 use Modules\Tagtoa\App\Services\Review\ReviewService;
@@ -48,6 +50,17 @@ class PublicController extends Controller
             return compact('menu', 'categories', 'reviews', 'summary');
         });
 
+        // Vérification de table : JAMAIS dans le cache ci-dessus, qui est
+        // partagé entre tous les visiteurs de CE menu pendant sa fenêtre. Un
+        // code de table appartient à CETTE requête précise — le mettre en
+        // cache ferait porter le numéro d'un premier client à tous les
+        // suivants tant que le cache tient.
+        $data['table'] = null;
+        if ($t = request('t')) {
+            $data['table'] = Table::where('menu_id', $data['menu']->id)
+                ->where('code', $t)->where('is_active', true)->first();
+        }
+
         return view('tagtoa::menu.show', $data);
     }
 
@@ -68,6 +81,10 @@ class PublicController extends Controller
             'customer_name'      => ['nullable', 'string', 'max:120'],
             'customer_phone'     => ['nullable', 'string', 'max:40'],
             'table_label'        => ['nullable', 'string', 'max:40'],
+            // Présent seulement quand le client a scanné le QR d'une vraie
+            // table (jamais tapé) — voir MenuOrderService::insertOrder(),
+            // qui l'impose sur `table_label` et rejette un code invalide.
+            'table_code'         => ['nullable', 'string', 'max:20'],
             'delivery_address'   => ['nullable', 'string', 'max:200'],
             'note'               => ['nullable', 'string', 'max:500'],
             'client_uuid'        => ['nullable', 'string', 'max:64'],
@@ -79,6 +96,8 @@ class PublicController extends Controller
             $message = match ($e->getMessage()) {
                 'out_of_stock'            => __('Un article est en rupture de stock. Ajustez votre commande.'),
                 'missing_required_option' => __('Choisissez une option obligatoire pour chaque article.'),
+                'closed'                  => __('Ce commerce est fermé pour le moment. Revenez pendant les heures d\'ouverture.'),
+                'invalid_table'           => __('Ce QR de table n\'est plus valide. Rechargez la page en le rescannant.'),
                 default                   => __('Votre commande est vide.'),
             };
 
@@ -99,6 +118,26 @@ class PublicController extends Controller
         ]);
     }
 
+    /**
+     * « Commander via Agent IA » — mots-clés locaux, aucun appel externe
+     * (voir OrderChatParser). Renvoie des SUGGESTIONS pour remplir le
+     * panier côté client ; ne crée AUCUNE commande — le prix et la
+     * disponibilité de chaque article restent, comme partout ailleurs,
+     * relus du catalogue au moment de la vraie commande.
+     */
+    public function agent(Request $request, string $alias): JsonResponse
+    {
+        $menu = Menu::where('alias', $alias)->where('is_active', true)->firstOrFail();
+        $data = $request->validate(['message' => ['required', 'string', 'max:300']]);
+
+        $catalogue = $menu->items()->where('is_available', true)->get(['id', 'name'])
+            ->map(fn ($i) => ['id' => $i->id, 'name' => $i->translated('name')])->all();
+
+        $resultat = \Modules\Tagtoa\App\Support\Menu\OrderChatParser::parse($catalogue, $data['message']);
+
+        return response()->json(['ok' => true] + $resultat);
+    }
+
     /** Page publique de suivi de commande (statut en temps réel, sans auth). */
     public function track(string $reference): View
     {
@@ -117,6 +156,104 @@ class PublicController extends Controller
             'status_label'   => __($order->status_meta['label']),
             'payment_status' => $order->payment_status,
         ]);
+    }
+
+    /* ---------- PWA (installable + hors ligne) ---------------------------
+       Même schéma que le POS (PosController::manifest/icon/serviceWorker) :
+       manifeste JSON, icône SVG vectorielle (aucun fichier binaire à
+       publier), service worker « app shell » — network-first pour la page,
+       cache-first pour le reste, GET seulement.
+
+       La connexion en Haïti (et ailleurs) est souvent lente ou coupée : un
+       client qui a déjà ouvert une carte doit pouvoir la rouvrir sans
+       réseau. Chaque menu a SON PROPRE service worker (scope = /menu/{alias}
+       exactement) : la carte du restaurant d'à côté n'est jamais mêlée à la
+       sienne, et désinstaller un menu ne touche jamais les autres. -------- */
+
+    /** Manifeste Web App de CE menu — nom, couleur et icône lui appartiennent. */
+    public function manifest(string $alias): JsonResponse
+    {
+        $menu = Menu::where('alias', $alias)->where('is_active', true)->firstOrFail();
+        $scope = url('/menu/'.$alias);
+        $accent = preg_match('/^#[0-9A-Fa-f]{3,8}$/', (string) $menu->accent_color) ? $menu->accent_color : '#2cb809';
+
+        return response()->json([
+            'name'             => $menu->name.' — TAGTOA Menu',
+            'short_name'       => Str::limit($menu->name, 12, ''),
+            'start_url'        => $scope,
+            'scope'            => $scope,
+            'display'          => 'standalone',
+            'orientation'      => 'portrait-primary',
+            'background_color' => $menu->theme === 'dark' ? '#0A0A0A' : '#F5F5F3',
+            'theme_color'      => $accent,
+            'lang'             => app()->getLocale(),
+            'icons'            => [
+                ['src' => route('tagtoa.menu.icon', $alias), 'sizes' => 'any', 'type' => 'image/svg+xml', 'purpose' => 'any maskable'],
+            ],
+        ]);
+    }
+
+    /** Icône SVG (vectorielle) — initiale du menu sur sa couleur d'accent. */
+    public function icon(string $alias)
+    {
+        $menu = Menu::where('alias', $alias)->where('is_active', true)->firstOrFail();
+        $accent = preg_match('/^#[0-9A-Fa-f]{3,8}$/', (string) $menu->accent_color) ? $menu->accent_color : '#2cb809';
+        $lettre = e(Str::upper(Str::substr($menu->name, 0, 1)) ?: 'T');
+
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">'
+            .'<rect width="512" height="512" rx="96" fill="'.$accent.'"/>'
+            .'<text x="256" y="256" font-family="sans-serif" font-size="260" font-weight="700" '
+            .'fill="#fff" text-anchor="middle" dominant-baseline="central">'.$lettre.'</text>'
+            .'</svg>';
+
+        return response($svg, 200)
+            ->header('Content-Type', 'image/svg+xml')
+            ->header('Cache-Control', 'public, max-age=86400');
+    }
+
+    /**
+     * Service worker : cache l'enveloppe (app shell) pour un usage hors
+     * ligne. Ne touche jamais aux requêtes non-GET : une commande (POST) doit
+     * échouer nettement hors ligne pour que la file d'attente côté client
+     * (voir show.blade.php) prenne le relais, jamais une réponse mise en
+     * cache par erreur qui ferait croire qu'elle est passée.
+     */
+    public function serviceWorker(string $alias)
+    {
+        $scope = url('/menu/'.$alias);
+        $js = <<<JS
+const CACHE = 'tagtoa-menu-{$alias}-v1';
+self.addEventListener('install', (e) => self.skipWaiting());
+self.addEventListener('activate', (e) => {
+    e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+});
+// Network-first pour la navigation (HTML : toujours la carte à jour quand la
+// connexion le permet), cache-first pour le reste. GET seulement — une
+// commande (POST) n'est jamais interceptée.
+self.addEventListener('fetch', (e) => {
+    const req = e.request;
+    if (req.method !== 'GET') return;
+    if (req.mode === 'navigate') {
+        e.respondWith(
+            fetch(req).then(res => { const c = res.clone(); caches.open(CACHE).then(ca => ca.put(req, c)); return res; })
+                      .catch(() => caches.match(req))
+        );
+        return;
+    }
+    e.respondWith(
+        caches.match(req).then(hit => hit || fetch(req).then(res => {
+            if (res && res.status === 200 && (res.type === 'basic' || res.type === 'cors')) {
+                const c = res.clone(); caches.open(CACHE).then(ca => ca.put(req, c));
+            }
+            return res;
+        }).catch(() => hit))
+    );
+});
+JS;
+
+        return response($js, 200)
+            ->header('Content-Type', 'application/javascript')
+            ->header('Service-Worker-Allowed', $scope);
     }
 
     /** Lien WhatsApp pré-rempli incluant la référence de commande. */

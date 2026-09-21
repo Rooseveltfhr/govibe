@@ -17,7 +17,7 @@ class Product extends Model
 
     protected $table = 'tagtoa_pos_products';
 
-    protected $fillable = ['tenant_id', 'terminal_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'emoji', 'color', 'image_path', 'purchased_at', 'stock', 'is_active', 'sort'];
+    protected $fillable = ['tenant_id', 'terminal_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'unit', 'is_service', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'emoji', 'color', 'image_path', 'purchased_at', 'stock', 'is_active', 'sort', 'parent_product_id', 'units_per_parent'];
 
     protected $casts = [
         'price'      => 'decimal:2',
@@ -28,6 +28,10 @@ class Product extends Model
         'low_stock_threshold' => 'float',
         'stock'               => 'float',
         'is_active'           => 'boolean',
+        // Une nuitée, une consultation : rien à compter, rien à scanner.
+        'is_service'          => 'boolean',
+        // Combien de verres fait une bouteille. Voir parent().
+        'units_per_parent'    => 'float',
         // Une DATE, pas un instant : « acheté le 3 mars » n'a pas d'heure, et
         // en stocker une ferait diverger l'affichage selon le fuseau.
         'purchased_at'        => 'date',
@@ -71,5 +75,22 @@ class Product extends Model
     public function terminal(): BelongsTo
     {
         return $this->belongsTo(Terminal::class, 'terminal_id');
+    }
+
+    /**
+     * L'article dont CELUI-CI se vend une fraction (le verre → la bouteille).
+     *
+     * Nullable et sans contrainte, comme category()/supplier() : supprimer le
+     * parent ne doit jamais empêcher de retrouver ni de gérer l'enfant.
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_product_id');
+    }
+
+    /** Cet article se vend-il comme une fraction d'un autre ? PUR. */
+    public function getSellsFromParentAttribute(): bool
+    {
+        return $this->parent_product_id !== null && (float) $this->units_per_parent > 0;
     }
 }

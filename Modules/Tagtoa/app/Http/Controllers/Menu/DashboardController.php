@@ -16,7 +16,9 @@ use Modules\Tagtoa\App\Models\Menu\Order;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Services\Menu\MenuOrderService;
 use Modules\Tagtoa\App\Support\Locale;
+use Modules\Tagtoa\App\Support\Menu\BusinessHours;
 use Modules\Tagtoa\App\Support\Menu\BusinessProfile;
+use Modules\Tagtoa\App\Support\Menu\Translatable;
 use Modules\Tagtoa\App\Support\Catalog\Pricing;
 use Modules\Tagtoa\App\Support\Tenant;
 
@@ -58,6 +60,7 @@ $data = $this->validateMenu($request);
         $menu = new Menu($data);
         $menu->tenant_id = Tenant::id();
         $menu->alias = $data['alias'] ?: Menu::generateAlias($data['name'] ?? 'menu');
+        $this->syncTranslations($menu, $request);
         $this->handleUploads($menu, $request);
         $menu->save();
         $this->syncContent($menu, $request);
@@ -86,6 +89,7 @@ $data = $this->validateMenu($request);
         // planter. Une clé manquante ne doit jamais rendre une page blanche.
         $data['alias'] = ($data['alias'] ?? null) ?: $menu->alias;
         $menu->fill($data);
+        $this->syncTranslations($menu, $request);
         $this->handleUploads($menu, $request);
         $menu->save();
         $this->syncContent($menu, $request);
@@ -109,6 +113,235 @@ $data = $this->validateMenu($request);
         $pending = $menu->orders()->where('status', 'pending')->count();
 
         return view('tagtoa::menu.orders', compact('menu', 'orders', 'pending'));
+    }
+
+    /* =====================================================================
+       TABLES — vérifiées par QR/NFC, jamais un numéro tapé par le client.
+       ===================================================================== */
+
+    public function tables(int $id): View
+    {
+        $menu = $this->own($id);
+
+        return view('tagtoa::menu.tables', ['menu' => $menu, 'tables' => $menu->tables]);
+    }
+
+    public function storeTable(Request $request, int $id): RedirectResponse
+    {
+        $menu = $this->own($id);
+        $data = $request->validate(['label' => ['required', 'string', 'max:40']]);
+
+        $menu->tables()->create([
+            'tenant_id' => $menu->tenant_id,
+            'label'     => $data['label'],
+            'code'      => \Modules\Tagtoa\App\Models\Menu\Table::generateCode(),
+            'is_active' => true,
+        ]);
+
+        return back()->with('success', __('Table ajoutée. Imprimez son QR et posez-le dessus.'));
+    }
+
+    public function destroyTable(int $id, int $tableId): RedirectResponse
+    {
+        $menu = $this->own($id);
+        $menu->tables()->whereKey($tableId)->firstOrFail()->delete();
+
+        return back()->with('success', __('Table supprimée.'));
+    }
+
+    /** Affiche imprimable — réutilise le même gabarit que les autres QR TAGTOA. */
+    public function tablePoster(int $id, int $tableId): View
+    {
+        $menu = $this->own($id);
+        $table = $menu->tables()->whereKey($tableId)->firstOrFail();
+
+        return view('tagtoa::qr.poster', [
+            'name'  => $menu->name.' — '.$table->label,
+            'label' => __('Table'),
+            'url'   => url('/menu/'.$menu->alias).'?t='.$table->code,
+        ]);
+    }
+
+    /**
+     * Écran cuisine : lecture seule, oldest-first — la commande qui attend
+     * depuis le plus longtemps est celle qu'il faut sortir en premier.
+     */
+    public function kitchen(int $id): View
+    {
+        $menu = $this->own($id);
+
+        return view('tagtoa::menu.kitchen', ['menu' => $menu]);
+    }
+
+    /** Le même écran, en JSON : ce que la page interroge toutes les quelques secondes. */
+    public function kitchenFeed(int $id): \Illuminate\Http\JsonResponse
+    {
+        $menu = $this->own($id);
+        $orders = $menu->orders()
+            ->whereIn('status', Order::KITCHEN_STATUSES)
+            ->with('items')->oldest('placed_at')->get();
+
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
+
+        return response()->json([
+            // null = le patron opère directement (toujours autorisé) — voir
+            // kitchenAdvance(). Un employé identifié doit avoir la case cochée.
+            'staff'       => $staff ? ['name' => $staff->name, 'initials' => $staff->initials] : null,
+            'can_advance' => ! $staff || $staff->canRunKitchen(),
+            'orders' => $orders->map(fn (Order $o) => [
+                'id'          => $o->id,
+                'reference'   => $o->reference,
+                'status'      => $o->status,
+                'status_label' => __($o->status_meta['label']),
+                'next_status' => self::KITCHEN_NEXT[$o->status] ?? null,
+                'order_type'  => $o->order_type,
+                'order_type_label' => __($o->order_type_label),
+                'table_label' => $o->table_label,
+                'note'        => $o->note,
+                'placed_at'   => optional($o->placed_at)->toIso8601String(),
+                'items'       => $o->items->map(fn ($it) => [
+                    'name' => $it->name, 'qty' => (int) $it->qty,
+                    'options' => collect($it->selected_options ?: [])->pluck('label')->filter()->values(),
+                ]),
+            ]),
+        ]);
+    }
+
+    /**
+     * Étape suivante du cycle cuisine (pending/confirmed → preparing → ready),
+     * jamais au-delà : servir + encaisser une commande « Prête » se fait sur
+     * l'écran CAISSE (counter*, plus bas), pas ici — annuler une commande
+     * reste sur l'écran « Commandes », qui seul connaît le reste du cycle.
+     */
+    private const KITCHEN_NEXT = [
+        'pending'   => 'preparing',
+        'confirmed' => 'preparing',
+        'preparing' => 'ready',
+    ];
+
+    /**
+     * Fait avancer une commande d'une étape depuis l'écran cuisine.
+     *
+     * AUCUN employé identifié ne veut pas dire « personne » : c'est le patron
+     * qui opère l'écran directement (même convention que GuardsStaffAbility
+     * côté POS) — la vraie frontière de sécurité reste le garde
+     * `role:admin|super_admin` sur ces routes. La restriction par rôle « cuisine »
+     * ne s'applique qu'une fois un employé identifié via son code.
+     */
+    public function kitchenAdvance(int $id, int $orderId): RedirectResponse
+    {
+        $menu = $this->own($id);
+        $order = $menu->orders()->whereKey($orderId)->firstOrFail();
+
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
+        abort_if($staff && ! $staff->canRunKitchen(), 403, __('Vous n\'avez pas le droit de faire cela.'));
+
+        $suivant = self::KITCHEN_NEXT[$order->status] ?? null;
+        if ($suivant) {
+            $order->update(['status' => $suivant]);
+            app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)->touch('menu_order', $order->id, $suivant);
+        }
+
+        return back();
+    }
+
+    /** PIN de l'employé identifié sur CET écran cuisine (espace de session distinct de la caisse). */
+    public function kitchenStaffLogin(Request $request, int $id): RedirectResponse
+    {
+        $menu = $this->own($id);
+        $data = $request->validate(['pin' => ['required', 'string']]);
+
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)
+            ->authenticate($menu->tenant_id, $data['pin']);
+
+        if (! $staff) {
+            return back()->withErrors(['pin' => __('Code incorrect.')]);
+        }
+
+        session(['tagtoa_menu_staff.'.$menu->id => $staff->id]);
+
+        return back()->with('success', __('Bonjour :nom.', ['nom' => $staff->name]));
+    }
+
+    public function kitchenStaffLogout(int $id): RedirectResponse
+    {
+        session()->forget('tagtoa_menu_staff.'.$id);
+
+        return back();
+    }
+
+    /* =====================================================================
+       ÉCRAN CAISSE — canal MENU. Complète le cycle ouvert par la cuisine :
+       la cuisine amène une commande à « Prête » (kitchen*), le comptoir la
+       sert et encaisse. Deux écrans, deux gestes, jamais confondus — un
+       cuisinier ne doit pas pouvoir marquer une commande payée, et
+       inversement une personne au comptoir n'a pas à voir la file de
+       préparation.
+       ===================================================================== */
+
+    public function counter(int $id): View
+    {
+        $menu = $this->own($id);
+
+        return view('tagtoa::menu.counter', ['menu' => $menu]);
+    }
+
+    /** Le même écran, en JSON — polling, comme la cuisine. */
+    public function counterFeed(int $id): \Illuminate\Http\JsonResponse
+    {
+        $menu = $this->own($id);
+        $orders = $menu->orders()->where('status', 'ready')
+            ->with('items')->oldest('placed_at')->get();
+
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
+
+        return response()->json([
+            'staff'       => $staff ? ['name' => $staff->name, 'initials' => $staff->initials] : null,
+            // « Encaisser » est un droit de caisse ordinaire (StaffAccess::ABILITIES),
+            // pas la case « cuisine » : servir et prendre le paiement, c'est
+            // exactement ce que 'sell' signifie déjà partout ailleurs dans TAGTOA.
+            'can_complete' => ! $staff || $staff->can('sell'),
+            'orders' => $orders->map(fn (Order $o) => [
+                'id'          => $o->id,
+                'reference'   => $o->reference,
+                'order_type'  => $o->order_type,
+                'order_type_label' => __($o->order_type_label),
+                'table_label' => $o->table_label,
+                'total'       => (string) $o->total,
+                'currency'    => $o->currency,
+                'is_paid'     => $o->isPaid(),
+                'placed_at'   => optional($o->placed_at)->toIso8601String(),
+                'items'       => $o->items->map(fn ($it) => [
+                    'name' => $it->name, 'qty' => (int) $it->qty,
+                ]),
+            ]),
+        ]);
+    }
+
+    /**
+     * Sert ET encaisse une commande « Prête » — jamais séparément depuis cet
+     * écran : marquer servi sans encaisser laisserait une addition non
+     * réglée disparaître de la file, invisible jusqu'au rapport du soir.
+     *
+     * Réutilise MenuOrderService::markPaid() (revenu + points fidélité) plutôt
+     * que de réécrire cette logique : un seul endroit sait ce qu'encaisser une
+     * commande MENU veut dire.
+     */
+    public function counterComplete(int $id, int $orderId): RedirectResponse
+    {
+        $menu = $this->own($id);
+        $order = $menu->orders()->whereKey($orderId)->firstOrFail();
+
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
+        abort_if($staff && ! $staff->can('sell'), 403, __('Vous n\'avez pas le droit de faire cela.'));
+
+        if ($order->status === 'ready') {
+            $order->update(['status' => 'completed']);
+            app(MenuOrderService::class)->markPaid($order);
+            app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)->touch('menu_order', $order->id, 'completed');
+        }
+
+        return back();
     }
 
     public function setStatus(Request $request, int $orderId): RedirectResponse
@@ -226,7 +459,7 @@ $data = $this->validateMenu($request);
         $ownVcardIds = $this->vcards()->pluck('id')->all();
         $ownPayIds   = $this->payPages()->pluck('id')->all();
 
-        return $request->validate([
+        $data = $request->validate([
             'vcard_id'         => ['nullable', 'integer', Rule::in($ownVcardIds)],
             'name'             => ['required', 'string', 'max:160'],
             'alias'            => ['nullable', 'string', 'max:120', 'alpha_dash', 'unique:tagtoa_menus,alias'.($ignoreId ? ','.$ignoreId : '')],
@@ -243,9 +476,20 @@ $data = $this->validateMenu($request);
             'show_prices'      => ['nullable', 'boolean'],
             'ordering_enabled' => ['nullable', 'boolean'],
             'is_active'        => ['nullable', 'boolean'],
+            'delivery_fee'     => ['nullable', 'numeric', 'min:0', 'max:999999'],
             'logo'             => ['nullable', 'image', 'max:2048'],
             'cover'            => ['nullable', 'image', 'max:4096'],
+            'show_hours'       => ['nullable', 'boolean'],
+            'timezone'         => ['nullable', 'string', 'max:64', Rule::in(\DateTimeZone::listIdentifiers())],
+            // Structure libre ici : chaque jour est nettoyé par
+            // BusinessHours::sanitize(), qui ignore silencieusement tout ce
+            // qui n'est pas une heure valide plutôt que de rejeter l'envoi.
+            'hours'            => ['nullable', 'array'],
         ]);
+
+        $data['hours'] = BusinessHours::sanitize($data['hours'] ?? null);
+
+        return $data;
     }
 
     /**
@@ -262,6 +506,9 @@ $data = $this->validateMenu($request);
         $request->validate([
             'cats'                               => ['array', 'max:200'],
             'cats.*.name'                        => ['nullable', 'string', 'max:120'],
+            // Le formulaire ne propose plus ce champ (icône déduite du nom) ;
+            // la règle reste pour tout appel direct à l'API qui en enverrait un.
+            'cats.*.icon'                        => ['nullable', 'string', 'max:40', 'regex:/^fa-[a-z0-9-]+$/'],
             'cats.*.items'                       => ['array', 'max:500'],
             'cats.*.items.*.name'                => ['nullable', 'string', 'max:160'],
             'cats.*.items.*.price'               => ['nullable', 'numeric', 'min:0', 'max:99999999'],
@@ -273,6 +520,9 @@ $data = $this->validateMenu($request);
             'cats.*.items.*.supplier_id'         => ['nullable', 'integer'],
             'cats.*.items.*.description'         => ['nullable', 'string', 'max:600'],
             'cats.*.items.*.badge'               => ['nullable', 'string', 'max:60'],
+            'cats.*.translations.*.name'                => ['nullable', 'string', 'max:120'],
+            'cats.*.items.*.translations.*.name'        => ['nullable', 'string', 'max:160'],
+            'cats.*.items.*.translations.*.description' => ['nullable', 'string', 'max:600'],
         ]);
     }
 
@@ -357,6 +607,25 @@ $data = $this->validateMenu($request);
     }
 
     /**
+     * Le slogan et la description de l'établissement, dans chaque langue.
+     *
+     * Même garde que pour un article : rien ne s'écrit sans le marqueur du
+     * formulaire, pour qu'un envoi qui ne connaît pas ce panneau (vieux
+     * gabarit en cache, appel API direct) ne remette jamais les traductions à
+     * zéro.
+     */
+    protected function syncTranslations(Menu $menu, Request $request): void
+    {
+        if (! $request->boolean('translations_sent')) {
+            return;
+        }
+
+        $menu->translations = Translatable::sanitize(
+            $request->input('translations'), Locale::codes(), Menu::CHAMPS_TRADUISIBLES
+        );
+    }
+
+    /**
      * Synchronise catégories + items depuis le formulaire imbriqué (cats[][items][]).
      * Important : on NE réindexe PAS les tableaux (pas d'array_values) — les clés
      * $ci/$ii doivent rester celles soumises par le navigateur pour que
@@ -378,6 +647,16 @@ $data = $this->validateMenu($request);
                     'sort'      => (int) $ci,
                     'is_active' => true,
                 ];
+                // Marqueur posé par le formulaire, comme `options_sent` pour
+                // les options d'article : sans lui, on n'écrit RIEN — un envoi
+                // partiel ou un vieux gabarit sans le panneau de traduction ne
+                // doit jamais effacer une traduction déjà enregistrée.
+                if (! empty($c['translations_sent'])) {
+                    $catAttrs['translations'] = Translatable::sanitize(
+                        $c['translations'] ?? null, Locale::codes(),
+                        \Modules\Tagtoa\App\Models\Menu\Category::CHAMPS_TRADUISIBLES
+                    );
+                }
                 $cat = ! empty($c['id']) ? $menu->categories()->whereKey($c['id'])->first() : null;
                 $cat ? $cat->update($catAttrs) : $cat = $menu->categories()->create($catAttrs);
                 $keepCats[] = $cat->id;
@@ -414,6 +693,14 @@ $data = $this->validateMenu($request);
                         // rattacher le fournisseur du commerce d'à côté.
                         'supplier_id'         => $this->fournisseur($it['supplier_id'] ?? null),
                     ];
+                    // Même garde qu'à la catégorie : jamais écrit sans le
+                    // marqueur du formulaire.
+                    if (! empty($it['translations_sent'])) {
+                        $itemAttrs['translations'] = Translatable::sanitize(
+                            $it['translations'] ?? null, Locale::codes(),
+                            Item::CHAMPS_TRADUISIBLES
+                        );
+                    }
                     $item = ! empty($it['id']) ? $cat->items()->whereKey($it['id'])->first() : null;
 
                     $file = $request->file("cats.$ci.items.$ii.image");

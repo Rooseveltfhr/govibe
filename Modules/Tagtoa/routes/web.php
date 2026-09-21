@@ -7,6 +7,7 @@ use Modules\Tagtoa\App\Http\Controllers\Booking\PublicController as BookingPubli
 use Modules\Tagtoa\App\Http\Controllers\Event\CheckinController as EventCheckin;
 use Modules\Tagtoa\App\Http\Controllers\Event\DashboardController as EventDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Event\PublicController as EventPublic;
+use Modules\Tagtoa\App\Http\Controllers\Activation\ActivationController;
 use Modules\Tagtoa\App\Http\Controllers\Hub\HubController;
 use Modules\Tagtoa\App\Http\Controllers\LandingController;
 use Modules\Tagtoa\App\Http\Controllers\Links\DashboardController as LinksDashboard;
@@ -67,6 +68,14 @@ Route::post('/s/{standId}/verify', [\Modules\Tagtoa\App\Http\Controllers\Stand\S
 Route::get('/menu/{alias}', [MenuPublic::class, 'show'])->name('tagtoa.menu.show');
 Route::get('/menu/order/{reference}', [MenuPublic::class, 'track'])->name('tagtoa.menu.track');
 Route::get('/menu/order/{reference}/status', [MenuPublic::class, 'status'])->name('tagtoa.menu.track.status');
+
+// PWA (installable + hors ligne) — un client dont la connexion est mauvaise
+// ou coupée doit pouvoir rouvrir une carte déjà vue. Public : c'est le client
+// qui installe, jamais le marchand connecté (voir POS pour l'équivalent
+// back-office, protégé lui par le garde du dashboard).
+Route::get('/menu/{alias}/app.webmanifest', [MenuPublic::class, 'manifest'])->name('tagtoa.menu.manifest');
+Route::get('/menu/{alias}/sw.js', [MenuPublic::class, 'serviceWorker'])->name('tagtoa.menu.sw');
+Route::get('/menu/{alias}/icon.svg', [MenuPublic::class, 'icon'])->name('tagtoa.menu.icon');
 Route::get('/store/{alias}', [\Modules\Tagtoa\App\Http\Controllers\Store\PublicController::class, 'show'])->name('tagtoa.store.show');
 Route::get('/events', [EventPublic::class, 'index'])->name('tagtoa.events.index');
 Route::get('/event/{alias}', [EventPublic::class, 'show'])->name('tagtoa.event.show');
@@ -86,6 +95,9 @@ Route::get('/tagtoa-asset/{file}', [\Modules\Tagtoa\App\Http\Controllers\Asset\A
 Route::middleware('throttle:20,1')->group(function () {
     Route::post('/pay/{alias}/submit-proof', [PayPublic::class, 'submitProof'])->name('tagtoa.pay.submit-proof');
     Route::post('/menu/{alias}/order', [MenuPublic::class, 'order'])->name('tagtoa.menu.order');
+    // « Commander via Agent IA » — mots-clés locaux (OrderChatParser), aucun
+    // service externe, aucune commande créée : ne fait que suggérer.
+    Route::post('/menu/{alias}/agent', [MenuPublic::class, 'agent'])->name('tagtoa.menu.agent');
     Route::post('/event/{alias}/buy', [EventPublic::class, 'buy'])->name('tagtoa.event.buy');
     Route::post('/book/{alias}/reserve', [BookingPublic::class, 'reserve'])->name('tagtoa.booking.reserve');
     Route::post('/reviews', [\Modules\Tagtoa\App\Http\Controllers\Review\PublicController::class, 'store'])->name('tagtoa.reviews.store');
@@ -137,6 +149,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::delete('/{id}', [PayDashboard::class, 'destroy'])->name('destroy');
         Route::get('/{id}/proofs', [PayDashboard::class, 'proofs'])->name('proofs');
         Route::get('/{id}/share', [PayDashboard::class, 'share'])->name('share');
+        Route::get('/{id}/report', [PayDashboard::class, 'report'])->name('report');
         Route::get('/proofs/{id}/image', [PayDashboard::class, 'proofImage'])->name('proof.image');
         Route::post('/proofs/{id}/approve', [PayDashboard::class, 'approveProof'])->name('proofs.approve');
         Route::post('/proofs/{id}/reject', [PayDashboard::class, 'rejectProof'])->name('proofs.reject');
@@ -184,6 +197,35 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/orders', [MenuDashboard::class, 'orders'])->name('orders');
         Route::post('/orders/{order}/status', [MenuDashboard::class, 'setStatus'])->name('orders.status');
         Route::post('/orders/{order}/paid', [MenuDashboard::class, 'markPaid'])->name('orders.paid');
+
+        // Tables vérifiées par QR/NFC — voir Table::generateCode().
+        Route::get('/{id}/tables', [MenuDashboard::class, 'tables'])->name('tables');
+        Route::post('/{id}/tables', [MenuDashboard::class, 'storeTable'])->name('tables.store');
+        Route::delete('/{id}/tables/{tableId}', [MenuDashboard::class, 'destroyTable'])
+            ->whereNumber(['id', 'tableId'])->name('tables.destroy');
+        Route::get('/{id}/tables/{tableId}/poster', [MenuDashboard::class, 'tablePoster'])
+            ->whereNumber(['id', 'tableId'])->name('tables.poster');
+
+        // Écran cuisine : lecture seule, pensé pour rester ouvert toute la
+        // journée sur une tablette au-dessus du plan de travail — pas un
+        // écran qu'on navigue, un écran qu'on surveille du coin de l'œil.
+        Route::get('/{id}/kitchen', [MenuDashboard::class, 'kitchen'])->name('kitchen');
+        Route::get('/{id}/kitchen/feed', [MenuDashboard::class, 'kitchenFeed'])->name('kitchen.feed');
+        Route::post('/{id}/kitchen/orders/{orderId}/advance', [MenuDashboard::class, 'kitchenAdvance'])
+            ->whereNumber(['id', 'orderId'])->name('kitchen.advance');
+        // Identification (PIN) partagée par la cuisine ET la caisse — un seul
+        // « qui opère ce menu » par navigateur (StaffService::forMenu()),
+        // distinct du login caisse POS (tagtoa_pos_staff).
+        Route::post('/{id}/staff/login', [MenuDashboard::class, 'kitchenStaffLogin'])
+            ->middleware('throttle:10,1')->name('staff.login');
+        Route::post('/{id}/staff/logout', [MenuDashboard::class, 'kitchenStaffLogout'])->name('staff.logout');
+
+        // Écran caisse : complète le cycle ouvert par la cuisine — sert et
+        // encaisse une commande « Prête », jamais avant.
+        Route::get('/{id}/counter', [MenuDashboard::class, 'counter'])->name('counter');
+        Route::get('/{id}/counter/feed', [MenuDashboard::class, 'counterFeed'])->name('counter.feed');
+        Route::post('/{id}/counter/orders/{orderId}/complete', [MenuDashboard::class, 'counterComplete'])
+            ->whereNumber(['id', 'orderId'])->name('counter.complete');
     });
 
     // LOYALTY
@@ -194,6 +236,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/edit', [LoyaltyDashboard::class, 'edit'])->name('edit');
         Route::put('/{id}', [LoyaltyDashboard::class, 'update'])->name('update');
         Route::get('/{id}/cards', [LoyaltyDashboard::class, 'cards'])->name('cards');
+        Route::get('/{id}/report', [LoyaltyDashboard::class, 'report'])->name('report');
         Route::post('/{id}/cards', [LoyaltyDashboard::class, 'issueCard'])->name('cards.issue');
         Route::post('/cards/{id}/top-up', [LoyaltyDashboard::class, 'topUp'])->name('cards.topup');
         Route::post('/cards/{id}/redeem', [LoyaltyDashboard::class, 'redeem'])->name('cards.redeem');
@@ -220,6 +263,11 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/orders', [EventDashboard::class, 'orders'])->name('orders');
         Route::get('/{id}/orders/export', [EventDashboard::class, 'exportOrders'])->name('orders.export');
         Route::post('/{id}/orders/{orderId}/paid', [EventDashboard::class, 'markOrderPaid'])->name('orders.paid');
+        // Invités VIP (billets offerts, hors panier)
+        Route::get('/{id}/guests', [EventDashboard::class, 'guests'])->name('guests');
+        Route::post('/{id}/guests', [EventDashboard::class, 'inviteGuest'])->name('guests.invite');
+        // Statistiques de livraison des confirmations (achat, entrée)
+        Route::get('/{id}/deliveries', [EventDashboard::class, 'deliveries'])->name('deliveries');
         Route::get('/{id}/scanner', [EventCheckin::class, 'scanner'])->name('scanner');
         Route::post('/{id}/scan', [EventCheckin::class, 'scan'])->name('scan');
         Route::post('/{id}/scan-nfc', [EventCheckin::class, 'scanNfc'])->name('scan.nfc');
@@ -285,6 +333,13 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/sell', [$rev, 'sell'])->middleware('throttle:60,1')->name('sell');
         Route::get('/{id}', [$rev, 'history'])->whereNumber('id')->name('history');
     });
+
+    // ACTIVER UN PRODUIT — le premier geste quand un carton TAGTOA arrive :
+    // choisir ce qu'on tient (Carte / Stand Menu / Stand Paiement / Stand
+    // Liens), puis entrer son code. N'implémente rien de nouveau : achemine
+    // vers StandActivator (tagtoa.stand.activate.scan) ou CardWalletService
+    // (tagtoa.cards.store), tous deux inchangés.
+    Route::get('/activate', [ActivationController::class, 'screen'])->name('tagtoa.activate');
 
     // SMART STAND — réclamer un stand, et gérer les siens.
     Route::prefix('stands')->name('tagtoa.stand.')->group(function () {
@@ -391,6 +446,12 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::put('/categories/{id}', [$cat, 'update'])->whereNumber('id')->name('categories.update');
         Route::delete('/categories/{id}', [$cat, 'destroy'])->whereNumber('id')->name('categories.destroy');
 
+        // Les lots et leur péremption — pas de numéro de caisse, un lot
+        // appartient au commerce comme le catalogue lui-même.
+        $lots = \Modules\Tagtoa\App\Http\Controllers\Pos\BatchController::class;
+        Route::get('/lots', [$lots, 'index'])->name('lots');
+        Route::post('/lots', [$lots, 'store'])->name('lots.store');
+
         $tick = \Modules\Tagtoa\App\Http\Controllers\Pos\TicketController::class;
         Route::get('/tickets', [$tick, 'index'])->name('tickets');
         Route::get('/tickets/{id}', [$tick, 'show'])->whereNumber('id')->name('ticket');
@@ -402,9 +463,16 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/receipt/{reference}', [$tick, 'byReference'])
             ->where('reference', '[A-Za-z0-9\-_.]{1,64}')->name('receipt');
 
+        // Le MÊME reçu, en JSON — pour une imprimante Bluetooth. Les montants
+        // sont déjà formatés par Money::format() : aucun calcul ne doit se
+        // refaire dans le JavaScript qui dessine le ticket sur le papier.
+        Route::get('/receipt/{reference}/data', [$tick, 'data'])
+            ->where('reference', '[A-Za-z0-9\-_.]{1,64}')->name('receipt.data');
+
         $set = \Modules\Tagtoa\App\Http\Controllers\Pos\SettingsController::class;
         Route::get('/settings', [$set, 'index'])->name('settings');
         Route::put('/settings/{id}', [$set, 'update'])->whereNumber('id')->name('settings.update');
+        Route::put('/settings/business-type', [$set, 'updateBusinessType'])->name('settings.business-type');
 
         $ret = \Modules\Tagtoa\App\Http\Controllers\Pos\ReturnController::class;
         Route::get('/returns', [$ret, 'index'])->name('returns');
@@ -551,6 +619,32 @@ Route::middleware(['auth', 'valid.user', 'role:super_admin'])->prefix('tagtoa/ad
     Route::post('/resellers', [$reseau, 'store'])->name('tagtoa.superadmin.resellers.store');
     Route::put('/resellers/{id}', [$reseau, 'update'])->whereNumber('id')->name('tagtoa.superadmin.resellers.update');
     Route::post('/resellers/{id}/allocate', [$reseau, 'allocate'])->whereNumber('id')->name('tagtoa.superadmin.resellers.allocate');
+
+    // LE PARC DE STANDS — ce qui dort, ce qui sert, et ce qui est MUET.
+    //
+    // Un stand MUET est un objet VENDU dont personne n'a jamais gratté le
+    // panneau : le marchand a payé et n'a jamais eu son compte. C'est la seule
+    // fuite qui ne produit aucune erreur — le marchand croit que « le truc ne
+    // marche pas » et le range dans un tiroir.
+    $parc = \Modules\Tagtoa\App\Http\Controllers\SuperAdmin\StandAdminController::class;
+    Route::get('/stands', [$parc, 'index'])->name('tagtoa.superadmin.stands');
+
+    // L'identifiant imprimé, pas une clé de base : c'est ce que le fondateur a
+    // sous les yeux quand il tient l'objet, ou au téléphone avec un revendeur.
+    Route::get('/stands/{publicId}', [$parc, 'show'])
+        ->where('publicId', '[A-Za-z0-9\-]{1,24}')->name('tagtoa.superadmin.stand');
+    Route::put('/stands/{publicId}/physical', [$parc, 'physical'])
+        ->where('publicId', '[A-Za-z0-9\-]{1,24}')->name('tagtoa.superadmin.stand.physical');
+    Route::put('/stands/{publicId}/digital', [$parc, 'digital'])
+        ->where('publicId', '[A-Za-z0-9\-]{1,24}')->name('tagtoa.superadmin.stand.digital');
+
+    // La cession forcée : le pouvoir le plus dangereux de la plateforme.
+    // Limité en débit, non pour arrêter une attaque — le fondateur est déjà
+    // identifié — mais pour qu'un script lancé par erreur ne déplace pas un
+    // parc entier avant qu'on s'en aperçoive.
+    Route::put('/stands/{publicId}/force', [$parc, 'force'])
+        ->where('publicId', '[A-Za-z0-9\-]{1,24}')
+        ->middleware('throttle:30,1')->name('tagtoa.superadmin.stand.force');
 
     // État système en lecture seule (environnement, DB, cache, sécurité NFC, limites connues).
     Route::get('/status', [\Modules\Tagtoa\App\Http\Controllers\SuperAdmin\StatusController::class, 'index'])->name('tagtoa.superadmin.status');

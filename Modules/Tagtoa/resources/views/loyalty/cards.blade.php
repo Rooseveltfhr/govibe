@@ -3,7 +3,11 @@
 @section('page', __('Cartes').' — '.$program->name)
 
 @section('content')
-<a href="{{ route('tagtoa.loyalty.dashboard.index') }}" style="color:var(--muted);font-size:14px"><i class="fa-solid fa-arrow-left"></i> {{ __('Retour') }}</a>
+<div class="h-row">
+    <a href="{{ route('tagtoa.loyalty.dashboard.index') }}" style="color:var(--muted);font-size:14px"><i class="fa-solid fa-arrow-left"></i> {{ __('Retour') }}</a>
+    <span style="flex:1"></span>
+    <a href="{{ route('tagtoa.loyalty.dashboard.report',$program->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-chart-line"></i> {{ __('Rapport') }}</a>
+</div>
 
 @if(session('new_card'))
     @php $nc = session('new_card'); @endphp

@@ -130,4 +130,65 @@ class PricingTest extends TestCase
             $this->assertSame($cle, Pricing::unit($cle));
         }
     }
+
+    /* ------------------------------------------------------------------
+       POS multi-canal : bar, pharmacie, boutique n'ont pas les mêmes unités.
+       ------------------------------------------------------------------ */
+
+    public function test_bar_and_nightlife_units_are_part_of_the_list(): void
+    {
+        foreach (['bouteille', 'caisse', 'verre', 'shot'] as $unite) {
+            $this->assertArrayHasKey($unite, Pricing::UNITS, "L'unité « $unite » doit exister.");
+        }
+    }
+
+    public function test_pharmacy_units_are_part_of_the_list(): void
+    {
+        foreach (['comprime', 'plaquette', 'ampoule'] as $unite) {
+            $this->assertArrayHasKey($unite, Pricing::UNITS, "L'unité « $unite » doit exister.");
+        }
+    }
+
+    public function test_a_bar_is_suggested_bottle_case_glass_and_shot_first(): void
+    {
+        $suggerees = Pricing::unitsFor('bar');
+
+        $this->assertSame(['bouteille', 'caisse', 'verre', 'shot', 'piece'], $suggerees);
+        // Le club et le lounge vendent de la même façon qu'un bar.
+        $this->assertSame($suggerees, Pricing::unitsFor('club'));
+        $this->assertSame($suggerees, Pricing::unitsFor('lounge'));
+    }
+
+    public function test_a_pharmacy_is_suggested_tablet_and_blister_first(): void
+    {
+        $this->assertSame(['comprime', 'plaquette', 'boite', 'ampoule', 'ml', 'l', 'piece'], Pricing::unitsFor('pharmacy'));
+    }
+
+    public function test_a_boutique_is_suggested_generic_retail_units(): void
+    {
+        $this->assertSame(['piece', 'douzaine', 'kg', 'boite'], Pricing::unitsFor('boutique'));
+    }
+
+    public function test_an_unknown_business_type_still_gets_a_sensible_suggestion(): void
+    {
+        // Aucun type ne doit faire planter la suggestion — un commerce jamais
+        // vu (ou pas encore choisi) reçoit la liste générique.
+        $suggeree = Pricing::unitsFor('type-jamais-vu');
+
+        $this->assertNotEmpty($suggeree);
+        foreach ($suggeree as $unite) {
+            $this->assertArrayHasKey($unite, Pricing::UNITS);
+        }
+    }
+
+    public function test_every_suggested_unit_is_a_real_unit(): void
+    {
+        // Une suggestion qui pointerait vers une unité inexistante casserait
+        // le menu déroulant en silence.
+        foreach (['restaurant', 'cafe', 'bar', 'club', 'lounge', 'hotel', 'pharmacy', 'clinic', 'boutique', 'other', null] as $type) {
+            foreach (Pricing::unitsFor($type) as $unite) {
+                $this->assertArrayHasKey($unite, Pricing::UNITS, "Type « $type » suggère une unité inconnue : $unite");
+            }
+        }
+    }
 }

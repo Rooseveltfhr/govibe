@@ -30,6 +30,16 @@ class GatewayCredentialFieldsTest extends TestCase
         ];
     }
 
+    private function coinpayments(): array
+    {
+        return [
+            'label'       => 'CoinPayments',
+            'credentials' => ['merchant_id' => null, 'public_key' => null, 'private_key' => null],
+            'ipn_secret'  => null,
+            'note'        => 'CoinPayments n\'offre aucun mode test.',
+        ];
+    }
+
     public function test_describe_lists_credentials_mode_and_extra_secrets(): void
     {
         $d = F::describe($this->moncash());
@@ -140,5 +150,16 @@ class GatewayCredentialFieldsTest extends TestCase
     {
         $this->assertSame('Client Id', F::label('client_id'));
         $this->assertSame('Webhook Secret', F::label('webhook_secret'));
+    }
+
+    public function test_note_is_never_treated_as_an_editable_extra_field(): void
+    {
+        // 'note' est un texte informatif (ex. CoinPayments n'a pas de sandbox) :
+        // sans cette exclusion, il apparaîtrait comme un secret à saisir.
+        $d = F::describe($this->coinpayments());
+        $this->assertSame(['ipn_secret'], $d['extras']);
+        $this->assertFalse($d['has_mode']);
+
+        $this->assertArrayNotHasKey('note', F::sources($this->coinpayments(), null));
     }
 }

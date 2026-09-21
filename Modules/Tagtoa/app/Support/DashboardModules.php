@@ -33,7 +33,7 @@ class DashboardModules
 {
     /** Modules mis en avant par défaut. Le reste existe mais reste discret. */
     public const DEFAULT_ENABLED = [
-        'menu', 'pos', 'event', 'pay',
+        'activate', 'menu', 'pos', 'event', 'pay', 'cards',
         'business', 'staff', 'stands', 'inventory', 'orders', 'analytics', 'customers', 'reviews', 'qr', 'shop', 'plan',
     ];
 
@@ -52,6 +52,20 @@ class DashboardModules
      *              on trouve sans lire.
      */
     public const CATALOG = [
+        // ACTIVER UN PRODUIT — avant même les outils métier, parce que c'est le
+        // tout premier geste : un marchand qui vient de recevoir un carton ne
+        // sait pas encore, en l'ouvrant, si ce qu'il tient est un Smart Stand ou
+        // une Carte TAGTOA — deux modules différents, deux mécanismes de code
+        // différents (secret à gratter / UID NFC). Cet écran pose la question
+        // AVANT de demander où chercher, plutôt que de le laisser deviner.
+        //
+        // Une seule page (pas de `children`) : le choix du type et la saisie du
+        // code se font sur le même écran, voir ActivationController.
+        'activate' => [
+            'label' => 'Activer un produit', 'icon' => 'fa-bolt', 'group' => 'module',
+            'desc'  => 'Le premier geste quand un carton TAGTOA arrive : choisissez ce que vous tenez, entrez son code, c\'est activé.',
+        ],
+
         // --- Les quatre outils métier de TAGTOA ---
         'menu' => [
             'label' => 'Menu', 'icon' => 'fa-utensils', 'group' => 'module',
@@ -63,7 +77,7 @@ class DashboardModules
                 // est donc volontairement présent des deux côtés — un marchand
                 // qui n'a QUE le menu doit pouvoir y arriver sans passer par POS.
                 ['label' => 'Stock',        'icon' => 'fa-boxes-stacked',  'url' => '/tagtoa/inventory', 'needs' => 'inventory', 'alias' => true],
-                ['label' => 'Smart Stands', 'icon' => 'fa-sign-hanging',   'url' => '/tagtoa/stands',    'needs' => 'stands'],
+                ['label' => 'Smart Stands', 'icon' => 'fa-sign-hanging',   'url' => '/tagtoa/stands',    'needs' => 'stands', 'alias' => true],
                 ['label' => 'Avis clients', 'icon' => 'fa-star',           'url' => '/tagtoa/reviews',   'needs' => 'reviews'],
             ],
         ],
@@ -86,6 +100,7 @@ class DashboardModules
 
                 ['label' => 'Produits',       'icon' => 'fa-box',           'url' => '/tagtoa/pos/products',   'sep' => 'Catalogue'],
                 ['label' => 'Catégories',     'icon' => 'fa-folder-tree',   'url' => '/tagtoa/pos/categories'],
+                ['label' => 'Lots & péremption', 'icon' => 'fa-calendar-days', 'url' => '/tagtoa/pos/lots'],
                 ['label' => 'Inventaire',     'icon' => 'fa-boxes-stacked', 'url' => '/tagtoa/inventory',      'needs' => 'inventory'],
                 ['label' => 'Codes-barres',   'icon' => 'fa-barcode',       'url' => '/tagtoa/catalog/codes'],
 
@@ -162,12 +177,21 @@ class DashboardModules
             'label' => 'Équipe', 'icon' => 'fa-users-gear', 'group' => 'feature',
             'desc'  => 'Les personnes qui tiennent vos caisses : rôle, code d\'accès, ce que chacune peut faire.',
         ],
+        // LE MATÉRIEL TAGTOA, à son propre étage.
+        //
+        // C'était un écran du groupe 'feature', atteint depuis « Menu ». Un
+        // marchand qui tient un chevalet dans la main et cherche à l'activer
+        // ne pense pas « Menu » : il cherche « Stand ». Le module existait, il
+        // était servi, et il était introuvable — le pire des trois états.
+        //
+        // ACTIVER est la PREMIÈRE entrée, pas la troisième : c'est le geste du
+        // jour où l'on déballe le carton, et le seul qui presse.
         'stands' => [
-            'label' => 'Mes stands', 'icon' => 'fa-sign-hanging', 'group' => 'feature',
-            'desc'  => 'Vos TAGTOA Smart Stands : où va chacun, et ce que le client voit en scannant.',
+            'label' => 'Smart Stands', 'icon' => 'fa-sign-hanging', 'group' => 'module',
+            'desc'  => 'Vos TAGTOA Smart Stands : activez-les, et décidez de ce que le client voit en scannant.',
             'children' => [
-                ['label' => 'Mes stands',      'icon' => 'fa-sign-hanging', 'url' => '/tagtoa/stands'],
-                ['label' => 'Activer',         'icon' => 'fa-camera',       'url' => '/tagtoa/stands/activate'],
+                ['label' => 'Activer un stand', 'icon' => 'fa-camera',       'url' => '/tagtoa/stands/activate'],
+                ['label' => 'Mes stands',       'icon' => 'fa-sign-hanging', 'url' => '/tagtoa/stands'],
                 // La cession se trouve ICI et nulle part ailleurs : on la
                 // cherche le jour où l'on vend son commerce, c'est-à-dire
                 // depuis l'écran de ses stands, pas depuis un réglage.
@@ -190,7 +214,13 @@ class DashboardModules
         ],
         'cards' => [
             'label' => 'Cartes TAGTOA', 'icon' => 'fa-credit-card', 'group' => 'module',
-            'desc'  => 'Carte NFC prépayée : émettre, recharger, payer.',
+            'desc'  => 'Carte NFC prépayée : émettre une carte, la recharger, encaisser avec.',
+            'children' => [
+                // Émettre EN PREMIER, pour la même raison qu'« Activer » chez
+                // les stands : on ouvre cet écran une carte à la main.
+                ['label' => 'Activer une carte', 'icon' => 'fa-plus',         'url' => '/tagtoa/cards#emettre'],
+                ['label' => 'Mes cartes',        'icon' => 'fa-credit-card',  'url' => '/tagtoa/cards'],
+            ],
         ],
         'loyalty' => [
             'label' => 'Fidélité', 'icon' => 'fa-id-card', 'group' => 'module',

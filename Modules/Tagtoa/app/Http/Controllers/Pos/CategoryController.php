@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Pos\Category;
 use Modules\Tagtoa\App\Models\Pos\Product;
+use Modules\Tagtoa\App\Services\Staff\StaffService;
+use Modules\Tagtoa\App\Support\Pos\GuardsStaffAbility;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -24,6 +26,8 @@ use Modules\Tagtoa\App\Support\Tenant;
  */
 class CategoryController extends Controller
 {
+    use GuardsStaffAbility;
+
     public function index(): View
     {
         return view('tagtoa::pos.categories', [
@@ -36,6 +40,8 @@ class CategoryController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->denyUnless(app(StaffService::class)->currentAny(), 'catalog.edit');
+
         $data = $request->validate([
             'name'  => ['required', 'string', 'max:80'],
             // Une classe Font Awesome, jamais un emoji ni du texte libre : la
@@ -61,6 +67,8 @@ class CategoryController extends Controller
 
     public function update(Request $request, int $id): RedirectResponse
     {
+        $this->denyUnless(app(StaffService::class)->currentAny(), 'catalog.edit');
+
         $data = $request->validate([
             'name'      => ['required', 'string', 'max:80'],
             'icon'      => ['nullable', 'string', 'max:40', 'regex:/^fa-[a-z0-9-]+$/'],
@@ -91,6 +99,8 @@ class CategoryController extends Controller
      */
     public function destroy(int $id): RedirectResponse
     {
+        $this->denyUnless(app(StaffService::class)->currentAny(), 'catalog.delete');
+
         $c = $this->own($id);
         $nom = $c->name;
 

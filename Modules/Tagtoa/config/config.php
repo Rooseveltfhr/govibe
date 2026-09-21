@@ -147,6 +147,13 @@ return [
         ],
         'stripe' => [
             'label'       => 'Stripe',
+            // Stripe n'a pas deux URL d'API différentes comme MonCash/PayPal :
+            // test et production se distinguent UNIQUEMENT par le préfixe de la
+            // clé secrète (sk_test_… / sk_live_…). Ce réglage sert donc à
+            // VÉRIFIER que la clé collée correspond bien à l'environnement
+            // annoncé (voir Stripe::modeMatchesKey(), StripeDriver) — jamais à
+            // choisir une URL.
+            'mode'        => env('TAGTOA_STRIPE_MODE', 'sandbox'),
             'credentials' => [
                 'key'    => env('TAGTOA_STRIPE_KEY'),
                 'secret' => env('TAGTOA_STRIPE_SECRET'),
@@ -161,6 +168,12 @@ return [
                 'private_key' => env('TAGTOA_COINPAYMENTS_PRIVATE_KEY'),
             ],
             'ipn_secret' => env('TAGTOA_COINPAYMENTS_IPN_SECRET'),
+            // Pas de champ 'mode' ici : l'API classique CoinPayments n'a pas de
+            // bac à sable — toute transaction créée est une vraie transaction
+            // crypto, irréversible. Mentir en ajoutant un sélecteur Sandbox/
+            // Production qui ne changerait rien serait pire que de n'en montrer
+            // aucun (voir GatewayCredentialFields::IGNORED pour 'note').
+            'note' => 'CoinPayments n\'offre aucun mode test : toute transaction créée ici est réelle et irréversible.',
         ],
         'authorizenet' => [
             'label'       => 'Authorize.Net',

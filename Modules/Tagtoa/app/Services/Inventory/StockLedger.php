@@ -4,6 +4,7 @@ namespace Modules\Tagtoa\App\Services\Inventory;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Modules\Tagtoa\App\Exceptions\InsufficientStockException;
 use Modules\Tagtoa\App\Models\Inventory\StockMovement;
 use Modules\Tagtoa\App\Models\Menu\Item as MenuItem;
 use Modules\Tagtoa\App\Models\Staff\Staff;
@@ -62,6 +63,16 @@ class StockLedger
             }
 
             $apres = round($avant + $delta, StockService::SCALE);
+
+            // Vendre plus que ce qu'il reste ne doit JAMAIS passer un stock
+            // suivi sous zéro — ni pour deux caisses qui vendent le dernier
+            // article en même temps, ni pour un code scanné deux fois de
+            // suite. Le verrou posé plus haut (lockForUpdate) est ce qui rend
+            // cette vérification fiable : sans lui, deux transactions
+            // liraient le même « avant » et passeraient toutes les deux.
+            if ($delta < 0 && $apres < 0) {
+                throw new InsufficientStockException($frais->name, $avant);
+            }
 
             $frais->forceFill(['stock' => $apres])->save();
             $this->refleter($article, $apres);
