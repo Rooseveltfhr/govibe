@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Models\Business\Business;
 use Modules\Tagtoa\App\Models\Menu\Item;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Menu\Order;
@@ -42,8 +43,25 @@ class DashboardController extends Controller
 
     public function create(): View
     {
+        // Le commerce (l'établissement) porte déjà nom, logo, adresse,
+        // téléphone, type et devise — les redemander à la création du menu
+        // fait taper deux fois la même chose, et les deux copies finissent
+        // par diverger. On les reprend comme PRÉ-REMPLISSAGE seulement : le
+        // marchand garde la main pour les changer si ce menu-là diffère (un
+        // hôtel dont le restaurant a son propre numéro, par exemple) — aucun
+        // champ n'est retiré du formulaire.
+        $business = Business::find(Tenant::id());
+
         return view('tagtoa::menu.form', [
-            'menu'     => new Menu(['theme' => 'light', 'accent_color' => '#2cb809', 'currency' => Locale::currencyFor()]),
+            'menu' => new Menu([
+                'theme'        => 'light',
+                'accent_color' => '#2cb809',
+                'currency'     => $business->currency ?? Locale::currencyFor(),
+                'type'         => $business->type ?? null,
+                'logo_path'    => $business->logo_path ?? null,
+                'address'      => $business->address ?? null,
+                'phone'        => $business->phone ?? null,
+            ]),
             'vcards'    => $this->vcards(),
             'payPages'  => $this->payPages(),
             'suppliers' => $this->fournisseurs(),
@@ -62,6 +80,13 @@ $data = $this->validateMenu($request);
         $menu->alias = $data['alias'] ?: Menu::generateAlias($data['name'] ?? 'menu');
         $this->syncTranslations($menu, $request);
         $this->handleUploads($menu, $request);
+        // Aucun logo envoyé pour CE menu : celui du commerce sert de défaut,
+        // au lieu d'obliger à le renvoyer une deuxième fois (un fichier ne se
+        // pré-remplit pas dans un <input type="file"> — la reprise se fait
+        // ici plutôt que côté formulaire).
+        if (! $menu->logo_path) {
+            $menu->logo_path = Business::find(Tenant::id())?->logo_path;
+        }
         $menu->save();
         $this->syncContent($menu, $request);
 

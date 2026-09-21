@@ -10,6 +10,14 @@
     {{-- ----- Réglages de l'établissement ----- --}}
     <div class="card">
         <div class="h-row"><h2>{{ __('Établissement') }}</h2></div>
+        @unless($editing)
+            {{-- Le commerce porte déjà logo/type/contact/devise : ce menu les
+                 reprend pour que rien ne soit tapé deux fois. Toujours
+                 modifiable — ce n'est qu'un point de départ. --}}
+            <p style="color:var(--muted);font-size:13px;margin-top:-8px;margin-bottom:14px">
+                {{ __('Logo, type, contact et devise sont pré-remplis depuis votre commerce — modifiez-les si ce menu est différent.') }}
+            </p>
+        @endunless
         <div class="row">
             <div><label class="lbl">{{ __('Nom') }}</label><input class="inp" name="name" value="{{ old('name',$menu->name) }}" placeholder="{{ __('Ex. Lounge 509') }}" required></div>
             <div><label class="lbl">{{ __('Type') }}</label><select class="sel" name="type">@foreach(\Modules\Tagtoa\App\Models\Menu\Menu::TYPES as $k=>$v)<option value="{{ $k }}" @selected(old('type',$menu->type ?: 'restaurant')===$k)>{{ __($v['label']) }}</option>@endforeach</select></div>
@@ -42,7 +50,7 @@
         </details>
         <input type="hidden" name="translations_sent" value="1">
         <div class="row">
-            <div><label class="lbl">{{ __('Logo') }}</label><input class="inp" type="file" name="logo" accept="image/*">@if($editing && $menu->logo_url)<img src="{{ $menu->logo_url }}" style="height:42px;border-radius:10px;margin-top:8px">@endif</div>
+            <div><label class="lbl">{{ __('Logo') }}</label><input class="inp" type="file" name="logo" accept="image/*">@if($menu->logo_url)<img src="{{ $menu->logo_url }}" style="height:42px;border-radius:10px;margin-top:8px">@endif</div>
             <div><label class="lbl">{{ __('Couverture') }}</label><input class="inp" type="file" name="cover" accept="image/*">@if($editing && $menu->cover_url)<img src="{{ $menu->cover_url }}" style="height:42px;border-radius:10px;margin-top:8px">@endif</div>
         </div>
     </div>
