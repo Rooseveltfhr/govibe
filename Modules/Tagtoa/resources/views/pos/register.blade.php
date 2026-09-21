@@ -300,6 +300,7 @@ function add(ref,name,price){if(!cart[ref])cart[ref]={ref:ref,name:name,price:pr
    pas semblant.
    ------------------------------------------------------------------ */
 var SCAN_URL = "{{ route('tagtoa.catalog.scan') }}";
+var CREATE_URL = "{{ route('tagtoa.pos.products.scan', $terminal->id) }}";
 var PAR_CODE = {};   // code -> {ref, name, price}
 
 (function indexerLesCodes(){
@@ -410,17 +411,46 @@ function vendreParCode(code){
                   d.article.out ? @js(__('stock épuisé')) : null);
               return;
           }
-          // Code inconnu : on ne devine JAMAIS un article. Encaisser le
-          // mauvais prix coûte plus cher que de taper l'article à la main.
-          beep('error');
-          if(window.TagtoaScanner) TagtoaScanner.reject();
-          var inconnu = @js(__('Code inconnu : ')) + code;
-          if(!direDansScanner(inconnu, true)) direScan(inconnu, true);
+          // Code inconnu de tout le catalogue (POS + Menu) : on ne devine
+          // JAMAIS son prix — mais on n'abandonne pas non plus le caissier
+          // devant un bip qui ne sert à rien.
+          creerArticlePourCode(code);
       })
       .catch(function(){
           beep('error');
           var rate = @js(__('Vérification impossible. Touchez l\'article dans la grille.'));
           if(!direDansScanner(rate, true)) direScan(rate, true);
+      });
+}
+
+/* ------------------------------------------------------------------
+   CODE VRAIMENT INCONNU : on crée un article provisoire — inactif, sans
+   prix — plutôt que de renvoyer le caissier les mains vides. Même geste
+   qu'à la réception d'un carton (voir PosController::scanProduct), mais
+   déclenché depuis la caisse elle-même : la caméra RESTE ouverte pour
+   enchaîner sur le code suivant.
+
+   L'article créé n'est JAMAIS ajouté au panier : il est inactif et à prix
+   zéro tant que personne ne l'a rempli — l'encaisser tel quel encaisserait
+   zéro gourde. Le serveur refuse en silence (403) si le caissier connecté
+   n'a pas le droit de toucher au catalogue ; on retombe alors sur le
+   message « code inconnu » ordinaire, sans rien créer.
+   ------------------------------------------------------------------ */
+function creerArticlePourCode(code){
+    fetch(CREATE_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},
+        body:JSON.stringify({code:code})})
+      .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+      .then(function(d){
+          beep('success');
+          var texte = (d && d.message) ? d.message
+              : @js(__('Article créé. Donnez-lui un nom et un prix dans Produits.'));
+          if(!direDansScanner(texte)) direScan(texte);
+      })
+      .catch(function(){
+          beep('error');
+          if(window.TagtoaScanner) TagtoaScanner.reject();
+          var inconnu = @js(__('Code inconnu : ')) + code;
+          if(!direDansScanner(inconnu, true)) direScan(inconnu, true);
       });
 }
 
