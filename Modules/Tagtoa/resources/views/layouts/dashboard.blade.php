@@ -182,7 +182,13 @@
         @media(max-width:640px){
             .top{padding:11px 16px;gap:8px}
             .subnav{padding:0 16px 9px}
-            .content{padding:18px 16px calc(24px + env(safe-area-inset-bottom))}
+            /* padding-top/left/right SEULEMENT : le padding-bottom qui réserve
+               la place de la barre du bas est fixé une seule fois, plus haut
+               (règle ≤860px). Le réécrire ici en `padding` court-circuit ce
+               réglage sur TOUS les téléphones (≤640px les contient tous) — le
+               dernier bouton de chaque page redevient alors inatteignable,
+               cette fois masqué sous la barre plutôt que visible dessous. */
+            .content{padding-top:18px;padding-left:16px;padding-right:16px}
             .top h1{font-size:17px}
             .top .who{display:none}
             .card{padding:16px;border-radius:14px}
