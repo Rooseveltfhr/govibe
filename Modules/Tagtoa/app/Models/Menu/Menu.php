@@ -45,6 +45,7 @@ class Menu extends Model
         'logo_path', 'cover_path', 'currency', 'whatsapp', 'phone', 'address',
         'pay_page_id', 'accent_color', 'theme', 'show_prices', 'ordering_enabled',
         'is_active', 'views', 'translations', 'hours', 'show_hours', 'timezone', 'delivery_fee',
+        'languages', 'service_types',
     ];
 
     protected $casts = [
@@ -56,6 +57,8 @@ class Menu extends Model
         'hours'            => 'array',
         'show_hours'       => 'boolean',
         'delivery_fee'     => 'decimal:2',
+        'languages'        => 'array',
+        'service_types'    => 'array',
     ];
 
     /** Les seuls champs qu'une traduction peut porter — jamais le prix, jamais l'alias. */
@@ -104,6 +107,16 @@ class Menu extends Model
     public function tables(): HasMany
     {
         return $this->hasMany(Table::class, 'menu_id')->orderBy('label');
+    }
+
+    public function deliveryZones(): HasMany
+    {
+        return $this->hasMany(DeliveryZone::class, 'menu_id')->orderBy('sort');
+    }
+
+    public function activeDeliveryZones(): HasMany
+    {
+        return $this->deliveryZones()->where('is_active', true);
     }
 
     public function getTypeMetaAttribute(): array

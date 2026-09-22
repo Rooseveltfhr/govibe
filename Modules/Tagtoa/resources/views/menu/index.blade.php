@@ -5,14 +5,20 @@
 @section('content')
 <div class="h-row">
     <h2>{{ __('Vos menus digitaux') }}</h2>
-    <a href="{{ route('tagtoa.menu.dashboard.create') }}" class="btn btn-p"><i class="fa-solid fa-plus"></i> {{ __('Nouveau menu') }}</a>
+    <div style="display:flex;gap:8px">
+        <a href="{{ route('tagtoa.menu.dashboard.wizard') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-wand-magic-sparkles"></i> {{ __('Assistant guidé') }}</a>
+        <a href="{{ route('tagtoa.menu.dashboard.create') }}" class="btn btn-p"><i class="fa-solid fa-plus"></i> {{ __('Nouveau menu') }}</a>
+    </div>
 </div>
 
 @if($menus->isEmpty())
     <div class="card"><div class="empty">
         <i class="fa-solid fa-utensils"></i>
         {{ __('Aucun menu. Créez le menu digital de votre restaurant, club, lounge ou hôtel — vendez vos produits & services par NFC/QR.') }}
-        <div style="margin-top:16px"><a href="{{ route('tagtoa.menu.dashboard.create') }}" class="btn btn-p"><i class="fa-solid fa-plus"></i> {{ __('Créer mon menu') }}</a></div>
+        <div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+            <a href="{{ route('tagtoa.menu.dashboard.wizard') }}" class="btn btn-o"><i class="fa-solid fa-wand-magic-sparkles"></i> {{ __('Assistant guidé') }}</a>
+            <a href="{{ route('tagtoa.menu.dashboard.create') }}" class="btn btn-p"><i class="fa-solid fa-plus"></i> {{ __('Créer mon menu') }}</a>
+        </div>
     </div></div>
 @else
     <div class="grid g2">

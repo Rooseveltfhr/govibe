@@ -18,29 +18,34 @@
     @csrf @if($editing) @method('PUT') @endif
 
     <div class="card">
-        <label class="lbl" style="margin-top:0">{{ __('Nom du commerce') }} *</label>
-        <input class="inp" name="name" maxlength="160" required
-               value="{{ old('name', $business->name) }}" placeholder="{{ __('Ex. Boulangerie Delmas 31') }}">
-
-        <label class="lbl">{{ __('Type de commerce') }} *</label>
-        <select class="sel" name="type" id="btype">
-            @foreach($types as $cle => $meta)
-                <option value="{{ $cle }}" @selected(old('type', $business->type) === $cle)>{{ __($meta['label']) }}</option>
-            @endforeach
-        </select>
+        <div class="row">
+            <div>
+                <label class="lbl" style="margin-top:0">{{ __('Nom du commerce') }} *</label>
+                <input class="inp" name="name" maxlength="160" required
+                       value="{{ old('name', $business->name) }}" placeholder="{{ __('Ex. Boulangerie Delmas 31') }}">
+            </div>
+            <div>
+                <label class="lbl" style="margin-top:0">{{ __('Type de commerce') }} *</label>
+                <select class="sel" name="type" id="btype">
+                    @foreach($types as $cle => $meta)
+                        <option value="{{ $cle }}" @selected(old('type', $business->type) === $cle)>{{ __($meta['label']) }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
         <p style="color:var(--muted);font-size:13px;margin-top:6px">
             {{ __('Le type décide du vocabulaire et des champs : un hôtel décrit des chambres, un bar des boissons.') }}
         </p>
 
         <label class="lbl">{{ __('Ce que vous vendez') }}</label>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <label class="sells">
+        <div class="chipwrap">
+            <label class="chip">
                 <input type="hidden" name="sells_products" value="0">
                 <input type="checkbox" name="sells_products" value="1"
                        @checked(old('sells_products', $business->sells_products ?? true))>
                 <span><i class="fa-solid fa-box"></i> {{ __('Des produits') }}</span>
             </label>
-            <label class="sells">
+            <label class="chip">
                 <input type="hidden" name="sells_services" value="0">
                 <input type="checkbox" name="sells_services" value="1"
                        @checked(old('sells_services', $business->sells_services ?? false))>
@@ -57,7 +62,7 @@
         <p style="color:var(--muted);font-size:13px;margin-top:-8px">
             {{ __('Proposées d\'après votre métier. Cochez, décochez, ou ajoutez les vôtres.') }}
         </p>
-        <div id="cats" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px"></div>
+        <div id="cats" class="chipwrap" style="margin-bottom:10px"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
             <input class="inp" id="newcat" maxlength="60" placeholder="{{ __('Ajouter une catégorie') }}" style="max-width:240px">
             <button type="button" class="btn btn-o btn-sm" onclick="addCat()"><i class="fa-solid fa-plus"></i> {{ __('Ajouter') }}</button>
@@ -116,7 +121,7 @@
             {{ __('Mon commerce facture une taxe') }}
         </label>
 
-        <div id="taxBox" style="margin-top:14px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+        <div id="taxBox" class="pf" style="margin-top:14px">
             <div>
                 <label class="lbl">{{ __('Nom de la taxe') }}</label>
                 <input class="inp" name="tax_label" maxlength="24" list="taxnames"
@@ -202,18 +207,6 @@
     </button>
 </form>
 
-<style>
-    .sells input{position:absolute;opacity:0;width:0;height:0}
-    .sells span{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--bd);
-                border-radius:11px;padding:11px 16px;cursor:pointer;transition:.15s;font-size:14.5px}
-    .sells input:checked + span{border-color:#2cb809;background:rgba(44,184,9,.08);font-weight:600}
-    .sells input:focus-visible + span{outline:2px solid #2cb809;outline-offset:2px}
-    .catchip{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--bd);
-             border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;user-select:none}
-    .catchip.on{border-color:#2cb809;background:rgba(44,184,9,.08);font-weight:600}
-    .catchip b{color:var(--red);font-weight:700}
-</style>
-
 @push('scripts')
 <script>
 /* Catégories : proposées d'après le métier, choisies par le marchand.
@@ -236,12 +229,13 @@ function renderCats(){
     toutes.forEach(function(nom){
         var on = CHOISIES.indexOf(nom) !== -1,
             el = document.createElement('label');
-        el.className = 'catchip' + (on ? ' on' : '');
+        // .chip : le composant partagé (voir layouts/dashboard.blade.php).
+        // L'état coché/décoché s'affiche par CSS (:checked + span) — plus
+        // besoin d'une classe « on » gérée à la main en JS.
+        el.className = 'chip';
         el.innerHTML = '<input type="checkbox" name="categories[]" value="' + esc(nom) + '"'
-                     + (on ? ' checked' : '') + ' style="position:absolute;opacity:0;width:0">'
-                     + esc(nom);
+                     + (on ? ' checked' : '') + '><span>' + esc(nom) + '</span>';
         el.querySelector('input').addEventListener('change', function(){
-            el.classList.toggle('on', this.checked);
             var i = CHOISIES.indexOf(nom);
             this.checked ? (i === -1 && CHOISIES.push(nom)) : (i !== -1 && CHOISIES.splice(i, 1));
         });

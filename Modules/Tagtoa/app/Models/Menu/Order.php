@@ -41,10 +41,37 @@ class Order extends Model
         'delivery' => 'Livraison',
     ];
 
+    /**
+     * Nettoie les modes de service qu'un menu déclare offrir : ne garde que
+     * des codes valides, et retombe sur null (« pas de restriction ») si le
+     * résultat est vide ou couvre déjà les trois modes — même convention que
+     * Locale::sanitizeSelection()/BusinessHours::sanitize() : null, jamais
+     * une liste vide qui empêcherait toute commande. PUR.
+     */
+    public static function sanitizeServiceTypes(mixed $input): ?array
+    {
+        if (! is_array($input)) {
+            return null;
+        }
+
+        $retenus = array_values(array_intersect(self::ORDER_TYPES, $input));
+        sort($retenus);
+        $tous = self::ORDER_TYPES;
+        sort($tous);
+
+        return ($retenus === [] || $retenus === $tous) ? null : $retenus;
+    }
+
+    /** Les modes de service qu'un menu offre réellement — sa sélection, ou tous si aucune restriction. */
+    public static function serviceTypesFor(?array $types): array
+    {
+        return $types ?: self::ORDER_TYPES;
+    }
+
     protected $fillable = [
         'menu_id', 'tenant_id', 'reference', 'subtotal', 'total', 'tip', 'currency',
         'status', 'payment_status', 'channel', 'order_type', 'customer_name', 'customer_phone',
-        'table_label', 'delivery_address', 'note', 'client_uuid', 'placed_at',
+        'table_label', 'delivery_address', 'delivery_zone_label', 'note', 'client_uuid', 'placed_at',
         'tax_total', 'tax_base', 'tax_inclusive', 'tax_label', 'tax_breakdown', 'delivery_fee',
     ];
 

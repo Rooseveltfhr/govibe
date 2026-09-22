@@ -115,7 +115,20 @@
         .lbl{display:block;font:600 12.5px var(--fh);color:#555;margin:14px 0 6px;letter-spacing:.01em}
         .inp,.sel,textarea.inp{width:100%;padding:12px 14px;border:1.5px solid var(--bd);border-radius:11px;font:15px var(--fb);background:#fff;transition:border-color .18s}
         .inp:focus,.sel:focus,textarea.inp:focus{outline:0;border-color:var(--blue)}
+        /* Le sélecteur de couleur ne se lit pas comme un champ texte : un
+           padding de 12-14px l'écrase. Une seule hauteur pour ce contrôle
+           partout, au lieu d'un style enligne différent par module. */
+        .inp[type="color"]{padding:4px;height:44px;cursor:pointer}
         .row{display:flex;gap:12px;flex-wrap:wrap}.row>*{flex:1;min-width:160px}
+        /* ── Grille de CHAMPS COURTS (prix, stock, code, ordre…) ──────────
+           Plusieurs champs sur la même ligne quand l'écran le permet, une
+           colonne par ligne sinon — jamais un `max-width` posé au cas par
+           cas qui casse à 360-390px. Motif déjà éprouvé dans plusieurs
+           écrans POS ; un seul composant partagé plutôt qu'une variante
+           par module. */
+        .pf{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-items:end}
+        .pf label,.pf .lbl{display:block;font:600 11px var(--fh);color:var(--muted);margin-bottom:3px;
+              text-transform:uppercase;letter-spacing:.04em}
         table{width:100%;border-collapse:collapse}
         th{font:600 12px var(--fh);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--bd)}
         td{padding:12px;border-bottom:1px solid var(--bd);font-size:14px}
@@ -128,6 +141,15 @@
         .switch input:checked{background:var(--blue)}
         .switch input::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform .2s}
         .switch input:checked::after{transform:translateX(18px)}
+        /* ── Choix multiples en pastilles (régimes, allergènes, catégories…) ──
+           UN seul composant, repris de menu/form.blade.php où le motif était
+           déjà juste — plutôt qu'une variante par module (.sells, .catchip…). */
+        .chipwrap{display:flex;flex-wrap:wrap;gap:6px}
+        .chip input{position:absolute;opacity:0;width:0;height:0}
+        .chip span{display:inline-block;border:1.5px solid var(--bd);border-radius:999px;padding:6px 12px;
+              font-size:12.5px;font-weight:600;cursor:pointer;transition:.14s;user-select:none;color:var(--blk)}
+        .chip input:checked+span{border-color:var(--blue);background:var(--blue-pale);color:var(--blue-deep)}
+        .chip input:focus-visible+span{outline:2px solid var(--blue);outline-offset:2px}
         /* ── La barre du bas : cinq destinations, toujours sous le pouce ──
            Sur un téléphone, le tiroir latéral demande deux gestes et n'affiche
            rien qui dise où l'on peut aller. Les cinq endroits où un marchand
@@ -182,7 +204,13 @@
         @media(max-width:640px){
             .top{padding:11px 16px;gap:8px}
             .subnav{padding:0 16px 9px}
-            .content{padding:18px 16px calc(24px + env(safe-area-inset-bottom))}
+            /* padding-top/left/right SEULEMENT : le padding-bottom qui réserve
+               la place de la barre du bas est fixé une seule fois, plus haut
+               (règle ≤860px). Le réécrire ici en `padding` court-circuit ce
+               réglage sur TOUS les téléphones (≤640px les contient tous) — le
+               dernier bouton de chaque page redevient alors inatteignable,
+               cette fois masqué sous la barre plutôt que visible dessous. */
+            .content{padding-top:18px;padding-left:16px;padding-right:16px}
             .top h1{font-size:17px}
             .top .who{display:none}
             .card{padding:16px;border-radius:14px}
@@ -197,7 +225,9 @@
         /* Sous 360px, deux colonnes de statistiques deviennent illisibles. */
         @media(max-width:360px){.g4{grid-template-columns:1fr}}
         /* Doigt : jamais de cible plus petite que 44px */
-        @media(hover:none){.nav a,.nav summary,.subnav a,.top .burger,.top .home,.top .out{min-height:44px}}
+        {{-- .btn-sm est délibérément compact (listes denses, icônes) : il ne
+             rejoint pas cette règle, sinon « petit bouton » n'existerait plus. --}}
+        @media(hover:none){.nav a,.nav summary,.subnav a,.top .burger,.top .home,.top .out,.inp,.sel,.btn:not(.btn-sm){min-height:44px}}
         @media (prefers-reduced-motion:reduce){*{transition:none!important}}
         @media print{.sb,.bar,.scrim{display:none!important}.main{margin-left:0}.content{padding:0;max-width:none}}
     </style>

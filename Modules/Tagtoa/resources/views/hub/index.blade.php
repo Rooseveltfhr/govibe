@@ -37,6 +37,40 @@
 @else
 <div style="margin-bottom:14px;text-align:right"><a href="{{ route('tagtoa.start') }}" style="color:var(--blue-deep);font-weight:700;font-size:13.5px"><i class="fa-solid fa-bolt"></i> {{ __('Guide de démarrage') }}</a></div>
 @endif
+
+{{-- Aperçu du jour, comparé à hier — lu sur la colonne vertébrale (Order),
+     tous canaux confondus (POS, Menu, Event…). Absent tant qu'il n'y a rien
+     à comparer (marchand nouveau) ou si la table n'existe pas encore
+     (déploiement en cours) : voir HubController::index(). --}}
+@if($today)
+<div class="h-row"><h2>{{ __('Aujourd\'hui, comparé à hier') }}</h2></div>
+<div class="grid g3" style="margin-bottom:26px">
+    @foreach([
+        ['revenue',   'fa-sack-dollar', __('Revenu du jour')],
+        ['orders',    'fa-receipt',     __('Commandes du jour')],
+        ['customers', 'fa-user-group',  __('Clients du jour')],
+    ] as [$cle, $icone, $libelle])
+        @php $d = $today[$cle]; @endphp
+        <div class="stat">
+            <div class="ic"><i class="fa-solid {{ $icone }}"></i></div>
+            <div class="v">{{ $cle === 'revenue' ? \Modules\Tagtoa\App\Support\Money::format($d['value'], $today['currency']) : $d['value'] }}</div>
+            <div class="k">{{ $libelle }}</div>
+            <div style="margin-top:8px;font:600 12px var(--fh)">
+                @if($d['change'] === null)
+                    <span style="color:var(--muted);font-weight:400">{{ $d['value'] > 0 ? __('Nouveau') : '—' }}</span>
+                @else
+                    <span style="color:{{ $d['change'] >= 0 ? 'var(--blue-deep)' : 'var(--red)' }}">
+                        <i class="fa-solid {{ $d['change'] >= 0 ? 'fa-arrow-up' : 'fa-arrow-down' }}"></i>
+                        {{ number_format(abs($d['change']), 1) }}%
+                    </span>
+                    <span style="color:var(--muted);font-weight:400"> {{ __('vs hier') }}</span>
+                @endif
+            </div>
+        </div>
+    @endforeach
+</div>
+@endif
+
 <div class="grid g4">
     <div class="stat"><div class="ic"><i class="fa-solid fa-utensils"></i></div><div class="v">{{ $stats['menus'] }}</div><div class="k">{{ __('Menus') }}</div></div>
     <div class="stat"><div class="ic"><i class="fa-solid fa-money-bill-transfer"></i></div><div class="v">{{ $stats['pay_pages'] }}</div><div class="k">{{ __('Liens de paiement') }}</div></div>

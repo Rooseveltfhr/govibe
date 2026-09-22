@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Models\Business\Business;
 use Modules\Tagtoa\App\Models\Menu\Item;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Menu\Order;
@@ -42,12 +43,47 @@ class DashboardController extends Controller
 
     public function create(): View
     {
-        return view('tagtoa::menu.form', [
-            'menu'     => new Menu(['theme' => 'light', 'accent_color' => '#2cb809', 'currency' => Locale::currencyFor()]),
+        return view('tagtoa::menu.form', $this->creationViewData());
+    }
+
+    /**
+     * Même création, présentée en assistant à sept étapes au lieu d'un long
+     * formulaire — même formulaire, mêmes champs, seulement redécoupé à
+     * l'écran (voir menu/_form-body.blade.php, partagé par les deux vues).
+     */
+    public function wizard(): View
+    {
+        return view('tagtoa::menu.wizard', $this->creationViewData());
+    }
+
+    /**
+     * Données communes aux deux écrans de création (formulaire classique et
+     * assistant). Le commerce (l'établissement) porte déjà nom, logo, adresse,
+     * téléphone, type et devise — les redemander à la création du menu fait
+     * taper deux fois la même chose, et les deux copies finissent par
+     * diverger. On les reprend comme PRÉ-REMPLISSAGE seulement : le marchand
+     * garde la main pour les changer si ce menu-là diffère (un hôtel dont le
+     * restaurant a son propre numéro, par exemple) — aucun champ n'est retiré
+     * du formulaire.
+     */
+    private function creationViewData(): array
+    {
+        $business = Business::find(Tenant::id());
+
+        return [
+            'menu' => new Menu([
+                'theme'        => 'light',
+                'accent_color' => '#2cb809',
+                'currency'     => $business->currency ?? Locale::currencyFor(),
+                'type'         => $business->type ?? null,
+                'logo_path'    => $business->logo_path ?? null,
+                'address'      => $business->address ?? null,
+                'phone'        => $business->phone ?? null,
+            ]),
             'vcards'    => $this->vcards(),
             'payPages'  => $this->payPages(),
             'suppliers' => $this->fournisseurs(),
-        ]);
+        ];
     }
 
     public function store(Request $request): RedirectResponse
@@ -62,8 +98,16 @@ $data = $this->validateMenu($request);
         $menu->alias = $data['alias'] ?: Menu::generateAlias($data['name'] ?? 'menu');
         $this->syncTranslations($menu, $request);
         $this->handleUploads($menu, $request);
+        // Aucun logo envoyé pour CE menu : celui du commerce sert de défaut,
+        // au lieu d'obliger à le renvoyer une deuxième fois (un fichier ne se
+        // pré-remplit pas dans un <input type="file"> — la reprise se fait
+        // ici plutôt que côté formulaire).
+        if (! $menu->logo_path) {
+            $menu->logo_path = Business::find(Tenant::id())?->logo_path;
+        }
         $menu->save();
         $this->syncContent($menu, $request);
+        $this->syncDeliveryZones($menu, $request);
 
         return redirect()->route('tagtoa.menu.dashboard.edit', $menu->id)
             ->with('success', __('Menu créé. Ajoutez vos catégories et produits.'));
@@ -71,7 +115,7 @@ $data = $this->validateMenu($request);
 
     public function edit(int $id): View
     {
-        $menu = $this->own($id, ['categories.items.options.choices']);
+        $menu = $this->own($id, ['categories.items.options.choices', 'deliveryZones']);
 
         return view('tagtoa::menu.form', [
             'menu'     => $menu,
@@ -93,6 +137,7 @@ $data = $this->validateMenu($request);
         $this->handleUploads($menu, $request);
         $menu->save();
         $this->syncContent($menu, $request);
+        $this->syncDeliveryZones($menu, $request);
 
         return back()->with('success', __('Menu mis à jour.'));
     }
@@ -240,6 +285,7 @@ $data = $this->validateMenu($request);
         if ($suivant) {
             $order->update(['status' => $suivant]);
             app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)->touch('menu_order', $order->id, $suivant);
+            $this->notifyCustomerOfStatus($order);
         }
 
         return back();
@@ -337,6 +383,11 @@ $data = $this->validateMenu($request);
 
         if ($order->status === 'ready') {
             $order->update(['status' => 'completed']);
+            // AVANT markPaid() : celui-ci fait sa propre écriture
+            // (payment_status), qui effacerait wasChanged('status') d'ici —
+            // la garde anti-doublon ne verrait alors plus jamais ce
+            // changement-ci.
+            $this->notifyCustomerOfStatus($order);
             app(MenuOrderService::class)->markPaid($order);
             app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)->touch('menu_order', $order->id, 'completed');
         }
@@ -355,8 +406,24 @@ $data = $this->validateMenu($request);
         // comme encore à préparer.
         app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)
             ->touch('menu_order', $order->id, $data['status']);
+        $this->notifyCustomerOfStatus($order);
 
         return back()->with('success', __('Commande mise à jour.'));
+    }
+
+    /**
+     * Avertit le client par WhatsApp qu'une commande LIVRAISON vient de
+     * changer d'étape (confirmée, en route, livrée) — jamais si le statut
+     * n'a en fait pas bougé (un merchant qui re-choisit le même statut dans
+     * le menu déroulant ne doit pas renvoyer le même message une deuxième
+     * fois). Voir NotificationService::notifyOrderStatus() pour le filtre
+     * sur order_type et les statuts qui comptent vraiment pour le client.
+     */
+    private function notifyCustomerOfStatus(Order $order): void
+    {
+        if ($order->wasChanged('status')) {
+            app(\Modules\Tagtoa\App\Services\Notifications\NotificationService::class)->notifyOrderStatus($order);
+        }
     }
 
     public function markPaid(int $orderId): RedirectResponse
@@ -485,9 +552,18 @@ $data = $this->validateMenu($request);
             // BusinessHours::sanitize(), qui ignore silencieusement tout ce
             // qui n'est pas une heure valide plutôt que de rejeter l'envoi.
             'hours'            => ['nullable', 'array'],
+            // Codes non reconnus ignorés (jamais rejetés) par
+            // Locale::sanitizeSelection(), qui impose aussi la langue par
+            // défaut — voir ce commentaire là-bas.
+            'languages'        => ['nullable', 'array'],
+            // Idem, nettoyé par Order::sanitizeServiceTypes() : jamais une
+            // sélection vide qui bloquerait toute commande.
+            'service_types'    => ['nullable', 'array'],
         ]);
 
         $data['hours'] = BusinessHours::sanitize($data['hours'] ?? null);
+        $data['languages'] = Locale::sanitizeSelection($data['languages'] ?? null);
+        $data['service_types'] = Order::sanitizeServiceTypes($data['service_types'] ?? null);
 
         return $data;
     }
@@ -523,7 +599,38 @@ $data = $this->validateMenu($request);
             'cats.*.translations.*.name'                => ['nullable', 'string', 'max:120'],
             'cats.*.items.*.translations.*.name'        => ['nullable', 'string', 'max:160'],
             'cats.*.items.*.translations.*.description' => ['nullable', 'string', 'max:600'],
+            'delivery_zones'             => ['nullable', 'array', 'max:50'],
+            'delivery_zones.*.id'        => ['nullable', 'integer'],
+            'delivery_zones.*.name'      => ['nullable', 'string', 'max:80'],
+            'delivery_zones.*.fee'       => ['nullable', 'numeric', 'min:0', 'max:999999'],
         ]);
+    }
+
+    /**
+     * Synchronise les zones de livraison (nom + frais). Liste courte —
+     * contrairement au catalogue (syncContent), un envoi qui ne renvoie plus
+     * une zone la supprime : le marchand n'a aucun autre moyen de la retirer,
+     * et une poignée de zones ne risque pas la troncature de max_input_vars.
+     */
+    protected function syncDeliveryZones(Menu $menu, Request $request): void
+    {
+        $rows = $request->input('delivery_zones', []);
+        $keep = [];
+        foreach ($rows as $i => $row) {
+            if (empty($row['name'])) {
+                continue;
+            }
+            $attrs = [
+                'name'      => $row['name'],
+                'fee'       => max(0, round((float) ($row['fee'] ?? 0), 2)),
+                'sort'      => (int) $i,
+                'is_active' => true,
+            ];
+            $zone = ! empty($row['id']) ? $menu->deliveryZones()->whereKey($row['id'])->first() : null;
+            $zone ? $zone->update($attrs) : $zone = $menu->deliveryZones()->create($attrs);
+            $keep[] = $zone->id;
+        }
+        $menu->deliveryZones()->whereNotIn('id', $keep ?: [0])->delete();
     }
 
     /**
@@ -637,6 +744,14 @@ $data = $this->validateMenu($request);
         $keepCats = [];
 
         DB::transaction(function () use ($menu, $cats, $request, &$keepCats) {
+            // Rang d'ENVOI, jamais la clé $ci d'origine : $ci reste l'index de
+            // CRÉATION de chaque catégorie (nécessaire pour retrouver les
+            // fichiers joints, cats.$ci.items.$ii.image) et ne bouge pas
+            // quand on la glisse ailleurs dans la liste — seul l'ORDRE
+            // D'ITÉRATION suit le nouvel ordre visuel (le navigateur
+            // sérialise un formulaire dans l'ordre du DOM). Trier par $ci
+            // ignorerait donc silencieusement tout glisser-déposer.
+            $rang = 0;
             foreach ($cats as $ci => $c) {
                 if (empty($c['name'])) {
                     continue;
@@ -644,7 +759,7 @@ $data = $this->validateMenu($request);
                 $catAttrs = [
                     'name'      => $c['name'],
                     'icon'      => $c['icon'] ?? null,
-                    'sort'      => (int) $ci,
+                    'sort'      => $rang++,
                     'is_active' => true,
                 ];
                 // Marqueur posé par le formulaire, comme `options_sent` pour

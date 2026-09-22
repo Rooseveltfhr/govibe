@@ -1,21 +1,29 @@
 {{-- TAGTOA — sélecteur de langue (Kreyòl / Français / English / Español).
-     Autonome : styles inclus, pas de JS (élément <details>). Réutilisable partout. --}}
+     Autonome : styles inclus, pas de JS (élément <details>). Réutilisable partout.
+
+     $onlyCodes (optionnel) : restreint la liste proposée — un menu peut
+     n'offrir qu'un sous-ensemble des langues globales (Menu::languages, voir
+     Locale::forMenu()). Sans lui, toutes les langues globales sont
+     proposées, comme avant (tableau de bord, etc.). --}}
 @php
     $tgCur  = \Modules\Tagtoa\App\Support\Locale::current();
-    $tgLocs = \Modules\Tagtoa\App\Support\Locale::all();
-    $tgMeta = $tgLocs[$tgCur] ?? ['flag' => '🌐', 'label' => strtoupper($tgCur)];
+    $tgTous = \Modules\Tagtoa\App\Support\Locale::all();
+    $tgLocs = isset($onlyCodes) ? array_intersect_key($tgTous, array_flip($onlyCodes)) : $tgTous;
+    $tgMeta = $tgTous[$tgCur] ?? ['flag' => '🌐', 'label' => strtoupper($tgCur)];
 @endphp
-<details class="tg-lang">
-    <summary aria-label="{{ __('Langue') }}"><i class="fa-solid fa-globe fl"></i><span class="lb">{{ $tgMeta['label'] }}</span><i class="fa-solid fa-chevron-down ch"></i></summary>
-    <div class="tg-lang-menu">
-        @foreach($tgLocs as $code => $m)
-            <a href="{{ request()->fullUrlWithQuery(['lang' => $code]) }}" class="{{ $code === $tgCur ? 'on' : '' }}">
-                {{ $m['label'] }}
-                @if($code === $tgCur)<i class="fa-solid fa-check ck"></i>@endif
-            </a>
-        @endforeach
-    </div>
-</details>
+@if(count($tgLocs) > 1)
+    <details class="tg-lang">
+        <summary aria-label="{{ __('Langue') }}"><i class="fa-solid fa-globe fl"></i><span class="lb">{{ $tgMeta['label'] }}</span><i class="fa-solid fa-chevron-down ch"></i></summary>
+        <div class="tg-lang-menu">
+            @foreach($tgLocs as $code => $m)
+                <a href="{{ request()->fullUrlWithQuery(['lang' => $code]) }}" class="{{ $code === $tgCur ? 'on' : '' }}">
+                    {{ $m['label'] }}
+                    @if($code === $tgCur)<i class="fa-solid fa-check ck"></i>@endif
+                </a>
+            @endforeach
+        </div>
+    </details>
+@endif
 <style>
     .tg-lang{position:relative;display:inline-block}
     .tg-lang>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border:1px solid rgba(128,128,128,.28);border-radius:999px;font:600 13px 'Space Grotesk',sans-serif;background:rgba(127,127,127,.06);user-select:none}

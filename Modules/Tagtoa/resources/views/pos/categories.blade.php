@@ -39,6 +39,11 @@
                     'fa-ice-cream','fa-cake-candles','fa-cookie-bite','fa-apple-whole','fa-bread-slice',
                     'fa-leaf','fa-carrot','fa-fire-burner','fa-plate-wheat','fa-tags',
                     'fa-box','fa-shirt','fa-pump-soap','fa-capsules','fa-mobile-screen'];
+
+    // Les rayons courants d'un petit commerce haïtien — LA MÊME liste que
+    // celle proposée dans MENU (CategoryPresets::COMMON) : sans liste
+    // unique, les deux écrans finiraient par diverger pour la même réalité.
+    $nomsSuggeres = \Modules\Tagtoa\App\Support\Catalog\CategoryPresets::COMMON;
 @endphp
 
 <div class="card">
@@ -55,6 +60,18 @@
                 <label for="ccolor">{{ __('Couleur') }}</label>
                 <input class="ic" id="ccolor" name="color" type="color" value="#2cb809" style="height:38px;padding:3px">
             </div>
+        </div>
+
+        {{-- Rayons les plus courants, en un clic : un marchand devant un champ
+             vide n'invente rien et n'en crée aucun. Le champ reste libre —
+             ceci ne fait que le pré-remplir. --}}
+        <label class="lbl" style="margin-top:12px">{{ __('Suggestions') }}</label>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:4px">
+            @foreach($nomsSuggeres as $nom)
+                <button type="button" class="btn btn-o btn-sm preset-nom" data-nom="{{ $nom }}" style="flex:0">
+                    <i class="fa-solid fa-plus"></i> {{ $nom }}
+                </button>
+            @endforeach
         </div>
 
         <label class="lbl" style="margin-top:12px">{{ __('Icône') }}
@@ -148,6 +165,16 @@
 <script>
 window.addEventListener('load', function () {
     var DEL = "{{ url('/tagtoa/pos/categories') }}";
+
+    // Une suggestion remplit le nom, ne le soumet pas : le marchand garde la
+    // main pour l'ajuster (« Boisson » → « Boissons fraîches ») avant d'enregistrer.
+    document.querySelectorAll('.preset-nom').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var champ = document.getElementById('cname');
+            champ.value = b.dataset.nom;
+            champ.focus();
+        });
+    });
 
     document.querySelectorAll('.modifier').forEach(function (b) {
         b.addEventListener('click', function () {

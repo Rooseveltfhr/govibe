@@ -52,4 +52,36 @@ class Locale
     {
         return self::meta($code)['currency'] ?? config('tagtoa.default_currency', 'HTG');
     }
+
+    /**
+     * Nettoie la liste des langues qu'un menu déclare offrir : ne garde que
+     * des codes valides, ajoute TOUJOURS la langue par défaut — le contenu
+     * de base est écrit dedans, elle ne peut jamais être désactivée — et
+     * retombe sur null (« pas de restriction ») si le résultat couvre déjà
+     * toutes les langues. Même convention que BusinessHours::sanitize() :
+     * null, jamais une liste vide, pour « rien de réglé par le marchand ».
+     * PUR : aucune dépendance Laravel au-delà de la config déjà lue par
+     * all()/default(), testable sans base de données.
+     */
+    public static function sanitizeSelection(mixed $input): ?array
+    {
+        if (! is_array($input)) {
+            return null;
+        }
+
+        $retenues = array_values(array_intersect(self::codes(), $input));
+        $avecDefaut = array_values(array_unique(array_merge($retenues, [self::default()])));
+        sort($avecDefaut);
+
+        $toutes = self::codes();
+        sort($toutes);
+
+        return $avecDefaut === $toutes ? null : $avecDefaut;
+    }
+
+    /** Les langues qu'un menu offre réellement — sa sélection, ou toutes si aucune restriction. */
+    public static function forMenu(?array $languages): array
+    {
+        return $languages ?: self::codes();
+    }
 }

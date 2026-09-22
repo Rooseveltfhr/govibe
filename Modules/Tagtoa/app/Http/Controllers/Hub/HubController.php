@@ -33,6 +33,20 @@ class HubController extends Controller
         $isNew = array_sum($stats) === 0
             && $this->safeCount(\Modules\Tagtoa\App\Models\Pos\Terminal::class, $tenantId) === 0;
 
+        // « Comment se porte le commerce aujourd'hui, comparé à hier ? » —
+        // lu sur la colonne vertébrale (Order), tous canaux confondus. Un
+        // marchand tout neuf n'a rien à comparer : on ne montre rien plutôt
+        // que des zéros vides. Même tolérance que safeCount() ci-dessous : la
+        // table peut ne pas exister selon le déploiement.
+        $today = null;
+        if (! $isNew) {
+            try {
+                $today = app(\Modules\Tagtoa\App\Services\Order\OrderStatsService::class)->todayVsYesterday();
+            } catch (\Throwable $e) {
+                // pas d'aperçu plutôt qu'une page en erreur
+            }
+        }
+
         // Le fondateur (super_admin) voit un accès au panneau plateforme.
         $isSuperAdmin = false;
         try {
@@ -47,7 +61,7 @@ class HubController extends Controller
         $sansCommerce = ! app(\Modules\Tagtoa\App\Services\Business\BusinessService::class)
             ->hasAny(Tenant::account());
 
-        return view('tagtoa::hub.index', compact('stats', 'isNew', 'isSuperAdmin', 'sansCommerce'));
+        return view('tagtoa::hub.index', compact('stats', 'isNew', 'isSuperAdmin', 'sansCommerce', 'today'));
     }
 
     /**

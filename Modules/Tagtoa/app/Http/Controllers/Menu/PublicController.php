@@ -36,7 +36,7 @@ class PublicController extends Controller
     {
         $data = Cache::remember("tagtoa:menu:show:$alias", self::PUBLIC_CACHE_TTL, function () use ($alias) {
             $menu = Menu::where('alias', $alias)->where('is_active', true)
-                ->with(['payPage', 'activeCategories.availableItems.options.choices'])
+                ->with(['payPage', 'activeCategories.availableItems.options.choices', 'activeDeliveryZones'])
                 ->firstOrFail();
 
             $menu->incrementQuietly('views');
@@ -86,6 +86,9 @@ class PublicController extends Controller
             // qui l'impose sur `table_label` et rejette un code invalide.
             'table_code'         => ['nullable', 'string', 'max:20'],
             'delivery_address'   => ['nullable', 'string', 'max:200'],
+            // Appartenance à CE menu revérifiée dans MenuOrderService — un
+            // identifiant d'un autre commerce n'y sera simplement pas trouvé.
+            'delivery_zone_id'   => ['nullable', 'integer'],
             'note'               => ['nullable', 'string', 'max:500'],
             'client_uuid'        => ['nullable', 'string', 'max:64'],
         ]);

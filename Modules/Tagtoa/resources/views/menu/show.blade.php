@@ -153,7 +153,7 @@
     </style>
 </head>
 <body>
-<div style="position:fixed;top:12px;right:12px;z-index:50">@include('tagtoa::partials.lang')</div>
+<div style="position:fixed;top:12px;right:12px;z-index:50">@include('tagtoa::partials.lang', ['onlyCodes' => \Modules\Tagtoa\App\Support\Locale::forMenu($menu->languages)])</div>
 <div class="wrap">
     {{-- Sans couverture envoyée, jamais un bandeau vide : l'icône du métier
          (restaurant, bar, hôtel…) sert de couverture par défaut, en filigrane
@@ -299,10 +299,21 @@
             <div id="orderForm">
                 <div id="clist"></div>
 
+                @php
+                    // Un menu qui n'a jamais réglé ses modes de service garde
+                    // les trois, comme avant ce réglage — voir
+                    // Order::serviceTypesFor(). Le premier de la liste sert
+                    // de défaut : un menu livraison-seule ne doit pas ouvrir
+                    // sur « Sur place », un mode qu'il n'offre pas.
+                    $modesOfferts = \Modules\Tagtoa\App\Models\Menu\Order::serviceTypesFor($menu->service_types);
+                    $modesIcones = ['dine_in' => 'fa-utensils', 'pickup' => 'fa-bag-shopping', 'delivery' => 'fa-motorcycle'];
+                @endphp
                 <div class="otype" id="otype">
-                    <button type="button" class="otbtn on" data-type="dine_in" onclick="setOrderType('dine_in')"><i class="fa-solid fa-utensils"></i> {{ __('Sur place') }}</button>
-                    <button type="button" class="otbtn" data-type="pickup" onclick="setOrderType('pickup')"><i class="fa-solid fa-bag-shopping"></i> {{ __('À emporter') }}</button>
-                    <button type="button" class="otbtn" data-type="delivery" onclick="setOrderType('delivery')"><i class="fa-solid fa-motorcycle"></i> {{ __('Livraison') }}</button>
+                    @foreach($modesOfferts as $i => $mode)
+                        <button type="button" class="otbtn @if($i === 0) on @endif" data-type="{{ $mode }}" onclick="setOrderType('{{ $mode }}')">
+                            <i class="fa-solid {{ $modesIcones[$mode] }}"></i> {{ __(\Modules\Tagtoa\App\Models\Menu\Order::ORDER_TYPE_LABELS[$mode]) }}
+                        </button>
+                    @endforeach
                 </div>
 
                 <div class="tiprow">
@@ -335,6 +346,16 @@
                         <input id="cTable" class="cin" placeholder="{{ __('N° table (optionnel)') }}" maxlength="40">
                     @endif
                     <input id="cAddress" class="cin" placeholder="{{ __('Adresse de livraison') }}" maxlength="200" style="display:none">
+                    @if($menu->activeDeliveryZones->isNotEmpty())
+                        {{-- Zone D'ABORD dans le flux visuel du frais : c'est elle
+                             qui fixe le prix, l'adresse ci-dessus ne sert qu'à
+                             trouver la porte une fois sur place. --}}
+                        <select id="cZone" class="cin" style="display:none" onchange="render()">
+                            @foreach($menu->activeDeliveryZones as $z)
+                                <option value="{{ $z->id }}" data-fee="{{ $z->fee }}">{{ $z->name }} — {{ \Modules\Tagtoa\App\Support\Money::format($z->fee, $cur) }}</option>
+                            @endforeach
+                        </select>
+                    @endif
                 </div>
                 <div class="cta">
                     <button class="wa" id="confirmBtn" onclick="submitOrder()"><i class="fa-solid fa-bag-shopping"></i> {{ __('Confirmer la commande') }}</button>
@@ -409,10 +430,13 @@
         // Affichage seulement : le total réel, avec les frais, est TOUJOURS
         // recalculé côté serveur (MenuOrderService::insertOrder()).
         var DELIVERY_FEE = @json((float) ($menu->delivery_fee ?: 0));
+        var HAS_ZONES = @json($menu->activeDeliveryZones->isNotEmpty());
         var CSRF = document.querySelector('meta[name=csrf-token]').getAttribute('content');
         var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')) };
         var cart = {};
-        var orderType = 'dine_in';
+        // Même défaut que le bouton .otbtn.on rendu côté serveur — un menu
+        // livraison-seule ne doit pas démarrer sur un mode qu'il n'offre pas.
+        var orderType = @json($modesOfferts[0] ?? 'dine_in');
         var tipPct = 0;
         var modItem = null, modChosen = {};
         var ORDER_UUID = 'mo-' + Date.now().toString(36) + Math.random().toString(36).slice(2,10);
@@ -498,7 +522,18 @@
             if (cTableFixe) { cTableFixe.style.display = (t==='dine_in') ? '' : 'none'; }
             else { document.getElementById('cTable').style.display = (t==='dine_in') ? '' : 'none'; }
             document.getElementById('cAddress').style.display = (t==='delivery') ? '' : 'none';
+            var zoneSel = document.getElementById('cZone');
+            if (zoneSel) { zoneSel.style.display = (t==='delivery') ? '' : 'none'; }
             render();
+        }
+        /* Frais du mode Livraison : celui de la zone choisie si le menu en a
+           défini, sinon le frais unique du menu — jamais les deux. */
+        function fraisLivraison(){
+            var zoneSel = document.getElementById('cZone');
+            if (HAS_ZONES && zoneSel && zoneSel.selectedOptions.length){
+                return Number(zoneSel.selectedOptions[0].getAttribute('data-fee')) || 0;
+            }
+            return DELIVERY_FEE;
         }
         function setTipPct(p){
             tipPct = p;
@@ -508,7 +543,7 @@
         function render(){
             var s = totals();
             var tip = tipAmount(s.t);
-            var frais = (orderType==='delivery') ? DELIVERY_FEE : 0;
+            var frais = (orderType==='delivery') ? fraisLivraison() : 0;
             document.getElementById('cnt').textContent = s.n;
             document.getElementById('bartot').textContent = fmt(s.t+tip+frais);
             document.getElementById('subtotal').textContent = fmt(s.t);
@@ -570,7 +605,8 @@
             var items=[]; for(var k in cart){ items.push({id:cart[k].id, qty:cart[k].qty, options:cart[k].options}); }
             var payload = {items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
                 customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),
-                table_code:@json($table->code ?? null),delivery_address:val('cAddress')};
+                table_code:@json($table->code ?? null),delivery_address:val('cAddress'),
+                delivery_zone_id:(HAS_ZONES ? val('cZone') : null)};
             var btn=document.getElementById('confirmBtn'); btn.disabled=true; var old=btn.innerHTML; btn.textContent=T.wait;
             envoyerCommande(payload).then(function(j){
                 showConfirmed(j);

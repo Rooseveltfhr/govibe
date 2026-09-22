@@ -135,4 +135,28 @@ class BottomNavigationTest extends TestCase
         $this->assertStringContainsString('.content{padding-bottom:calc(74px', $vue,
             'Le contenu ne réserve plus la hauteur de la barre du bas.');
     }
+
+    public function test_a_narrower_breakpoint_never_erases_the_bar_s_reserve(): void
+    {
+        // LE bug réel : la réserve de 74px est posée en ≤860px, mais TOUS les
+        // téléphones passent aussi par ≤640px, qui vient APRÈS dans la feuille
+        // de style. Si cette règle plus étroite touche encore `padding` en
+        // raccourci (ou `padding-bottom` seul) sur `.content`, elle écrase la
+        // réserve en silence — le texte « padding-bottom:calc(74px » reste
+        // présent ailleurs dans le fichier, donc un test qui ne fait que le
+        // chercher (ci-dessus) passe quand même. Un marchand avait le dernier
+        // bouton de chaque page cachÉ SOUS la barre, pas juste en dessous.
+        $vue = (string) file_get_contents(__DIR__.'/../../resources/views/layouts/dashboard.blade.php');
+
+        $this->assertMatchesRegularExpression('/@media\(max-width:640px\)\{(.*?)\n        \}/s', $vue);
+        preg_match('/@media\(max-width:640px\)\{(.*?)\n        \}/s', $vue, $m);
+        $bloc640 = $m[1];
+
+        $this->assertDoesNotMatchRegularExpression('/\.content\{padding:/', $bloc640,
+            "Le bloc ≤640px redéfinit `.content{padding:…}` en raccourci : cela\n".
+            "écrase le padding-bottom de 74px posé en ≤860px, et cache le dernier\n".
+            "bouton de chaque page sous la barre au lieu de le laisser accessible.");
+        $this->assertDoesNotMatchRegularExpression('/\.content\{[^}]*padding-bottom:(?!calc\(74px)/', $bloc640,
+            'Le bloc ≤640px redéfinit padding-bottom sur .content sans respecter la réserve de 74px.');
+    }
 }

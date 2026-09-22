@@ -300,6 +300,7 @@ function add(ref,name,price){if(!cart[ref])cart[ref]={ref:ref,name:name,price:pr
    pas semblant.
    ------------------------------------------------------------------ */
 var SCAN_URL = "{{ route('tagtoa.catalog.scan') }}";
+var CREATE_URL = "{{ route('tagtoa.pos.products.scan', $terminal->id) }}";
 var PAR_CODE = {};   // code -> {ref, name, price}
 
 (function indexerLesCodes(){
@@ -410,17 +411,46 @@ function vendreParCode(code){
                   d.article.out ? @js(__('stock épuisé')) : null);
               return;
           }
-          // Code inconnu : on ne devine JAMAIS un article. Encaisser le
-          // mauvais prix coûte plus cher que de taper l'article à la main.
-          beep('error');
-          if(window.TagtoaScanner) TagtoaScanner.reject();
-          var inconnu = @js(__('Code inconnu : ')) + code;
-          if(!direDansScanner(inconnu, true)) direScan(inconnu, true);
+          // Code inconnu de tout le catalogue (POS + Menu) : on ne devine
+          // JAMAIS son prix — mais on n'abandonne pas non plus le caissier
+          // devant un bip qui ne sert à rien.
+          creerArticlePourCode(code);
       })
       .catch(function(){
           beep('error');
           var rate = @js(__('Vérification impossible. Touchez l\'article dans la grille.'));
           if(!direDansScanner(rate, true)) direScan(rate, true);
+      });
+}
+
+/* ------------------------------------------------------------------
+   CODE VRAIMENT INCONNU : on crée un article provisoire — inactif, sans
+   prix — plutôt que de renvoyer le caissier les mains vides. Même geste
+   qu'à la réception d'un carton (voir PosController::scanProduct), mais
+   déclenché depuis la caisse elle-même : la caméra RESTE ouverte pour
+   enchaîner sur le code suivant.
+
+   L'article créé n'est JAMAIS ajouté au panier : il est inactif et à prix
+   zéro tant que personne ne l'a rempli — l'encaisser tel quel encaisserait
+   zéro gourde. Le serveur refuse en silence (403) si le caissier connecté
+   n'a pas le droit de toucher au catalogue ; on retombe alors sur le
+   message « code inconnu » ordinaire, sans rien créer.
+   ------------------------------------------------------------------ */
+function creerArticlePourCode(code){
+    fetch(CREATE_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},
+        body:JSON.stringify({code:code})})
+      .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+      .then(function(d){
+          beep('success');
+          var texte = (d && d.message) ? d.message
+              : @js(__('Article créé. Donnez-lui un nom et un prix dans Produits.'));
+          if(!direDansScanner(texte)) direScan(texte);
+      })
+      .catch(function(){
+          beep('error');
+          if(window.TagtoaScanner) TagtoaScanner.reject();
+          var inconnu = @js(__('Code inconnu : ')) + code;
+          if(!direDansScanner(inconnu, true)) direScan(inconnu, true);
       });
 }
 
@@ -543,9 +573,69 @@ function ok(ref,p,srv){beep('success');closePay();document.getElementById('dref'
     var montant=(srv&&srv.total!=null)?srv.total:total();
     document.getElementById('dtot').textContent=Number(montant).toFixed(2)+' '+CUR
         +((srv&&srv.tax>0)?'  ('+(srv.tax_label||'{{ __('Taxe') }}')+' '+Number(srv.tax).toFixed(2)+')':'');
-    var lines=Object.values(cart).map(function(c){return c.qty+'x '+c.name+' = '+(c.qty*c.price).toFixed(2);}).join('%0A');
-    var msg='{{ __('Reçu') }} TAGTOA%0A'+ref+'%0A'+lines+'%0A{{ __('Total') }}: '+total().toFixed(2)+' '+CUR;
-    document.getElementById('wa').href='https://wa.me/'+(p.customer_phone||'').replace(/[^0-9]/g,'')+'?text='+msg;document.getElementById('done').classList.add('show');}
+    posterRecuWhatsApp(ref, p);
+    document.getElementById('done').classList.add('show');}
+
+/* ------------------------------------------------------------------
+   REÇU WHATSAPP — un vrai reçu, pas une liste de lignes brutes.
+
+   AVANT : un texte fabriqué ICI, à partir du panier EN MÉMOIRE — jamais le
+   même calcul que le ticket imprimé, et sans en-tête (nom du commerce,
+   adresse) ni mot de fin. Le client recevait une liste, pas un reçu.
+
+   MAINTENANT : on part de la MÊME source que le reçu imprimé et le reçu
+   Bluetooth — RECU_DATA_URL, c'est-à-dire TicketController::data — au lieu
+   de recalculer. Un seul endroit compose un reçu ; tout le reste l'affiche.
+
+   Hors ligne (ou si le serveur ne répond pas), il n'y a pas encore de
+   référence serveur pour aller chercher ce détail : le bouton part quand
+   même avec le texte simple d'avant plutôt que de rester inerte — même
+   règle qu'imprimerRecu(), qui dit honnêtement qu'il n'y a rien à imprimer
+   au lieu de faire semblant.
+   ------------------------------------------------------------------ */
+var RECU_DATA_URL="{{ route('tagtoa.pos.receipt.data', ['reference' => '__REF__']) }}";
+
+function posterRecuWhatsApp(ref, p){
+    var tel = (p.customer_phone||'').replace(/[^0-9]/g,'');
+    var lien = document.getElementById('wa');
+
+    // Texte simple, immédiat : ce que le bouton porte déjà avant que le
+    // détail serveur, s'il arrive, ne le remplace par un vrai reçu.
+    var lignes=Object.values(cart).map(function(c){return c.qty+'x '+c.name+' = '+(c.qty*c.price).toFixed(2);}).join('\n');
+    var simple='{{ __('Reçu') }} TAGTOA\n'+ref+'\n'+lignes+'\n{{ __('Total') }}: '+total().toFixed(2)+' '+CUR;
+    lien.href='https://wa.me/'+tel+'?text='+encodeURIComponent(simple);
+
+    if(!derniereRef || !navigator.onLine) return;
+
+    fetch(RECU_DATA_URL.replace('__REF__', encodeURIComponent(derniereRef)))
+      .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+      .then(function(d){
+          lien.href='https://wa.me/'+tel+'?text='+encodeURIComponent(texteRecuWhatsApp(d));
+      })
+      .catch(function(){ /* le texte simple posé plus haut reste le lien. */ });
+}
+
+/** Compose le texte du reçu WhatsApp — mise en forme WhatsApp (*gras*), pas de HTML. */
+function texteRecuWhatsApp(d){
+    var sep='——————————————';
+    var t = '*'+((d.business && d.business.name) ? d.business.name : 'TAGTOA')+'*\n';
+    if(d.business && d.business.address) t += d.business.address+'\n';
+    if(d.business && d.business.phone) t += d.business.phone+'\n';
+    t += sep+'\n';
+    t += @js(__('Reçu')) + ' ' + d.reference + (d.sold_at ? ' — '+d.sold_at : '') + '\n';
+    t += sep+'\n';
+    (d.items||[]).forEach(function(it){
+        t += it.qty+'x '+it.name+' — '+it.line_total+'\n';
+    });
+    t += sep+'\n';
+    t += @js(__('Sous-total')) + ': ' + d.subtotal + '\n';
+    if(d.discount) t += @js(__('Remise')) + ': -' + d.discount + '\n';
+    if(d.tax_total) t += (d.tax_label || @js(__('Taxe'))) + ': ' + d.tax_total + '\n';
+    t += '*' + @js(__('Total')) + ': ' + d.total + '*\n';
+    t += sep+'\n';
+    t += (d.footer || '') + '\n';
+    return t;
+}
 /* ------------------------------------------------------------------
    IMPRIMER — le vrai reçu, pas l'écran de confirmation.
 

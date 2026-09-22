@@ -183,6 +183,8 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     Route::prefix('menu')->name('tagtoa.menu.dashboard.')->group(function () {
         Route::get('/', [MenuDashboard::class, 'index'])->name('index');
         Route::get('/create', [MenuDashboard::class, 'create'])->name('create');
+        // Même création que /create, en assistant à sept étapes.
+        Route::get('/wizard', [MenuDashboard::class, 'wizard'])->name('wizard');
         Route::post('/', [MenuDashboard::class, 'store'])->name('store');
         Route::get('/{id}/edit', [MenuDashboard::class, 'edit'])->name('edit');
         Route::put('/{id}', [MenuDashboard::class, 'update'])->name('update');
