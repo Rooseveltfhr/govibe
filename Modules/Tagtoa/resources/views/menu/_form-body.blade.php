@@ -14,8 +14,23 @@
         @endunless
         <div class="row">
             <div><label class="lbl">{{ __('Nom') }}</label><input class="inp" name="name" value="{{ old('name',$menu->name) }}" placeholder="{{ __('Ex. Lounge 509') }}" required></div>
-            <div><label class="lbl">{{ __('Type') }}</label><select class="sel" name="type">@foreach(\Modules\Tagtoa\App\Models\Menu\Menu::TYPES as $k=>$v)<option value="{{ $k }}" @selected(old('type',$menu->type ?: 'restaurant')===$k)>{{ __($v['label']) }}</option>@endforeach</select></div>
+            <div class="type-select-wrap"><label class="lbl">{{ __('Type') }}</label><select class="sel" name="type">@foreach(\Modules\Tagtoa\App\Models\Menu\Menu::TYPES as $k=>$v)<option value="{{ $k }}" @selected(old('type',$menu->type ?: 'restaurant')===$k)>{{ __($v['label']) }}</option>@endforeach</select></div>
         </div>
+        @if($isWizard ?? false)
+            {{-- Grille de cartes : la même valeur que le <select> ci-dessus,
+                 juste une autre façon de la choisir — utile sur l'assistant,
+                 où le type se choisit en premier et seul sur l'écran. Le
+                 formulaire classique ne la rend pas du tout : personne n'a
+                 demandé à changer son <select>. --}}
+            <div class="type-grid" id="typeGrid">
+                @foreach(\Modules\Tagtoa\App\Models\Menu\Menu::TYPES as $k=>$v)
+                    <button type="button" class="type-card" data-type="{{ $k }}" onclick="choseType('{{ $k }}')">
+                        <i class="{{ $v['icon'] }}"></i>
+                        <span class="type-card-label">{{ __($v['label']) }}</span>
+                    </button>
+                @endforeach
+            </div>
+        @endif
     </div>
 
     {{-- ----- Établissement : informations ----- --}}
@@ -426,6 +441,27 @@ function applyProfile(){
 
     document.querySelectorAll('.itemrow').forEach(function(row){ renderSpecs(row, readSpecs(row)); });
     renderPresets();
+    syncTypeGrid();
+}
+
+/* Reflète sur la grille de cartes (assistant) la valeur du <select> — seule
+   source de vérité. Sans effet si la grille n'est pas dans la page. */
+function syncTypeGrid(){
+    var sel = document.querySelector('select[name="type"]');
+    if (!sel) { return; }
+    document.querySelectorAll('.type-card').forEach(function(card){
+        card.classList.toggle('selected', card.getAttribute('data-type') === sel.value);
+    });
+}
+
+/* Choix depuis la grille de cartes : répercuté sur le <select>, qui reste le
+   seul champ réellement soumis — applyProfile() (déjà écouté sur le
+   <select>) se charge du reste (rayons suggérés, champs métier…). */
+function choseType(type){
+    var sel = document.querySelector('select[name="type"]');
+    if (!sel) { return; }
+    sel.value = type;
+    sel.dispatchEvent(new Event('change'));
 }
 
 /* Catégories proposées pour ce métier — un clic les ajoute, rien n'est imposé. */
