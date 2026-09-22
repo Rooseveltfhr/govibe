@@ -285,6 +285,7 @@ $data = $this->validateMenu($request);
         if ($suivant) {
             $order->update(['status' => $suivant]);
             app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)->touch('menu_order', $order->id, $suivant);
+            $this->notifyCustomerOfStatus($order);
         }
 
         return back();
@@ -382,6 +383,11 @@ $data = $this->validateMenu($request);
 
         if ($order->status === 'ready') {
             $order->update(['status' => 'completed']);
+            // AVANT markPaid() : celui-ci fait sa propre écriture
+            // (payment_status), qui effacerait wasChanged('status') d'ici —
+            // la garde anti-doublon ne verrait alors plus jamais ce
+            // changement-ci.
+            $this->notifyCustomerOfStatus($order);
             app(MenuOrderService::class)->markPaid($order);
             app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)->touch('menu_order', $order->id, 'completed');
         }
@@ -400,8 +406,24 @@ $data = $this->validateMenu($request);
         // comme encore à préparer.
         app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)
             ->touch('menu_order', $order->id, $data['status']);
+        $this->notifyCustomerOfStatus($order);
 
         return back()->with('success', __('Commande mise à jour.'));
+    }
+
+    /**
+     * Avertit le client par WhatsApp qu'une commande LIVRAISON vient de
+     * changer d'étape (confirmée, en route, livrée) — jamais si le statut
+     * n'a en fait pas bougé (un merchant qui re-choisit le même statut dans
+     * le menu déroulant ne doit pas renvoyer le même message une deuxième
+     * fois). Voir NotificationService::notifyOrderStatus() pour le filtre
+     * sur order_type et les statuts qui comptent vraiment pour le client.
+     */
+    private function notifyCustomerOfStatus(Order $order): void
+    {
+        if ($order->wasChanged('status')) {
+            app(\Modules\Tagtoa\App\Services\Notifications\NotificationService::class)->notifyOrderStatus($order);
+        }
     }
 
     public function markPaid(int $orderId): RedirectResponse

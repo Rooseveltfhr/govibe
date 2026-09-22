@@ -3,6 +3,7 @@
 namespace Modules\Tagtoa\App\Services\Notifications;
 
 use Modules\Tagtoa\App\Models\Loyalty\Transaction;
+use Modules\Tagtoa\App\Models\Menu\Order;
 
 /**
  * TAGTOA — notifications (e-mail) sur les événements clés.
@@ -380,6 +381,72 @@ class NotificationService
 
             // 3) Confirmation client par WhatsApp (si numéro + canal activé).
             $this->whatsapp($booking->customer_phone, $confirm['subject']."\n".$confirm['body']);
+        } catch (\Throwable $e) {
+            if (function_exists('report')) {
+                report($e);
+            }
+        }
+    }
+
+    /**
+     * Compose le message de suivi envoyé au client pour une commande MENU en
+     * livraison, à chaque étape qui compte vraiment pour lui : confirmée, en
+     * route (prête à partir), livrée. « En attente » et « en préparation » ne
+     * lui apprennent rien de neuf — aucun message pour ces statuts-là.
+     * PUR : aucune dépendance Laravel, testable sans base de données.
+     *
+     * @param  array{status:string, reference:string, menu_name:string}  $faits
+     * @return array{subject:string,body:string}|null
+     */
+    public static function orderStatusMessage(array $faits): ?array
+    {
+        $etape = match ($faits['status']) {
+            'confirmed' => __('Votre commande a été confirmée.'),
+            'ready'     => __('Votre commande est en route !'),
+            'completed' => __('Votre commande a été livrée. Merci !'),
+            default     => null,
+        };
+
+        if ($etape === null) {
+            return null;
+        }
+
+        return self::compose(
+            __('Commande').' '.$faits['reference'].' — '.$faits['menu_name'],
+            [$etape, '', __('Référence').' : '.$faits['reference']]
+        );
+    }
+
+    /**
+     * Notifie le CLIENT d'une commande MENU en livraison à chaque étape utile
+     * de son trajet — jamais pour sur-place/à-emporter (le client n'attend
+     * aucun suivi de trajet) ni pour un statut qui ne change rien pour lui.
+     * L'appelant reste responsable de ne notifier que sur un VRAI changement
+     * de statut (voir `wasChanged('status')` côté contrôleur) : un même statut
+     * réenregistré deux fois ne doit pas renvoyer le même message deux fois.
+     *
+     * Tolérant : aucune exception ne remonte jusqu'au flux caisse/cuisine qui
+     * a fait avancer la commande.
+     */
+    public function notifyOrderStatus(Order $order): void
+    {
+        try {
+            if ($order->order_type !== 'delivery' || ! $order->customer_phone) {
+                return;
+            }
+
+            $order->loadMissing('menu');
+            $message = self::orderStatusMessage([
+                'status'    => $order->status,
+                'reference' => $order->reference,
+                'menu_name' => (string) optional($order->menu)->name,
+            ]);
+
+            if ($message === null) {
+                return;
+            }
+
+            $this->whatsapp($order->customer_phone, $message['subject']."\n".$message['body']);
         } catch (\Throwable $e) {
             if (function_exists('report')) {
                 report($e);
