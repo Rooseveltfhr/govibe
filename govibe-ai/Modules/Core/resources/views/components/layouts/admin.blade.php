@@ -129,6 +129,8 @@
            @if ($current === 'admin.dashboard') aria-current="page" @endif>{{ __('Tableau de bord') }}</a>
         <a class="item" href="{{ route('admin.orders.index') }}"
            @if (str_starts_with((string) $current, 'admin.orders')) aria-current="page" @endif>{{ __('Commandes') }}</a>
+        <a class="item" href="{{ route('admin.payments') }}"
+           @if (str_starts_with((string) $current, 'admin.payments')) aria-current="page" @endif>{{ __('Paiement') }}</a>
         <a class="item" href="{{ route('admin.voices') }}"
            @if (str_starts_with((string) $current, 'admin.voices')) aria-current="page" @endif>{{ __('Voix') }}</a>
         <a class="item" href="{{ route('admin.settings') }}"

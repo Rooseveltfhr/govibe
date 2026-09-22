@@ -44,8 +44,9 @@ modèl ajan = yon klas Template + yon `register()`. Zewo modifikasyon nan kè a.
 | Modèl | 3 ajan (restoran, klinik, lekòl) + 3 chatbot (sipò, sit entènèt, akèy WhatsApp) |
 | Vwa | TTS + Scribe; bibliyotèk vwa; **vwa pa ajan** (`agents.voice_id`); vwa klonaj |
 | Paj | `/` akèy · `/agents` · `/agents/nouvo/{modèl}` · `/agents/{id}` · `/agents/{id}/vwa` · `/agents/demo/{modèl}` (chat + apèl) · `/komande` · `/sipo` |
-| Tab | `ai_providers`, `ai_models`, `ai_requests`, `agents`, `agent_orders` |
-| Kalite | **208 tès Pest**, Pint, PHPStan |
+| Panèl admin | `/admin/login` (`php artisan govibe:admin` oswa workflow `govibe-ai-admin.yml` kreye kont); dèyè `EnsureAdmin`: tablo debò (chèklis mizanwòd), `/admin/komand` (dosye + peman), `/admin/peman` (setup MonCash + kont bankè), `/admin/vwa` (bibliyotèk), `/admin/konfigirasyon` (paramèt platfòm + kle founisè IA) |
+| Tab | `ai_providers`, `ai_models`, `ai_requests`, `agents`, `agent_orders`, `agent_payments`, `voice_profiles`, `platform_settings`, `users.is_admin` |
+| Kalite | **~260 tès Pest** (verifye kantite egzat nan dènye run CI a), Pint, PHPStan |
 
 Entèfas: **fon blan, tèks nwa, bouton vèt**, tit an **Anton**, meni sou kote ki
 louvri SAN JavaScript (checkbox kache), mobil dabò.
@@ -83,9 +84,16 @@ pa branche sou webhook nou yo.
 
 ## 7. Sa ki rete
 
-- ⚠️ **Pa gen otantifikasyon**: nenpòt moun ki gen URL la ka kreye yon ajan epi
-  wè konesans biznis lòt moun. Phase 1 (kont, òganizasyon, RBAC, izolasyon
-  tenan) dwe fèmen sa a anvan yon vrè machann antre done l.
+- ⚠️ **Kote piblik la poko gen otantifikasyon**: nenpòt moun ki gen URL la ka
+  kreye yon ajan epi wè konesans biznis lòt moun (panèl `/admin` li menm
+  fèmen dèyè yon kont administratè, men sa se AKSÈ ADMIN, se pa yon kont pou
+  chak biznis). Phase 1 (kont, òganizasyon, RBAC, izolasyon tenan pou
+  MACHANN yo) dwe fèmen sa a anvan yon vrè machann antre done l.
+- Setup peman (`/admin/peman`) sere idantifyan/kont yo — MonCash pa
+  konekte reyèlman: pa gen entegrasyon API MonCash pou pran yon peman an
+  liy, se yon fich enfòmasyon (idantifyan + kont bankè) yon administratè
+  ranpli pou l pataje ak yon kliyan. Yon bouton « peye kounye a » se yon
+  pwochen etap.
 - Egzekisyon zouti: `create_order` se yon non nan yon lis; li pa antre okenn kote.
 - Kanal WhatsApp/telefòn: kontra `Channel` egziste, zewo enplemantasyon.
 - ConvAI `agents/create`: schema pa verifye (elevenlabs.io bloke nan sandbox la).

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Core\Http\Controllers\Admin\AuthController;
 use Modules\Core\Http\Controllers\Admin\DashboardController;
 use Modules\Core\Http\Controllers\Admin\OrderController;
+use Modules\Core\Http\Controllers\Admin\PaymentSettingsController;
 use Modules\Core\Http\Controllers\Admin\SettingsController;
 use Modules\Core\Http\Controllers\Admin\VoiceLibraryController;
 use Modules\Core\Http\Middleware\EnsureAdmin;
@@ -29,6 +30,9 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::post('/komand/{order}/peman', [OrderController::class, 'storePayment'])->name('orders.payments.store');
         Route::delete('/komand/{order}/peman/{payment}', [OrderController::class, 'destroyPayment'])
             ->name('orders.payments.destroy');
+
+        Route::get('/peman', [PaymentSettingsController::class, 'index'])->name('payments');
+        Route::post('/peman', [PaymentSettingsController::class, 'update'])->name('payments.update');
 
         Route::get('/vwa', [VoiceLibraryController::class, 'index'])->name('voices');
         Route::post('/vwa', [VoiceLibraryController::class, 'store'])->name('voices.store');
