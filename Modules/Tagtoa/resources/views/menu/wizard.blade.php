@@ -39,12 +39,28 @@
 
     @include('tagtoa::menu._form-body')
 
-    {{-- Aperçu — résumé en lecture seule construit depuis ce qui a déjà été
-         saisi plus haut. Aucun nouvel appel serveur : tout est déjà dans la
-         page, l'aperçu ne fait que le relire. --}}
+    {{-- Aperçu — un téléphone construit depuis ce qui a déjà été saisi plus
+         haut (nom, type, logo, couleur, catégories, plats). Aucun nouvel
+         appel serveur : tout est déjà dans la page, l'aperçu ne fait que le
+         relire — voir wizardApercu(). --}}
     <div class="card" data-step="6" id="wizardApercu">
         <div class="h-row"><h2>{{ __('Aperçu') }}</h2></div>
-        <div id="wizardApercuBody" style="font-size:14px;line-height:1.7"></div>
+        <p style="color:var(--muted);font-size:13px;margin-top:-8px">{{ __('Ce que vos clients verront, tel que rempli jusqu\'ici.') }}</p>
+        <div class="phone-frame">
+            <div class="phone-notch"></div>
+            <div class="phone-screen" id="phoneScreen">
+                <div class="phone-cover"></div>
+                <div class="phone-head">
+                    <div class="phone-logo" id="phoneLogo"></div>
+                    <div>
+                        <div class="phone-name" id="phoneName"></div>
+                        <div class="phone-type" id="phoneType"></div>
+                    </div>
+                </div>
+                <div class="phone-tabs" id="phoneTabs"></div>
+                <div class="phone-items" id="phoneItems"></div>
+            </div>
+        </div>
     </div>
 
     <div class="wizard-footer" data-step="1">
@@ -123,24 +139,104 @@
     .type-card.selected::after{content:'\f00c';font-family:'Font Awesome 6 Free';font-weight:900;
                position:absolute;top:8px;right:8px;width:18px;height:18px;border-radius:50%;
                background:#2cb809;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center}
+
+    /* Aperçu — un téléphone, pas un résumé texte. --acc-preview reprend la
+       couleur d'accent choisie à l'étape Apparence, posée par wizardApercu(). */
+    .phone-frame{width:300px;max-width:100%;margin:14px auto 0;border:10px solid #111;
+                 border-radius:36px;overflow:hidden;background:#111;box-shadow:0 14px 30px rgba(0,0,0,.18)}
+    .phone-notch{height:22px;background:#111;position:relative}
+    .phone-notch::after{content:'';position:absolute;left:50%;top:6px;transform:translateX(-50%);
+                 width:70px;height:10px;border-radius:6px;background:#000}
+    .phone-screen{--acc-preview:#2cb809;background:#fff;min-height:420px;max-height:520px;overflow-y:auto}
+    .phone-cover{height:90px;background:linear-gradient(135deg,var(--acc-preview),#0e5f44)}
+    .phone-head{display:flex;gap:10px;align-items:flex-end;padding:0 14px 8px;margin-top:-28px}
+    .phone-logo{width:52px;height:52px;border-radius:14px;background:#fff;border:2px solid #fff;
+                box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;
+                font-weight:700;color:var(--acc-preview);overflow:hidden;flex:0 0 auto}
+    .phone-logo img{width:100%;height:100%;object-fit:cover}
+    .phone-name{font-weight:700;font-size:15px;line-height:1.3}
+    .phone-type{font-size:11.5px;color:#888}
+    .phone-tabs{display:flex;gap:6px;padding:8px 14px;overflow-x:auto}
+    .phone-tab{flex:0 0 auto;padding:5px 11px;border-radius:999px;background:#f2f2f2;
+               font-size:11.5px;font-weight:600;white-space:nowrap;color:#555}
+    .phone-tab:first-child{background:var(--acc-preview);color:#fff}
+    .phone-items{padding:6px 14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .phone-item{border:1px solid #eee;border-radius:12px;overflow:hidden;background:#fff}
+    .phone-item-photo{height:64px;background:#f2f2f2;display:flex;align-items:center;justify-content:center;
+                      font-weight:700;color:#aaa;overflow:hidden}
+    .phone-item-photo img{width:100%;height:100%;object-fit:cover}
+    .phone-item-body{padding:7px 8px}
+    .phone-item-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .phone-item-price{font-size:12px;font-weight:700;color:var(--acc-preview);margin-top:2px}
+    .phone-empty{padding:30px 14px;text-align:center;color:#999;font-size:12.5px}
 </style>
 @push('scripts')
 <script>
 function wizardApercu(){
-    var box = document.getElementById('wizardApercuBody');
-    if (!box) { return; }
+    var screen = document.getElementById('phoneScreen');
+    if (!screen) { return; }
     var val = function(sel){ var el = document.querySelector(sel); return el ? el.value : ''; };
+
     var nom = val('input[name="name"]') || '{{ __('(sans nom)') }}';
     var typeSel = document.querySelector('select[name="type"]');
-    var typeLabel = typeSel && typeSel.selectedOptions.length ? typeSel.selectedOptions[0].textContent : '';
-    var devise = val('select[name="currency"]');
-    var nbCats = document.querySelectorAll('#cats .catblock').length;
-    var nbItems = document.querySelectorAll('#cats .itemrow').length;
+    var typeLabel = typeSel && typeSel.selectedOptions.length ? typeSel.selectedOptions[0].textContent.trim() : '';
+    var devise = val('select[name="currency"]') || 'HTG';
+    var accent = val('input[name="accent_color"]') || '#2cb809';
+    screen.style.setProperty('--acc-preview', accent);
 
-    box.innerHTML =
-        '<p><strong>' + esc(nom) + '</strong>' + (typeLabel ? ' — ' + esc(typeLabel.trim()) : '') + '</p>' +
-        '<p>{{ __('Devise') }} : ' + esc(devise || '—') + '</p>' +
-        '<p>' + nbCats + ' {{ __('catégorie(s)') }}, ' + nbItems + ' {{ __('article(s)') }}</p>';
+    document.getElementById('phoneName').textContent = nom;
+    document.getElementById('phoneType').textContent = typeLabel;
+
+    // Le logo relit l'aperçu déjà posé par previewLogo()/le champ hérité du
+    // commerce (voir menu/_form-body.blade.php) — jamais redemandé ici.
+    var logoImg = document.getElementById('logoPreview');
+    var logoBox = document.getElementById('phoneLogo');
+    if (logoImg && logoImg.src && logoImg.style.display !== 'none'){
+        logoBox.innerHTML = '<img src="' + logoImg.src + '">';
+    } else {
+        logoBox.textContent = nom.trim().charAt(0).toUpperCase() || '?';
+    }
+
+    var cats = Array.prototype.slice.call(document.querySelectorAll('#cats .catblock'));
+    var tabsBox = document.getElementById('phoneTabs');
+    tabsBox.innerHTML = '';
+    cats.forEach(function(cat){
+        var catNom = (cat.querySelector('[name$="[name]"]').value || '').trim();
+        if (!catNom) { return; }
+        var t = document.createElement('span');
+        t.className = 'phone-tab';
+        t.textContent = catNom;
+        tabsBox.appendChild(t);
+    });
+
+    var itemsBox = document.getElementById('phoneItems');
+    itemsBox.innerHTML = '';
+    var compte = 0;
+    cats.forEach(function(cat){
+        cat.querySelectorAll('.itemrow').forEach(function(row){
+            if (compte >= 6) { return; }
+            var itNom = (row.querySelector('[name$="[name]"]').value || '').trim();
+            if (!itNom) { return; }
+            var prix = row.querySelector('[name$="[price]"]').value || '0';
+            var photo = row.querySelector('.itemphoto');
+            var photoHtml = (photo && photo.src && photo.style.display !== 'none')
+                ? '<img src="' + photo.src + '">'
+                : esc(itNom.charAt(0).toUpperCase());
+            var carte = document.createElement('div');
+            carte.className = 'phone-item';
+            carte.innerHTML =
+                '<div class="phone-item-photo">' + photoHtml + '</div>' +
+                '<div class="phone-item-body">' +
+                    '<div class="phone-item-name">' + esc(itNom) + '</div>' +
+                    '<div class="phone-item-price">' + esc(prix) + ' ' + esc(devise) + '</div>' +
+                '</div>';
+            itemsBox.appendChild(carte);
+            compte++;
+        });
+    });
+    if (!compte){
+        itemsBox.innerHTML = '<div class="phone-empty" style="grid-column:1/-1">{{ __('Aucun plat ajouté pour l\'instant.') }}</div>';
+    }
 }
 
 function wizardGo(n){

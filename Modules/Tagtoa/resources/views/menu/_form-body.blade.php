@@ -64,7 +64,7 @@
         </details>
         <input type="hidden" name="translations_sent" value="1">
         <div class="row">
-            <div><label class="lbl">{{ __('Logo') }}</label><input class="inp" type="file" name="logo" accept="image/*">@if($menu->logo_url)<img src="{{ $menu->logo_url }}" style="height:42px;border-radius:10px;margin-top:8px">@endif</div>
+            <div><label class="lbl">{{ __('Logo') }}</label><input class="inp" type="file" name="logo" accept="image/*" onchange="previewLogo(this)">@if($menu->logo_url)<img id="logoPreview" src="{{ $menu->logo_url }}" style="height:42px;border-radius:10px;margin-top:8px">@else<img id="logoPreview" style="display:none;height:42px;border-radius:10px;margin-top:8px">@endif</div>
             <div><label class="lbl">{{ __('Couverture') }}</label><input class="inp" type="file" name="cover" accept="image/*">@if($editing && $menu->cover_url)<img src="{{ $menu->cover_url }}" style="height:42px;border-radius:10px;margin-top:8px">@endif</div>
         </div>
     </div>
@@ -542,6 +542,16 @@ function previewItemImage(input){
         reader.onload = function(e){ img.src = e.target.result; img.style.display='inline-block'; };
         reader.readAsDataURL(input.files[0]);
     }
+}
+
+/* Même principe pour le logo — sert aussi à l'aperçu de l'assistant
+   (wizardApercu()), qui relit cette image plutôt que de la redemander. */
+function previewLogo(input){
+    var img = document.getElementById('logoPreview');
+    if (!img || !input.files || !input.files[0]) { return; }
+    var reader = new FileReader();
+    reader.onload = function(e){ img.src = e.target.result; img.style.display='inline-block'; };
+    reader.readAsDataURL(input.files[0]);
 }
 
 function addOption(itemRow, d){
