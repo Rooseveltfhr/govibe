@@ -101,15 +101,20 @@ it('points the dashboard setup checklist to the payment page until one is config
         ->get(route('admin.dashboard'))
         ->assertOk()
         ->assertSee(__('Configurer le paiement'))
-        ->assertSee(route('admin.payments'), false);
+        ->assertSee(route('admin.payments'), false)
+        // Twa etap: kle IA, kle vwa, peman — okenn nan yo konfigire nan yon
+        // baz done tès ki fenk kreye.
+        ->assertSee(__(':n étape(s) avant que la plateforme soit prête pour un vrai client.', ['n' => 3]));
 });
 
+// Chèklis la KENBE chak etap vizib (li make yo « Fait » olye li retire yo),
+// kidonk sa ki chanje se konte a — pa disparisyon tèks etikèt la.
 it('marks the payment step done on the dashboard once a bank account is set', function () {
     $this->actingAs(paymentAdmin())->post(route('admin.payments.update'), [
         'bank_htg' => 'Sogebank — 100-000-000',
-    ]);
+    ])->assertRedirect(route('admin.payments'));
 
     $response = $this->actingAs(paymentAdmin())->get(route('admin.dashboard'))->assertOk();
 
-    $response->assertDontSee(__('Configurer le paiement'));
+    $response->assertSee(__(':n étape(s) avant que la plateforme soit prête pour un vrai client.', ['n' => 2]));
 });
