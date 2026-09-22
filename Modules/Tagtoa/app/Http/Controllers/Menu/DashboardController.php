@@ -744,6 +744,14 @@ $data = $this->validateMenu($request);
         $keepCats = [];
 
         DB::transaction(function () use ($menu, $cats, $request, &$keepCats) {
+            // Rang d'ENVOI, jamais la clé $ci d'origine : $ci reste l'index de
+            // CRÉATION de chaque catégorie (nécessaire pour retrouver les
+            // fichiers joints, cats.$ci.items.$ii.image) et ne bouge pas
+            // quand on la glisse ailleurs dans la liste — seul l'ORDRE
+            // D'ITÉRATION suit le nouvel ordre visuel (le navigateur
+            // sérialise un formulaire dans l'ordre du DOM). Trier par $ci
+            // ignorerait donc silencieusement tout glisser-déposer.
+            $rang = 0;
             foreach ($cats as $ci => $c) {
                 if (empty($c['name'])) {
                     continue;
@@ -751,7 +759,7 @@ $data = $this->validateMenu($request);
                 $catAttrs = [
                     'name'      => $c['name'],
                     'icon'      => $c['icon'] ?? null,
-                    'sort'      => (int) $ci,
+                    'sort'      => $rang++,
                     'is_active' => true,
                 ];
                 // Marqueur posé par le formulaire, comme `options_sent` pour

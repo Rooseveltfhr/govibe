@@ -210,13 +210,18 @@
 
 {{-- Template catégorie --}}
 <template id="cattpl">
-    <div class="catblock" data-ci="CIDX" style="border:1.5px solid var(--bd);border-radius:14px;padding:14px;margin-top:12px;background:#fafafa">
+    <div class="catblock" draggable="true" data-ci="CIDX" style="border:1.5px solid var(--bd);border-radius:14px;padding:14px;margin-top:12px;background:#fafafa">
         <div style="display:flex;gap:8px;align-items:center">
+            {{-- Poignée de glisser-déposer : c'est ELLE qui porte le geste,
+                 jamais le bloc entier — sinon le simple fait de cliquer dans
+                 le nom pour taper entrerait en conflit avec le
+                 glisser-déposer natif du navigateur. --}}
+            <i class="fa-solid fa-grip-vertical draghandle" title="{{ __('Glisser pour réordonner') }}" style="cursor:grab;color:var(--muted);flex:0;padding:4px"></i>
             {{-- Pas de champ icône : elle est déduite automatiquement du nom
                  (« Boissons » → un verre, « Desserts » → un gâteau…), pour que
                  le formulaire reste simple — personne ne sait quelle classe
                  Font Awesome choisir. --}}
-            <input name="cats[CIDX][name]" class="inp" placeholder="{{ __('Nom de la catégorie') }}" style="font-weight:600">
+            <input name="cats[CIDX][name]" class="inp" draggable="false" placeholder="{{ __('Nom de la catégorie') }}" style="font-weight:600">
             <button type="button" class="btn btn-o btn-sm delcat" style="flex:0;color:var(--red)"
                     title="{{ __('Supprimer la catégorie') }}"><i class="fa-solid fa-trash"></i></button>
         </div>
@@ -671,7 +676,39 @@ function addCat(d){
         var nom = (block.querySelector('[name$="[name]"]').value || '').trim();
         supprimer(block, DEL_CAT_URL, "{{ __('Supprimer cette catégorie ET tous ses articles ? Cette action est définitive.') }}\n\n" + nom);
     });
+    attacherGlisser(block);
     return block;
+}
+
+/* ------------------------------------------------------------------
+   Réorganiser les catégories par glisser-déposer. La poignée porte le
+   geste (voir cattpl) ; le bloc entier écoute les événements de dépôt.
+   Réordonner ici ne fait QUE déplacer le <div> dans le DOM — l'ordre
+   réellement enregistré vient de l'ordre d'ENVOI du formulaire, qui suit
+   l'ordre du DOM à la soumission (voir DashboardController::syncContent(),
+   qui numérote désormais par POSITION d'itération plutôt que par l'index
+   d'origine — sans ce correctif, un glissé serait ignoré à l'enregistrement).
+   ------------------------------------------------------------------ */
+var dragSrc = null;
+function attacherGlisser(block){
+    block.addEventListener('dragstart', function(e){
+        dragSrc = block;
+        block.style.opacity = '.4';
+        e.dataTransfer.effectAllowed = 'move';
+    });
+    block.addEventListener('dragend', function(){
+        block.style.opacity = '';
+        dragSrc = null;
+    });
+    block.addEventListener('dragover', function(e){ e.preventDefault(); });
+    block.addEventListener('drop', function(e){
+        e.preventDefault();
+        if (!dragSrc || dragSrc === block) { return; }
+        var cats = document.getElementById('cats');
+        var blocs = Array.prototype.slice.call(cats.children);
+        if (blocs.indexOf(dragSrc) < blocs.indexOf(block)) { block.after(dragSrc); }
+        else { block.before(dragSrc); }
+    });
 }
 
 var zIdx = 0;
