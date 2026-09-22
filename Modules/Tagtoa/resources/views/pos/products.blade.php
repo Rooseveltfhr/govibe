@@ -9,16 +9,10 @@
    l'attribut. Sans cette ligne, tous les volets s'ouvrent dépliés. */
 [hidden]{display:none!important}
 
-/* Saisie DENSE : les champs se rangent en grille et remplissent la largeur,
-   au lieu d'une ligne entière par champ pour trois caractères. */
-.pf{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px 7px;align-items:end}
+/* .pf/.inp/.sel viennent de la fondation partagée (layouts/dashboard.blade.php) —
+   seul .w2 (un champ qui prend deux colonnes, le nom de l'article) est propre
+   à cet écran. */
 .pf .w2{grid-column:span 2}
-.pf label{display:block;font:600 11px var(--fh);color:var(--muted);margin-bottom:3px;
-          text-transform:uppercase;letter-spacing:.04em}
-.ic{width:100%;padding:9px 11px;border:1.5px solid var(--bd);border-radius:9px;
-    font:14.5px var(--fb);background:#fff;min-width:0}
-.ic:focus{outline:0;border-color:var(--blue)}
-select.ic{padding:8px 8px}
 
 /* La vignette : une PHOTO. À défaut, l'initiale de l'article sur sa couleur de
    bouton — lisible, jamais ridicule, et fidèle à ce que le caissier verra. */
@@ -102,11 +96,11 @@ select.ic{padding:8px 8px}
 
         <div style="flex:1;min-width:0">
             <div class="pf">
-                <input class="ic w2" id="aName" name="name" required maxlength="120" autofocus
+                <input class="inp w2" id="aName" name="name" required maxlength="120" autofocus
                        placeholder="{{ __('Nom de l\'article') }}" aria-label="{{ __('Nom') }}">
-                <input class="ic" name="price" type="number" step="0.01" min="0"
+                <input class="inp" name="price" type="number" step="0.01" min="0"
                        placeholder="{{ __('Prix') }}" aria-label="{{ __('Prix de vente') }}">
-                <input class="ic" id="aStock" name="stock" type="number" step="0.001"
+                <input class="inp" id="aStock" name="stock" type="number" step="0.001"
                        placeholder="{{ __('Stock') }}" aria-label="{{ __('Stock') }}">
             </div>
             <label class="chk" style="margin-top:8px" title="{{ __('Une nuitée, une consultation : rien à compter, rien à scanner.') }}">
@@ -116,53 +110,53 @@ select.ic{padding:8px 8px}
             <div class="pf" id="addPlus" hidden style="margin-top:10px">
                 <div>
                     <label for="aDesc">{{ __('Description') }}</label>
-                    <input class="ic" id="aDesc" name="description" maxlength="160"
+                    <input class="inp" id="aDesc" name="description" maxlength="160"
                            placeholder="{{ __('Deux lignes, pas plus') }}">
                 </div>
                 <div>
                     <label for="aUnit">{{ __('Unité') }}</label>
-                    <select class="ic" id="aUnit" name="unit">
+                    <select class="sel" id="aUnit" name="unit">
                         @include('tagtoa::partials.unit-options', ['suggested' => $suggestedUnits ?? []])
                     </select>
                 </div>
                 <div>
                     <label for="aCost">{{ __('Prix d\'achat') }}</label>
-                    <input class="ic" id="aCost" name="cost_price" type="number" step="0.01" min="0" placeholder="—">
+                    <input class="inp" id="aCost" name="cost_price" type="number" step="0.01" min="0" placeholder="—">
                 </div>
                 <div id="aSeuilWrap">
                     <label for="aSeuil">{{ __('Alerte sous') }}</label>
-                    <input class="ic" id="aSeuil" name="low_stock_threshold" type="number" step="0.001" min="0" placeholder="5">
+                    <input class="inp" id="aSeuil" name="low_stock_threshold" type="number" step="0.001" min="0" placeholder="5">
                 </div>
                 <div>
                     <label for="aSku">{{ __('Référence') }}</label>
-                    <input class="ic" id="aSku" name="sku" maxlength="60" placeholder="SKU">
+                    <input class="inp" id="aSku" name="sku" maxlength="60" placeholder="SKU">
                 </div>
                 <div>
                     <label for="aTaxe">{{ __('Taxe (%)') }}</label>
-                    <input class="ic" id="aTaxe" name="tax_rate" type="number" step="0.01" min="0" max="99.999"
+                    <input class="inp" id="aTaxe" name="tax_rate" type="number" step="0.01" min="0" max="99.999"
                            placeholder="{{ __('Du commerce') }}" title="{{ __('Vide = taux du commerce. 0 = article exonéré.') }}">
                 </div>
                 <div>
                     <label for="aRayon">{{ __('Rayon') }}</label>
-                    <select class="ic" id="aRayon" name="category_id">
+                    <select class="sel" id="aRayon" name="category_id">
                         <option value="">—</option>
                         @foreach($categories as $r)<option value="{{ $r->id }}">{{ $r->name }}</option>@endforeach
                     </select>
                 </div>
                 <div>
                     <label for="aFour">{{ __('Fournisseur') }}</label>
-                    <select class="ic" id="aFour" name="supplier_id">
+                    <select class="sel" id="aFour" name="supplier_id">
                         <option value="">—</option>
                         @foreach($suppliers as $f)<option value="{{ $f->id }}">{{ $f->name }}</option>@endforeach
                     </select>
                 </div>
                 <div>
                     <label for="aAchat">{{ __('Date d\'achat') }}</label>
-                    <input class="ic" id="aAchat" name="purchased_at" type="date">
+                    <input class="inp" id="aAchat" name="purchased_at" type="date">
                 </div>
                 <div>
                     <label for="aParent">{{ __('Se vend depuis') }}</label>
-                    <select class="ic" id="aParent" name="parent_product_id">
+                    <select class="sel" id="aParent" name="parent_product_id">
                         <option value="">—</option>
                         @foreach($terminal->products->whereNull('parent_product_id')->where('is_service', false) as $par)
                             <option value="{{ $par->id }}">{{ $par->name }}</option>
@@ -171,13 +165,13 @@ select.ic{padding:8px 8px}
                 </div>
                 <div>
                     <label for="aRatio">{{ __('Unités par parent') }}</label>
-                    <input class="ic" id="aRatio" name="units_per_parent" type="number" step="0.001" min="0.001"
+                    <input class="inp" id="aRatio" name="units_per_parent" type="number" step="0.001" min="0.001"
                            placeholder="{{ __('Ex. 25 verres / bouteille') }}"
                            title="{{ __('Un bar tient son stock en bouteilles : combien de verres fait UNE bouteille.') }}">
                 </div>
                 <div>
                     <label for="aColor">{{ __('Couleur du bouton') }}</label>
-                    <input class="ic" id="aColor" name="color" type="color" value="#2cb809" style="height:38px;padding:3px">
+                    <input class="inp" id="aColor" name="color" type="color" value="#2cb809">
                 </div>
             </div>
 
@@ -270,10 +264,10 @@ select.ic{padding:8px 8px}
 
                 <div style="flex:1;min-width:0">
                     <div class="pf">
-                        <input class="ic w2" name="products[0][name]" value="{{ $p->name }}" maxlength="120" aria-label="{{ __('Nom') }}">
-                        <input class="ic pv" name="products[0][price]" type="number" step="0.01" min="0"
+                        <input class="inp w2" name="products[0][name]" value="{{ $p->name }}" maxlength="120" aria-label="{{ __('Nom') }}">
+                        <input class="inp pv" name="products[0][price]" type="number" step="0.01" min="0"
                                value="{{ $p->price }}" placeholder="{{ __('Prix') }}" aria-label="{{ __('Prix de vente') }}">
-                        <input class="ic" name="products[0][stock]" type="number" step="0.001" data-role="stock"
+                        <input class="inp" name="products[0][stock]" type="number" step="0.001" data-role="stock"
                                value="{{ $p->stock }}" placeholder="{{ __('Stock') }}" aria-label="{{ __('Stock') }}">
                     </div>
                     <label class="chk" style="margin-top:6px" title="{{ __('Une nuitée, une consultation : rien à compter, rien à scanner.') }}">
@@ -283,35 +277,35 @@ select.ic{padding:8px 8px}
                     <div class="pf" style="margin-top:8px">
                         <div class="w2">
                             <label>{{ __('Description') }}</label>
-                            <input class="ic" name="products[0][description]" value="{{ $p->description }}" maxlength="160">
+                            <input class="inp" name="products[0][description]" value="{{ $p->description }}" maxlength="160">
                         </div>
                         <div>
                             <label>{{ __('Unité') }}</label>
-                            <select class="ic" name="products[0][unit]">
+                            <select class="sel" name="products[0][unit]">
                                 @include('tagtoa::partials.unit-options', ['suggested' => $suggestedUnits ?? [], 'selected' => $p->unit_key])
                             </select>
                         </div>
                         <div>
                             <label>{{ __('Prix d\'achat') }}</label>
-                            <input class="ic pa" name="products[0][cost_price]" type="number" step="0.01" min="0" value="{{ $p->cost_price }}" placeholder="—">
+                            <input class="inp pa" name="products[0][cost_price]" type="number" step="0.01" min="0" value="{{ $p->cost_price }}" placeholder="—">
                         </div>
                         <div data-role="seuil-wrap">
                             <label>{{ __('Alerte sous') }}</label>
-                            <input class="ic" name="products[0][low_stock_threshold]" type="number" step="0.001" min="0" value="{{ $p->low_stock_threshold }}" placeholder="5">
+                            <input class="inp" name="products[0][low_stock_threshold]" type="number" step="0.001" min="0" value="{{ $p->low_stock_threshold }}" placeholder="5">
                         </div>
                         <div>
                             <label>{{ __('Référence') }}</label>
-                            <input class="ic" name="products[0][sku]" value="{{ $p->sku }}" maxlength="60">
+                            <input class="inp" name="products[0][sku]" value="{{ $p->sku }}" maxlength="60">
                         </div>
                         <div>
                             <label>{{ __('Taxe (%)') }}</label>
-                            <input class="ic" name="products[0][tax_rate]" type="number" step="0.01" min="0" max="99.999"
+                            <input class="inp" name="products[0][tax_rate]" type="number" step="0.01" min="0" max="99.999"
                                    value="{{ $p->tax_rate }}" placeholder="{{ __('Du commerce') }}"
                                    title="{{ __('Vide = taux du commerce. 0 = article exonéré.') }}">
                         </div>
                         <div>
                             <label>{{ __('Rayon') }}</label>
-                            <select class="ic" name="products[0][category_id]">
+                            <select class="sel" name="products[0][category_id]">
                                 <option value="">—</option>
                                 @foreach($categories as $r)
                                     <option value="{{ $r->id }}" @selected($p->category_id === $r->id)>{{ $r->name }}</option>
@@ -320,7 +314,7 @@ select.ic{padding:8px 8px}
                         </div>
                         <div>
                             <label>{{ __('Fournisseur') }}</label>
-                            <select class="ic" name="products[0][supplier_id]">
+                            <select class="sel" name="products[0][supplier_id]">
                                 <option value="">—</option>
                                 @foreach($suppliers as $f)
                                     <option value="{{ $f->id }}" @selected($p->supplier_id === $f->id)>{{ $f->name }}</option>
@@ -329,12 +323,12 @@ select.ic{padding:8px 8px}
                         </div>
                         <div>
                             <label>{{ __('Date d\'achat') }}</label>
-                            <input class="ic" name="products[0][purchased_at]" type="date"
+                            <input class="inp" name="products[0][purchased_at]" type="date"
                                    value="{{ optional($p->purchased_at)->format('Y-m-d') }}">
                         </div>
                         <div>
                             <label>{{ __('Se vend depuis') }}</label>
-                            <select class="ic" name="products[0][parent_product_id]">
+                            <select class="sel" name="products[0][parent_product_id]">
                                 <option value="">—</option>
                                 @foreach($terminal->products->whereNull('parent_product_id')->where('is_service', false)->where('id', '!=', $p->id) as $par)
                                     <option value="{{ $par->id }}" @selected($p->parent_product_id === $par->id)>{{ $par->name }}</option>
@@ -343,13 +337,13 @@ select.ic{padding:8px 8px}
                         </div>
                         <div>
                             <label>{{ __('Unités par parent') }}</label>
-                            <input class="ic" name="products[0][units_per_parent]" type="number" step="0.001" min="0.001"
+                            <input class="inp" name="products[0][units_per_parent]" type="number" step="0.001" min="0.001"
                                    value="{{ $p->units_per_parent }}" placeholder="{{ __('Ex. 25 verres / bouteille') }}"
                                    title="{{ __('Un bar tient son stock en bouteilles : combien de verres fait UNE bouteille.') }}">
                         </div>
                         <div>
                             <label>{{ __('Couleur du bouton') }}</label>
-                            <input class="ic" name="products[0][color]" type="color" value="{{ $p->color ?: '#2cb809' }}" style="height:38px;padding:3px">
+                            <input class="inp" name="products[0][color]" type="color" value="{{ $p->color ?: '#2cb809' }}">
                         </div>
                     </div>
 

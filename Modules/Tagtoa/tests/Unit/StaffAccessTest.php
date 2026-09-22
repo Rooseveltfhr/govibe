@@ -69,6 +69,28 @@ class StaffAccessTest extends TestCase
         $this->assertFalse(StaffAccess::can($gerant, 'sales.all'));
     }
 
+    public function test_a_courier_only_sees_the_delivery_screen(): void
+    {
+        $livreur = StaffAccess::ROLE_COURIER;
+
+        $this->assertTrue(StaffAccess::can($livreur, 'delivery.view'));
+
+        // Rien d'autre : ni vente, ni catalogue, ni le droit d'assigner
+        // lui-même une livraison (ça reste au patron/gérant).
+        $this->assertFalse(StaffAccess::can($livreur, 'sell'));
+        $this->assertFalse(StaffAccess::can($livreur, 'catalog.view'));
+        $this->assertFalse(StaffAccess::can($livreur, 'order.assign'));
+        $this->assertFalse(StaffAccess::can($livreur, 'staff.manage'));
+    }
+
+    public function test_a_manager_can_assign_couriers_and_run_the_delivery_screen(): void
+    {
+        $gerant = StaffAccess::ROLE_MANAGER;
+
+        $this->assertTrue(StaffAccess::can($gerant, 'order.assign'));
+        $this->assertTrue(StaffAccess::can($gerant, 'delivery.view'));
+    }
+
     public function test_an_unknown_or_missing_role_can_do_nothing(): void
     {
         // Un employé mal enregistré doit rester à la porte, pas ouvrir la caisse.

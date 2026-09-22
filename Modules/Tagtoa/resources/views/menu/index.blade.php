@@ -46,6 +46,9 @@
                     <a href="{{ route('tagtoa.menu.dashboard.orders',$m->id) }}" class="btn btn-d btn-sm" style="flex:0"><i class="fa-solid fa-receipt"></i> {{ __('Commandes') }}</a>
                     <a href="{{ route('tagtoa.menu.dashboard.kitchen',$m->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-kitchen-set"></i> {{ __('Cuisine') }}</a>
                     <a href="{{ route('tagtoa.menu.dashboard.counter',$m->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-bell-concierge"></i> {{ __('Caisse') }}</a>
+                    @if(in_array('delivery', \Modules\Tagtoa\App\Models\Menu\Order::serviceTypesFor($m->service_types), true))
+                        <a href="{{ route('tagtoa.menu.dashboard.delivery',$m->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-motorcycle"></i> {{ __('Livraison') }}</a>
+                    @endif
                     <a href="{{ route('tagtoa.menu.dashboard.tables',$m->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-chair"></i> {{ __('Tables') }}</a>
                     <a href="{{ route('tagtoa.menu.dashboard.edit',$m->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-pen"></i> {{ __('Modifier') }}</a>
                     <a href="{{ url('/menu/'.$m->alias) }}" target="_blank" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-eye"></i> {{ __('Voir') }}</a>
