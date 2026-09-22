@@ -21,6 +21,7 @@ class Settings
         'support_whatsapp' => '+509 3398 8754',
         'default_language' => 'fr',
         'hero_headline' => '',
+        'moncash_mode' => 'sandbox',
     ];
 
     /** @var array<string, string|null>|null */

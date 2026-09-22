@@ -57,6 +57,7 @@ it('keeps every admin page closed to visitors', function () {
         route('admin.orders.index'),
         route('admin.orders.show', $order),
         route('admin.settings'),
+        route('admin.payments'),
     ] as $url) {
         $this->get($url)->assertRedirect(route('admin.login'));
     }

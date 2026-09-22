@@ -12,6 +12,34 @@
     <h1>{{ __('Tableau de bord') }}</h1>
     <p class="lead">{{ __("Ce qui demande une action, pas le volume.") }}</p>
 
+    @php
+        $remaining = 0;
+        foreach ($setup as $step) {
+            if (! $step['done']) {
+                $remaining++;
+            }
+        }
+    @endphp
+    @if ($remaining > 0)
+        <div class="note">
+            <strong>{{ __('Mise en route') }}</strong>
+            {{ __(':n étape(s) avant que la plateforme soit prête pour un vrai client.', ['n' => $remaining]) }}
+            <ul style="margin:.5rem 0 0; padding-left:1.1rem">
+                @foreach ($setup as $step)
+                    <li style="margin:.15rem 0">
+                        <span class="pill {{ $step['done'] ? 'on' : 'off' }}">{{ $step['done'] ? __('Fait') : __('À faire') }}</span>
+                        @if ($step['done'])
+                            {{ $step['label'] }}
+                        @else
+                            <a href="{{ $step['route'] }}">{{ $step['label'] }}</a>
+                        @endif
+                        <span class="empty">— {{ $step['hint'] }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <div class="tiles">
         @foreach ($labels as $key => $label)
             <div class="tile {{ $key === 'nouvo' ? 'act' : '' }}">
@@ -62,6 +90,17 @@
                     @else
                         <span class="pill off">{{ __('Non') }}</span>
                         <span class="empty">{{ __('Aucune clé de voix.') }}</span>
+                    @endif
+                </td>
+            </tr>
+            <tr>
+                <td>{{ __('Paiement configuré') }}</td>
+                <td>
+                    @if ($paymentReady)
+                        <span class="pill on">{{ __('Oui') }}</span>
+                    @else
+                        <span class="pill off">{{ __('Non') }}</span>
+                        <span class="empty"><a href="{{ route('admin.payments') }}">{{ __('Configurer') }}</a></span>
                     @endif
                 </td>
             </tr>
