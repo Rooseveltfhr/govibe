@@ -63,6 +63,22 @@
         </div>
     </div>
 
+    {{-- Publier — le lien, le QR et le code d'intégration n'existent
+         qu'APRÈS l'enregistrement (le menu n'a pas encore d'alias tant que
+         ce bouton n'a pas été cliqué) : ils vivent sur l'écran d'édition qui
+         suit (menu/form.blade.php), jamais ici en avance sur des liens
+         qui ne mèneraient nulle part. --}}
+    <div class="card" data-step="7" style="text-align:center">
+        <i class="fa-solid fa-circle-check" style="font-size:40px;color:#2cb809"></i>
+        <h2 style="font-family:var(--fh,inherit);margin:10px 0 4px">{{ __('Votre menu est prêt !') }}</h2>
+        <p style="color:var(--muted);font-size:13.5px;max-width:360px;margin:0 auto">
+            {{ __('Vérifiez les informations ci-dessus, puis publiez. Le lien à partager, le QR code et le code d\'intégration apparaîtront juste après.') }}
+        </p>
+        <p style="margin-top:14px">
+            <a href="{{ route('tagtoa.menu.dashboard.index') }}" style="font-size:13px;color:var(--muted)">{{ __('Modifier plus tard') }}</a>
+        </p>
+    </div>
+
     <div class="wizard-footer" data-step="1">
         <span></span>
         <button type="button" class="btn btn-p" onclick="wizardGo(2)">{{ __('Suivant') }} <i class="fa-solid fa-arrow-right"></i></button>

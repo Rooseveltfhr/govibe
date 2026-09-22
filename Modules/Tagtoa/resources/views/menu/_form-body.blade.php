@@ -195,7 +195,10 @@
         <div id="cats"></div>
     </div>
 
-    <button class="btn btn-p" data-step="7"><i class="fa-solid fa-floppy-disk"></i> {{ __('Enregistrer le menu') }}</button>
+    <button class="btn btn-p" data-step="7">
+        <i class="fa-solid fa-floppy-disk"></i>
+        {{ (($isWizard ?? false) && ! $editing) ? __('Publier maintenant') : __('Enregistrer le menu') }}
+    </button>
 
     {{-- TOUT DERNIER champ du formulaire, volontairement. PHP coupe $_POST
          au-delà de max_input_vars sans rien dire : si ce jeton n'arrive pas,
