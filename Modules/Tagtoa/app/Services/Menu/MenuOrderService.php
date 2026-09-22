@@ -129,8 +129,13 @@ class MenuOrderService
                 $taxe->inclusive
             );
 
-            $requestedType = $payload['order_type'] ?? 'dine_in';
-            $orderType = in_array($requestedType, Order::ORDER_TYPES, true) ? $requestedType : 'dine_in';
+            // Le mode demandé doit être un mode RÉELLEMENT offert par CE menu
+            // — jamais seulement un mode valide dans l'absolu. Un menu
+            // livraison-seule ne doit pas pouvoir recevoir une commande
+            // « sur place » via un appel direct qui contournerait l'écran.
+            $modesOfferts = Order::serviceTypesFor($menu->service_types);
+            $requestedType = $payload['order_type'] ?? $modesOfferts[0];
+            $orderType = in_array($requestedType, $modesOfferts, true) ? $requestedType : $modesOfferts[0];
             $requestedChannel = $payload['channel'] ?? 'menu';
             $channel = in_array($requestedChannel, ['menu', 'whatsapp'], true) ? $requestedChannel : 'menu';
 

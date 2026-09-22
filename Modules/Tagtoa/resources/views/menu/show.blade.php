@@ -299,10 +299,21 @@
             <div id="orderForm">
                 <div id="clist"></div>
 
+                @php
+                    // Un menu qui n'a jamais réglé ses modes de service garde
+                    // les trois, comme avant ce réglage — voir
+                    // Order::serviceTypesFor(). Le premier de la liste sert
+                    // de défaut : un menu livraison-seule ne doit pas ouvrir
+                    // sur « Sur place », un mode qu'il n'offre pas.
+                    $modesOfferts = \Modules\Tagtoa\App\Models\Menu\Order::serviceTypesFor($menu->service_types);
+                    $modesIcones = ['dine_in' => 'fa-utensils', 'pickup' => 'fa-bag-shopping', 'delivery' => 'fa-motorcycle'];
+                @endphp
                 <div class="otype" id="otype">
-                    <button type="button" class="otbtn on" data-type="dine_in" onclick="setOrderType('dine_in')"><i class="fa-solid fa-utensils"></i> {{ __('Sur place') }}</button>
-                    <button type="button" class="otbtn" data-type="pickup" onclick="setOrderType('pickup')"><i class="fa-solid fa-bag-shopping"></i> {{ __('À emporter') }}</button>
-                    <button type="button" class="otbtn" data-type="delivery" onclick="setOrderType('delivery')"><i class="fa-solid fa-motorcycle"></i> {{ __('Livraison') }}</button>
+                    @foreach($modesOfferts as $i => $mode)
+                        <button type="button" class="otbtn @if($i === 0) on @endif" data-type="{{ $mode }}" onclick="setOrderType('{{ $mode }}')">
+                            <i class="fa-solid {{ $modesIcones[$mode] }}"></i> {{ __(\Modules\Tagtoa\App\Models\Menu\Order::ORDER_TYPE_LABELS[$mode]) }}
+                        </button>
+                    @endforeach
                 </div>
 
                 <div class="tiprow">
@@ -423,7 +434,9 @@
         var CSRF = document.querySelector('meta[name=csrf-token]').getAttribute('content');
         var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')) };
         var cart = {};
-        var orderType = 'dine_in';
+        // Même défaut que le bouton .otbtn.on rendu côté serveur — un menu
+        // livraison-seule ne doit pas démarrer sur un mode qu'il n'offre pas.
+        var orderType = @json($modesOfferts[0] ?? 'dine_in');
         var tipPct = 0;
         var modItem = null, modChosen = {};
         var ORDER_UUID = 'mo-' + Date.now().toString(36) + Math.random().toString(36).slice(2,10);

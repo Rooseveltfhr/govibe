@@ -82,6 +82,21 @@
             <div><label class="lbl">{{ __('Page de paiement (TAGTOA Pay)') }}</label><select class="sel" name="pay_page_id"><option value="">{{ __('— Aucune —') }}</option>@foreach($payPages as $pp)<option value="{{ $pp->id }}" @selected(old('pay_page_id',$menu->pay_page_id)==$pp->id)>{{ $pp->title ?: $pp->alias }}</option>@endforeach</select></div>
         </div>
         <label class="switch"><input type="hidden" name="ordering_enabled" value="0"><input type="checkbox" name="ordering_enabled" value="1" @checked(old('ordering_enabled',$menu->ordering_enabled ?? true))> {{ __('Activer la commande WhatsApp') }}</label>
+
+        {{-- Modes de service proposés au client — un sous-ensemble des trois
+             modes de TAGTOA. Rien de coché nulle part (menu jamais réglé) =
+             les trois restent offerts, comme avant ce réglage. --}}
+        <label class="lbl" style="margin-top:10px">{{ __('Modes de service offerts') }}</label>
+        <div class="chipwrap">
+            @php $modesMenu = old('service_types', $menu->service_types ?? \Modules\Tagtoa\App\Models\Menu\Order::ORDER_TYPES); @endphp
+            @foreach(\Modules\Tagtoa\App\Models\Menu\Order::ORDER_TYPE_LABELS as $code => $label)
+                <label class="chip">
+                    <input type="checkbox" name="service_types[]" value="{{ $code }}" @checked(in_array($code, $modesMenu, true))>
+                    <span>{{ __($label) }}</span>
+                </label>
+            @endforeach
+        </div>
+
         <label class="lbl" style="margin-top:10px">{{ __('Frais de livraison') }} <span style="font-weight:400;color:var(--muted)">({{ __('vide ou 0 = livraison gratuite') }})</span></label>
         <input class="inp" type="number" step="0.01" min="0" name="delivery_fee" value="{{ old('delivery_fee',$menu->delivery_fee) }}" placeholder="0.00" style="max-width:160px">
         <p style="color:var(--muted);font-size:13px;margin-top:10px">

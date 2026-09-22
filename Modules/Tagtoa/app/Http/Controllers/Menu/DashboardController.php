@@ -556,10 +556,14 @@ $data = $this->validateMenu($request);
             // Locale::sanitizeSelection(), qui impose aussi la langue par
             // défaut — voir ce commentaire là-bas.
             'languages'        => ['nullable', 'array'],
+            // Idem, nettoyé par Order::sanitizeServiceTypes() : jamais une
+            // sélection vide qui bloquerait toute commande.
+            'service_types'    => ['nullable', 'array'],
         ]);
 
         $data['hours'] = BusinessHours::sanitize($data['hours'] ?? null);
         $data['languages'] = Locale::sanitizeSelection($data['languages'] ?? null);
+        $data['service_types'] = Order::sanitizeServiceTypes($data['service_types'] ?? null);
 
         return $data;
     }
