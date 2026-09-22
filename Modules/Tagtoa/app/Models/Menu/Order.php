@@ -17,16 +17,22 @@ class Order extends Model
 
     protected $table = 'tagtoa_menu_orders';
 
-    /** Cycle de vie d'une commande. */
-    public const STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'];
+    /**
+     * Cycle de vie d'une commande. `picked_up` n'existe qu'entre « Prête » et
+     * « Terminée » — le temps qu'un livreur récupère une commande LIVRAISON
+     * avant de la livrer ; sur place/à emporter la sautent tout simplement,
+     * ready → completed comme avant (voir DashboardController::counterComplete()).
+     */
+    public const STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'picked_up', 'completed', 'cancelled'];
 
     public const STATUS_META = [
-        'pending'   => ['label' => 'En attente',  'pill' => 'a'],
-        'confirmed' => ['label' => 'Confirmée',   'pill' => 'g'],
-        'preparing' => ['label' => 'En préparation', 'pill' => 'a'],
-        'ready'     => ['label' => 'Prête',       'pill' => 'g'],
-        'completed' => ['label' => 'Terminée',    'pill' => 'g'],
-        'cancelled' => ['label' => 'Annulée',     'pill' => 'r'],
+        'pending'    => ['label' => 'En attente',  'pill' => 'a'],
+        'confirmed'  => ['label' => 'Confirmée',   'pill' => 'g'],
+        'preparing'  => ['label' => 'En préparation', 'pill' => 'a'],
+        'ready'      => ['label' => 'Prête',       'pill' => 'g'],
+        'picked_up'  => ['label' => 'Récupérée par le livreur', 'pill' => 'g'],
+        'completed'  => ['label' => 'Terminée',    'pill' => 'g'],
+        'cancelled'  => ['label' => 'Annulée',     'pill' => 'r'],
     ];
 
     /** Statuts qu'une cuisine doit encore traiter — avant « Prête ». */
@@ -73,6 +79,7 @@ class Order extends Model
         'status', 'payment_status', 'channel', 'order_type', 'customer_name', 'customer_phone',
         'table_label', 'delivery_address', 'delivery_zone_label', 'note', 'client_uuid', 'placed_at',
         'tax_total', 'tax_base', 'tax_inclusive', 'tax_label', 'tax_breakdown', 'delivery_fee',
+        'courier_id', 'courier_assigned_at', 'picked_up_at',
     ];
 
     protected $casts = [
@@ -87,6 +94,8 @@ class Order extends Model
         'tax_base'      => 'decimal:2',
         'tax_inclusive' => 'boolean',
         'tax_breakdown' => 'array',
+        'courier_assigned_at' => 'datetime',
+        'picked_up_at'        => 'datetime',
     ];
 
     public static function generateReference(): string
@@ -102,6 +111,11 @@ class Order extends Model
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class, 'order_id');
+    }
+
+    public function courier(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\Tagtoa\App\Models\Staff\Staff::class, 'courier_id');
     }
 
     public function isPaid(): bool
