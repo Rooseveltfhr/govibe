@@ -103,6 +103,27 @@
         </div>
         <label class="switch"><input type="hidden" name="show_prices" value="0"><input type="checkbox" name="show_prices" value="1" @checked(old('show_prices',$menu->show_prices ?? true))> {{ __('Afficher les prix') }}</label>
         <label class="switch"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" @checked(old('is_active',$menu->is_active ?? true))> {{ __('Menu actif (visible au public)') }}</label>
+
+        {{-- Langues offertes au client — un sous-ensemble des langues de
+             TAGTOA. La langue par défaut reste toujours cochée et désactivée :
+             le contenu de base (nom, description non traduits) est écrit
+             dedans, elle ne peut pas être retirée. --}}
+        <label class="lbl" style="margin-top:10px">{{ __('Langues du menu') }}</label>
+        <div class="chipwrap">
+            @php $languesMenu = old('languages', $menu->languages ?? \Modules\Tagtoa\App\Support\Locale::codes()); @endphp
+            @foreach(\Modules\Tagtoa\App\Support\Locale::all() as $code => $meta)
+                @php $estDefaut = $code === \Modules\Tagtoa\App\Support\Locale::default(); @endphp
+                <label class="chip">
+                    <input type="checkbox" name="languages[]" value="{{ $code }}"
+                           @checked(in_array($code, $languesMenu, true) || $estDefaut) @disabled($estDefaut)>
+                    <span>{{ $meta['flag'] }} {{ $meta['label'] }}</span>
+                </label>
+                {{-- Un champ désactivé n'est jamais soumis : on le rejoue en
+                     caché pour que la langue par défaut arrive quand même
+                     dans $_POST['languages']. --}}
+                @if($estDefaut)<input type="hidden" name="languages[]" value="{{ $code }}">@endif
+            @endforeach
+        </div>
     </div>
 
     {{-- ----- Horaires ----- --}}

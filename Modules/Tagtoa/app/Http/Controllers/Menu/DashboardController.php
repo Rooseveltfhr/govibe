@@ -552,9 +552,14 @@ $data = $this->validateMenu($request);
             // BusinessHours::sanitize(), qui ignore silencieusement tout ce
             // qui n'est pas une heure valide plutôt que de rejeter l'envoi.
             'hours'            => ['nullable', 'array'],
+            // Codes non reconnus ignorés (jamais rejetés) par
+            // Locale::sanitizeSelection(), qui impose aussi la langue par
+            // défaut — voir ce commentaire là-bas.
+            'languages'        => ['nullable', 'array'],
         ]);
 
         $data['hours'] = BusinessHours::sanitize($data['hours'] ?? null);
+        $data['languages'] = Locale::sanitizeSelection($data['languages'] ?? null);
 
         return $data;
     }

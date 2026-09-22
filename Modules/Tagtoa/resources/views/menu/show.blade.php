@@ -153,7 +153,7 @@
     </style>
 </head>
 <body>
-<div style="position:fixed;top:12px;right:12px;z-index:50">@include('tagtoa::partials.lang')</div>
+<div style="position:fixed;top:12px;right:12px;z-index:50">@include('tagtoa::partials.lang', ['onlyCodes' => \Modules\Tagtoa\App\Support\Locale::forMenu($menu->languages)])</div>
 <div class="wrap">
     {{-- Sans couverture envoyée, jamais un bandeau vide : l'icône du métier
          (restaurant, bar, hôtel…) sert de couverture par défaut, en filigrane
