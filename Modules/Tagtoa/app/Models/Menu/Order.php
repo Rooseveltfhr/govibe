@@ -44,7 +44,7 @@ class Order extends Model
     protected $fillable = [
         'menu_id', 'tenant_id', 'reference', 'subtotal', 'total', 'tip', 'currency',
         'status', 'payment_status', 'channel', 'order_type', 'customer_name', 'customer_phone',
-        'table_label', 'delivery_address', 'note', 'client_uuid', 'placed_at',
+        'table_label', 'delivery_address', 'delivery_zone_label', 'note', 'client_uuid', 'placed_at',
         'tax_total', 'tax_base', 'tax_inclusive', 'tax_label', 'tax_breakdown', 'delivery_fee',
     ];
 

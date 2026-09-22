@@ -107,6 +107,7 @@ $data = $this->validateMenu($request);
         }
         $menu->save();
         $this->syncContent($menu, $request);
+        $this->syncDeliveryZones($menu, $request);
 
         return redirect()->route('tagtoa.menu.dashboard.edit', $menu->id)
             ->with('success', __('Menu créé. Ajoutez vos catégories et produits.'));
@@ -114,7 +115,7 @@ $data = $this->validateMenu($request);
 
     public function edit(int $id): View
     {
-        $menu = $this->own($id, ['categories.items.options.choices']);
+        $menu = $this->own($id, ['categories.items.options.choices', 'deliveryZones']);
 
         return view('tagtoa::menu.form', [
             'menu'     => $menu,
@@ -136,6 +137,7 @@ $data = $this->validateMenu($request);
         $this->handleUploads($menu, $request);
         $menu->save();
         $this->syncContent($menu, $request);
+        $this->syncDeliveryZones($menu, $request);
 
         return back()->with('success', __('Menu mis à jour.'));
     }
@@ -566,7 +568,38 @@ $data = $this->validateMenu($request);
             'cats.*.translations.*.name'                => ['nullable', 'string', 'max:120'],
             'cats.*.items.*.translations.*.name'        => ['nullable', 'string', 'max:160'],
             'cats.*.items.*.translations.*.description' => ['nullable', 'string', 'max:600'],
+            'delivery_zones'             => ['nullable', 'array', 'max:50'],
+            'delivery_zones.*.id'        => ['nullable', 'integer'],
+            'delivery_zones.*.name'      => ['nullable', 'string', 'max:80'],
+            'delivery_zones.*.fee'       => ['nullable', 'numeric', 'min:0', 'max:999999'],
         ]);
+    }
+
+    /**
+     * Synchronise les zones de livraison (nom + frais). Liste courte —
+     * contrairement au catalogue (syncContent), un envoi qui ne renvoie plus
+     * une zone la supprime : le marchand n'a aucun autre moyen de la retirer,
+     * et une poignée de zones ne risque pas la troncature de max_input_vars.
+     */
+    protected function syncDeliveryZones(Menu $menu, Request $request): void
+    {
+        $rows = $request->input('delivery_zones', []);
+        $keep = [];
+        foreach ($rows as $i => $row) {
+            if (empty($row['name'])) {
+                continue;
+            }
+            $attrs = [
+                'name'      => $row['name'],
+                'fee'       => max(0, round((float) ($row['fee'] ?? 0), 2)),
+                'sort'      => (int) $i,
+                'is_active' => true,
+            ];
+            $zone = ! empty($row['id']) ? $menu->deliveryZones()->whereKey($row['id'])->first() : null;
+            $zone ? $zone->update($attrs) : $zone = $menu->deliveryZones()->create($attrs);
+            $keep[] = $zone->id;
+        }
+        $menu->deliveryZones()->whereNotIn('id', $keep ?: [0])->delete();
     }
 
     /**

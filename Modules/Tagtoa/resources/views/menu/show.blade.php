@@ -335,6 +335,16 @@
                         <input id="cTable" class="cin" placeholder="{{ __('N° table (optionnel)') }}" maxlength="40">
                     @endif
                     <input id="cAddress" class="cin" placeholder="{{ __('Adresse de livraison') }}" maxlength="200" style="display:none">
+                    @if($menu->activeDeliveryZones->isNotEmpty())
+                        {{-- Zone D'ABORD dans le flux visuel du frais : c'est elle
+                             qui fixe le prix, l'adresse ci-dessus ne sert qu'à
+                             trouver la porte une fois sur place. --}}
+                        <select id="cZone" class="cin" style="display:none" onchange="render()">
+                            @foreach($menu->activeDeliveryZones as $z)
+                                <option value="{{ $z->id }}" data-fee="{{ $z->fee }}">{{ $z->name }} — {{ \Modules\Tagtoa\App\Support\Money::format($z->fee, $cur) }}</option>
+                            @endforeach
+                        </select>
+                    @endif
                 </div>
                 <div class="cta">
                     <button class="wa" id="confirmBtn" onclick="submitOrder()"><i class="fa-solid fa-bag-shopping"></i> {{ __('Confirmer la commande') }}</button>
@@ -409,6 +419,7 @@
         // Affichage seulement : le total réel, avec les frais, est TOUJOURS
         // recalculé côté serveur (MenuOrderService::insertOrder()).
         var DELIVERY_FEE = @json((float) ($menu->delivery_fee ?: 0));
+        var HAS_ZONES = @json($menu->activeDeliveryZones->isNotEmpty());
         var CSRF = document.querySelector('meta[name=csrf-token]').getAttribute('content');
         var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')) };
         var cart = {};
@@ -498,7 +509,18 @@
             if (cTableFixe) { cTableFixe.style.display = (t==='dine_in') ? '' : 'none'; }
             else { document.getElementById('cTable').style.display = (t==='dine_in') ? '' : 'none'; }
             document.getElementById('cAddress').style.display = (t==='delivery') ? '' : 'none';
+            var zoneSel = document.getElementById('cZone');
+            if (zoneSel) { zoneSel.style.display = (t==='delivery') ? '' : 'none'; }
             render();
+        }
+        /* Frais du mode Livraison : celui de la zone choisie si le menu en a
+           défini, sinon le frais unique du menu — jamais les deux. */
+        function fraisLivraison(){
+            var zoneSel = document.getElementById('cZone');
+            if (HAS_ZONES && zoneSel && zoneSel.selectedOptions.length){
+                return Number(zoneSel.selectedOptions[0].getAttribute('data-fee')) || 0;
+            }
+            return DELIVERY_FEE;
         }
         function setTipPct(p){
             tipPct = p;
@@ -508,7 +530,7 @@
         function render(){
             var s = totals();
             var tip = tipAmount(s.t);
-            var frais = (orderType==='delivery') ? DELIVERY_FEE : 0;
+            var frais = (orderType==='delivery') ? fraisLivraison() : 0;
             document.getElementById('cnt').textContent = s.n;
             document.getElementById('bartot').textContent = fmt(s.t+tip+frais);
             document.getElementById('subtotal').textContent = fmt(s.t);
@@ -570,7 +592,8 @@
             var items=[]; for(var k in cart){ items.push({id:cart[k].id, qty:cart[k].qty, options:cart[k].options}); }
             var payload = {items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
                 customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),
-                table_code:@json($table->code ?? null),delivery_address:val('cAddress')};
+                table_code:@json($table->code ?? null),delivery_address:val('cAddress'),
+                delivery_zone_id:(HAS_ZONES ? val('cZone') : null)};
             var btn=document.getElementById('confirmBtn'); btn.disabled=true; var old=btn.innerHTML; btn.textContent=T.wait;
             envoyerCommande(payload).then(function(j){
                 showConfirmed(j);

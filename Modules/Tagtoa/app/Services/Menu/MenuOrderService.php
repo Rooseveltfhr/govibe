@@ -137,7 +137,20 @@ class MenuOrderService
             // Comme le pourboire : jamais taxé, s'ajoute tel quel au total.
             // Seul le mode Livraison le déclenche — sur place ou à emporter,
             // il n'y a rien à livrer.
-            $deliveryFee = $orderType === 'delivery' ? max(0, round((float) ($menu->delivery_fee ?: 0), 2)) : 0.0;
+            //
+            // Zone choisie par le client : son frais remplace le frais unique
+            // du menu. Une zone introuvable (menu changé entretemps, id d'un
+            // autre commerce) retombe sur le frais unique plutôt que de
+            // refuser la commande — un identifiant périmé ne doit jamais
+            // bloquer une livraison.
+            $zone = null;
+            if ($orderType === 'delivery' && ! empty($payload['delivery_zone_id'])) {
+                $zone = $menu->deliveryZones()->where('is_active', true)
+                    ->whereKey($payload['delivery_zone_id'])->first();
+            }
+            $deliveryFee = $orderType === 'delivery'
+                ? ($zone ? max(0, round((float) $zone->fee, 2)) : max(0, round((float) ($menu->delivery_fee ?: 0), 2)))
+                : 0.0;
 
             // Prix TTC (usage haïtien) : le sous-total contient déjà la
             // taxe, seul le pourboire s'ajoute. Prix HT : la taxe s'ajoute
@@ -178,6 +191,7 @@ class MenuOrderService
                 'customer_phone'   => $payload['customer_phone'] ?? null,
                 'table_label'      => $orderType === 'dine_in' ? $tableLabel : null,
                 'delivery_address' => $orderType === 'delivery' ? ($payload['delivery_address'] ?? null) : null,
+                'delivery_zone_label' => $orderType === 'delivery' ? optional($zone)->name : null,
                 'note'             => $payload['note'] ?? null,
                 'client_uuid'      => $uuid,
                 'placed_at'        => now(),

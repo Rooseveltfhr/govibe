@@ -106,6 +106,16 @@ class Menu extends Model
         return $this->hasMany(Table::class, 'menu_id')->orderBy('label');
     }
 
+    public function deliveryZones(): HasMany
+    {
+        return $this->hasMany(DeliveryZone::class, 'menu_id')->orderBy('sort');
+    }
+
+    public function activeDeliveryZones(): HasMany
+    {
+        return $this->deliveryZones()->where('is_active', true);
+    }
+
     public function getTypeMetaAttribute(): array
     {
         return self::TYPES[$this->type] ?? self::TYPES['other'];

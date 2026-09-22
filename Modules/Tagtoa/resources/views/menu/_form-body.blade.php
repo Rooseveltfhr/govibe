@@ -69,6 +69,14 @@
         <label class="switch"><input type="hidden" name="ordering_enabled" value="0"><input type="checkbox" name="ordering_enabled" value="1" @checked(old('ordering_enabled',$menu->ordering_enabled ?? true))> {{ __('Activer la commande WhatsApp') }}</label>
         <label class="lbl" style="margin-top:10px">{{ __('Frais de livraison') }} <span style="font-weight:400;color:var(--muted)">({{ __('vide ou 0 = livraison gratuite') }})</span></label>
         <input class="inp" type="number" step="0.01" min="0" name="delivery_fee" value="{{ old('delivery_fee',$menu->delivery_fee) }}" placeholder="0.00" style="max-width:160px">
+        <p style="color:var(--muted);font-size:13px;margin-top:10px">
+            {{ __('Ce frais s\'applique par défaut. Un commerce qui livre dans plusieurs zones (centre-ville, périphérie…) peut définir un prix différent par zone ci-dessous — le client choisit la sienne, et son prix remplace le frais unique.') }}
+        </p>
+        <div class="h-row" style="margin-top:4px">
+            <label class="lbl" style="margin-top:0">{{ __('Zones de livraison (optionnel)') }}</label>
+            <button type="button" class="btn btn-o btn-sm" onclick="addZone()"><i class="fa-solid fa-plus"></i> {{ __('Zone') }}</button>
+        </div>
+        <div id="zones"></div>
     </div>
 
     {{-- ----- Apparence ----- --}}
@@ -285,6 +293,15 @@
         <input name="cats[CIDX][items][IIDX][options][OIDX][choices][CHIDX][label]" class="inp" placeholder="{{ __('Libellé (ex. Grand)') }}">
         <input name="cats[CIDX][items][IIDX][options][OIDX][choices][CHIDX][price_delta]" class="inp" type="number" step="0.01" placeholder="{{ __('+/- prix') }}" style="max-width:110px">
         <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.choicerow').remove()"><i class="fa-solid fa-trash"></i></button>
+    </div>
+</template>
+
+{{-- Template zone de livraison --}}
+<template id="zonetpl">
+    <div class="zonerow" style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <input name="delivery_zones[ZIDX][name]" class="inp" placeholder="{{ __('Nom (ex. Centre-ville)') }}">
+        <input name="delivery_zones[ZIDX][fee]" class="inp" type="number" step="0.01" min="0" placeholder="{{ __('Frais') }}" style="max-width:130px">
+        <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.zonerow').remove()"><i class="fa-solid fa-trash"></i></button>
     </div>
 </template>
 
@@ -584,6 +601,29 @@ function addCat(d){
     });
     return block;
 }
+
+var zIdx = 0;
+function addZone(d){
+    var zi = zIdx++;
+    var html = document.getElementById('zonetpl').innerHTML.replace(/ZIDX/g, zi);
+    var box = document.createElement('div'); box.innerHTML = html;
+    var row = box.firstElementChild;
+    document.getElementById('zones').appendChild(row);
+    if (d){
+        row.querySelector('[name$="[name]"]').value = d.name || '';
+        row.querySelector('[name$="[fee]"]').value = (d.fee != null ? d.fee : '');
+        var h = document.createElement('input'); h.type='hidden'; h.name='delivery_zones['+zi+'][id]'; h.value=d.id; row.appendChild(h);
+    }
+    return row;
+}
+
+@php
+    $zoneData = $menu->relationLoaded('deliveryZones')
+        ? $menu->deliveryZones->map(fn ($z) => ['id' => $z->id, 'name' => $z->name, 'fee' => $z->fee])->values()
+        : [];
+@endphp
+var existingZones = @json($zoneData);
+existingZones.forEach(addZone);
 
 @php
     $catData = $menu->relationLoaded('categories')
