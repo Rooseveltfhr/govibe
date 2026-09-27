@@ -158,7 +158,8 @@ Route::post('/bootcamp-ai-2026/register', [BootcampController::class, 'register'
 // Admin auth (Academy)
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+    Route::post('/login', [AuthController::class, 'login'])
+        ->middleware('throttle:10,1')->name('login.post');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::middleware('admin')->group(function () {
@@ -226,7 +227,8 @@ Route::prefix('erp')->name('erp.')->group(function () {
 
     // Auth
     Route::get('/login', [ERPAuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [ERPAuthController::class, 'login'])->name('login.post');
+    Route::post('/login', [ERPAuthController::class, 'login'])
+        ->middleware('throttle:10,1')->name('login.post');
     Route::post('/logout', [ERPAuthController::class, 'logout'])->name('logout');
 
     Route::middleware('erp')->group(function () {
