@@ -390,9 +390,10 @@ class NotificationService
 
     /**
      * Compose le message de suivi envoyé au client pour une commande MENU en
-     * livraison, à chaque étape qui compte vraiment pour lui : confirmée, en
-     * route (prête à partir), livrée. « En attente » et « en préparation » ne
-     * lui apprennent rien de neuf — aucun message pour ces statuts-là.
+     * livraison, à chaque étape qui compte vraiment pour lui : confirmée,
+     * prête (en attente d'un livreur), récupérée (vraiment en route), livrée.
+     * « En attente » et « en préparation » ne lui apprennent rien de neuf —
+     * aucun message pour ces statuts-là.
      * PUR : aucune dépendance Laravel, testable sans base de données.
      *
      * @param  array{status:string, reference:string, menu_name:string}  $faits
@@ -402,7 +403,10 @@ class NotificationService
     {
         $etape = match ($faits['status']) {
             'confirmed' => __('Votre commande a été confirmée.'),
-            'ready'     => __('Votre commande est en route !'),
+            // « Prête » n'est plus « en route » depuis qu'un livreur existe :
+            // c'est le comptoir qui vient de finir, le trajet n'a pas commencé.
+            'ready'     => __('Votre commande est prête, un livreur va bientôt la récupérer.'),
+            'picked_up' => __('Votre commande est en route !'),
             'completed' => __('Votre commande a été livrée. Merci !'),
             default     => null,
         };

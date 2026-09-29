@@ -223,11 +223,21 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/{id}/staff/logout', [MenuDashboard::class, 'kitchenStaffLogout'])->name('staff.logout');
 
         // Écran caisse : complète le cycle ouvert par la cuisine — sert et
-        // encaisse une commande « Prête », jamais avant.
+        // encaisse une commande « Prête », jamais avant. Jamais les commandes
+        // livraison (voir counterFeed()) : elles suivent l'écran livraison.
         Route::get('/{id}/counter', [MenuDashboard::class, 'counter'])->name('counter');
         Route::get('/{id}/counter/feed', [MenuDashboard::class, 'counterFeed'])->name('counter.feed');
         Route::post('/{id}/counter/orders/{orderId}/complete', [MenuDashboard::class, 'counterComplete'])
             ->whereNumber(['id', 'orderId'])->name('counter.complete');
+
+        // Écran livraison : assigner un livreur (patron/gérant), puis
+        // récupérée → livrée (le livreur assigné, ou le patron/gérant).
+        Route::get('/{id}/delivery', [MenuDashboard::class, 'delivery'])->name('delivery');
+        Route::get('/{id}/delivery/feed', [MenuDashboard::class, 'deliveryFeed'])->name('delivery.feed');
+        Route::post('/{id}/delivery/orders/{orderId}/courier', [MenuDashboard::class, 'assignCourier'])
+            ->whereNumber(['id', 'orderId'])->name('delivery.assign');
+        Route::post('/{id}/delivery/orders/{orderId}/advance', [MenuDashboard::class, 'deliveryAdvance'])
+            ->whereNumber(['id', 'orderId'])->name('delivery.advance');
     });
 
     // LOYALTY

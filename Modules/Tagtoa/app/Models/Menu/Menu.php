@@ -35,6 +35,7 @@ class Menu extends Model
         'pharmacy'   => ['label' => 'Pharmacie',   'icon' => 'fa-solid fa-prescription-bottle-medical'],
         'clinic'     => ['label' => 'Clinique',    'icon' => 'fa-solid fa-stethoscope'],
         'boutique'   => ['label' => 'Boutique / Commerce', 'icon' => 'fa-solid fa-bag-shopping'],
+        'service'    => ['label' => 'Service',     'icon' => 'fa-solid fa-handshake'],
         'other'      => ['label' => 'Autre',       'icon' => 'fa-solid fa-store'],
     ];
 

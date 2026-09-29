@@ -39,9 +39,21 @@ class OrderStatusMessageTest extends TestCase
         $this->assertStringContainsString('MN-000042', $message['body']);
     }
 
-    public function test_a_ready_order_gets_an_en_route_message(): void
+    public function test_a_ready_order_gets_a_waiting_for_courier_message(): void
     {
+        // Depuis qu'un livreur existe, « Prête » ne veut plus dire « en
+        // route » — c'est juste sortie de cuisine, en attente d'être
+        // récupérée. « En route » n'arrive qu'à « picked_up ».
         $message = NotificationService::orderStatusMessage($this->faits(['status' => 'ready']));
+
+        $this->assertNotNull($message);
+        $this->assertStringContainsString('livreur va bientôt la récupérer', $message['body']);
+        $this->assertStringNotContainsString('en route', $message['body']);
+    }
+
+    public function test_a_picked_up_order_gets_an_en_route_message(): void
+    {
+        $message = NotificationService::orderStatusMessage($this->faits(['status' => 'picked_up']));
 
         $this->assertNotNull($message);
         $this->assertStringContainsString('en route', $message['body']);

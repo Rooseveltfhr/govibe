@@ -144,7 +144,7 @@ class PublicController extends Controller
     /** Page publique de suivi de commande (statut en temps réel, sans auth). */
     public function track(string $reference): View
     {
-        $order = Order::where('reference', $reference)->with(['items', 'menu'])->firstOrFail();
+        $order = Order::where('reference', $reference)->with(['items', 'menu', 'courier'])->firstOrFail();
 
         return view('tagtoa::menu.track', ['order' => $order, 'menu' => $order->menu]);
     }
@@ -152,12 +152,15 @@ class PublicController extends Controller
     /** JSON léger pour le polling de la page de suivi. */
     public function status(string $reference): JsonResponse
     {
-        $order = Order::where('reference', $reference)->firstOrFail();
+        $order = Order::where('reference', $reference)->with('courier')->firstOrFail();
 
         return response()->json([
             'status'         => $order->status,
             'status_label'   => __($order->status_meta['label']),
             'payment_status' => $order->payment_status,
+            // Nom seulement — jamais le téléphone du livreur au client sur
+            // une page sans authentification, accessible à quiconque a le lien.
+            'courier'        => $order->courier ? ['name' => $order->courier->name] : null,
         ]);
     }
 

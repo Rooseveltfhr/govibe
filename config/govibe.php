@@ -88,4 +88,19 @@ return [
         // Tentatives de connexion par minute, par couple email + IP.
         'tentatives_connexion' => 5,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Connexion du personnel (Admin + ERP)
+    |--------------------------------------------------------------------------
+    |
+    | Les deux écrans (/admin/login et /erp/login) mènent au même compte
+    | (User::is_admin) : une même clé de limitation leur est donc partagée,
+    | sinon alterner entre les deux doublerait le débit autorisé à un
+    | attaquant qui tente les mêmes identifiants sur les deux portes.
+    |
+    */
+    'personnel' => [
+        'tentatives_connexion' => 5,
+    ],
 ];

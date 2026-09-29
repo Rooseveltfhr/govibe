@@ -15,8 +15,10 @@ use Modules\Tagtoa\App\Models\Menu\Item;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Menu\Order;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
+use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Menu\MenuOrderService;
 use Modules\Tagtoa\App\Support\Locale;
+use Modules\Tagtoa\App\Support\Pos\StaffAccess;
 use Modules\Tagtoa\App\Support\Menu\BusinessHours;
 use Modules\Tagtoa\App\Support\Menu\BusinessProfile;
 use Modules\Tagtoa\App\Support\Menu\Translatable;
@@ -154,7 +156,7 @@ $data = $this->validateMenu($request);
     public function orders(int $id): View
     {
         $menu = $this->own($id);
-        $orders = $menu->orders()->with('items')->paginate(20);
+        $orders = $menu->orders()->with(['items', 'courier'])->paginate(20);
         $pending = $menu->orders()->where('status', 'pending')->count();
 
         return view('tagtoa::menu.orders', compact('menu', 'orders', 'pending'));
@@ -332,11 +334,17 @@ $data = $this->validateMenu($request);
         return view('tagtoa::menu.counter', ['menu' => $menu]);
     }
 
-    /** Le même écran, en JSON — polling, comme la cuisine. */
+    /**
+     * Le même écran, en JSON — polling, comme la cuisine.
+     *
+     * Jamais les commandes LIVRAISON : depuis qu'un livreur existe, une
+     * commande « Prête » en livraison attend d'être récupérée sur l'écran
+     * Livraison (delivery*, plus bas), pas servie/encaissée au comptoir.
+     */
     public function counterFeed(int $id): \Illuminate\Http\JsonResponse
     {
         $menu = $this->own($id);
-        $orders = $menu->orders()->where('status', 'ready')
+        $orders = $menu->orders()->where('status', 'ready')->where('order_type', '!=', 'delivery')
             ->with('items')->oldest('placed_at')->get();
 
         $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
@@ -381,7 +389,10 @@ $data = $this->validateMenu($request);
         $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
         abort_if($staff && ! $staff->can('sell'), 403, __('Vous n\'avez pas le droit de faire cela.'));
 
-        if ($order->status === 'ready') {
+        // Une commande LIVRAISON ne se sert jamais ici — voir l'écran
+        // Livraison (deliveryAdvance()), seul à connaître son propre cycle
+        // (récupérée → livrée) et le livreur qui l'a en main.
+        if ($order->status === 'ready' && $order->order_type !== 'delivery') {
             $order->update(['status' => 'completed']);
             // AVANT markPaid() : celui-ci fait sa propre écriture
             // (payment_status), qui effacerait wasChanged('status') d'ici —
@@ -393,6 +404,131 @@ $data = $this->validateMenu($request);
         }
 
         return back();
+    }
+
+    /* =====================================================================
+       ÉCRAN LIVRAISON — le trajet d'une commande LIVRAISON après « Prête » :
+       assigner un livreur, puis récupérée → livrée. Séparé du comptoir
+       (counter*) depuis qu'un livreur existe : servir au comptoir suppose un
+       client debout devant la caisse, ce qu'une livraison n'a jamais.
+       ===================================================================== */
+
+    /** Écran livraison : lecture + polling, même schéma que cuisine/caisse. */
+    public function delivery(int $id): View
+    {
+        $menu = $this->own($id);
+
+        return view('tagtoa::menu.delivery', ['menu' => $menu]);
+    }
+
+    /** Le même écran, en JSON — polling. */
+    public function deliveryFeed(int $id): \Illuminate\Http\JsonResponse
+    {
+        $menu = $this->own($id);
+        $orders = $menu->orders()->whereIn('status', ['ready', 'picked_up'])
+            ->where('order_type', 'delivery')
+            ->with(['items', 'courier'])->oldest('placed_at')->get();
+
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
+        $peutVoir = ! $staff || $staff->can('delivery.view');
+
+        return response()->json([
+            'staff'       => $staff ? ['name' => $staff->name, 'initials' => $staff->initials, 'is_courier' => $staff->isCourier()] : null,
+            'can_view'    => $peutVoir,
+            // Assigner reste un geste du patron/gérant : un livreur ne se
+            // choisit jamais lui-même une commande.
+            'can_assign'  => ! $staff || $staff->can('order.assign'),
+            'couriers'    => $this->couriersFor($menu)->map(fn (Staff $s) => ['id' => $s->id, 'name' => $s->name]),
+            'orders' => $orders->map(fn (Order $o) => [
+                'id'                  => $o->id,
+                'reference'           => $o->reference,
+                'status'              => $o->status,
+                'status_label'        => __($o->status_meta['label']),
+                'customer_name'       => $o->customer_name,
+                'customer_phone'      => $o->customer_phone,
+                'delivery_address'    => $o->delivery_address,
+                'delivery_zone_label' => $o->delivery_zone_label,
+                'total'               => (string) $o->total,
+                'currency'            => $o->currency,
+                'placed_at'           => optional($o->placed_at)->toIso8601String(),
+                'courier'             => $o->courier ? ['id' => $o->courier->id, 'name' => $o->courier->name] : null,
+                // Un livreur identifié ne peut avancer QUE ses propres
+                // livraisons ; patron/gérant/personne-identifié (patron
+                // opérant directement) peuvent toutes les avancer.
+                'can_advance' => $peutVoir && (! $staff || ! $staff->isCourier() || (int) $o->courier_id === (int) $staff->id),
+                'items' => $o->items->map(fn ($it) => [
+                    'name' => $it->name, 'qty' => (int) $it->qty,
+                ]),
+            ]),
+        ]);
+    }
+
+    /**
+     * Assigne (ou change) le livreur d'une commande LIVRAISON — ne touche
+     * jamais au statut : la commande reste « Prête » tant que personne ne l'a
+     * physiquement récupérée (voir deliveryAdvance()).
+     */
+    public function assignCourier(Request $request, int $id, int $orderId): RedirectResponse
+    {
+        $menu = $this->own($id);
+        $order = $menu->orders()->whereKey($orderId)->firstOrFail();
+
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
+        abort_if($staff && ! $staff->can('order.assign'), 403, __('Vous n\'avez pas le droit de faire cela.'));
+
+        $data = $request->validate(['courier_id' => ['required', 'integer']]);
+
+        if ($order->order_type === 'delivery' && ! in_array($order->status, ['completed', 'cancelled'], true)) {
+            $courier = $this->couriersFor($menu)->firstWhere('id', $data['courier_id']);
+            if ($courier) {
+                $order->update(['courier_id' => $courier->id, 'courier_assigned_at' => now()]);
+            }
+        }
+
+        return back();
+    }
+
+    /**
+     * Fait avancer une commande LIVRAISON d'une étape : Prête (assignée) →
+     * Récupérée → Terminée. Jamais Prête → Récupérée sans livreur assigné —
+     * un livreur en route sans savoir laquelle est la sienne n'a pas de sens.
+     */
+    public function deliveryAdvance(int $id, int $orderId): RedirectResponse
+    {
+        $menu = $this->own($id);
+        $order = $menu->orders()->whereKey($orderId)->firstOrFail();
+
+        $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
+        abort_if($staff && ! $staff->can('delivery.view'), 403, __('Vous n\'avez pas le droit de faire cela.'));
+        abort_if($staff && $staff->isCourier() && (int) $order->courier_id !== (int) $staff->id, 403, __('Cette livraison n\'est pas assignée à vous.'));
+
+        if ($order->status === 'ready' && $order->courier_id) {
+            $order->update(['status' => 'picked_up', 'picked_up_at' => now()]);
+            // Le vocabulaire commun de la colonne vertébrale n'a pas de
+            // « picked_up » propre au menu : c'est exactement ce que
+            // OrderStatus::SHIPPED (« partie en livraison ») veut déjà dire
+            // pour tous les modules — pas un nouveau statut à y ajouter.
+            app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)
+                ->touch('menu_order', $order->id, \Modules\Tagtoa\App\Support\Order\OrderStatus::SHIPPED);
+            $this->notifyCustomerOfStatus($order);
+        } elseif ($order->status === 'picked_up') {
+            $order->update(['status' => 'completed']);
+            // AVANT markPaid(), même raison qu'au comptoir : markPaid() écrit
+            // payment_status et effacerait wasChanged('status') d'ici.
+            $this->notifyCustomerOfStatus($order);
+            app(MenuOrderService::class)->markPaid($order);
+            app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)->touch('menu_order', $order->id, 'completed');
+        }
+
+        return back();
+    }
+
+    /** Les livreurs actifs du commerce, pour la liste déroulante d'assignation. */
+    private function couriersFor(Menu $menu)
+    {
+        return Staff::where('tenant_id', $menu->tenant_id)
+            ->where('role', StaffAccess::ROLE_COURIER)->where('is_active', true)
+            ->orderBy('name')->get(['id', 'name']);
     }
 
     public function setStatus(Request $request, int $orderId): RedirectResponse

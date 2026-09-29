@@ -105,9 +105,11 @@ class MenuOrderStatusNotificationTest extends TestCase
 
     public function test_the_counter_screen_notifies_when_it_completes_a_ready_order(): void
     {
+        // Sur place — une livraison ne passe plus par le comptoir depuis
+        // l'écran livraison (voir les tests dédiés plus bas).
         $this->patron();
         $menu = $this->menu();
-        $order = $this->order($menu, ['status' => 'ready']);
+        $order = $this->order($menu, ['status' => 'ready', 'order_type' => 'dine_in']);
         $spy = $this->espionner();
         $spy->shouldReceive('notifyOrderStatus')->once()->withArgs(fn ($o) => $o->id === $order->id);
 
@@ -119,12 +121,70 @@ class MenuOrderStatusNotificationTest extends TestCase
     {
         $this->patron();
         $menu = $this->menu();
-        $order = $this->order($menu, ['status' => 'pending']);
+        $order = $this->order($menu, ['status' => 'pending', 'order_type' => 'dine_in']);
         $spy = $this->espionner();
         $spy->shouldNotReceive('notifyOrderStatus');
 
         $this->post(route('tagtoa.menu.dashboard.counter.complete', [$menu->id, $order->id]))
             ->assertRedirect();
+    }
+
+    public function test_the_counter_screen_never_notifies_a_ready_delivery_order_either(): void
+    {
+        // Le comptoir ignore désormais les livraisons — aucun changement de
+        // statut, donc aucune notification depuis CET écran.
+        $this->patron();
+        $menu = $this->menu();
+        $order = $this->order($menu, ['status' => 'ready', 'order_type' => 'delivery']);
+        $spy = $this->espionner();
+        $spy->shouldNotReceive('notifyOrderStatus');
+
+        $this->post(route('tagtoa.menu.dashboard.counter.complete', [$menu->id, $order->id]))
+            ->assertRedirect();
+
+        $this->assertSame('ready', $order->fresh()->status);
+    }
+
+    public function test_the_delivery_screen_notifies_when_a_courier_picks_up_an_order(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $courier = \Modules\Tagtoa\App\Models\Staff\Staff::create([
+            'tenant_id' => 't-1', 'name' => 'Junior', 'role' => 'courier', 'is_active' => true,
+            'pin_hash' => \Modules\Tagtoa\App\Services\Event\StaffPinService::hashPin('1111'),
+        ]);
+        $order = $this->order($menu, ['status' => 'ready', 'courier_id' => $courier->id]);
+        $spy = $this->espionner();
+        $spy->shouldReceive('notifyOrderStatus')->once()->withArgs(fn ($o) => $o->id === $order->id);
+
+        $this->post(route('tagtoa.menu.dashboard.delivery.advance', [$menu->id, $order->id]))
+            ->assertRedirect();
+    }
+
+    public function test_the_delivery_screen_notifies_when_a_courier_delivers_an_order(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $order = $this->order($menu, ['status' => 'picked_up']);
+        $spy = $this->espionner();
+        $spy->shouldReceive('notifyOrderStatus')->once()->withArgs(fn ($o) => $o->id === $order->id);
+
+        $this->post(route('tagtoa.menu.dashboard.delivery.advance', [$menu->id, $order->id]))
+            ->assertRedirect();
+    }
+
+    public function test_the_delivery_screen_never_notifies_a_ready_order_with_no_courier_assigned(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $order = $this->order($menu, ['status' => 'ready']);
+        $spy = $this->espionner();
+        $spy->shouldNotReceive('notifyOrderStatus');
+
+        $this->post(route('tagtoa.menu.dashboard.delivery.advance', [$menu->id, $order->id]))
+            ->assertRedirect();
+
+        $this->assertSame('ready', $order->fresh()->status);
     }
 
     /* ---------- filtre : à qui notifyOrderStatus() parle vraiment ---------- */
