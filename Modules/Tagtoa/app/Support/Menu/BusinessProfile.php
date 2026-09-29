@@ -164,6 +164,19 @@ class BusinessProfile
             ],
         ],
 
+        'service' => [
+            'noun'       => 'Service',
+            'nouns'      => 'Services',
+            'price_hint' => 'Prix de la prestation',
+            'price_suffix' => null,
+            'categories' => ['Consultations', 'Réparations', 'Entretien', 'Installation', 'Abonnements'],
+            'fields'     => [
+                'duration'             => ['label' => 'Durée',           'type' => self::T_NUMBER, 'unit' => 'min', 'min' => 0, 'max' => 10080],
+                'requires_appointment' => ['label' => 'Sur rendez-vous', 'type' => self::T_BOOL],
+                'location'             => ['label' => 'Lieu de la prestation', 'type' => self::T_SELECT, 'options' => ['Sur place', 'À domicile', 'À distance']],
+            ],
+        ],
+
         'other' => [
             'noun'       => 'Article',
             'nouns'      => 'Articles',
