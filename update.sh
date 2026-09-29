@@ -37,7 +37,20 @@ cd "$APP_DIR"
 # Chown et systemctl ne sont donc tentés qu'en root, et jamais bloquants.
 if [ "$(id -u)" -eq 0 ]; then
     IS_ROOT=1
-    if id -u www-data &>/dev/null; then PHP_USER="www-data"; else PHP_USER="apache"; fi
+    # Site isolé par tools/vps/isolate-site.sh : le dossier appartient à son
+    # propre utilisateur (web_<site>) et au groupe de nginx. On garde ce
+    # propriétaire, sinon chaque mise à jour annulerait l'isolation.
+    SITE_OWNER="$(stat -c %U "$APP_DIR")"
+    if [ -z "${PHP_USER:-}" ] && [ "$SITE_OWNER" != "root" ] \
+        && [ "$SITE_OWNER" != "www-data" ] && [ "$SITE_OWNER" != "apache" ]; then
+        PHP_USER="$SITE_OWNER"
+        WEB_GROUP="$(stat -c %G "$APP_DIR")"
+        info "Site isolé : fichiers conservés sous ${PHP_USER}:${WEB_GROUP}."
+    fi
+    if [ -z "${PHP_USER:-}" ]; then
+        if id -u www-data &>/dev/null; then PHP_USER="www-data"; else PHP_USER="apache"; fi
+    fi
+    WEB_GROUP="${WEB_GROUP:-$PHP_USER}"
 else
     IS_ROOT=0
     info "Exécution sans privilèges root — permissions système et redémarrage des services ignorés."
@@ -120,8 +133,13 @@ info "Permissions..."
 chmod -R 775 "$APP_DIR/storage" "$APP_DIR/bootstrap/cache" 2>/dev/null \
     || warn "Permissions de storage/ non modifiées."
 if [ "$IS_ROOT" -eq 1 ]; then
-    chown -R "${PHP_USER}:${PHP_USER}" "$APP_DIR"
-    chmod -R 755 "$APP_DIR"
+    # Propriétaire en écriture, groupe (nginx) en lecture, rien pour les autres :
+    # un autre site du VPS ne peut pas lire ce code. Le .env n'est lisible que
+    # par PHP. « X » garde l'exécution des binaires qui l'avaient déjà.
+    chown -R "${PHP_USER}:${WEB_GROUP}" "$APP_DIR"
+    chmod -R u+rwX,g+rX,g-w,o-rwx "$APP_DIR"
+    find "$APP_DIR" -type d -exec chmod g+s {} +
+    if [ -f "$APP_DIR/.env" ]; then chmod 600 "$APP_DIR/.env"; fi
 fi
 
 # ── 7. Redémarrage des services ───────────────────────────
