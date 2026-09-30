@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" width="720" height="200" role="img" aria-label="DJOUNES">
+  <title>DJOUNES</title>
+  <!-- Mot-symbole DJOUNES. Vert forêt #0B3B2E, or #D4AF37.
+       La barre horizontale évoque à la fois le liseré d'un uniforme et une
+       ligne de rythme cardiaque : elle relie les deux familles de produits.
+       Fonctionne aussi en une seule couleur (broderie, marquage savon) :
+       remplacer les deux remplissages par la même valeur. -->
+  <rect width="720" height="200" fill="#0B3B2E"/>
+
+  <g font-family="Georgia, 'Times New Roman', serif" font-weight="700">
+    <!-- Lettrine dorée, puis le reste du mot en ivoire -->
+    <text x="60" y="118" font-size="86" letter-spacing="10" fill="#D4AF37">D</text>
+    <text x="128" y="118" font-size="86" letter-spacing="10" fill="#F7F5F0">JOUNES</text>
+  </g>
+
+  <!-- Ligne de rythme : plate, un pic, plate -->
+  <path d="M60 140 H300 l14 -22 l12 40 l14 -18 H660"
+        fill="none" stroke="#D4AF37" stroke-width="3"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="60" y="172" font-family="Helvetica, Arial, sans-serif" font-size="17"
+        letter-spacing="7" fill="#E8C87A">BUILT FOR THE 12-HOUR SHIFT</text>
+</svg>
