@@ -43,19 +43,32 @@
 
     @php $moleCommune = $arrondissement?->communes->firstWhere('slug', 'mole-saint-nicolas'); @endphp
     @if ($moleCommune?->description)
-        <section class="border-b border-msn-sand-200 bg-white py-16">
-            <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+        <section class="border-b border-msn-sand-200 bg-white py-20">
+            <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
                 <div class="flex flex-wrap items-center gap-3">
-                    <h2 class="text-2xl font-bold text-msn-ink-900 sm:text-3xl">Môle-Saint-Nicolas</h2>
+                    <span class="h-1.5 w-14 rounded-full bg-msn-terracotta-500"></span>
+                    <h2 class="text-3xl font-extrabold tracking-tight text-msn-ink-900 sm:text-4xl">Môle-Saint-Nicolas</h2>
                     <x-content-status-badge :status="$moleCommune->content_status" />
                 </div>
-                <p class="mt-6 whitespace-pre-line leading-relaxed text-msn-ink-700">{{ $moleCommune->description }}</p>
-                @if ($moleCommune->population)
-                    <p class="mt-6 text-sm font-medium text-msn-ink-700">
-                        Population : {{ number_format($moleCommune->population, 0, ',', ' ') }}
-                        @if ($moleCommune->population_year) ({{ $moleCommune->population_year }}) @endif
+
+                <div class="mt-10 grid gap-10 lg:grid-cols-3 lg:gap-12">
+                    <p class="whitespace-pre-line text-lg leading-relaxed font-medium text-msn-ink-700 lg:col-span-2">
+                        {{ $moleCommune->description }}
                     </p>
-                @endif
+
+                    @if ($moleCommune->population)
+                        <div class="h-fit rounded-2xl border border-msn-sand-200 bg-msn-sand-100 p-6">
+                            <p class="text-xs font-bold tracking-[0.2em] text-msn-terracotta-500 uppercase">Population</p>
+                            <p class="mt-3 text-4xl font-extrabold text-msn-ink-900">
+                                {{ number_format($moleCommune->population, 0, ',', ' ') }}
+                            </p>
+                            <p class="mt-1 text-sm font-medium text-msn-ink-700">
+                                habitants
+                                @if ($moleCommune->population_year) — recensement {{ $moleCommune->population_year }} (IHSI) @endif
+                            </p>
+                        </div>
+                    @endif
+                </div>
             </div>
         </section>
     @endif

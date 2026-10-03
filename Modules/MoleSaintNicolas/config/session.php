@@ -169,12 +169,15 @@ return [
     |
     */
 
-    // Sécurisé automatiquement en production (APP_ENV=production, servi en
-    // HTTPS) sans dépendre d'une variable d'environnement supplémentaire
-    // que le client devrait ajouter manuellement sur le serveur.
+    // Basé sur APP_URL plutôt que sur APP_ENV : un site "production" pas
+    // encore servi en HTTPS (certificat pas encore posé sur l'hébergement)
+    // recevrait sinon un cookie "Secure" que le navigateur refuse de
+    // stocker sur une connexion HTTP — la session ne persiste alors jamais
+    // d'une requête à l'autre, et toute soumission de formulaire échoue en
+    // 419 "Page expired" (CSRF), y compris la connexion elle-même.
     // (app()->environment() ne peut pas être appelé ici : les fichiers de
     // config sont chargés avant que le conteneur ne soit prêt à le résoudre.)
-    'secure' => env('SESSION_SECURE_COOKIE', env('APP_ENV') === 'production'),
+    'secure' => env('SESSION_SECURE_COOKIE', str_starts_with((string) env('APP_URL'), 'https://')),
 
     /*
     |--------------------------------------------------------------------------
