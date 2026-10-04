@@ -129,13 +129,40 @@ class MenuOrderService
                 $taxe->inclusive
             );
 
+            // Table vérifiée par QR/NFC : un code valide IMPOSE le nom de la
+            // table ET FORCE la commande en « sur place » — peu importe le
+            // mode demandé ou les modes offerts par le menu : on ne peut pas
+            // « livrer » une table où le client est déjà assis, et si « sur
+            // place » n'est pas dans les modes offerts, la table doit rester
+            // commandable quand même (un client physiquement assis ne doit
+            // jamais se retrouver sans aucune option). Un code présent mais
+            // invalide/désactivé est refusé plutôt qu'ignoré : un QR périmé
+            // ne doit jamais faire atterrir silencieusement une commande
+            // sans table. Si la fonctionnalité est désactivée côté commerce,
+            // le code est ignoré comme s'il n'avait jamais été envoyé — pas
+            // une erreur, juste un lien de table devenu inactif. En
+            // l'absence de code, le texte libre du client reste possible
+            // (menu sans tables configurées).
+            $table = null;
+            $tableLabel = $payload['table_label'] ?? null;
+            if (! empty($payload['table_code']) && ($menu->table_ordering_enabled ?? true)) {
+                $table = \Modules\Tagtoa\App\Models\Menu\Table::where('menu_id', $menu->id)
+                    ->where('code', $payload['table_code'])->where('is_active', true)->first();
+                if (! $table) {
+                    throw new \RuntimeException('invalid_table');
+                }
+                $tableLabel = $table->label;
+            }
+
             // Le mode demandé doit être un mode RÉELLEMENT offert par CE menu
             // — jamais seulement un mode valide dans l'absolu. Un menu
             // livraison-seule ne doit pas pouvoir recevoir une commande
             // « sur place » via un appel direct qui contournerait l'écran.
             $modesOfferts = Order::serviceTypesFor($menu->service_types);
             $requestedType = $payload['order_type'] ?? $modesOfferts[0];
-            $orderType = in_array($requestedType, $modesOfferts, true) ? $requestedType : $modesOfferts[0];
+            $orderType = $table
+                ? 'dine_in'
+                : (in_array($requestedType, $modesOfferts, true) ? $requestedType : $modesOfferts[0]);
             $requestedChannel = $payload['channel'] ?? 'menu';
             $channel = in_array($requestedChannel, ['menu', 'whatsapp'], true) ? $requestedChannel : 'menu';
 
@@ -163,22 +190,6 @@ class MenuOrderService
             $total = $taxe->inclusive
                 ? round($subtotal + $tip + $deliveryFee, 2)
                 : round($recap['total'] + $tip + $deliveryFee, 2);
-
-            // Table vérifiée par QR/NFC : quand un code est fourni, il IMPOSE
-            // le nom de la table — jamais le texte libre du client, qui reste
-            // possible seulement en l'ABSENCE de code (menu sans tables
-            // configurées). Un code présent mais invalide/désactivé est
-            // refusé plutôt qu'ignoré : un QR périmé ne doit jamais faire
-            // atterrir silencieusement une commande sans table.
-            $tableLabel = $payload['table_label'] ?? null;
-            if (! empty($payload['table_code'])) {
-                $table = \Modules\Tagtoa\App\Models\Menu\Table::where('menu_id', $menu->id)
-                    ->where('code', $payload['table_code'])->where('is_active', true)->first();
-                if (! $table) {
-                    throw new \RuntimeException('invalid_table');
-                }
-                $tableLabel = $table->label;
-            }
 
             $order = $menu->orders()->create([
                 'tenant_id'        => $menu->tenant_id,

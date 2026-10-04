@@ -56,7 +56,10 @@ class PublicController extends Controller
         // cache ferait porter le numéro d'un premier client à tous les
         // suivants tant que le cache tient.
         $data['table'] = null;
-        if ($t = request('t')) {
+        // Si le commerce a désactivé la commande par table, un lien de QR
+        // resté en circulation ne doit plus rien afficher de spécial — la
+        // page se comporte comme si aucun code n'avait été fourni.
+        if (($t = request('t')) && ($data['menu']->table_ordering_enabled ?? true)) {
             $data['table'] = Table::where('menu_id', $data['menu']->id)
                 ->where('code', $t)->where('is_active', true)->first();
         }

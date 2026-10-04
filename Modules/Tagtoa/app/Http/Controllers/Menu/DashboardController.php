@@ -695,6 +695,7 @@ $data = $this->validateMenu($request);
             // Idem, nettoyé par Order::sanitizeServiceTypes() : jamais une
             // sélection vide qui bloquerait toute commande.
             'service_types'    => ['nullable', 'array'],
+            'table_ordering_enabled' => ['nullable', 'boolean'],
         ]);
 
         $data['hours'] = BusinessHours::sanitize($data['hours'] ?? null);

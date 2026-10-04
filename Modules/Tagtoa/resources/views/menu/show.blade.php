@@ -306,6 +306,16 @@
                     // de défaut : un menu livraison-seule ne doit pas ouvrir
                     // sur « Sur place », un mode qu'il n'offre pas.
                     $modesOfferts = \Modules\Tagtoa\App\Models\Menu\Order::serviceTypesFor($menu->service_types);
+                    // Une table vérifiée EST une commande sur place : on ne
+                    // propose plus les deux autres modes, pour que le seul
+                    // bouton affiché corresponde à ce que le serveur
+                    // enregistrera réellement (voir MenuOrderService), et
+                    // pour qu'un client assis à une table reste toujours
+                    // commandable même si « Sur place » n'est pas dans les
+                    // modes offerts par le menu.
+                    if ($table) {
+                        $modesOfferts = ['dine_in'];
+                    }
                     $modesIcones = ['dine_in' => 'fa-utensils', 'pickup' => 'fa-bag-shopping', 'delivery' => 'fa-motorcycle'];
                 @endphp
                 <div class="otype" id="otype">

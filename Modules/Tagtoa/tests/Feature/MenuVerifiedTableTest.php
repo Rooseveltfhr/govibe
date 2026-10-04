@@ -119,6 +119,34 @@ class MenuVerifiedTableTest extends TestCase
         $this->assertStringNotContainsString('N° table (optionnel)', $html);
     }
 
+    /** Une table vérifiée n'offre plus que « Sur place » — jamais Pote ale/Livraison,
+     *  qui n'ont plus de sens une fois qu'on sait que le client est assis. */
+    public function test_a_verified_table_only_offers_the_dine_in_button(): void
+    {
+        $menu = $this->withVisibleItem($this->menu());
+        $table = $menu->tables()->create(['tenant_id' => 't-1', 'label' => 'Terrasse 2', 'code' => Table::generateCode()]);
+
+        $html = $this->get('/menu/'.$menu->alias.'?t='.$table->code)->assertOk()->getContent();
+
+        $this->assertStringContainsString('data-type="dine_in"', $html);
+        $this->assertStringNotContainsString('data-type="pickup"', $html);
+        $this->assertStringNotContainsString('data-type="delivery"', $html);
+    }
+
+    /** Le commerce désactive la commande par table sans effacer ses tables :
+     *  un QR resté collé sur une table doit redevenir un simple champ libre. */
+    public function test_disabling_table_ordering_hides_the_fixed_table_even_with_a_valid_code(): void
+    {
+        $menu = $this->withVisibleItem($this->menu());
+        $menu->update(['table_ordering_enabled' => false]);
+        $table = $menu->tables()->create(['tenant_id' => 't-1', 'label' => 'Terrasse 2', 'code' => Table::generateCode()]);
+
+        $html = $this->get('/menu/'.$menu->alias.'?t='.$table->code)->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('Terrasse 2', $html);
+        $this->assertStringContainsString('N° table (optionnel)', $html);
+    }
+
     public function test_without_a_table_code_the_free_text_field_still_works(): void
     {
         $menu = $this->withVisibleItem($this->menu());
@@ -219,6 +247,61 @@ class MenuVerifiedTableTest extends TestCase
             'items' => [['id' => $item->id, 'qty' => 1]],
             'table_code' => $leur->code,
         ]);
+    }
+
+    /** Un client scanné à table qui clique quand même « Pote ale » est quand
+     *  même enregistré « sur place » : livrer une table n'a aucun sens. */
+    public function test_a_verified_table_forces_dine_in_even_if_another_type_was_requested(): void
+    {
+        $menu = $this->menu();
+        $item = $this->item($menu);
+        $table = $menu->tables()->create(['tenant_id' => 't-1', 'label' => 'Table 7', 'code' => Table::generateCode()]);
+
+        $order = app(MenuOrderService::class)->placeOrder($menu, [
+            'items' => [['id' => $item->id, 'qty' => 1]],
+            'table_code' => $table->code,
+            'order_type' => 'pickup',
+        ]);
+
+        $this->assertSame('dine_in', $order->order_type);
+        $this->assertSame('Table 7', $order->table_label);
+    }
+
+    /** Un menu qui n'offre pas « sur place » doit quand même rester
+     *  commandable depuis une table vérifiée — le client y est déjà assis. */
+    public function test_a_verified_table_still_works_even_when_dine_in_is_not_an_offered_mode(): void
+    {
+        $menu = $this->menu();
+        $menu->update(['service_types' => ['pickup', 'delivery']]);
+        $item = $this->item($menu);
+        $table = $menu->tables()->create(['tenant_id' => 't-1', 'label' => 'Table 7', 'code' => Table::generateCode()]);
+
+        $order = app(MenuOrderService::class)->placeOrder($menu, [
+            'items' => [['id' => $item->id, 'qty' => 1]],
+            'table_code' => $table->code,
+        ]);
+
+        $this->assertSame('dine_in', $order->order_type);
+        $this->assertSame('Table 7', $order->table_label);
+    }
+
+    /** Commerce désactivé : un code pourtant valide est ignoré comme s'il
+     *  n'avait jamais été envoyé — jamais une erreur sur une simple option
+     *  éteinte. */
+    public function test_disabling_table_ordering_makes_a_valid_code_ignored_instead_of_rejected(): void
+    {
+        $menu = $this->menu();
+        $menu->update(['table_ordering_enabled' => false]);
+        $item = $this->item($menu);
+        $table = $menu->tables()->create(['tenant_id' => 't-1', 'label' => 'Table 7', 'code' => Table::generateCode()]);
+
+        $order = app(MenuOrderService::class)->placeOrder($menu, [
+            'items' => [['id' => $item->id, 'qty' => 1]],
+            'table_code' => $table->code,
+        ]);
+
+        $this->assertNull($order->table_label);
+        $this->assertSame('dine_in', $order->order_type); // seul mode offert par défaut, pas imposé par la table
     }
 
     public function test_without_any_table_code_the_free_text_label_still_works(): void

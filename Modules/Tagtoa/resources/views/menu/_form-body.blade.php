@@ -112,6 +112,16 @@
                     <span>{{ __($label) }}</span>
                 </label>
             @endforeach
+            {{-- « Sur table (QR) » n'est pas un Order::ORDER_TYPES : une
+                 table vérifiée force toujours la commande en « sur place »
+                 (voir MenuOrderService::insertOrder). C'est un réglage à
+                 part — affiché en 4e chip pour suivre la maquette, mais
+                 soumis par son propre champ plutôt que dans service_types[]. --}}
+            <input type="hidden" name="table_ordering_enabled" value="0">
+            <label class="chip">
+                <input type="checkbox" name="table_ordering_enabled" value="1" @checked(old('table_ordering_enabled', $menu->table_ordering_enabled ?? true))>
+                <span><i class="fa-solid fa-qrcode"></i> {{ __('Sur table (QR)') }}</span>
+            </label>
         </div>
 
         <label class="lbl" style="margin-top:10px">{{ __('Frais de livraison') }} <span style="font-weight:400;color:var(--muted)">({{ __('vide ou 0 = livraison gratuite') }})</span></label>
