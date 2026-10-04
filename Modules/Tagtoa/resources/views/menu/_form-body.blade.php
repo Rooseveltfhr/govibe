@@ -12,10 +12,12 @@
                 {{ __('Logo, type, contact et devise sont pré-remplis depuis votre commerce — modifiez-les si ce menu est différent.') }}
             </p>
         @endunless
-        <div class="row">
-            <div><label class="lbl">{{ __('Nom') }}</label><input class="inp" name="name" value="{{ old('name',$menu->name) }}" placeholder="{{ __('Ex. Lounge 509') }}" required></div>
-            <div class="type-select-wrap"><label class="lbl">{{ __('Type') }}</label><select class="sel" name="type">@foreach(\Modules\Tagtoa\App\Models\Menu\Menu::TYPES as $k=>$v)<option value="{{ $k }}" @selected(old('type',$menu->type ?: 'restaurant')===$k)>{{ __($v['label']) }}</option>@endforeach</select></div>
-        </div>
+        {{-- Le nom vit désormais à l'étape « Informations » (voir plus bas) —
+             cette étape ne pose plus qu'une seule question : quel type
+             d'établissement, comme sur la maquette. Le <select> reste dans
+             le DOM (soumission du formulaire), juste sans la ligne « Nom »
+             à côté sur l'assistant. --}}
+        <div class="type-select-wrap"><label class="lbl">{{ __('Type') }}</label><select class="sel" name="type">@foreach(\Modules\Tagtoa\App\Models\Menu\Menu::TYPES as $k=>$v)<option value="{{ $k }}" @selected(old('type',$menu->type ?: 'restaurant')===$k)>{{ __($v['label']) }}</option>@endforeach</select></div>
         @if($isWizard ?? false)
             {{-- Grille de cartes : la même valeur que le <select> ci-dessus,
                  juste une autre façon de la choisir — utile sur l'assistant,
@@ -39,6 +41,8 @@
     {{-- ----- Établissement : informations ----- --}}
     <div class="card" data-step="2">
         <div class="h-row"><h2>{{ __('Informations') }}</h2></div>
+        <label class="lbl">{{ __('Nom') }}</label>
+        <input class="inp" name="name" value="{{ old('name',$menu->name) }}" placeholder="{{ __('Ex. Lounge 509') }}" required>
         <label class="lbl">{{ __('Alias (URL)') }}</label>
         <div style="display:flex;align-items:center;gap:8px"><span style="color:var(--muted);font-size:14px">tagtoa.com/menu/</span><input class="inp" name="alias" value="{{ old('alias',$menu->alias) }}" placeholder="{{ __('auto si vide') }}"></div>
         <label class="lbl">{{ __('Slogan') }}</label><input class="inp" name="tagline" value="{{ old('tagline',$menu->tagline) }}" placeholder="{{ __('Cuisine créole • Ambiance lounge') }}">
@@ -70,21 +74,26 @@
             <div><label class="lbl">{{ __('Logo') }}</label><input class="inp" type="file" name="logo" accept="image/*" onchange="previewLogo(this)">@if($menu->logo_url)<img id="logoPreview" src="{{ $menu->logo_url }}" style="height:42px;border-radius:10px;margin-top:8px">@else<img id="logoPreview" style="display:none;height:42px;border-radius:10px;margin-top:8px">@endif</div>
             <div><label class="lbl">{{ __('Couverture') }}</label><input class="inp" type="file" name="cover" accept="image/*">@if($editing && $menu->cover_url)<img src="{{ $menu->cover_url }}" style="height:42px;border-radius:10px;margin-top:8px">@endif</div>
         </div>
-    </div>
 
-    {{-- ----- Contact & commande ----- --}}
-    <div class="card" data-step="3">
-        <div class="h-row"><h2>{{ __('Contact & commande') }}</h2></div>
+        {{-- Coordonnées — regroupées ici avec l'identité du commerce plutôt
+             qu'avec les réglages de commande : c'est la même logique
+             « qui/où vous êtes » que le nom, le logo et la description
+             juste au-dessus. --}}
+        <label class="lbl" style="margin-top:10px">{{ __('Adresse') }}</label>
+        <div class="inp-ic"><i class="fa-solid fa-location-dot"></i><input class="inp" name="address" value="{{ old('address',$menu->address) }}" placeholder="{{ __('Rue, ville') }}"></div>
         <div class="row">
-            <div><label class="lbl">{{ __('WhatsApp (commande)') }}</label>
-                <div class="inp-ic"><i class="fa-brands fa-whatsapp"></i><input class="inp" name="whatsapp" value="{{ old('whatsapp',$menu->whatsapp) }}" placeholder="+509 0000 0000"></div>
-            </div>
             <div><label class="lbl">{{ __('Téléphone') }}</label>
                 <div class="inp-ic"><i class="fa-solid fa-phone"></i><input class="inp" name="phone" value="{{ old('phone',$menu->phone) }}" placeholder="+509 0000 0000"></div>
             </div>
+            <div><label class="lbl">{{ __('WhatsApp (commande)') }}</label>
+                <div class="inp-ic"><i class="fa-brands fa-whatsapp"></i><input class="inp" name="whatsapp" value="{{ old('whatsapp',$menu->whatsapp) }}" placeholder="+509 0000 0000"></div>
+            </div>
         </div>
-        <label class="lbl">{{ __('Adresse') }}</label>
-        <div class="inp-ic"><i class="fa-solid fa-location-dot"></i><input class="inp" name="address" value="{{ old('address',$menu->address) }}" placeholder="{{ __('Rue, ville') }}"></div>
+    </div>
+
+    {{-- ----- Commande & paiement ----- --}}
+    <div class="card" data-step="3">
+        <div class="h-row"><h2>{{ __('Commande & paiement') }}</h2></div>
         <div class="row">
             <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(\Modules\Tagtoa\App\Support\Money::options() as $code=>$label)<option value="{{ $code }}" @selected(old('currency',$menu->currency ?: \Modules\Tagtoa\App\Support\Locale::currencyFor())===$code)>{{ $label }}</option>@endforeach</select></div>
             <div><label class="lbl">{{ __('Page de paiement (TAGTOA Pay)') }}</label><select class="sel" name="pay_page_id"><option value="">{{ __('— Aucune —') }}</option>@foreach($payPages as $pp)<option value="{{ $pp->id }}" @selected(old('pay_page_id',$menu->pay_page_id)==$pp->id)>{{ $pp->title ?: $pp->alias }}</option>@endforeach</select></div>
