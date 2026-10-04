@@ -84,4 +84,17 @@ class MenuWizardTest extends TestCase
         $this->assertStringNotContainsString('wizard-nav', $html);
         $this->assertStringNotContainsString('wizard-shell', $html);
     }
+
+    /** Le compteur d'articles par rayon (« Plats principaux (3) ») n'existe
+     *  que sur l'assistant — même règle que la grille de cartes de type. */
+    public function test_the_wizard_shows_a_per_category_item_counter_but_the_classic_form_does_not(): void
+    {
+        $this->patron();
+
+        $this->assertStringContainsString('class="catcount"',
+            $this->get(route('tagtoa.menu.dashboard.wizard'))->assertOk()->getContent());
+
+        $this->assertStringNotContainsString('class="catcount"',
+            $this->get(route('tagtoa.menu.dashboard.create'))->assertOk()->getContent());
+    }
 }

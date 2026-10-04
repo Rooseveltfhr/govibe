@@ -268,6 +268,11 @@
                  le formulaire reste simple — personne ne sait quelle classe
                  Font Awesome choisir. --}}
             <input name="cats[CIDX][name]" class="inp" draggable="false" placeholder="{{ __('Nom de la catégorie') }}" style="font-weight:600">
+            @if($isWizard ?? false)
+                {{-- Combien d'articles « Enregistrés » dans ce rayon, à jour en
+                     même temps que le compteur global — voir updateItemCounter(). --}}
+                <span class="catcount" style="flex:0;color:var(--muted);font-size:12.5px;font-weight:600;white-space:nowrap"></span>
+            @endif
             <button type="button" class="btn btn-o btn-sm delcat" style="flex:0;color:var(--red)"
                     title="{{ __('Supprimer la catégorie') }}"><i class="fa-solid fa-trash"></i></button>
         </div>
@@ -629,6 +634,15 @@ function updateItemCounter(){
     if (elLabel){
         elLabel.textContent = n > 1 ? '{{ __('articles enregistrés') }}' : '{{ __('article enregistré') }}';
     }
+
+    // Même compte, par rayon cette fois — mis à jour en même temps pour ne
+    // jamais diverger du total global ci-dessus.
+    document.querySelectorAll('.catblock').forEach(function(block){
+        var badge = block.querySelector('.catcount');
+        if (!badge) { return; }
+        var compte = block.querySelectorAll('.itemrow.saved').length;
+        badge.textContent = compte ? '('+compte+')' : '';
+    });
 }
 
 /* Contracte une ligne d'article en résumé (nom — prix) une fois le nom
