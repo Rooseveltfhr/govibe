@@ -696,6 +696,8 @@ $data = $this->validateMenu($request);
             // sélection vide qui bloquerait toute commande.
             'service_types'    => ['nullable', 'array'],
             'table_ordering_enabled' => ['nullable', 'boolean'],
+            'show_images'      => ['nullable', 'boolean'],
+            'require_customer_info' => ['nullable', 'boolean'],
         ]);
 
         $data['hours'] = BusinessHours::sanitize($data['hours'] ?? null);

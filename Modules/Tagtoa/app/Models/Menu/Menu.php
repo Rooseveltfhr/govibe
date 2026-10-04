@@ -53,7 +53,7 @@ class Menu extends Model
         'logo_path', 'cover_path', 'currency', 'whatsapp', 'phone', 'address',
         'pay_page_id', 'accent_color', 'theme', 'show_prices', 'ordering_enabled',
         'is_active', 'views', 'translations', 'hours', 'show_hours', 'timezone', 'delivery_fee',
-        'languages', 'service_types', 'table_ordering_enabled',
+        'languages', 'service_types', 'table_ordering_enabled', 'show_images', 'require_customer_info',
     ];
 
     protected $casts = [
@@ -68,6 +68,8 @@ class Menu extends Model
         'languages'        => 'array',
         'service_types'    => 'array',
         'table_ordering_enabled' => 'boolean',
+        'show_images'      => 'boolean',
+        'require_customer_info' => 'boolean',
     ];
 
     /** Les seuls champs qu'une traduction peut porter — jamais le prix, jamais l'alias. */

@@ -239,8 +239,10 @@
                              pas le nom. À défaut, l'initiale du plat sur la
                              couleur du commerce — jamais un emoji, qui tombe en
                              carré blanc sur la moitié des téléphones. --}}
-                        @if($it->image_url)<img class="ph" src="{{ $it->image_url }}" alt="{{ $itNom }}" loading="lazy">
-                        @else<div class="ph">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($itNom, 0, 1)) }}</div>@endif
+                        @if($menu->show_images ?? true)
+                            @if($it->image_url)<img class="ph" src="{{ $it->image_url }}" alt="{{ $itNom }}" loading="lazy">
+                            @else<div class="ph">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($itNom, 0, 1)) }}</div>@endif
+                        @endif
                         <div class="body">
                             <div class="nm">{{ $itNom }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ __('Épuisé') }}</span>@endif</div>
                             @if($itDesc)<div class="ds">{{ $itDesc }}</div>@endif
@@ -441,8 +443,9 @@
         // recalculé côté serveur (MenuOrderService::insertOrder()).
         var DELIVERY_FEE = @json((float) ($menu->delivery_fee ?: 0));
         var HAS_ZONES = @json($menu->activeDeliveryZones->isNotEmpty());
+        var REQUIRE_CUSTOMER_INFO = @json($menu->require_customer_info ?? false);
         var CSRF = document.querySelector('meta[name=csrf-token]').getAttribute('content');
-        var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')) };
+        var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')), customerInfo:@json(__('Indiquez votre nom et votre téléphone pour commander.')) };
         var cart = {};
         // Même défaut que le bouton .otbtn.on rendu côté serveur — un menu
         // livraison-seule ne doit pas démarrer sur un mode qu'il n'offre pas.
@@ -612,6 +615,13 @@
         }
         function submitOrder(){
             var s = totals(); if(s.n===0) return;
+            // Confort d'affichage seulement : le serveur revalide la même
+            // règle (MenuOrderService::placeOrder()) et refuserait de toute
+            // façon une commande sans ces champs si le commerce les exige.
+            if (REQUIRE_CUSTOMER_INFO && (!val('cName') || !val('cPhone'))){
+                alert(T.customerInfo);
+                return;
+            }
             var items=[]; for(var k in cart){ items.push({id:cart[k].id, qty:cart[k].qty, options:cart[k].options}); }
             var payload = {items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
                 customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),

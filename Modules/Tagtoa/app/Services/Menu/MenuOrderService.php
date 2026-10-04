@@ -50,6 +50,18 @@ class MenuOrderService
             throw new \RuntimeException('closed');
         }
 
+        // Comme le JS côté client : confort d'affichage là-bas, mais la
+        // vraie règle vit ICI — un appel direct qui contournerait l'écran
+        // ne doit pas pouvoir commander sans nom ni téléphone si le
+        // commerce l'exige.
+        if ($menu->require_customer_info ?? false) {
+            $nom = trim((string) ($payload['customer_name'] ?? ''));
+            $tel = trim((string) ($payload['customer_phone'] ?? ''));
+            if ($nom === '' || $tel === '') {
+                throw new \RuntimeException('missing_customer_info');
+            }
+        }
+
         try {
             $order = $this->insertOrder($menu, $payload, $uuid);
         } catch (QueryException $e) {

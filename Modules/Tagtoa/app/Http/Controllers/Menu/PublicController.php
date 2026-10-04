@@ -104,6 +104,7 @@ class PublicController extends Controller
                 'missing_required_option' => __('Choisissez une option obligatoire pour chaque article.'),
                 'closed'                  => __('Ce commerce est fermé pour le moment. Revenez pendant les heures d\'ouverture.'),
                 'invalid_table'           => __('Ce QR de table n\'est plus valide. Rechargez la page en le rescannant.'),
+                'missing_customer_info'   => __('Indiquez votre nom et votre téléphone pour commander.'),
                 default                   => __('Votre commande est vide.'),
             };
 

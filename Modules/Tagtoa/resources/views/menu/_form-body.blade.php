@@ -99,6 +99,10 @@
             <div><label class="lbl">{{ __('Page de paiement (TAGTOA Pay)') }}</label><select class="sel" name="pay_page_id"><option value="">{{ __('— Aucune —') }}</option>@foreach($payPages as $pp)<option value="{{ $pp->id }}" @selected(old('pay_page_id',$menu->pay_page_id)==$pp->id)>{{ $pp->title ?: $pp->alias }}</option>@endforeach</select></div>
         </div>
         <label class="switch"><input type="hidden" name="ordering_enabled" value="0"><input type="checkbox" name="ordering_enabled" value="1" @checked(old('ordering_enabled',$menu->ordering_enabled ?? true))> {{ __('Activer la commande WhatsApp') }}</label>
+        {{-- Décoché par défaut : nom/téléphone sont optionnels depuis
+             toujours (MenuOrderService) — les rendre obligatoires par
+             défaut romprait la commande des menus déjà en service. --}}
+        <label class="switch"><input type="hidden" name="require_customer_info" value="0"><input type="checkbox" name="require_customer_info" value="1" @checked(old('require_customer_info',$menu->require_customer_info ?? false))> {{ __('Demander les informations client (nom, téléphone) avant de commander') }}</label>
 
         {{-- Modes de service proposés au client — un sous-ensemble des trois
              modes de TAGTOA. Rien de coché nulle part (menu jamais réglé) =
@@ -144,6 +148,7 @@
             <div><label class="lbl">{{ __('Couleur d\'accent') }}</label><input class="inp" type="color" name="accent_color" value="{{ old('accent_color',$menu->accent_color ?: '#2cb809') }}" style="height:48px;padding:6px"></div>
         </div>
         <label class="switch"><input type="hidden" name="show_prices" value="0"><input type="checkbox" name="show_prices" value="1" @checked(old('show_prices',$menu->show_prices ?? true))> {{ __('Afficher les prix') }}</label>
+        <label class="switch"><input type="hidden" name="show_images" value="0"><input type="checkbox" name="show_images" value="1" @checked(old('show_images',$menu->show_images ?? true))> {{ __('Afficher les images') }}</label>
         <label class="switch"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" @checked(old('is_active',$menu->is_active ?? true))> {{ __('Menu actif (visible au public)') }}</label>
 
         {{-- Langues offertes au client — un sous-ensemble des langues de
