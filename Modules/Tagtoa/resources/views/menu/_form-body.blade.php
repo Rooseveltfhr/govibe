@@ -27,6 +27,9 @@
                     <button type="button" class="type-card" data-type="{{ $k }}" onclick="choseType('{{ $k }}')">
                         <i class="{{ $v['icon'] }}"></i>
                         <span class="type-card-label">{{ __($v['label']) }}</span>
+                        @if(! empty($v['desc']))
+                            <span class="type-card-desc">{{ __($v['desc']) }}</span>
+                        @endif
                     </button>
                 @endforeach
             </div>
@@ -73,10 +76,15 @@
     <div class="card" data-step="3">
         <div class="h-row"><h2>{{ __('Contact & commande') }}</h2></div>
         <div class="row">
-            <div><label class="lbl">{{ __('WhatsApp (commande)') }}</label><input class="inp" name="whatsapp" value="{{ old('whatsapp',$menu->whatsapp) }}" placeholder="+509 0000 0000"></div>
-            <div><label class="lbl">{{ __('Téléphone') }}</label><input class="inp" name="phone" value="{{ old('phone',$menu->phone) }}" placeholder="+509 0000 0000"></div>
+            <div><label class="lbl">{{ __('WhatsApp (commande)') }}</label>
+                <div class="inp-ic"><i class="fa-brands fa-whatsapp"></i><input class="inp" name="whatsapp" value="{{ old('whatsapp',$menu->whatsapp) }}" placeholder="+509 0000 0000"></div>
+            </div>
+            <div><label class="lbl">{{ __('Téléphone') }}</label>
+                <div class="inp-ic"><i class="fa-solid fa-phone"></i><input class="inp" name="phone" value="{{ old('phone',$menu->phone) }}" placeholder="+509 0000 0000"></div>
+            </div>
         </div>
-        <label class="lbl">{{ __('Adresse') }}</label><input class="inp" name="address" value="{{ old('address',$menu->address) }}" placeholder="{{ __('Rue, ville') }}">
+        <label class="lbl">{{ __('Adresse') }}</label>
+        <div class="inp-ic"><i class="fa-solid fa-location-dot"></i><input class="inp" name="address" value="{{ old('address',$menu->address) }}" placeholder="{{ __('Rue, ville') }}"></div>
         <div class="row">
             <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(\Modules\Tagtoa\App\Support\Money::options() as $code=>$label)<option value="{{ $code }}" @selected(old('currency',$menu->currency ?: \Modules\Tagtoa\App\Support\Locale::currencyFor())===$code)>{{ $label }}</option>@endforeach</select></div>
             <div><label class="lbl">{{ __('Page de paiement (TAGTOA Pay)') }}</label><select class="sel" name="pay_page_id"><option value="">{{ __('— Aucune —') }}</option>@foreach($payPages as $pp)<option value="{{ $pp->id }}" @selected(old('pay_page_id',$menu->pay_page_id)==$pp->id)>{{ $pp->title ?: $pp->alias }}</option>@endforeach</select></div>
@@ -185,7 +193,18 @@
     <div class="card" data-step="4 5">
         <div class="h-row">
             <h2>{{ __('Catégories &') }} <span class="tt-nouns">{{ __('Produits') }}</span></h2>
-            <button type="button" class="btn btn-d btn-sm" onclick="addCat()"><i class="fa-solid fa-plus"></i> {{ __('Catégorie') }}</button>
+            <div style="display:flex;align-items:center;gap:10px">
+                @if($isWizard ?? false)
+                    {{-- Confirme la progression sans qu'il faille faire défiler
+                         toute la liste — même esprit que « Vos articles 1-2-3-4 »
+                         côté POS. Ne compte que les articles « Enregistrés ». --}}
+                    <span id="itemCounter" style="font-size:12.5px;font-weight:600;color:var(--muted);background:#f2f2f2;padding:4px 10px;border-radius:999px;white-space:nowrap">
+                        <i class="fa-solid fa-circle-check" style="color:#2cb809"></i>
+                        <span id="itemCounterN">0</span> <span id="itemCounterLabel">{{ __('article enregistré') }}</span>
+                    </span>
+                @endif
+                <button type="button" class="btn btn-d btn-sm" onclick="addCat()"><i class="fa-solid fa-plus"></i> {{ __('Catégorie') }}</button>
+            </div>
         </div>
         <p style="color:var(--muted);font-size:13px;margin-top:-8px">
             {{ __('Le formulaire suit le type d\'établissement choisi plus haut : un hôtel décrit des chambres, un bar des boissons, un restaurant des plats.') }}
@@ -247,9 +266,28 @@
 {{-- Template produit/service --}}
 <template id="itemtpl">
     <div class="itemrow" data-ci="CIDX" data-ii="IIDX" style="background:#fff;border:1px solid var(--bd);border-radius:11px;padding:10px;margin-bottom:8px">
+        @if($isWizard ?? false)
+            {{-- Résumé affiché une fois l'article « Enregistré » : confirme
+                 qu'il est acquis sans rouvrir tout son formulaire pour le
+                 vérifier. N'existe que sur l'assistant — personne n'a demandé
+                 à changer le formulaire classique. --}}
+            <div class="itemsummary">
+                <div style="display:flex;align-items:center;gap:10px;overflow:hidden">
+                    <i class="fa-solid fa-circle-check" style="color:#2cb809;flex:0 0 auto"></i>
+                    <span class="itemsummary-name" style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+                    <span class="itemsummary-price" style="color:var(--muted);flex:0 0 auto;white-space:nowrap"></span>
+                </div>
+                <button type="button" class="btn btn-o btn-sm edititem" style="flex:0 0 auto"><i class="fa-solid fa-pen"></i> {{ __('Modifier') }}</button>
+            </div>
+        @endif
+        <div class="itemedit">
         <div style="display:flex;gap:8px;align-items:center">
             <input name="cats[CIDX][items][IIDX][name]" class="inp tt-itemname" placeholder="{{ __('Nom') }}">
             <input name="cats[CIDX][items][IIDX][price]" class="inp tt-price" type="number" step="0.01" min="0" placeholder="{{ __('Prix') }}" style="max-width:130px">
+            @if($isWizard ?? false)
+                <button type="button" class="btn btn-o btn-sm savitem" style="flex:0;color:#2cb809"
+                        title="{{ __('Enregistrer cet article') }}"><i class="fa-solid fa-check"></i></button>
+            @endif
             <button type="button" class="btn btn-o btn-sm delitem" style="flex:0;color:var(--red)"
                     title="{{ __('Supprimer l\'article') }}"><i class="fa-solid fa-trash"></i></button>
         </div>
@@ -329,6 +367,7 @@
         <input type="hidden" name="cats[CIDX][items][IIDX][options_sent]" value="1">
         <div class="options" style="margin-top:8px"></div>
         <button type="button" class="btn btn-o btn-sm" onclick="addOption(this.closest('.itemrow'))" style="margin-top:6px"><i class="fa-solid fa-plus"></i> {{ __('Option (taille, extra…)') }}</button>
+        </div>
     </div>
 </template>
 
@@ -375,6 +414,19 @@
               font-size:12.5px;cursor:pointer;transition:.14s;user-select:none}
     .tag input:checked + span{border-color:#2cb809;background:rgba(44,184,9,.09);color:#0e5f44;font-weight:600}
     .tag input:focus-visible + span{outline:2px solid #2cb809;outline-offset:2px}
+    /* Icône posée à gauche d'un champ (adresse, téléphone, WhatsApp) — un
+       repère visuel que le libellé seul ne donne pas d'un coup d'œil. */
+    .inp-ic{position:relative}
+    .inp-ic i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;pointer-events:none}
+    .inp-ic .inp{padding-left:38px}
+    @if($isWizard ?? false)
+        /* Bascule résumé/édition d'un article — assistant seulement : le
+           formulaire classique n'a ni bouton « Sove » ni .itemsummary, donc
+           la classe .saved n'y est jamais posée (voir addItem() plus bas). */
+        .itemsummary{display:none;align-items:center;justify-content:space-between;gap:10px;padding:4px 2px}
+        .itemrow.saved .itemsummary{display:flex}
+        .itemrow.saved .itemedit{display:none}
+    @endif
 </style>
 @push('scripts')
 <script>
@@ -387,6 +439,10 @@ var cIdx = 0;
    côté serveur contre le même profil — le JS est un confort, pas une garantie.
    ------------------------------------------------------------------ */
 var PROFILES = @json(\Modules\Tagtoa\App\Support\Menu\BusinessProfile::PROFILES);
+
+// Le résumé/compteur d'articles n'existe que sur l'assistant — voir le
+// commentaire sur .itemsummary dans le <style> ci-dessus.
+var IS_WIZARD = @json($isWizard ?? false);
 
 // Rayons courants d'un petit commerce, en plus des catégories du métier
 // choisi — LA MÊME liste que celle proposée dans POS (CategoryPresets::COMMON) :
@@ -537,6 +593,39 @@ function renderPresets(){
     });
 }
 
+/* Compte les articles « Enregistrés » (voir .itemsummary) — ignore ceux
+   encore en cours de saisie, qui ne sont pas encore acquis. No-op si le
+   badge n'existe pas (formulaire classique, IS_WIZARD faux). */
+function updateItemCounter(){
+    var elN = document.getElementById('itemCounterN');
+    if (!elN) { return; }
+    var n = document.querySelectorAll('.itemrow.saved').length;
+    elN.textContent = n;
+    var elLabel = document.getElementById('itemCounterLabel');
+    if (elLabel){
+        elLabel.textContent = n > 1 ? '{{ __('articles enregistrés') }}' : '{{ __('article enregistré') }}';
+    }
+}
+
+/* Contracte une ligne d'article en résumé (nom — prix) une fois le nom
+   renseigné — même geste que « Enregistrer » côté POS : l'article QUITTE la
+   zone de saisie pour rejoindre le compte d'articles acquis. */
+function marquerSauvegarde(row){
+    var nom = (row.querySelector('[name$="[name]"]').value || '').trim();
+    if (!nom){
+        var nameEl = row.querySelector('[name$="[name]"]');
+        nameEl.style.borderColor = 'var(--red)';
+        nameEl.focus();
+        return;
+    }
+    row.querySelector('[name$="[name]"]').style.borderColor = '';
+    var prix = row.querySelector('[name$="[price]"]').value;
+    row.querySelector('.itemsummary-name').textContent = nom;
+    row.querySelector('.itemsummary-price').textContent = (prix !== '' && prix != null) ? prix : '';
+    row.classList.add('saved');
+    updateItemCounter();
+}
+
 function previewItemImage(input){
     var row = input.closest('.itemrow');
     var img = row.querySelector('.itemphoto');
@@ -661,8 +750,29 @@ function addItem(catEl, d){
     row.querySelector('.delitem').addEventListener('click', function(){
         var nom = (row.querySelector('[name$="[name]"]').value || '').trim();
         supprimer(row, DEL_ITEM_URL, "{{ __('Supprimer définitivement cet article ? Il disparaîtra aussi de la caisse.') }}\n\n" + nom);
+        updateItemCounter();
     });
+    // .savitem/.edititem n'existent que sur l'assistant (voir itemtpl) — null
+    // sur le formulaire classique, d'où la garde avant d'écouter.
+    var btnSave = row.querySelector('.savitem');
+    if (btnSave){ btnSave.addEventListener('click', function(){ marquerSauvegarde(row); }); }
+    var btnEdit = row.querySelector('.edititem');
+    if (btnEdit){
+        btnEdit.addEventListener('click', function(){
+            row.classList.remove('saved');
+            updateItemCounter();
+        });
+    }
+    // Un article chargé depuis la base (d.id présent) est déjà acquis : il
+    // s'affiche replié d'entrée, comme « Vos articles 1-2-3-4 » côté POS.
+    // Seulement sur l'assistant — le formulaire classique n'a pas de .saved.
+    if (IS_WIZARD && d && d.id){
+        row.querySelector('.itemsummary-name').textContent = d.name || '';
+        row.querySelector('.itemsummary-price').textContent = (d.price != null ? d.price : '');
+        row.classList.add('saved');
+    }
     renderSpecs(row, d ? d.specs : null);
+    updateItemCounter();
     return row;
 }
 
@@ -688,6 +798,7 @@ function addCat(d){
     block.querySelector('.delcat').addEventListener('click', function(){
         var nom = (block.querySelector('[name$="[name]"]').value || '').trim();
         supprimer(block, DEL_CAT_URL, "{{ __('Supprimer cette catégorie ET tous ses articles ? Cette action est définitive.') }}\n\n" + nom);
+        updateItemCounter();
     });
     attacherGlisser(block);
     return block;

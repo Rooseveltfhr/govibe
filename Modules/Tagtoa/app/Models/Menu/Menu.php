@@ -24,19 +24,26 @@ class Menu extends Model
 
     protected $table = 'tagtoa_menus';
 
-    /** Types d'établissement : label + icône FA. */
+    /**
+     * Types d'établissement : label + icône FA + description courte.
+     *
+     * `desc` n'est lu que par la grille de cartes de l'assistant (voir
+     * menu/_form-body.blade.php) — le <select> classique n'affiche que le
+     * label, comme avant. Clé purement additive : aucun des autres lecteurs
+     * de TYPES (POS, Business…) n'y touche.
+     */
     public const TYPES = [
-        'restaurant' => ['label' => 'Restaurant', 'icon' => 'fa-solid fa-utensils'],
-        'cafe'       => ['label' => 'Café',        'icon' => 'fa-solid fa-mug-hot'],
-        'bar'        => ['label' => 'Bar',         'icon' => 'fa-solid fa-martini-glass'],
-        'club'       => ['label' => 'Club',        'icon' => 'fa-solid fa-record-vinyl'],
-        'lounge'     => ['label' => 'Lounge',      'icon' => 'fa-solid fa-couch'],
-        'hotel'      => ['label' => 'Hôtel',       'icon' => 'fa-solid fa-hotel'],
-        'pharmacy'   => ['label' => 'Pharmacie',   'icon' => 'fa-solid fa-prescription-bottle-medical'],
-        'clinic'     => ['label' => 'Clinique',    'icon' => 'fa-solid fa-stethoscope'],
-        'boutique'   => ['label' => 'Boutique / Commerce', 'icon' => 'fa-solid fa-bag-shopping'],
-        'service'    => ['label' => 'Service',     'icon' => 'fa-solid fa-handshake'],
-        'other'      => ['label' => 'Autre',       'icon' => 'fa-solid fa-store'],
+        'restaurant' => ['label' => 'Restaurant', 'icon' => 'fa-solid fa-utensils', 'desc' => 'Menu, tables, commandes'],
+        'cafe'       => ['label' => 'Café',        'icon' => 'fa-solid fa-mug-hot', 'desc' => 'Boissons, snacks'],
+        'bar'        => ['label' => 'Bar',         'icon' => 'fa-solid fa-martini-glass', 'desc' => 'Boissons, cocktails'],
+        'club'       => ['label' => 'Club',        'icon' => 'fa-solid fa-record-vinyl', 'desc' => 'Soirées, bouteilles, VIP'],
+        'lounge'     => ['label' => 'Lounge',      'icon' => 'fa-solid fa-couch', 'desc' => 'Cocktails, chicha, ambiance'],
+        'hotel'      => ['label' => 'Hôtel',       'icon' => 'fa-solid fa-hotel', 'desc' => 'Chambres, services'],
+        'pharmacy'   => ['label' => 'Pharmacie',   'icon' => 'fa-solid fa-prescription-bottle-medical', 'desc' => 'Médicaments, parapharmacie'],
+        'clinic'     => ['label' => 'Clinique',    'icon' => 'fa-solid fa-stethoscope', 'desc' => 'Consultations, soins'],
+        'boutique'   => ['label' => 'Boutique / Commerce', 'icon' => 'fa-solid fa-bag-shopping', 'desc' => 'Articles, vêtements, accessoires'],
+        'service'    => ['label' => 'Service',     'icon' => 'fa-solid fa-handshake', 'desc' => 'Consultations, réparations'],
+        'other'      => ['label' => 'Autre',       'icon' => 'fa-solid fa-store', 'desc' => 'Salon, boutique, etc.'],
     ];
 
     public const THEMES = ['light', 'dark'];

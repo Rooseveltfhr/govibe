@@ -150,6 +150,7 @@
                font:inherit;color:inherit;position:relative}
     .type-card i{font-size:22px;color:var(--muted)}
     .type-card-label{font-size:12.5px;font-weight:600;text-align:center}
+    .type-card-desc{font-size:11px;color:var(--muted);text-align:center;line-height:1.3;margin-top:-4px}
     .type-card.selected{border-color:#2cb809;background:rgba(44,184,9,.07)}
     .type-card.selected i{color:#2cb809}
     .type-card.selected::after{content:'\f00c';font-family:'Font Awesome 6 Free';font-weight:900;
