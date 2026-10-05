@@ -5,6 +5,7 @@ namespace Modules\Tagtoa\App\Http\Controllers\Menu;
 use App\Http\Controllers\Controller;
 use Modules\Tagtoa\App\Support\EnforcesPlan;
 use App\Models\Vcard;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -88,13 +89,21 @@ class DashboardController extends Controller
         ];
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
-        
         if ($r = $this->planGuard('menu')) {
+            // L'assistant publie en AJAX (voir wizard.blade.php) : une
+            // redirection y arriverait comme un corps HTML que le JS ne sait
+            // pas lire, au lieu du message d'erreur.
+            if ($request->wantsJson()) {
+                return response()->json(['ok' => false,
+                    'message' => __('Limite de votre forfait atteinte pour ce module. Passez à un forfait supérieur pour continuer.'),
+                ], 403);
+            }
+
             return $r;
         }
-$data = $this->validateMenu($request);
+        $data = $this->validateMenu($request);
         $menu = new Menu($data);
         $menu->tenant_id = Tenant::id();
         $menu->alias = $data['alias'] ?: Menu::generateAlias($data['name'] ?? 'menu');
@@ -110,6 +119,20 @@ $data = $this->validateMenu($request);
         $menu->save();
         $this->syncContent($menu, $request);
         $this->syncDeliveryZones($menu, $request);
+
+        // L'assistant reste sur l'étape Publier et affiche lien/QR/code
+        // d'intégration sans quitter la page (voir wizard.blade.php) : avant
+        // cet enregistrement, le menu n'avait pas d'alias, donc rien de tout
+        // cela n'aurait pu s'afficher plus tôt.
+        if ($request->wantsJson()) {
+            return response()->json([
+                'ok'         => true,
+                'id'         => $menu->id,
+                'name'       => $menu->name,
+                'public_url' => $menu->public_url,
+                'edit_url'   => route('tagtoa.menu.dashboard.edit', $menu->id),
+            ]);
+        }
 
         return redirect()->route('tagtoa.menu.dashboard.edit', $menu->id)
             ->with('success', __('Menu créé. Ajoutez vos catégories et produits.'));

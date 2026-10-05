@@ -63,20 +63,46 @@
         </div>
     </div>
 
-    {{-- Publier — le lien, le QR et le code d'intégration n'existent
-         qu'APRÈS l'enregistrement (le menu n'a pas encore d'alias tant que
-         ce bouton n'a pas été cliqué) : ils vivent sur l'écran d'édition qui
-         suit (menu/form.blade.php), jamais ici en avance sur des liens
-         qui ne mèneraient nulle part. --}}
-    <div class="card" data-step="7" style="text-align:center">
-        <i class="fa-solid fa-circle-check" style="font-size:40px;color:#2cb809"></i>
-        <h2 style="font-family:var(--fh,inherit);margin:10px 0 4px">{{ __('Votre menu est prêt !') }}</h2>
-        <p style="color:var(--muted);font-size:13.5px;max-width:360px;margin:0 auto">
-            {{ __('Vérifiez les informations ci-dessus, puis publiez. Le lien à partager, le QR code et le code d\'intégration apparaîtront juste après.') }}
-        </p>
-        <p style="margin-top:14px">
-            <a href="{{ route('tagtoa.menu.dashboard.index') }}" style="font-size:13px;color:var(--muted)">{{ __('Modifier plus tard') }}</a>
-        </p>
+    {{-- Publier — le lien, le QR et le code d'intégration n'existaient pas
+         tant que le menu n'avait pas d'alias. Le bouton « Publier maintenant »
+         (dans _form-body.blade.php) enregistre maintenant en AJAX SANS quitter
+         cette étape (voir publierMenu() plus bas) : #publishReady cède la
+         place à #publishDone dès la réponse, avec le vrai lien de CE menu. --}}
+    <div class="card" data-step="7">
+        <div id="publishReady" style="text-align:center">
+            <i class="fa-solid fa-circle-check" style="font-size:40px;color:#2cb809"></i>
+            <h2 style="font-family:var(--fh,inherit);margin:10px 0 4px">{{ __('Votre menu est prêt !') }}</h2>
+            <p style="color:var(--muted);font-size:13.5px;max-width:360px;margin:0 auto">
+                {{ __('Vérifiez les informations ci-dessus, puis publiez. Le lien à partager, le QR code et le code d\'intégration apparaîtront juste après.') }}
+            </p>
+            <p style="margin-top:14px">
+                <a href="{{ route('tagtoa.menu.dashboard.index') }}" style="font-size:13px;color:var(--muted)">{{ __('Modifier plus tard') }}</a>
+            </p>
+        </div>
+        <div id="publishDone" style="display:none">
+            <div style="text-align:center">
+                <i class="fa-solid fa-circle-check" style="font-size:40px;color:#2cb809"></i>
+                <h2 style="font-family:var(--fh,inherit);margin:10px 0 4px">{{ __('Menu publié !') }}</h2>
+            </div>
+            <label class="lbl">{{ __('Lien à partager') }}</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <input class="inp" id="publicUrlInput" readonly style="flex:1;min-width:220px;font-family:monospace;font-size:13px">
+                <button type="button" class="btn btn-o btn-sm" id="copyPublicUrl"><i class="fa-solid fa-copy"></i> {{ __('Copier') }}</button>
+            </div>
+            <div id="shareButtons" style="margin-top:10px"></div>
+            <div class="row" style="margin-top:14px">
+                <a id="viewMenuBtn" class="btn btn-o btn-sm" target="_blank" rel="noopener" href="#"><i class="fa-solid fa-eye"></i> {{ __('Voir mon menu') }}</a>
+                {{-- Même page que « QR code & affiche » sur l'écran d'édition
+                     classique (tagtoa.qr.index) : elle couvre déjà télécharger
+                     ET imprimer, pas besoin d'un deuxième générateur de QR ici. --}}
+                <a class="btn btn-o btn-sm" href="{{ route('tagtoa.qr.index') }}"><i class="fa-solid fa-qrcode"></i> {{ __('QR code & affiche') }}</a>
+            </div>
+            <button type="button" class="btn btn-o btn-sm" id="togEmbed" style="margin-top:10px"><i class="fa-solid fa-code"></i> {{ __('Intégrer sur mon site web') }}</button>
+            <textarea class="inp" id="embedBox" readonly rows="2" hidden style="font-family:monospace;font-size:12px;margin-top:8px" onclick="this.select()"></textarea>
+            <p style="margin-top:16px;text-align:center">
+                <a id="goEditBtn" href="#" style="font-size:13px;color:var(--muted)">{{ __('Continuer vers l\'édition complète') }}</a>
+            </p>
+        </div>
     </div>
 
     <div class="wizard-footer" data-step="1">
@@ -279,6 +305,106 @@ function wizardGo(n){
 }
 
 document.addEventListener('DOMContentLoaded', function(){ wizardGo(1); });
+
+/* ------------------------------------------------------------------
+   Publier sans quitter l'assistant — voir le commentaire sur #publishDone
+   plus haut. Le formulaire classique (menu/form.blade.php) n'inclut jamais
+   ce fichier : cette interception ne s'applique donc qu'ici, jamais là-bas.
+   ------------------------------------------------------------------ */
+var wizardForm = document.querySelector('.wizard-shell form');
+if (wizardForm){
+    wizardForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        publierMenu();
+    });
+}
+
+function publierMenu(){
+    var btn = document.querySelector('.wizard-shell button[data-step="7"]');
+    if (btn) { btn.disabled = true; }
+
+    fetch(wizardForm.action, {
+        method: 'POST',
+        body: new FormData(wizardForm),
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin',
+    }).then(function(r){
+        return r.json().then(function(corps){ return { statut: r.status, corps: corps }; });
+    }).then(function(res){
+        if (res.statut >= 200 && res.statut < 300 && res.corps && res.corps.ok){
+            afficherPublicationReussie(res.corps);
+        } else {
+            afficherErreurPublication(res.corps);
+            if (btn) { btn.disabled = false; }
+        }
+    }).catch(function(){
+        alert('{{ __('La publication a échoué. Vérifiez votre connexion et réessayez.') }}');
+        if (btn) { btn.disabled = false; }
+    });
+}
+
+function afficherErreurPublication(corps){
+    var msg = (corps && corps.message) ? corps.message : '{{ __('La publication a échoué. Vérifiez le formulaire et réessayez.') }}';
+    // Erreur de validation Laravel (422) : le premier message concret vaut
+    // mieux que le résumé générique « The given data was invalid. ».
+    if (corps && corps.errors){
+        var listes = Object.values(corps.errors);
+        if (listes.length && listes[0] && listes[0][0]) { msg = listes[0][0]; }
+    }
+    alert(msg);
+}
+
+function afficherPublicationReussie(menu){
+    document.getElementById('publishReady').style.display = 'none';
+    document.getElementById('publishDone').style.display = '';
+
+    document.getElementById('publicUrlInput').value = menu.public_url;
+    document.getElementById('viewMenuBtn').href = menu.public_url;
+    document.getElementById('goEditBtn').href = menu.edit_url;
+    document.getElementById('embedBox').value =
+        '<iframe src="' + menu.public_url + '" style="width:100%;max-width:480px;height:640px;border:0;border-radius:12px" loading="lazy"></iframe>';
+    document.getElementById('shareButtons').innerHTML = buildShareButtonsHtml(menu.public_url, menu.name);
+
+    // Soumettre une deuxième fois créerait un second menu (alias dédoublé,
+    // voir Menu::generateAlias()) : le bouton de publication disparaît.
+    var btn = document.querySelector('.wizard-shell button[data-step="7"]');
+    if (btn) { btn.style.display = 'none'; }
+}
+
+/* Même liste de services, mêmes liens, que partials/share-buttons.blade.php —
+   dupliquée ici en JS plutôt qu'un aller-retour serveur supplémentaire pour
+   un simple gabarit d'URLs. */
+function buildShareButtonsHtml(url, titre){
+    var enc = encodeURIComponent(url);
+    var encTexte = encodeURIComponent((titre || 'TAGTOA') + ' — ' + url);
+    var encTitre = encodeURIComponent(titre || 'TAGTOA');
+    return '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">'
+        + '<a class="btn btn-o btn-sm" target="_blank" rel="noopener" href="https://wa.me/?text=' + encTexte + '"><i class="fa-brands fa-whatsapp" style="color:#25D366"></i> WhatsApp</a>'
+        + '<a class="btn btn-o btn-sm" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=' + enc + '"><i class="fa-brands fa-facebook" style="color:#1877F2"></i> Facebook</a>'
+        + '<a class="btn btn-o btn-sm" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=' + encTitre + '&url=' + enc + '"><i class="fa-brands fa-x-twitter"></i> X</a>'
+        + '<a class="btn btn-o btn-sm" target="_blank" rel="noopener" href="https://t.me/share/url?url=' + enc + '&text=' + encTitre + '"><i class="fa-brands fa-telegram" style="color:#0088cc"></i> Telegram</a>'
+        + '<a class="btn btn-o btn-sm" href="mailto:?subject=' + encTitre + '&body=' + encTexte + '"><i class="fa-solid fa-envelope"></i> {{ __('E-mail') }}</a>'
+        + '</div>';
+}
+
+var copyBtn = document.getElementById('copyPublicUrl');
+if (copyBtn){
+    copyBtn.addEventListener('click', function(){
+        var input = document.getElementById('publicUrlInput');
+        if (navigator.clipboard) { navigator.clipboard.writeText(input.value); }
+        var ancien = this.innerHTML, bouton = this;
+        this.innerHTML = '<i class="fa-solid fa-check"></i>';
+        setTimeout(function(){ bouton.innerHTML = ancien; }, 1200);
+    });
+}
+
+var togEmbedBtn = document.getElementById('togEmbed');
+if (togEmbedBtn){
+    togEmbedBtn.addEventListener('click', function(){
+        var box = document.getElementById('embedBox');
+        box.hidden = !box.hidden;
+    });
+}
 </script>
 @endpush
 @endsection
