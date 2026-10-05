@@ -47,6 +47,6 @@ class PosCategoryPresetsTest extends TestCase
 
         $this->assertStringContainsString("champ.value = b.dataset.nom;", $html);
         // Le champ manuel reste intact : aucune valeur imposée dessus.
-        $this->assertStringContainsString('<input class="ic" id="cname" name="name" required maxlength="80"', $html);
+        $this->assertStringContainsString('<input class="inp" id="cname" name="name" required maxlength="80"', $html);
     }
 }
