@@ -4,10 +4,9 @@
 
 @push('head')
 <style>
-.ic{width:100%;padding:9px 11px;border:1.5px solid var(--bd);border-radius:9px;font:14.5px var(--fb);background:#fff;min-width:0}
-.ic:focus{outline:0;border-color:var(--blue)}
-.pf{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;align-items:end}
-.pf label{display:block;font:600 11px var(--fh);color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+/* .pf/.inp/.sel viennent de la fondation partagée (layouts/dashboard.blade.php) —
+   seul .w2 (le nom du poste sur deux colonnes) est propre à cet écran. */
+.pf .w2{grid-column:span 2}
 .poste + .poste{border-top:1px solid var(--bd);margin-top:14px;padding-top:14px}
 .ailleurs{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
 .ailleurs a{display:flex;align-items:center;gap:11px;padding:13px 14px;border-radius:13px;
@@ -27,8 +26,8 @@
     <form method="POST" action="{{ route('tagtoa.pos.settings.business-type') }}" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
         @csrf @method('PUT')
         <div style="min-width:220px">
-            <label class="lbl" style="display:block;font:600 11px var(--fh);color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em">{{ __('Activité') }}</label>
-            <select class="ic" name="type" required>
+            <label class="lbl">{{ __('Activité') }}</label>
+            <select class="sel" name="type" required>
                 @foreach($types as $code => $meta)
                     <option value="{{ $code }}" @selected(optional($business)->type === $code)>{{ __($meta['label']) }}</option>
                 @endforeach
@@ -48,13 +47,13 @@
         <form method="POST" action="{{ route('tagtoa.pos.settings.update', $t->id) }}" class="poste">
             @csrf @method('PUT')
             <div class="pf">
-                <div style="grid-column:span 2">
+                <div class="w2">
                     <label>{{ __('Nom du poste') }}</label>
-                    <input class="ic" name="name" value="{{ $t->name }}" maxlength="120" required>
+                    <input class="inp" name="name" value="{{ $t->name }}" maxlength="120" required>
                 </div>
                 <div>
                     <label>{{ __('Devise') }}</label>
-                    <select class="ic" name="currency">
+                    <select class="sel" name="currency">
                         @foreach($currencies as $code => $label)
                             <option value="{{ $code }}" @selected($t->currency === $code)>{{ $code }}</option>
                         @endforeach
