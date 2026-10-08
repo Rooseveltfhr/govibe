@@ -229,4 +229,15 @@ class DashboardNavigationTest extends TestCase
         $this->assertStringContainsString('locate(', $vue,
             'La vue ne demande plus où l\'on se trouve : aucun groupe ne s\'ouvrirait.');
     }
+
+    /** « Ma carte » ne disait rien du contenu de l'écran (c'est la liste des
+     *  menus du commerce) — demandé explicitement : « Mes Menus ». */
+    public function test_the_menu_screen_is_labelled_mes_menus_not_ma_carte(): void
+    {
+        $enfants = DashboardModules::children('menu');
+        $libelles = array_column($enfants, 'label');
+
+        $this->assertContains('Mes Menus', $libelles);
+        $this->assertNotContains('Ma carte', $libelles);
+    }
 }

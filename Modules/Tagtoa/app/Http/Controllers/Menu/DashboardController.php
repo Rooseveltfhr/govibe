@@ -44,8 +44,12 @@ class DashboardController extends Controller
         return view('tagtoa::menu.index', compact('menus'));
     }
 
-    public function create(): View
+    public function create(): View|RedirectResponse
     {
+        if ($existant = $this->menuExistant()) {
+            return redirect()->route('tagtoa.menu.dashboard.edit', $existant->id);
+        }
+
         return view('tagtoa::menu.form', $this->creationViewData());
     }
 
@@ -54,9 +58,24 @@ class DashboardController extends Controller
      * formulaire — même formulaire, mêmes champs, seulement redécoupé à
      * l'écran (voir menu/_form-body.blade.php, partagé par les deux vues).
      */
-    public function wizard(): View
+    public function wizard(): View|RedirectResponse
     {
+        if ($existant = $this->menuExistant()) {
+            return redirect()->route('tagtoa.menu.dashboard.edit', $existant->id);
+        }
+
         return view('tagtoa::menu.wizard', $this->creationViewData());
+    }
+
+    /**
+     * Un établissement n'a qu'UN menu : le second geste de création mène à
+     * modifier celui qui existe déjà, pas à en empiler un autre. Les menus
+     * créés avant cette règle (un commerce qui en avait déjà plusieurs) ne
+     * sont pas touchés — on arrête seulement d'en permettre un de plus.
+     */
+    private function menuExistant(): ?Menu
+    {
+        return Menu::where('tenant_id', Tenant::id())->oldest()->first();
     }
 
     /**
@@ -91,6 +110,27 @@ class DashboardController extends Controller
 
     public function store(Request $request): RedirectResponse|JsonResponse
     {
+        // Même garde qu'à l'affichage du formulaire, mais côté serveur : un
+        // second onglet resté ouvert sur l'assistant, ou un appel direct, ne
+        // doit pas pouvoir créer un deuxième menu pour le même commerce.
+        // AVANT le planGuard — sinon un commerce qui a déjà son menu (donc
+        // déjà « au forfait ») recevrait un message « passez à un forfait
+        // supérieur » absurde là où il suffit de le renvoyer vers l'existant.
+        if ($existant = $this->menuExistant()) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'ok'         => true,
+                    'id'         => $existant->id,
+                    'name'       => $existant->name,
+                    'public_url' => $existant->public_url,
+                    'edit_url'   => route('tagtoa.menu.dashboard.edit', $existant->id),
+                ]);
+            }
+
+            return redirect()->route('tagtoa.menu.dashboard.edit', $existant->id)
+                ->with('success', __('Vous avez déjà un menu pour ce commerce — le voici.'));
+        }
+
         if ($r = $this->planGuard('menu')) {
             // L'assistant publie en AJAX (voir wizard.blade.php) : une
             // redirection y arriverait comme un corps HTML que le JS ne sait
@@ -106,7 +146,11 @@ class DashboardController extends Controller
         $data = $this->validateMenu($request);
         $menu = new Menu($data);
         $menu->tenant_id = Tenant::id();
-        $menu->alias = $data['alias'] ?: Menu::generateAlias($data['name'] ?? 'menu');
+        // ?? avant ?: : « alias » peut être absent du payload (pas seulement
+        // vide) — c'est le cas normal depuis l'assistant, qui ne pose même
+        // plus le champ (voir _form-body.blade.php). update() se protégeait
+        // déjà ainsi ; store() ne l'était pas.
+        $menu->alias = ($data['alias'] ?? null) ?: Menu::generateAlias($data['name'] ?? 'menu');
         $this->syncTranslations($menu, $request);
         $this->handleUploads($menu, $request);
         // Aucun logo envoyé pour CE menu : celui du commerce sert de défaut,
@@ -763,6 +807,7 @@ class DashboardController extends Controller
             'cats.*.items.*.translations.*.description' => ['nullable', 'string', 'max:600'],
             'delivery_zones'             => ['nullable', 'array', 'max:50'],
             'delivery_zones.*.id'        => ['nullable', 'integer'],
+            'delivery_zones.*.country'   => ['nullable', 'string', 'max:80'],
             'delivery_zones.*.name'      => ['nullable', 'string', 'max:80'],
             'delivery_zones.*.fee'       => ['nullable', 'numeric', 'min:0', 'max:999999'],
         ]);
@@ -783,6 +828,7 @@ class DashboardController extends Controller
                 continue;
             }
             $attrs = [
+                'country'   => $row['country'] ?? null,
                 'name'      => $row['name'],
                 'fee'       => max(0, round((float) ($row['fee'] ?? 0), 2)),
                 'sort'      => (int) $i,

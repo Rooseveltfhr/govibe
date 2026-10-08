@@ -71,7 +71,7 @@ class DashboardModules
             'label' => 'Menu', 'icon' => 'fa-utensils', 'group' => 'module',
             'desc'  => 'Menu digital NFC/QR : restaurant, hôtel, club, bar, lounge — photos, prix, commande.',
             'children' => [
-                ['label' => 'Ma carte',     'icon' => 'fa-utensils',       'url' => '/tagtoa/menu'],
+                ['label' => 'Mes Menus',    'icon' => 'fa-utensils',       'url' => '/tagtoa/menu'],
                 // Le stock est le MÊME qu'en caisse : un plat vendu au comptoir
                 // et un plat commandé au QR sortent du même inventaire. Le lien
                 // est donc volontairement présent des deux côtés — un marchand
