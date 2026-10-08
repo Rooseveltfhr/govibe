@@ -28,10 +28,12 @@
                 @foreach(\Modules\Tagtoa\App\Models\Menu\Menu::TYPES as $k=>$v)
                     <button type="button" class="type-card" data-type="{{ $k }}" onclick="choseType('{{ $k }}')">
                         <i class="{{ $v['icon'] }}"></i>
-                        <span class="type-card-label">{{ __($v['label']) }}</span>
-                        @if(! empty($v['desc']))
-                            <span class="type-card-desc">{{ __($v['desc']) }}</span>
-                        @endif
+                        <span class="type-card-text">
+                            <span class="type-card-label">{{ __($v['label']) }}</span>
+                            @if(! empty($v['desc']))
+                                <span class="type-card-desc">{{ __($v['desc']) }}</span>
+                            @endif
+                        </span>
                     </button>
                 @endforeach
             </div>
