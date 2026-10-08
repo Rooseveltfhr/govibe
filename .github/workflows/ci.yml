@@ -64,3 +64,38 @@ jobs:
         # double-entry, idempotence, verrous, soldes — pas seulement la logique pure.
         working-directory: Modules/Tagtoa
         run: vendor/bin/phpunit --testdox tests/Feature
+
+  # ── GOVIBE ────────────────────────────────────────────────────────────────
+  # Jusqu'ici, « CI » ne contenait que les deux travaux TAGTOA : la suite de
+  # l'application GOVIBE — vitrine, ERP, portail, paiements, abonnements — n'a
+  # jamais été exécutée ici. Une coche verte disait donc « TAGTOA va bien »
+  # pendant qu'une régression GOVIBE passait sans être vue.
+  #
+  # phpunit.xml porte déjà tout ce qu'il faut (APP_KEY de test, SQLite en
+  # mémoire) : rien à configurer ici, et aucune base à monter.
+  govibe:
+    name: GOVIBE — tests + style
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+          tools: composer:v2
+          extensions: sqlite3, pdo_sqlite
+
+      - name: Install deps
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Tests (vitrine, ERP, portail, paiements, abonnements)
+        run: php artisan test
+
+      # --dirty : seuls les fichiers modifiés sont contrôlés. Le dépôt porte un
+      # historique de styles différents, et exiger le dépôt entier rendrait ce
+      # travail rouge en permanence pour des fichiers que personne n'a touchés.
+      - name: Style des fichiers modifiés
+        run: vendor/bin/pint --test --dirty
+        continue-on-error: true
