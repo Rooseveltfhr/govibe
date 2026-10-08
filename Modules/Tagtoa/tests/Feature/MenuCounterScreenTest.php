@@ -67,6 +67,24 @@ class MenuCounterScreenTest extends TestCase
         $this->assertSame('500.00', $json[0]['total']);
     }
 
+    public function test_the_feed_never_lists_a_ready_delivery_order(): void
+    {
+        // Depuis l'écran Livraison (MenuDeliveryScreenTest) : une livraison
+        // « Prête » attend un livreur, elle ne se sert jamais au comptoir.
+        $this->patron();
+        $menu = $this->menu();
+        Order::create([
+            'menu_id' => $menu->id, 'tenant_id' => $menu->tenant_id, 'reference' => Order::generateReference(),
+            'subtotal' => 500, 'total' => 500, 'tip' => 0, 'currency' => 'HTG',
+            'status' => 'ready', 'payment_status' => 'unpaid', 'channel' => 'menu', 'order_type' => 'delivery',
+            'placed_at' => now(),
+        ]);
+
+        $json = $this->getJson(route('tagtoa.menu.dashboard.counter.feed', $menu->id))->assertOk()->json('orders');
+
+        $this->assertCount(0, $json);
+    }
+
     public function test_completing_a_ready_order_marks_it_completed_and_paid(): void
     {
         $this->patron();
@@ -78,6 +96,24 @@ class MenuCounterScreenTest extends TestCase
         $order->refresh();
         $this->assertSame('completed', $order->status);
         $this->assertTrue($order->isPaid());
+    }
+
+    public function test_completing_a_ready_delivery_order_does_nothing(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $order = Order::create([
+            'menu_id' => $menu->id, 'tenant_id' => $menu->tenant_id, 'reference' => Order::generateReference(),
+            'subtotal' => 500, 'total' => 500, 'tip' => 0, 'currency' => 'HTG',
+            'status' => 'ready', 'payment_status' => 'unpaid', 'channel' => 'menu', 'order_type' => 'delivery',
+            'placed_at' => now(),
+        ]);
+
+        $this->post(route('tagtoa.menu.dashboard.counter.complete', [$menu->id, $order->id]))->assertRedirect();
+
+        $order->refresh();
+        $this->assertSame('ready', $order->status);
+        $this->assertFalse($order->isPaid());
     }
 
     public function test_completing_an_order_that_isnt_ready_does_nothing(): void

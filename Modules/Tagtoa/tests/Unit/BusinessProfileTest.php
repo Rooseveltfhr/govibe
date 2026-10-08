@@ -132,6 +132,17 @@ class BusinessProfileTest extends TestCase
         $this->assertArrayNotHasKey('prep_time', $boutique['fields']);
     }
 
+    public function test_a_service_provider_speaks_of_appointments_not_of_dishes(): void
+    {
+        $service = BusinessProfile::for('service');
+
+        $this->assertSame('Service', $service['noun']);
+        $this->assertArrayHasKey('requires_appointment', $service['fields']);
+        $this->assertArrayHasKey('location', $service['fields']);
+        $this->assertContains('À domicile', $service['fields']['location']['options']);
+        $this->assertArrayNotHasKey('prep_time', $service['fields']);
+    }
+
     public function test_every_declared_field_is_usable_by_the_form_and_the_validator(): void
     {
         $known = [BusinessProfile::T_TEXT, BusinessProfile::T_NUMBER,

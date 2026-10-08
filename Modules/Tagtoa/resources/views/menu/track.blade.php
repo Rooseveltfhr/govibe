@@ -7,7 +7,11 @@
     $surf = $dark ? '#161616' : '#FFFFFF';
     $mut  = $dark ? 'rgba(255,255,255,.6)' : '#888888';
     $bd   = $dark ? 'rgba(255,255,255,.10)' : 'rgba(0,0,0,.08)';
-    $steps = ['pending', 'confirmed', 'preparing', 'ready', 'completed'];
+    // Le passage « Récupérée » n'existe que pour une livraison — sur
+    // place/à emporter n'ont jamais de livreur, donc jamais cette étape.
+    $steps = $order->order_type === 'delivery'
+        ? ['pending', 'confirmed', 'preparing', 'ready', 'picked_up', 'completed']
+        : ['pending', 'confirmed', 'preparing', 'ready', 'completed'];
     $stepIdx = array_search($order->status, $steps, true);
 @endphp
 <!DOCTYPE html>
@@ -64,6 +68,9 @@
                 @endforeach
             </div>
             <div style="text-align:center;margin-top:10px;font-weight:700" id="statusLine">{{ __($order->status_meta['label']) }}</div>
+            <div style="text-align:center;margin-top:6px;color:var(--mut);font-size:13px;display:{{ $order->courier ? 'block' : 'none' }}" id="courierLine">
+                <i class="fa-solid fa-motorcycle"></i> {{ __('Livreur') }} : <span id="courierName">{{ optional($order->courier)->name }}</span>
+            </div>
         </div>
     @endif
 
@@ -86,7 +93,7 @@
 <script>
     var STATUS_URL = @json(route('tagtoa.menu.track.status', $order->reference));
     var STEPS = @json($steps);
-    function applyStatus(status, label){
+    function applyStatus(status, label, courier){
         if (status === 'cancelled'){
             document.getElementById('steps')?.closest('.card')?.remove();
             var b = document.createElement('div'); b.className='cancelled'; b.innerHTML='<i class="fa-solid fa-circle-xmark"></i> '+@json(__('Commande annulée'));
@@ -101,12 +108,21 @@
         });
         var line = document.getElementById('statusLine');
         if (line) line.textContent = label;
+        // Un livreur peut être assigné entre deux sondages SANS que le statut
+        // bouge (« Prête » reste « Prête » tant qu'il n'a pas récupéré) —
+        // donc cette ligne se met à jour indépendamment du statut.
+        var courierLine = document.getElementById('courierLine');
+        var courierName = document.getElementById('courierName');
+        if (courierLine && courierName && courier && courier.name){
+            courierName.textContent = courier.name;
+            courierLine.style.display = 'block';
+        }
         if (status === 'completed') clearInterval(timer);
     }
     function poll(){
         fetch(STATUS_URL, {headers:{'Accept':'application/json'}})
             .then(function(r){ return r.json(); })
-            .then(function(j){ applyStatus(j.status, j.status_label); })
+            .then(function(j){ applyStatus(j.status, j.status_label, j.courier); })
             .catch(function(){});
     }
     var timer = setInterval(poll, 6000);

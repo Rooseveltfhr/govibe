@@ -5,8 +5,11 @@
 @push('head')
 <style>
 [hidden]{display:none!important}
-.ic{width:100%;padding:9px 11px;border:1.5px solid var(--bd);border-radius:9px;font:14.5px var(--fb);background:#fff;min-width:0}
-.ic:focus{outline:0;border-color:var(--blue)}
+
+/* .pf/.inp/.sel viennent de la fondation partagée (layouts/dashboard.blade.php) —
+   seul .w2 (le nom du rayon sur deux colonnes) est propre à cet écran. */
+.pf .w2{grid-column:span 2}
+
 .ray{display:flex;gap:11px;align-items:center;padding:11px 0}
 .ray + .ray{border-top:1px solid var(--bd)}
 .ray .pic{width:42px;height:42px;border-radius:11px;flex:0 0 42px;display:flex;align-items:center;
@@ -17,8 +20,6 @@
 .ib{background:none;border:0;cursor:pointer;color:var(--muted);padding:8px 9px;border-radius:8px;font-size:14px}
 .ib:hover{background:rgba(0,0,0,.05);color:var(--blk)}
 .ib.rouge:hover{background:#fdecea;color:var(--red)}
-.pf{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;align-items:end}
-.pf label{display:block;font:600 11px var(--fh);color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
 /* Choisir une icône SANS connaître Font Awesome : on montre les icônes, on ne
    demande pas leur nom. Un marchand ne sait pas ce qu'est « fa-drumstick-bite ». */
 .icones{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px;margin-top:6px}
@@ -51,14 +52,14 @@
     <form method="POST" action="{{ route('tagtoa.pos.categories.store') }}">
         @csrf
         <div class="pf">
-            <div style="grid-column:span 2">
+            <div class="w2">
                 <label for="cname">{{ __('Nom du rayon') }}</label>
-                <input class="ic" id="cname" name="name" required maxlength="80"
+                <input class="inp" id="cname" name="name" required maxlength="80"
                        placeholder="{{ __('Boissons, Plats, Snacks…') }}">
             </div>
             <div>
                 <label for="ccolor">{{ __('Couleur') }}</label>
-                <input class="ic" id="ccolor" name="color" type="color" value="#2cb809" style="height:38px;padding:3px">
+                <input class="inp" id="ccolor" name="color" type="color" value="#2cb809">
             </div>
         </div>
 
@@ -121,17 +122,17 @@
               class="edition" hidden style="padding:4px 0 16px 53px">
             @csrf @method('PUT')
             <div class="pf">
-                <div style="grid-column:span 2">
+                <div class="w2">
                     <label>{{ __('Nom') }}</label>
-                    <input class="ic" name="name" value="{{ $c->name }}" maxlength="80" required>
+                    <input class="inp" name="name" value="{{ $c->name }}" maxlength="80" required>
                 </div>
                 <div>
                     <label>{{ __('Ordre') }}</label>
-                    <input class="ic" name="sort" type="number" min="0" max="9999" value="{{ $c->sort }}">
+                    <input class="inp" name="sort" type="number" min="0" max="9999" value="{{ $c->sort }}">
                 </div>
                 <div>
                     <label>{{ __('Couleur') }}</label>
-                    <input class="ic" name="color" type="color" value="{{ $c->color ?: '#2cb809' }}" style="height:38px;padding:3px">
+                    <input class="inp" name="color" type="color" value="{{ $c->color ?: '#2cb809' }}">
                 </div>
             </div>
             <div class="icones" style="margin-top:8px">

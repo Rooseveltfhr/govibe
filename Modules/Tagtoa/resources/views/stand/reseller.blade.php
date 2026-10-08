@@ -4,10 +4,10 @@
 
 @push('head')
 <style>
-.ic{width:100%;padding:9px 11px;border:1.5px solid var(--bd);border-radius:9px;font:14.5px var(--fb);background:#fff;min-width:0}
-.ic:focus{outline:0;border-color:var(--blue)}
-.pf{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;align-items:end}
-.pf label{display:block;font:600 11px var(--fh);color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+/* .pf/.inp/.sel viennent de la fondation partagée (layouts/dashboard.blade.php) —
+   .icon-box (le carré d'icône des trois tuiles statistiques, qui réutilisait
+   .ic pour sa bordure/son padding sans être un champ) est propre à cet écran. */
+.icon-box{padding:9px 11px;border:1.5px solid var(--bd);border-radius:9px;font:14.5px var(--fb);min-width:0}
 .filtres{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
 .filtres::-webkit-scrollbar{display:none}
 .filtres a{flex:0 0 auto;padding:7px 13px;border-radius:999px;border:1.5px solid var(--bd);
@@ -34,15 +34,15 @@
 
 <div class="grid g3" style="margin-bottom:16px">
     <div class="stat">
-        <div class="ic" style="width:42px;height:42px;border-radius:11px;background:var(--blue-pale);color:var(--blue-deep);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px"><i class="fa-solid fa-boxes-stacked"></i></div>
+        <div class="icon-box" style="width:42px;height:42px;border-radius:11px;background:var(--blue-pale);color:var(--blue-deep);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px"><i class="fa-solid fa-boxes-stacked"></i></div>
         <div class="v">{{ $compte['en_stock'] }}</div><div class="k">{{ __('En stock chez vous') }}</div>
     </div>
     <div class="stat">
-        <div class="ic" style="width:42px;height:42px;border-radius:11px;background:#eafaf3;color:#0e5f44;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px"><i class="fa-solid fa-handshake"></i></div>
+        <div class="icon-box" style="width:42px;height:42px;border-radius:11px;background:#eafaf3;color:#0e5f44;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px"><i class="fa-solid fa-handshake"></i></div>
         <div class="v">{{ $compte['vendus'] }}</div><div class="k">{{ __('Vendus') }}</div>
     </div>
     <div class="stat">
-        <div class="ic" style="width:42px;height:42px;border-radius:11px;background:#fff5e6;color:#7a5200;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px"><i class="fa-solid fa-percent"></i></div>
+        <div class="icon-box" style="width:42px;height:42px;border-radius:11px;background:#fff5e6;color:#7a5200;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px"><i class="fa-solid fa-percent"></i></div>
         <div class="v">{{ rtrim(rtrim(number_format($reseller->commission_pct, 2, '.', ''), '0'), '.') }}%</div>
         <div class="k">{{ __('Votre commission') }}</div>
     </div>
@@ -57,16 +57,16 @@
     <div class="pf">
         <div>
             <label for="pid">{{ __('Numéro du stand') }}</label>
-            <input class="ic" id="pid" name="public_id" required maxlength="24"
+            <input class="inp" id="pid" name="public_id" required maxlength="24"
                    placeholder="TG-000041" style="font-family:monospace">
         </div>
         <div>
             <label for="bn">{{ __('Acheteur') }}</label>
-            <input class="ic" id="bn" name="buyer_name" maxlength="120" placeholder="{{ __('Facultatif') }}">
+            <input class="inp" id="bn" name="buyer_name" maxlength="120" placeholder="{{ __('Facultatif') }}">
         </div>
         <div>
             <label for="bp">{{ __('Téléphone') }}</label>
-            <input class="ic" id="bp" name="buyer_phone" maxlength="40" inputmode="tel" placeholder="{{ __('Facultatif') }}">
+            <input class="inp" id="bp" name="buyer_phone" maxlength="40" inputmode="tel" placeholder="{{ __('Facultatif') }}">
         </div>
         <div>
             <label>&nbsp;</label>
@@ -87,7 +87,7 @@
 
     <form method="GET" style="display:flex;gap:8px;margin-bottom:10px">
         <input type="hidden" name="etat" value="{{ $e }}">
-        <input class="ic" name="q" value="{{ $filtre['q'] ?? '' }}" placeholder="{{ __('TG-000041') }}" style="flex:1">
+        <input class="inp" name="q" value="{{ $filtre['q'] ?? '' }}" placeholder="{{ __('TG-000041') }}" style="flex:1">
         <button class="btn btn-d btn-sm"><i class="fa-solid fa-magnifying-glass"></i></button>
     </form>
 

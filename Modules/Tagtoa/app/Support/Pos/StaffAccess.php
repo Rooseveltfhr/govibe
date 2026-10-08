@@ -25,10 +25,14 @@ class StaffAccess
     /** Caissier : encaisse et ne voit que ses propres ventes. */
     public const ROLE_CASHIER = 'cashier';
 
+    /** Livreur : récupère et livre les commandes qui lui sont assignées, rien d'autre. */
+    public const ROLE_COURIER = 'courier';
+
     public const ROLES = [
         self::ROLE_OWNER   => 'Patron',
         self::ROLE_MANAGER => 'Gérant',
         self::ROLE_CASHIER => 'Caissier',
+        self::ROLE_COURIER => 'Livreur',
     ];
 
     /**
@@ -52,6 +56,8 @@ class StaffAccess
         'catalog.delete',   // supprimer un article du catalogue
         'staff.manage',     // créer et gérer les employés
         'settings',         // réglages du commerce
+        'order.assign',     // assigner un livreur à une commande
+        'delivery.view',    // voir/faire avancer l'écran livraison
     ];
 
     /**
@@ -71,6 +77,8 @@ class StaffAccess
         'catalog.delete' => 'Supprimer au catalogue',
         'staff.manage'   => 'Gérer l\'équipe',
         'settings'       => 'Réglages',
+        'order.assign'   => 'Assigner un livreur',
+        'delivery.view'  => 'Écran livraison',
     ];
 
     /** Libellé lisible d'un droit, ou le droit lui-même s'il est inconnu. */
@@ -85,11 +93,19 @@ class StaffAccess
             'sell', 'cart.remove', 'sale.refund',
             'sales.own', 'sales.till',
             'discount', 'catalog.view', 'catalog.edit',
+            'order.assign', 'delivery.view',
         ],
         self::ROLE_CASHIER => [
             'sell', 'cart.remove',
             'sales.own',
             'catalog.view',
+        ],
+        // Un livreur n'a accès qu'à l'écran livraison, et seulement à ses
+        // propres livraisons (contrôlé côté commande, pas ici — voir
+        // DashboardController::deliveryAdvance()) : aucun droit de caisse ou
+        // de catalogue, un livreur ne vend ni ne gère rien d'autre.
+        self::ROLE_COURIER => [
+            'delivery.view',
         ],
     ];
 

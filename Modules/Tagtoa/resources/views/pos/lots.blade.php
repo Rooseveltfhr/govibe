@@ -4,11 +4,9 @@
 
 @push('head')
 <style>
-.ic{width:100%;padding:9px 11px;border:1.5px solid var(--bd);border-radius:9px;font:14.5px var(--fb);background:#fff;min-width:0}
-.ic:focus{outline:0;border-color:var(--blue)}
-select.ic{padding:8px 8px}
-.pf{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;align-items:end}
-.pf label{display:block;font:600 11px var(--fh);color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+/* .pf/.inp/.sel viennent de la fondation partagée (layouts/dashboard.blade.php) —
+   seul .w2 (l'article sur deux colonnes) est propre à cet écran. */
+.pf .w2{grid-column:span 2}
 .lot{display:flex;gap:11px;align-items:center;padding:11px 0}
 .lot + .lot{border-top:1px solid var(--bd)}
 .lot .corps{flex:1;min-width:0}
@@ -30,28 +28,28 @@ select.ic{padding:8px 8px}
     <form method="POST" action="{{ route('tagtoa.pos.lots.store') }}">
         @csrf
         <div class="pf">
-            <div style="grid-column:span 2">
+            <div class="w2">
                 <label for="lProduit">{{ __('Article') }}</label>
-                <select class="ic" id="lProduit" name="product_id" required>
+                <select class="sel" id="lProduit" name="product_id" required>
                     <option value="">—</option>
                     @foreach($produits as $p)<option value="{{ $p->id }}">{{ $p->name }}</option>@endforeach
                 </select>
             </div>
             <div>
                 <label for="lQte">{{ __('Quantité reçue') }}</label>
-                <input class="ic" id="lQte" name="quantity" type="number" step="0.001" min="0.001" required>
+                <input class="inp" id="lQte" name="quantity" type="number" step="0.001" min="0.001" required>
             </div>
             <div>
                 <label for="lPeremp">{{ __('Périme le') }}</label>
-                <input class="ic" id="lPeremp" name="expires_at" type="date">
+                <input class="inp" id="lPeremp" name="expires_at" type="date">
             </div>
             <div>
                 <label for="lRecu">{{ __('Reçu le') }}</label>
-                <input class="ic" id="lRecu" name="received_at" type="date" value="{{ now()->toDateString() }}">
+                <input class="inp" id="lRecu" name="received_at" type="date" value="{{ now()->toDateString() }}">
             </div>
             <div>
                 <label for="lNote">{{ __('Note') }}</label>
-                <input class="ic" id="lNote" name="note" maxlength="160" placeholder="{{ __('Nº de lot, fournisseur…') }}">
+                <input class="inp" id="lNote" name="note" maxlength="160" placeholder="{{ __('Nº de lot, fournisseur…') }}">
             </div>
         </div>
         <button class="btn btn-p" style="margin-top:14px"><i class="fa-solid fa-plus"></i> {{ __('Enregistrer le lot') }}</button>

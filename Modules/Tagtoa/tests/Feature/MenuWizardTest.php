@@ -18,6 +18,7 @@ namespace Modules\Tagtoa\Tests\Feature;
 
 use Illuminate\Auth\GenericUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Services\Business\BusinessService;
 use Modules\Tagtoa\App\Support\Tenant;
 use Modules\Tagtoa\Tests\TestCase;
@@ -83,5 +84,62 @@ class MenuWizardTest extends TestCase
 
         $this->assertStringNotContainsString('wizard-nav', $html);
         $this->assertStringNotContainsString('wizard-shell', $html);
+    }
+
+    /** Le compteur d'articles par rayon (« Plats principaux (3) ») n'existe
+     *  que sur l'assistant — même règle que la grille de cartes de type. */
+    public function test_the_wizard_shows_a_per_category_item_counter_but_the_classic_form_does_not(): void
+    {
+        $this->patron();
+
+        $this->assertStringContainsString('class="catcount"',
+            $this->get(route('tagtoa.menu.dashboard.wizard'))->assertOk()->getContent());
+
+        $this->assertStringNotContainsString('class="catcount"',
+            $this->get(route('tagtoa.menu.dashboard.create'))->assertOk()->getContent());
+    }
+
+    /** Étape Publier : le lien/QR/intégration vivent désormais ici (markup
+     *  rempli par JS après coup) plutôt que sur l'écran d'édition classique. */
+    public function test_the_wizard_publish_step_carries_the_share_markup(): void
+    {
+        $this->patron();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.wizard'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('id="publishReady"', $html);
+        $this->assertStringContainsString('id="publishDone"', $html);
+        $this->assertStringContainsString('id="publicUrlInput"', $html);
+        $this->assertStringContainsString('publierMenu', $html);
+    }
+
+    /* ------------------------------------------------------------------
+       Publication en AJAX, sans quitter l'assistant.
+       ------------------------------------------------------------------ */
+
+    public function test_publishing_via_ajax_returns_the_new_menus_public_url_as_json(): void
+    {
+        $this->patron();
+
+        $response = $this->postJson(route('tagtoa.menu.dashboard.store'), [
+            'name' => 'Lounge 509', 'alias' => '', 'type' => 'bar', 'currency' => 'HTG', 'form_end' => '1',
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $menu = Menu::where('name', 'Lounge 509')->sole();
+        $response->assertJsonPath('public_url', $menu->public_url);
+        $response->assertJsonPath('id', $menu->id);
+    }
+
+    public function test_publishing_via_ajax_with_invalid_data_returns_a_json_422_instead_of_a_redirect(): void
+    {
+        $this->patron();
+
+        // Pas de nom : seul champ réellement obligatoire du formulaire.
+        $response = $this->postJson(route('tagtoa.menu.dashboard.store'), [
+            'currency' => 'HTG', 'form_end' => '1',
+        ]);
+
+        $response->assertStatus(422)->assertJsonValidationErrors('name');
     }
 }

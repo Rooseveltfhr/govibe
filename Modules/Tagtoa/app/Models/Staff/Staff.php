@@ -60,6 +60,11 @@ class Staff extends Model
         return $this->role === StaffAccess::ROLE_OWNER;
     }
 
+    public function isCourier(): bool
+    {
+        return $this->role === StaffAccess::ROLE_COURIER;
+    }
+
     /**
      * Peut-il faire avancer une commande sur l'écran cuisine du MENU ?
      *
