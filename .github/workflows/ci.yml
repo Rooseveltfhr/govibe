@@ -93,9 +93,32 @@ jobs:
       - name: Tests (vitrine, ERP, portail, paiements, abonnements)
         run: php artisan test
 
-      # --dirty : seuls les fichiers modifiés sont contrôlés. Le dépôt porte un
-      # historique de styles différents, et exiger le dépôt entier rendrait ce
+      # Seuls les fichiers de CETTE modification sont contrôlés : le dépôt porte
+      # un historique de styles différents, et exiger le dépôt entier rendrait ce
       # travail rouge en permanence pour des fichiers que personne n'a touchés.
-      - name: Style des fichiers modifiés
-        run: vendor/bin/pint --test --dirty
-        continue-on-error: true
+      #
+      # Et non « pint --dirty », qui compare l'arbre de travail à HEAD : dans CI
+      # l'arbre est propre, donc --dirty ne contrôlerait jamais rien tout en
+      # affichant du vert. La comparaison se fait contre la branche de base.
+      - name: Style des fichiers de cette modification
+        run: |
+          set -uo pipefail
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "Aucune base de comparaison (premier envoi de la branche) — rien à contrôler."
+            exit 0
+          fi
+
+          git fetch --no-tags --depth=1 origin "$BASE" 2>/dev/null || git fetch --no-tags origin
+          FICHIERS=$(git diff --name-only --diff-filter=d "$BASE"...HEAD -- '*.php' \
+                     | grep -v '^Modules/Tagtoa/' || true)
+
+          if [ -z "$FICHIERS" ]; then
+            echo "Aucun fichier PHP GOVIBE modifié."
+            exit 0
+          fi
+
+          echo "$FICHIERS" | sed 's/^/  /'
+          # shellcheck disable=SC2086
+          vendor/bin/pint --test $FICHIERS
