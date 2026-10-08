@@ -63,6 +63,13 @@
 <div class="h-row">
     <a href="{{ route('tagtoa.pos.index') }}" style="color:var(--muted);font-size:14px"><i class="fa-solid fa-arrow-left"></i> {{ __('Retour') }}</a>
     <span style="flex:1"></span>
+    {{-- Pas automatique : le propriétaire décide quand copier/mettre à jour,
+         depuis son menu, les produits que la caisse ne connaît pas encore
+         comme de vrais articles POS (stock, code-barres, prix d'achat). --}}
+    <form method="POST" action="{{ route('tagtoa.pos.products.sync') }}" style="display:inline">
+        @csrf
+        <button type="submit" class="btn btn-o btn-sm"><i class="fa-solid fa-arrows-rotate"></i> {{ __('Synchroniser avec le menu') }}</button>
+    </form>
     <a href="{{ route('tagtoa.pos.register',$terminal->id) }}" class="btn btn-d btn-sm"><i class="fa-solid fa-cash-register"></i> {{ __('Ouvrir caisse') }}</a>
 </div>
 

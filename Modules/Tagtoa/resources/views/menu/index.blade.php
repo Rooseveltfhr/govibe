@@ -5,11 +5,12 @@
 @section('content')
 <div class="h-row">
     <h2>{{ __('Vos menus digitaux') }}</h2>
+    {{-- Un seul bouton, un seul chemin : créer un menu, c'est l'assistant —
+         il n'existe plus de second formulaire « classique » à choisir à
+         côté, qui n'aurait fait que demander deux fois la même chose
+         autrement. --}}
     @if($menus->isEmpty())
-        <div style="display:flex;gap:8px">
-            <a href="{{ route('tagtoa.menu.dashboard.wizard') }}" class="btn btn-o btn-sm"><i class="fa-solid fa-wand-magic-sparkles"></i> {{ __('Assistant guidé') }}</a>
-            <a href="{{ route('tagtoa.menu.dashboard.create') }}" class="btn btn-p"><i class="fa-solid fa-plus"></i> {{ __('Nouveau menu') }}</a>
-        </div>
+        <a href="{{ route('tagtoa.menu.dashboard.wizard') }}" class="btn btn-p btn-sm"><i class="fa-solid fa-plus"></i> {{ __('Créer mon menu') }}</a>
     @endif
 </div>
 
@@ -17,9 +18,8 @@
     <div class="card"><div class="empty">
         <i class="fa-solid fa-utensils"></i>
         {{ __('Aucun menu. Créez le menu digital de votre restaurant, club, lounge ou hôtel — vendez vos produits & services par NFC/QR.') }}
-        <div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-            <a href="{{ route('tagtoa.menu.dashboard.wizard') }}" class="btn btn-o"><i class="fa-solid fa-wand-magic-sparkles"></i> {{ __('Assistant guidé') }}</a>
-            <a href="{{ route('tagtoa.menu.dashboard.create') }}" class="btn btn-p"><i class="fa-solid fa-plus"></i> {{ __('Créer mon menu') }}</a>
+        <div style="margin-top:16px">
+            <a href="{{ route('tagtoa.menu.dashboard.wizard') }}" class="btn btn-p"><i class="fa-solid fa-plus"></i> {{ __('Créer mon menu') }}</a>
         </div>
     </div></div>
 @else
@@ -45,6 +45,11 @@
                     @if($m->low_stock_count)<span style="color:var(--amber)"><i class="fa-solid fa-triangle-exclamation"></i> {{ $m->low_stock_count }} {{ __('stock faible') }}</span>@endif
                 </div>
                 <div class="row" style="margin-top:14px;gap:8px">
+                    {{-- En premier et en vert : c'est le geste le plus
+                         fréquent une fois le menu créé, et il menait avant
+                         à « Modifier » puis à faire défiler tout le
+                         formulaire pour trouver la section catégories. --}}
+                    <a href="{{ route('tagtoa.menu.dashboard.edit',$m->id) }}#categories-produits" class="btn btn-p btn-sm" style="flex:0"><i class="fa-solid fa-plus"></i> {{ __('Ajouter un produit') }}</a>
                     <a href="{{ route('tagtoa.menu.dashboard.orders',$m->id) }}" class="btn btn-d btn-sm" style="flex:0"><i class="fa-solid fa-receipt"></i> {{ __('Commandes') }}</a>
                     <a href="{{ route('tagtoa.menu.dashboard.kitchen',$m->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-kitchen-set"></i> {{ __('Cuisine') }}</a>
                     <a href="{{ route('tagtoa.menu.dashboard.counter',$m->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-bell-concierge"></i> {{ __('Caisse') }}</a>

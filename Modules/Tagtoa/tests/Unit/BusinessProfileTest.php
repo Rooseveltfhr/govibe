@@ -28,6 +28,20 @@ class BusinessProfileTest extends TestCase
         $this->assertArrayHasKey('prep_time', BusinessProfile::fields('restaurant'));
     }
 
+    /** Signalé : le champ « Nom » de l'établissement suggérait « Lounge 509 »
+     *  même pour une pharmacie — l'exemple doit suivre le type choisi. */
+    public function test_each_type_suggests_a_name_example_that_actually_fits_it(): void
+    {
+        $this->assertSame('Pharmacie Lakay', BusinessProfile::for('pharmacy')['name_example']);
+        $this->assertSame('Hôtel Belle Vue', BusinessProfile::for('hotel')['name_example']);
+        $this->assertSame('Lounge 509', BusinessProfile::for('lounge')['name_example']);
+
+        // Chaque exemple appartient à son propre métier — aucun ne devrait se
+        // retrouver suggéré pour un type différent.
+        $exemples = array_column(BusinessProfile::PROFILES, 'name_example');
+        $this->assertSame($exemples, array_unique($exemples), 'Deux métiers partagent le même exemple de nom.');
+    }
+
     public function test_an_unknown_type_falls_back_instead_of_crashing(): void
     {
         $this->assertSame(BusinessProfile::PROFILES['other'], BusinessProfile::for('spatioport'));
@@ -151,6 +165,9 @@ class BusinessProfileTest extends TestCase
         foreach (BusinessProfile::PROFILES as $type => $profile) {
             $this->assertNotEmpty($profile['noun'], "$type sans nom d'article.");
             $this->assertNotEmpty($profile['categories'], "$type sans catégories proposées.");
+            $this->assertArrayHasKey('name_example', $profile, "$type sans exemple de nom d'établissement.");
+            $this->assertNotEmpty($profile['name_example'], "$type : exemple de nom vide.");
+            $this->assertArrayHasKey('tagline_example', $profile, "$type sans exemple de slogan.");
 
             foreach ($profile['fields'] as $key => $spec) {
                 $this->assertContains($spec['type'], $known, "$type.$key : type de champ inconnu.");

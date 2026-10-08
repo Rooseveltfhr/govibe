@@ -35,6 +35,10 @@ class DashboardModules
     public const DEFAULT_ENABLED = [
         'activate', 'menu', 'pos', 'event', 'pay', 'cards',
         'business', 'staff', 'stands', 'inventory', 'orders', 'analytics', 'customers', 'reviews', 'qr', 'shop', 'plan',
+        // Réservations générales (prestations, créneaux) : activé pour que
+        // le lien « Réservations » de Menu ne disparaisse pas — restait
+        // discret jusqu'ici faute d'être relié depuis un autre module.
+        'booking',
     ];
 
     /**
@@ -66,17 +70,52 @@ class DashboardModules
             'desc'  => 'Le premier geste quand un carton TAGTOA arrive : choisissez ce que vous tenez, entrez son code, c\'est activé.',
         ],
 
+        // MES ÉTABLISSEMENTS — avant même le Menu : c'est le commerce qui
+        // porte le menu, pas l'inverse, et un compte peut en tenir plusieurs
+        // (voir Tenant::id() — « L'unité du système est le commerce »).
+        // L'écran liste déjà tous les établissements du compte et sait en
+        // créer un second (BusinessController::index()/create()) ; il ne lui
+        // manquait qu'une place en tête de barre et un libellé qui le dise.
+        'business' => [
+            'label' => 'Mes Établissements', 'icon' => 'fa-shop', 'group' => 'module',
+            'desc'  => 'Votre commerce : nom, métier, catégories, devise. Et un second si vous en ouvrez un.',
+            'children' => [
+                ['label' => 'Mes établissements',     'icon' => 'fa-shop', 'url' => '/tagtoa/business'],
+                ['label' => 'Créer un établissement', 'icon' => 'fa-plus', 'url' => '/tagtoa/business/new'],
+            ],
+        ],
+
         // --- Les quatre outils métier de TAGTOA ---
         'menu' => [
-            'label' => 'Menu', 'icon' => 'fa-utensils', 'group' => 'module',
+            'label' => 'Mes Menus', 'icon' => 'fa-utensils', 'group' => 'module',
             'desc'  => 'Menu digital NFC/QR : restaurant, hôtel, club, bar, lounge — photos, prix, commande.',
+            // `sep` groupe comme côté POS (0.3) : le menu lui-même, le
+            // service du jour, puis les gens et les résultats — l'ordre
+            // d'une journée de travail, pas un classement alphabétique.
             'children' => [
-                ['label' => 'Mes Menus',    'icon' => 'fa-utensils',       'url' => '/tagtoa/menu'],
+                ['label' => 'Mes Menus',    'icon' => 'fa-utensils',    'url' => '/tagtoa/menu', 'sep' => 'Menu'],
+                ['label' => 'Nouveau menu', 'icon' => 'fa-plus',        'url' => '/tagtoa/menu/wizard'],
+
+                // Le menu n'a qu'UN établissement lié (voir menuExistant()) :
+                // ces quatre écrans se résolvent donc sans numéro, comme la
+                // caisse sans numéro côté POS — voir routes/web.php.
+                ['label' => 'Commandes',  'icon' => 'fa-receipt',        'url' => '/tagtoa/menu/orders',   'sep' => 'Service'],
+                ['label' => 'Cuisine',    'icon' => 'fa-kitchen-set',    'url' => '/tagtoa/menu/kitchen'],
+                ['label' => 'Livraison',  'icon' => 'fa-motorcycle',     'url' => '/tagtoa/menu/delivery'],
+                ['label' => 'Tables',     'icon' => 'fa-chair',          'url' => '/tagtoa/menu/tables'],
+
+                ['label' => 'Clients',       'icon' => 'fa-users',          'url' => '/tagtoa/customers', 'needs' => 'customers', 'alias' => true, 'sep' => 'Gens & résultats'],
+                // Réservations générales (prestations, créneaux) — pas
+                // spécifique aux tables d'un restaurant : TAGTOA n'a pas
+                // encore de réservation de table à proprement parler.
+                ['label' => 'Réservations',  'icon' => 'fa-calendar-check', 'url' => '/tagtoa/booking',   'needs' => 'booking', 'alias' => true],
+                ['label' => 'Statistiques',  'icon' => 'fa-chart-line',     'url' => '/tagtoa/analytics', 'needs' => 'analytics', 'alias' => true],
+
                 // Le stock est le MÊME qu'en caisse : un plat vendu au comptoir
                 // et un plat commandé au QR sortent du même inventaire. Le lien
                 // est donc volontairement présent des deux côtés — un marchand
                 // qui n'a QUE le menu doit pouvoir y arriver sans passer par POS.
-                ['label' => 'Stock',        'icon' => 'fa-boxes-stacked',  'url' => '/tagtoa/inventory', 'needs' => 'inventory', 'alias' => true],
+                ['label' => 'Stock',        'icon' => 'fa-boxes-stacked',  'url' => '/tagtoa/inventory', 'needs' => 'inventory', 'alias' => true, 'sep' => 'Autres'],
                 ['label' => 'Smart Stands', 'icon' => 'fa-sign-hanging',   'url' => '/tagtoa/stands',    'needs' => 'stands', 'alias' => true],
                 ['label' => 'Avis clients', 'icon' => 'fa-star',           'url' => '/tagtoa/reviews',   'needs' => 'reviews'],
             ],
@@ -150,10 +189,6 @@ class DashboardModules
         'qr' => [
             'label' => 'QR & Partage', 'icon' => 'fa-qrcode', 'group' => 'account',
             'desc'  => 'QR codes de vos pages publiques et affiches à imprimer.',
-        ],
-        'business' => [
-            'label' => 'Mes commerces', 'icon' => 'fa-shop', 'group' => 'account',
-            'desc'  => 'Votre commerce : nom, métier, catégories, devise. Et un second si vous en ouvrez un.',
         ],
         'shop' => [
             'label' => 'Boutique TAGTOA', 'icon' => 'fa-truck-fast', 'group' => 'account',

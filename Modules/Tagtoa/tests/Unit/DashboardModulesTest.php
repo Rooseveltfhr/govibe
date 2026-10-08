@@ -37,7 +37,11 @@ class DashboardModulesTest extends TestCase
     {
         $modules = array_keys(DashboardModules::enabled('module'));
 
-        $this->assertSame(['activate', 'menu', 'pos', 'event', 'pay', 'stands', 'cards'], $modules);
+        // 'business' (« Mes Établissements ») précède désormais 'menu' : c'est
+        // le commerce qui porte le menu, pas l'inverse. 'booking' a rejoint le
+        // groupe « module » en même temps qu'il a été promu (voir plus bas) —
+        // c'est lui que le lien « Réservations » de Menu pointe désormais.
+        $this->assertSame(['activate', 'business', 'menu', 'pos', 'event', 'pay', 'stands', 'cards', 'booking'], $modules);
     }
 
     public function test_the_hardware_the_merchant_bought_is_never_buried(): void
@@ -66,11 +70,20 @@ class DashboardModulesTest extends TestCase
 
     public function test_modules_set_aside_are_hidden_but_still_catalogued(): void
     {
-        foreach (['site', 'store', 'loyalty', 'links', 'booking'] as $key) {
+        foreach (['site', 'store', 'loyalty', 'links'] as $key) {
             $this->assertFalse(DashboardModules::isEnabled($key), "$key ne doit plus être mis en avant.");
             // Toujours au catalogue : ses routes et ses données restent servies.
             $this->assertArrayHasKey($key, DashboardModules::CATALOG);
         }
+    }
+
+    /** 'booking' existait déjà (prestations, créneaux) mais ne menait nulle
+     *  part : aucun autre module ne le reliait. « Réservations », sous Menu,
+     *  en a besoin — donc promu, comme stands/cards l'ont été avant lui. */
+    public function test_booking_is_promoted_because_menu_now_links_to_it(): void
+    {
+        $this->assertTrue(DashboardModules::isEnabled('booking'));
+        $this->assertSame('module', DashboardModules::CATALOG['booking']['group']);
     }
 
     public function test_support_screens_the_merchant_still_needs_are_kept(): void
@@ -109,6 +122,40 @@ class DashboardModulesTest extends TestCase
         // enabledKeys() doit l'écarter, pas la propager jusqu'à la vue.
         foreach (DashboardModules::DEFAULT_ENABLED as $key) {
             $this->assertArrayHasKey($key, DashboardModules::CATALOG);
+        }
+    }
+
+    /* ------------------------------------------------------------------
+       Mes Établissements, avant Menu — c'est le commerce qui porte le
+       menu, jamais l'inverse.
+       ------------------------------------------------------------------ */
+
+    public function test_establishments_comes_right_before_menu(): void
+    {
+        $modules = array_keys(DashboardModules::enabled('module'));
+        $iBusiness = array_search('business', $modules, true);
+        $iMenu = array_search('menu', $modules, true);
+
+        $this->assertNotFalse($iBusiness);
+        $this->assertSame($iBusiness + 1, $iMenu, 'business doit précéder menu de UN cran, pas être n\'importe où avant.');
+    }
+
+    public function test_establishments_offers_the_list_and_a_create_link(): void
+    {
+        $enfants = DashboardModules::children('business');
+        $urls = array_column($enfants, 'url');
+
+        $this->assertContains('/tagtoa/business', $urls);
+        $this->assertContains('/tagtoa/business/new', $urls);
+    }
+
+    public function test_menu_links_to_its_four_service_screens_and_results(): void
+    {
+        $urls = array_column(DashboardModules::children('menu'), 'url');
+
+        foreach (['/tagtoa/menu/orders', '/tagtoa/menu/kitchen', '/tagtoa/menu/delivery', '/tagtoa/menu/tables',
+                  '/tagtoa/customers', '/tagtoa/booking', '/tagtoa/analytics'] as $attendu) {
+            $this->assertContains($attendu, $urls, "« $attendu » absent des écrans de Menu.");
         }
     }
 }

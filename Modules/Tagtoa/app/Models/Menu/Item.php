@@ -73,6 +73,16 @@ class Item extends Model
         return $this->hasMany(ItemOption::class, 'item_id')->orderBy('sort');
     }
 
+    /**
+     * Le produit POS synchronisé depuis cet article, s'il existe (voir
+     * MenuProductSync). Une fois synchronisé, c'est LUI que PosCatalog vend
+     * en caisse — pas une seconde fois l'article de Menu, voir menuItems().
+     */
+    public function posProduct(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\Modules\Tagtoa\App\Models\Pos\Product::class, 'menu_item_id');
+    }
+
     /** Le nom ou la description de cet article, dans une langue. Voir Menu::translated(). */
     public function translated(string $champ, ?string $locale = null): string
     {

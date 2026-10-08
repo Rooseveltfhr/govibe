@@ -177,4 +177,82 @@ class MenuWizardRefinementsTest extends TestCase
 
         $this->assertStringContainsString('id="hoursFields" style=""', $html);
     }
+
+    /* ---------- 7. « Ajouter un produit » introuvable depuis la liste ---------- */
+
+    public function test_the_menu_list_links_directly_to_the_products_section(): void
+    {
+        // Signalé : « pa jwenn kote vre pou ajouter produit » — « Modifier »
+        // menait au tout premier champ du formulaire (identité du commerce),
+        // la section Catégories & produits étant la toute DERNIÈRE carte
+        // après paiement/apparence/horaires. Le lien doit sauter droit dessus.
+        $this->patron();
+        $menu = Menu::create(['tenant_id' => 't-1', 'name' => 'Lounge', 'alias' => 'lounge-'.uniqid(), 'currency' => 'HTG']);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString(
+            'href="'.route('tagtoa.menu.dashboard.edit', $menu->id).'#categories-produits"',
+            $html
+        );
+        $this->assertStringContainsString(__('Ajouter un produit'), $html);
+    }
+
+    public function test_the_products_section_carries_the_anchor_the_list_links_to(): void
+    {
+        $this->patron();
+        $menu = Menu::create(['tenant_id' => 't-1', 'name' => 'Lounge', 'alias' => 'lounge-'.uniqid(), 'currency' => 'HTG']);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.edit', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('id="categories-produits"', $html);
+    }
+
+    /* ---------- 8. Un seul bouton pour créer un menu — l'assistant ---------- */
+
+    public function test_the_empty_menu_list_offers_exactly_one_create_button(): void
+    {
+        // Signalé : deux boutons différents (« Assistant guidé » et
+        // « Nouveau menu ») pour la même action prêtait à confusion. Créer un
+        // menu, c'est l'assistant — il n'y a plus de second chemin affiché.
+        $this->patron();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.index'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString(__('Assistant guidé'), $html);
+        // La sidebar lie aussi « Nouveau menu » vers l'assistant (voir
+        // DashboardModules) — on compte seulement les boutons de LA PAGE,
+        // pas le lien de navigation.
+        $this->assertSame(2, substr_count($html, 'href="'.route('tagtoa.menu.dashboard.wizard').'" class="btn btn-p'),
+            'Devrait y avoir exactement deux boutons "Créer mon menu" (h-row + état vide), pas plus.');
+        $this->assertStringNotContainsString('href="'.route('tagtoa.menu.dashboard.create').'"', $html);
+    }
+
+    /* ---------- 9. Le nom/slogan suggéré suit le type choisi ---------- */
+
+    public function test_the_establishment_name_placeholder_follows_the_default_restaurant_type(): void
+    {
+        // Le type par défaut du <select> est 'restaurant' ($menu->type ?:
+        // 'restaurant') — le repli serveur (avant que le JS tourne) doit
+        // suivre la même règle, pas rester figé sur « Lounge 509 ».
+        $this->patron();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.wizard'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('class="inp tt-name" name="name"', $html);
+        $this->assertStringContainsString('placeholder="Ex. Lakay Grill"', $html);
+        $this->assertStringNotContainsString('placeholder="Ex. Lounge 509"', $html);
+    }
+
+    public function test_the_javascript_adapts_the_name_and_tagline_placeholders_per_type(): void
+    {
+        $this->patron();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.wizard'))->assertOk()->getContent();
+
+        $this->assertStringContainsString("el.placeholder = 'Ex. ' + (p.name_example || '')", $html);
+        $this->assertStringContainsString('el.placeholder = p.tagline_example', $html);
+        // Les exemples par métier voyagent bien jusqu'au navigateur.
+        $this->assertStringContainsString('"name_example":"Pharmacie Lakay"', $html);
+    }
 }
