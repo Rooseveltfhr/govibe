@@ -3,7 +3,7 @@
 
     {{-- ----- Établissement : identité ----- --}}
     <div class="card" data-step="1">
-        <div class="h-row"><h2>{{ __('Établissement') }}</h2></div>
+        <div class="h-row"><h2>{{ $editing ? __('Établissement') : __('Ajouter un établissement') }}</h2></div>
         @unless($editing)
             {{-- Le commerce porte déjà logo/type/contact/devise : ce menu les
                  reprend pour que rien ne soit tapé deux fois. Toujours
@@ -45,8 +45,17 @@
         <div class="h-row"><h2>{{ __('Informations') }}</h2></div>
         <label class="lbl">{{ __('Nom') }}</label>
         <input class="inp" name="name" value="{{ old('name',$menu->name) }}" placeholder="{{ __('Ex. Lounge 509') }}" required>
-        <label class="lbl">{{ __('Alias (URL)') }}</label>
-        <div style="display:flex;align-items:center;gap:8px"><span style="color:var(--muted);font-size:14px">tagtoa.com/menu/</span><input class="inp" name="alias" value="{{ old('alias',$menu->alias) }}" placeholder="{{ __('auto si vide') }}"></div>
+        @if($isWizard ?? false)
+            {{-- Pas de champ à remplir : l'assistant génère toujours l'alias
+                 depuis le nom (Menu::generateAlias(), appelé par store() dès
+                 que le champ est absent/vide) — ce n'est pas au marchand de
+                 choisir une URL technique. Le formulaire classique garde la
+                 main dessus, pour qui veut vraiment la personnaliser. --}}
+            <input type="hidden" name="alias" value="{{ old('alias',$menu->alias) }}">
+        @else
+            <label class="lbl">{{ __('Alias (URL)') }}</label>
+            <div style="display:flex;align-items:center;gap:8px"><span style="color:var(--muted);font-size:14px">tagtoa.com/menu/</span><input class="inp" name="alias" value="{{ old('alias',$menu->alias) }}" placeholder="{{ __('auto si vide') }}"></div>
+        @endif
         <label class="lbl">{{ __('Slogan') }}</label><input class="inp" name="tagline" value="{{ old('tagline',$menu->tagline) }}" placeholder="{{ __('Cuisine créole • Ambiance lounge') }}">
         <label class="lbl">{{ __('Description') }}</label><textarea class="inp" name="description" rows="2" maxlength="600">{{ old('description',$menu->description) }}</textarea>
 
@@ -74,7 +83,7 @@
         <input type="hidden" name="translations_sent" value="1">
         <div class="row">
             <div><label class="lbl">{{ __('Logo') }}</label><input class="inp" type="file" name="logo" accept="image/*" onchange="previewLogo(this)">@if($menu->logo_url)<img id="logoPreview" src="{{ $menu->logo_url }}" style="height:42px;border-radius:10px;margin-top:8px">@else<img id="logoPreview" style="display:none;height:42px;border-radius:10px;margin-top:8px">@endif</div>
-            <div><label class="lbl">{{ __('Couverture') }}</label><input class="inp" type="file" name="cover" accept="image/*">@if($editing && $menu->cover_url)<img src="{{ $menu->cover_url }}" style="height:42px;border-radius:10px;margin-top:8px">@endif</div>
+            <div><label class="lbl">{{ __('Couverture') }}</label><input class="inp" type="file" name="cover" accept="image/*" onchange="previewCover(this)">@if($menu->cover_url)<img id="coverPreview" src="{{ $menu->cover_url }}" style="height:42px;border-radius:10px;margin-top:8px">@else<img id="coverPreview" style="display:none;height:42px;border-radius:10px;margin-top:8px">@endif</div>
         </div>
 
         {{-- Coordonnées — regroupées ici avec l'identité du commerce plutôt
@@ -99,6 +108,21 @@
         <div class="row">
             <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(\Modules\Tagtoa\App\Support\Money::options() as $code=>$label)<option value="{{ $code }}" @selected(old('currency',$menu->currency ?: \Modules\Tagtoa\App\Support\Locale::currencyFor())===$code)>{{ $label }}</option>@endforeach</select></div>
             <div><label class="lbl">{{ __('Page de paiement (TAGTOA Pay)') }}</label><select class="sel" name="pay_page_id"><option value="">{{ __('— Aucune —') }}</option>@foreach($payPages as $pp)<option value="{{ $pp->id }}" @selected(old('pay_page_id',$menu->pay_page_id)==$pp->id)>{{ $pp->title ?: $pp->alias }}</option>@endforeach</select></div>
+        </div>
+        {{-- Une page de paiement peut déjà combiner les deux à la fois — ce
+             n'est pas un choix propre au menu, mais un réglage de la page
+             elle-même (ou de vos moyens manuels, partagés par tout le
+             commerce). On explique les trois cas plutôt que d'inventer un
+             second système de paiement ici. --}}
+        <div style="background:var(--surface-2,#f7f7f7);border-radius:10px;padding:12px 14px;margin-top:4px;font-size:12.5px;color:var(--muted);line-height:1.5">
+            <b style="color:var(--blk);display:block;margin-bottom:4px">{{ __('Trois façons d\'accepter un paiement :') }}</b>
+            <div><b>A.</b> {{ __('Automatique via TAGTOA : MonCash, PayPal, carte bancaire, crypto… le client paie en ligne et vous recevez la confirmation seul.') }}</div>
+            <div><b>B.</b> {{ __('Vos méthodes manuelles : votre numéro + QR MonCash, NatCash, Zelle, virement bancaire… vous vérifiez chaque paiement vous-même.') }}</div>
+            <div><b>C.</b> {{ __('Les deux à la fois : une page de paiement peut proposer l\'automatique ET vos méthodes manuelles en même temps.') }}</div>
+            <div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap">
+                <a href="{{ route('tagtoa.pay.dashboard.create') }}" target="_blank">{{ __('Créer une page de paiement automatique') }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                <a href="{{ route('tagtoa.pay.methods') }}" target="_blank">{{ __('Configurer mes méthodes manuelles') }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+            </div>
         </div>
         <label class="switch"><input type="hidden" name="ordering_enabled" value="0"><input type="checkbox" name="ordering_enabled" value="1" @checked(old('ordering_enabled',$menu->ordering_enabled ?? true))> {{ __('Activer la commande WhatsApp') }}</label>
         {{-- Décoché par défaut : nom/téléphone sont optionnels depuis
@@ -178,10 +202,16 @@
     {{-- ----- Horaires ----- --}}
     <div class="card" data-step="3">
         <div class="h-row"><h2>{{ __('Horaires d\'ouverture') }}</h2></div>
-        <label class="switch"><input type="hidden" name="show_hours" value="0"><input type="checkbox" name="show_hours" value="1" @checked(old('show_hours',$menu->show_hours ?? false))> {{ __('Afficher les horaires sur le menu public') }}</label>
+        @php $afficherHoraires = old('show_hours',$menu->show_hours ?? false); @endphp
+        <label class="switch"><input type="hidden" name="show_hours" value="0"><input type="checkbox" id="showHoursToggle" name="show_hours" value="1" @checked($afficherHoraires)
+            onchange="document.getElementById('hoursFields').style.display = this.checked ? '' : 'none'"> {{ __('Afficher les horaires sur le menu public') }}</label>
         <p style="color:var(--muted);font-size:13px;margin-top:4px">
             {{ __('Sans horaire renseigné pour un jour, le commerce reste ouvert ce jour-là. Une commande est toujours refusée en dehors des heures indiquées, que cette case soit cochée ou non.') }}
         </p>
+        {{-- Les jours ne servent à rien tant que « Afficher les horaires »
+             n'est pas coché : les cacher plutôt que de montrer sept lignes
+             à remplir pour un réglage qu'on n'a pas activé. --}}
+        <div id="hoursFields" style="{{ $afficherHoraires ? '' : 'display:none' }}">
         <label class="lbl">{{ __('Fuseau horaire') }}</label>
         <select class="sel" name="timezone">
             @foreach(['America/Port-au-Prince','America/New_York','America/Santo_Domingo','America/Nassau','America/Toronto','Europe/Paris','America/Miquelon'] as $tz)
@@ -212,6 +242,7 @@
                     <input class="inp" type="time" name="hours[{{ $jour }}][close]" value="{{ old('hours.'.$jour.'.close', $plage['close'] ?? '') }}" style="max-width:120px" @disabled(old("hours.$jour.closed", $fermeParDefaut))>
                 </div>
             @endforeach
+        </div>
         </div>
     </div>
 
@@ -426,10 +457,19 @@
     </div>
 </template>
 
-{{-- Template zone de livraison --}}
+{{-- Template zone de livraison — le pays se choisit D'ABORD : la ville/
+     commune (name) ne se remplit qu'une fois un pays choisi, via zoneCountryChanged()
+     plus bas. Pas de base de villes/communes : un remplissage inventé serait
+     pire qu'un champ libre une fois le pays connu. --}}
 <template id="zonetpl">
-    <div class="zonerow" style="display:flex;gap:8px;align-items:center;margin-top:8px">
-        <input name="delivery_zones[ZIDX][name]" class="inp" placeholder="{{ __('Nom (ex. Centre-ville)') }}">
+    <div class="zonerow" style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <select name="delivery_zones[ZIDX][country]" class="sel zonecountry" style="max-width:190px" onchange="zoneCountryChanged(this)">
+            <option value="">{{ __('Pays…') }}</option>
+            @foreach(['Haïti','République Dominicaine','États-Unis','Canada','Autre'] as $pays)
+                <option value="{{ $pays }}">{{ __($pays) }}</option>
+            @endforeach
+        </select>
+        <input name="delivery_zones[ZIDX][name]" class="inp zonename" placeholder="{{ __('Ville / commune') }}" disabled style="max-width:200px">
         <input name="delivery_zones[ZIDX][fee]" class="inp" type="number" step="0.01" min="0" placeholder="{{ __('Frais') }}" style="max-width:130px">
         <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.zonerow').remove()"><i class="fa-solid fa-trash"></i></button>
     </div>
@@ -687,6 +727,14 @@ function previewLogo(input){
     reader.readAsDataURL(input.files[0]);
 }
 
+function previewCover(input){
+    var img = document.getElementById('coverPreview');
+    if (!img || !input.files || !input.files[0]) { return; }
+    var reader = new FileReader();
+    reader.onload = function(e){ img.src = e.target.result; img.style.display='inline-block'; };
+    reader.readAsDataURL(input.files[0]);
+}
+
 function addOption(itemRow, d){
     var ci = itemRow.getAttribute('data-ci');
     var ii = itemRow.getAttribute('data-ii');
@@ -885,6 +933,14 @@ function attacherGlisser(block){
     });
 }
 
+// La ville/commune ne se remplit qu'une fois un pays choisi — on ne
+// l'active (et ne la vide) qu'au changement, jamais avant.
+function zoneCountryChanged(select){
+    var nom = select.closest('.zonerow').querySelector('.zonename');
+    nom.disabled = ! select.value;
+    if (! select.value){ nom.value = ''; }
+}
+
 var zIdx = 0;
 function addZone(d){
     var zi = zIdx++;
@@ -893,6 +949,9 @@ function addZone(d){
     var row = box.firstElementChild;
     document.getElementById('zones').appendChild(row);
     if (d){
+        var pays = row.querySelector('.zonecountry');
+        pays.value = d.country || '';
+        row.querySelector('.zonename').disabled = ! d.country;
         row.querySelector('[name$="[name]"]').value = d.name || '';
         row.querySelector('[name$="[fee]"]').value = (d.fee != null ? d.fee : '');
         var h = document.createElement('input'); h.type='hidden'; h.name='delivery_zones['+zi+'][id]'; h.value=d.id; row.appendChild(h);
@@ -902,7 +961,7 @@ function addZone(d){
 
 @php
     $zoneData = $menu->relationLoaded('deliveryZones')
-        ? $menu->deliveryZones->map(fn ($z) => ['id' => $z->id, 'name' => $z->name, 'fee' => $z->fee])->values()
+        ? $menu->deliveryZones->map(fn ($z) => ['id' => $z->id, 'country' => $z->country, 'name' => $z->name, 'fee' => $z->fee])->values()
         : [];
 @endphp
 var existingZones = @json($zoneData);

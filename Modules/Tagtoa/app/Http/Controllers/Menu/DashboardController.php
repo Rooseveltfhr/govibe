@@ -146,7 +146,11 @@ class DashboardController extends Controller
         $data = $this->validateMenu($request);
         $menu = new Menu($data);
         $menu->tenant_id = Tenant::id();
-        $menu->alias = $data['alias'] ?: Menu::generateAlias($data['name'] ?? 'menu');
+        // ?? avant ?: : « alias » peut être absent du payload (pas seulement
+        // vide) — c'est le cas normal depuis l'assistant, qui ne pose même
+        // plus le champ (voir _form-body.blade.php). update() se protégeait
+        // déjà ainsi ; store() ne l'était pas.
+        $menu->alias = ($data['alias'] ?? null) ?: Menu::generateAlias($data['name'] ?? 'menu');
         $this->syncTranslations($menu, $request);
         $this->handleUploads($menu, $request);
         // Aucun logo envoyé pour CE menu : celui du commerce sert de défaut,
@@ -803,6 +807,7 @@ class DashboardController extends Controller
             'cats.*.items.*.translations.*.description' => ['nullable', 'string', 'max:600'],
             'delivery_zones'             => ['nullable', 'array', 'max:50'],
             'delivery_zones.*.id'        => ['nullable', 'integer'],
+            'delivery_zones.*.country'   => ['nullable', 'string', 'max:80'],
             'delivery_zones.*.name'      => ['nullable', 'string', 'max:80'],
             'delivery_zones.*.fee'       => ['nullable', 'numeric', 'min:0', 'max:999999'],
         ]);
@@ -823,6 +828,7 @@ class DashboardController extends Controller
                 continue;
             }
             $attrs = [
+                'country'   => $row['country'] ?? null,
                 'name'      => $row['name'],
                 'fee'       => max(0, round((float) ($row['fee'] ?? 0), 2)),
                 'sort'      => (int) $i,

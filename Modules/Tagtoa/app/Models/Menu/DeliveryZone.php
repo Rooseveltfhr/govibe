@@ -14,7 +14,7 @@ class DeliveryZone extends Model
 {
     protected $table = 'tagtoa_menu_delivery_zones';
 
-    protected $fillable = ['menu_id', 'name', 'fee', 'sort', 'is_active'];
+    protected $fillable = ['menu_id', 'country', 'name', 'fee', 'sort', 'is_active'];
 
     protected $casts = ['fee' => 'decimal:2', 'sort' => 'integer', 'is_active' => 'boolean'];
 
