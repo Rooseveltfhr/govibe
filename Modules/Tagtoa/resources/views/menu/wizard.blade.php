@@ -170,13 +170,18 @@
        à côté, à sa place. Le <select> reste dans le DOM (soumission du
        formulaire + applyProfile()), juste masqué visuellement ici. */
     .wizard-shell .type-select-wrap{display:none}
-    .type-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:6px}
-    .type-card{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 10px;
+    /* Deux cartes par ligne, comme sur la maquette — pas autant que la largeur
+       le permet : à 130px minimum, un écran large en alignait six par ligne,
+       bien plus dense que prévu. */
+    .type-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:6px}
+    @media(max-width:480px){.type-grid{grid-template-columns:1fr}}
+    .type-card{display:flex;align-items:flex-start;gap:12px;padding:16px 18px;
                border:1.5px solid var(--bd);border-radius:14px;background:#fff;cursor:pointer;
-               font:inherit;color:inherit;position:relative}
-    .type-card i{font-size:22px;color:var(--muted)}
-    .type-card-label{font-size:12.5px;font-weight:600;text-align:center}
-    .type-card-desc{font-size:11px;color:var(--muted);text-align:center;line-height:1.3;margin-top:-4px}
+               font:inherit;color:inherit;position:relative;text-align:left}
+    .type-card i{font-size:20px;color:var(--muted);width:22px;text-align:center;margin-top:2px}
+    .type-card-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+    .type-card-label{font-size:13.5px;font-weight:700}
+    .type-card-desc{font-size:11.5px;color:var(--muted);line-height:1.3}
     .type-card.selected{border-color:#2cb809;background:rgba(44,184,9,.07)}
     .type-card.selected i{color:#2cb809}
     .type-card.selected::after{content:'\f00c';font-family:'Font Awesome 6 Free';font-weight:900;

@@ -69,4 +69,18 @@ class MenuWizardTypePickerTest extends TestCase
         $this->assertStringContainsString('Créer votre menu en quelques étapes', $html);
         $this->assertStringContainsString('wizard-badge', $html);
     }
+
+    /** La maquette montre deux cartes par ligne. À minmax(130px,1fr) en
+     *  auto-fill, un écran large en alignait six — bien plus dense que prévu
+     *  (et onze types aujourd'hui, pas six : la grille ne doit pas se
+     *  resserrer encore plus au fil des types ajoutés). */
+    public function test_the_type_grid_is_fixed_at_two_columns_not_auto_fill(): void
+    {
+        $this->patron();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.wizard'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('grid-template-columns:repeat(2,1fr)', $html);
+        $this->assertStringNotContainsString('grid-template-columns:repeat(auto-fill', $html);
+    }
 }
