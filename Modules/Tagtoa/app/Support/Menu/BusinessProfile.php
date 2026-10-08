@@ -28,11 +28,15 @@ class BusinessProfile
 
     /**
      * Profil par type d'établissement.
-     *  - noun / nouns : comment nommer un article ici
-     *  - price_hint   : ce que le prix veut dire (par nuit, par verre…)
-     *  - price_suffix : ce qu'on colle au prix côté client (« / nuit »)
-     *  - categories   : catégories proposées à la création (jamais imposées)
-     *  - fields       : champs supplémentaires, stockés en JSON
+     *  - noun / nouns    : comment nommer un article ici
+     *  - price_hint      : ce que le prix veut dire (par nuit, par verre…)
+     *  - price_suffix    : ce qu'on colle au prix côté client (« / nuit »)
+     *  - categories      : catégories proposées à la création (jamais imposées)
+     *  - fields          : champs supplémentaires, stockés en JSON
+     *  - name_example    : exemple de nom d'établissement pour CE métier —
+     *                      sans lui, le champ « Nom » suggérait toujours
+     *                      « Lounge 509 » à une pharmacie ou un hôtel.
+     *  - tagline_example : exemple de slogan pour ce métier, même raison.
      */
     public const PROFILES = [
         'restaurant' => [
@@ -40,6 +44,8 @@ class BusinessProfile
             'nouns'      => 'Plats',
             'price_hint' => 'Prix du plat',
             'price_suffix' => null,
+            'name_example'    => 'Lakay Grill',
+            'tagline_example' => 'Cuisine créole • Ambiance conviviale',
             'categories' => ['Entrées', 'Plats principaux', 'Grillades', 'Accompagnements', 'Desserts', 'Boissons'],
             'fields'     => [
                 'prep_time'   => ['label' => 'Temps de préparation', 'type' => self::T_NUMBER, 'unit' => 'min', 'min' => 0, 'max' => 480],
@@ -55,6 +61,8 @@ class BusinessProfile
             'nouns'      => 'Chambres',
             'price_hint' => 'Prix par nuit',
             'price_suffix' => '/ nuit',
+            'name_example'    => 'Hôtel Belle Vue',
+            'tagline_example' => 'Confort et détente au cœur de la ville',
             'categories' => ['Chambres', 'Suites', 'Services', 'Restauration', 'Navette & excursions'],
             'fields'     => [
                 'room_type'  => ['label' => 'Type de chambre', 'type' => self::T_SELECT, 'options' => ['Simple', 'Double', 'Twin', 'Triple', 'Suite', 'Bungalow', 'Appartement']],
@@ -72,6 +80,8 @@ class BusinessProfile
             'nouns'      => 'Boissons',
             'price_hint' => 'Prix',
             'price_suffix' => null,
+            'name_example'    => 'Bar Lakay',
+            'tagline_example' => 'Bonne ambiance, bons prix',
             'categories' => ['Bières', 'Rhums & spiritueux', 'Cocktails', 'Vins', 'Sans alcool', 'À grignoter'],
             'fields'     => [
                 'serving'   => ['label' => 'Format',         'type' => self::T_SELECT, 'options' => ['Verre', 'Bouteille', 'Pichet', 'Canette', 'Shot']],
@@ -86,6 +96,8 @@ class BusinessProfile
             'nouns'      => 'Articles',
             'price_hint' => 'Prix',
             'price_suffix' => null,
+            'name_example'    => 'Club 509',
+            'tagline_example' => 'La meilleure soirée de votre semaine',
             'categories' => ['Bouteilles', 'Tables & VIP', 'Cocktails', 'Bières', 'Entrées & pass'],
             'fields'     => [
                 'serving'   => ['label' => 'Format',          'type' => self::T_SELECT, 'options' => ['Bouteille', 'Verre', 'Table', 'Pass']],
@@ -101,6 +113,8 @@ class BusinessProfile
             'nouns'      => 'Articles',
             'price_hint' => 'Prix',
             'price_suffix' => null,
+            'name_example'    => 'Lounge 509',
+            'tagline_example' => 'Cuisine créole • Ambiance lounge',
             'categories' => ['Cocktails', 'Chicha', 'Tapas', 'Bières & vins', 'Sans alcool'],
             'fields'     => [
                 'serving'   => ['label' => 'Format',         'type' => self::T_SELECT, 'options' => ['Verre', 'Bouteille', 'Plateau', 'Chicha']],
@@ -115,6 +129,8 @@ class BusinessProfile
             'nouns'      => 'Articles',
             'price_hint' => 'Prix',
             'price_suffix' => null,
+            'name_example'    => 'Café Lakay',
+            'tagline_example' => 'Café frais, pâtisseries maison',
             'categories' => ['Cafés', 'Thés & infusions', 'Jus & smoothies', 'Viennoiseries', 'Sandwichs'],
             'fields'     => [
                 'size'      => ['label' => 'Taille',    'type' => self::T_SELECT, 'options' => ['Petit', 'Moyen', 'Grand']],
@@ -129,6 +145,8 @@ class BusinessProfile
             'nouns'      => 'Médicaments',
             'price_hint' => 'Prix',
             'price_suffix' => null,
+            'name_example'    => 'Pharmacie Lakay',
+            'tagline_example' => 'Votre santé, notre priorité',
             'categories' => ['Médicaments', 'Parapharmacie', 'Matériel médical', 'Hygiène & soins', 'Vitamines & compléments'],
             'fields'     => [
                 'form'          => ['label' => 'Forme',            'type' => self::T_SELECT, 'options' => ['Comprimé', 'Gélule', 'Sirop', 'Injectable', 'Pommade', 'Sachet']],
@@ -143,6 +161,8 @@ class BusinessProfile
             'nouns'      => 'Services',
             'price_hint' => 'Prix de la consultation / de l\'acte',
             'price_suffix' => null,
+            'name_example'    => 'Clinique Belle Santé',
+            'tagline_example' => 'Des soins attentifs, pour toute la famille',
             'categories' => ['Consultations', 'Examens & analyses', 'Soins', 'Vaccinations', 'Urgences'],
             'fields'     => [
                 'duration'   => ['label' => 'Durée',    'type' => self::T_NUMBER, 'unit' => 'min', 'min' => 0, 'max' => 480],
@@ -156,6 +176,10 @@ class BusinessProfile
             'nouns'      => 'Articles',
             'price_hint' => 'Prix',
             'price_suffix' => null,
+            // Couvre aussi bien la boutique de vêtements que la quincaillerie
+            // du coin : « commerce » au sens large, l'exemple le dit.
+            'name_example'    => 'Quincaillerie Lakay',
+            'tagline_example' => 'Tout ce qu\'il vous faut, au même endroit',
             'categories' => ['Vêtements', 'Chaussures', 'Accessoires', 'Électronique', 'Maison', 'Divers'],
             'fields'     => [
                 'size'   => ['label' => 'Taille',   'type' => self::T_TEXT, 'max' => 20],
@@ -169,6 +193,8 @@ class BusinessProfile
             'nouns'      => 'Services',
             'price_hint' => 'Prix de la prestation',
             'price_suffix' => null,
+            'name_example'    => 'Atelier Lakay',
+            'tagline_example' => 'Un travail bien fait, à chaque fois',
             'categories' => ['Consultations', 'Réparations', 'Entretien', 'Installation', 'Abonnements'],
             'fields'     => [
                 'duration'             => ['label' => 'Durée',           'type' => self::T_NUMBER, 'unit' => 'min', 'min' => 0, 'max' => 10080],
@@ -182,6 +208,8 @@ class BusinessProfile
             'nouns'      => 'Articles',
             'price_hint' => 'Prix',
             'price_suffix' => null,
+            'name_example'    => 'Mon Commerce',
+            'tagline_example' => '',
             'categories' => ['Produits', 'Services'],
             'fields'     => [
                 'duration' => ['label' => 'Durée', 'type' => self::T_NUMBER, 'unit' => 'min', 'min' => 0, 'max' => 10080],

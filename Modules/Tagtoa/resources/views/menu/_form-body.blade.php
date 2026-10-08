@@ -44,7 +44,10 @@
     <div class="card" data-step="2">
         <div class="h-row"><h2>{{ __('Informations') }}</h2></div>
         <label class="lbl">{{ __('Nom') }}</label>
-        <input class="inp" name="name" value="{{ old('name',$menu->name) }}" placeholder="{{ __('Ex. Lounge 509') }}" required>
+        {{-- Placeholder adapté au type choisi par applyProfile() (JS) — le
+             repli ici (avant que le JS tourne) suit le type par défaut du
+             <select> ($menu->type ?: 'restaurant'), pas un nom figé. --}}
+        <input class="inp tt-name" name="name" value="{{ old('name',$menu->name) }}" placeholder="{{ __('Ex.').' '.(\Modules\Tagtoa\App\Support\Menu\BusinessProfile::for($menu->type ?: 'restaurant')['name_example'] ?? '') }}" required>
         @if($isWizard ?? false)
             {{-- Pas de champ à remplir : l'assistant génère toujours l'alias
                  depuis le nom (Menu::generateAlias(), appelé par store() dès
@@ -56,7 +59,7 @@
             <label class="lbl">{{ __('Alias (URL)') }}</label>
             <div style="display:flex;align-items:center;gap:8px"><span style="color:var(--muted);font-size:14px">tagtoa.com/menu/</span><input class="inp" name="alias" value="{{ old('alias',$menu->alias) }}" placeholder="{{ __('auto si vide') }}"></div>
         @endif
-        <label class="lbl">{{ __('Slogan') }}</label><input class="inp" name="tagline" value="{{ old('tagline',$menu->tagline) }}" placeholder="{{ __('Cuisine créole • Ambiance lounge') }}">
+        <label class="lbl">{{ __('Slogan') }}</label><input class="inp tt-tagline" name="tagline" value="{{ old('tagline',$menu->tagline) }}" placeholder="{{ __(\Modules\Tagtoa\App\Support\Menu\BusinessProfile::for($menu->type ?: 'restaurant')['tagline_example'] ?? '') }}">
         <label class="lbl">{{ __('Description') }}</label><textarea class="inp" name="description" rows="2" maxlength="600">{{ old('description',$menu->description) }}</textarea>
 
         {{-- TRADUCTIONS — le client choisit sa langue, vous écrivez une fois.
@@ -611,6 +614,10 @@ function applyProfile(){
 
     document.querySelectorAll('.tt-nouns').forEach(function(el){ el.textContent = p.nouns; });
     document.querySelectorAll('.tt-itemname').forEach(function(el){ el.placeholder = 'Nom — ' + p.noun; });
+    // « Nom » et « Slogan » de l'ÉTABLISSEMENT — pas d'un article. Sans ça,
+    // une pharmacie voyait « Ex. Lounge 509 » suggéré pour son propre nom.
+    document.querySelectorAll('.tt-name').forEach(function(el){ el.placeholder = 'Ex. ' + (p.name_example || ''); });
+    document.querySelectorAll('.tt-tagline').forEach(function(el){ el.placeholder = p.tagline_example || ''; });
     document.querySelectorAll('.tt-price').forEach(function(el){ el.placeholder = p.price_hint; });
     document.querySelectorAll('.tt-additem').forEach(function(el){
         el.innerHTML = '<i class="fa-solid fa-plus"></i> ' + p.noun;
