@@ -64,3 +64,61 @@ jobs:
         # double-entry, idempotence, verrous, soldes — pas seulement la logique pure.
         working-directory: Modules/Tagtoa
         run: vendor/bin/phpunit --testdox tests/Feature
+
+  # ── GOVIBE ────────────────────────────────────────────────────────────────
+  # Jusqu'ici, « CI » ne contenait que les deux travaux TAGTOA : la suite de
+  # l'application GOVIBE — vitrine, ERP, portail, paiements, abonnements — n'a
+  # jamais été exécutée ici. Une coche verte disait donc « TAGTOA va bien »
+  # pendant qu'une régression GOVIBE passait sans être vue.
+  #
+  # phpunit.xml porte déjà tout ce qu'il faut (APP_KEY de test, SQLite en
+  # mémoire) : rien à configurer ici, et aucune base à monter.
+  govibe:
+    name: GOVIBE — tests + style
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+          tools: composer:v2
+          extensions: sqlite3, pdo_sqlite
+
+      - name: Install deps
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Tests (vitrine, ERP, portail, paiements, abonnements)
+        run: php artisan test
+
+      # Seuls les fichiers de CETTE modification sont contrôlés : le dépôt porte
+      # un historique de styles différents, et exiger le dépôt entier rendrait ce
+      # travail rouge en permanence pour des fichiers que personne n'a touchés.
+      #
+      # Et non « pint --dirty », qui compare l'arbre de travail à HEAD : dans CI
+      # l'arbre est propre, donc --dirty ne contrôlerait jamais rien tout en
+      # affichant du vert. La comparaison se fait contre la branche de base.
+      - name: Style des fichiers de cette modification
+        run: |
+          set -uo pipefail
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "Aucune base de comparaison (premier envoi de la branche) — rien à contrôler."
+            exit 0
+          fi
+
+          git fetch --no-tags --depth=1 origin "$BASE" 2>/dev/null || git fetch --no-tags origin
+          FICHIERS=$(git diff --name-only --diff-filter=d "$BASE"...HEAD -- '*.php' \
+                     | grep -v '^Modules/Tagtoa/' || true)
+
+          if [ -z "$FICHIERS" ]; then
+            echo "Aucun fichier PHP GOVIBE modifié."
+            exit 0
+          fi
+
+          echo "$FICHIERS" | sed 's/^/  /'
+          # shellcheck disable=SC2086
+          vendor/bin/pint --test $FICHIERS
