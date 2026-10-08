@@ -78,6 +78,39 @@ class DashboardController extends Controller
         return Menu::where('tenant_id', Tenant::id())->oldest()->first();
     }
 
+    /* ---- Les mêmes écrans, sans numéro de menu dans l'URL ----
+       Un commerce n'a qu'UN menu (voir menuExistant()) : la sidebar peut
+       donc lier directement « Commandes », « Cuisine », « Livraison » et
+       « Tables » sans connaître son id, exactement comme PosController
+       résout « la caisse sans numéro ». Sans menu encore créé, on renvoie
+       vers l'assistant plutôt que vers un écran qui n'aurait rien à montrer. */
+
+    private function versAssistantSiAucunMenu(): RedirectResponse
+    {
+        return redirect()->route('tagtoa.menu.dashboard.wizard')
+            ->with('info', __('Créez d\'abord votre menu.'));
+    }
+
+    public function currentOrders(): View|RedirectResponse
+    {
+        return ($m = $this->menuExistant()) ? $this->orders($m->id) : $this->versAssistantSiAucunMenu();
+    }
+
+    public function currentKitchen(): View|RedirectResponse
+    {
+        return ($m = $this->menuExistant()) ? $this->kitchen($m->id) : $this->versAssistantSiAucunMenu();
+    }
+
+    public function currentDelivery(): View|RedirectResponse
+    {
+        return ($m = $this->menuExistant()) ? $this->delivery($m->id) : $this->versAssistantSiAucunMenu();
+    }
+
+    public function currentTables(): View|RedirectResponse
+    {
+        return ($m = $this->menuExistant()) ? $this->tables($m->id) : $this->versAssistantSiAucunMenu();
+    }
+
     /**
      * Données communes aux deux écrans de création (formulaire classique et
      * assistant). Le commerce (l'établissement) porte déjà nom, logo, adresse,

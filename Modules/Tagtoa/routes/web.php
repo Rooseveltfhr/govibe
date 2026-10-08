@@ -185,6 +185,17 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/create', [MenuDashboard::class, 'create'])->name('create');
         // Même création que /create, en assistant à sept étapes.
         Route::get('/wizard', [MenuDashboard::class, 'wizard'])->name('wizard');
+
+        // LE MENU SANS NUMÉRO — même raison que « la caisse sans numéro »
+        // côté POS (PosController::caisseCourante()) : un commerce n'a qu'UN
+        // menu, la sidebar peut donc lier directement ces écrans sans
+        // connaître son id. Déclarées AVANT /{id}/… pour la même raison que
+        // là-bas : ne jamais laisser prendre un mot pour un numéro.
+        Route::get('/orders', [MenuDashboard::class, 'currentOrders'])->name('orders.current');
+        Route::get('/kitchen', [MenuDashboard::class, 'currentKitchen'])->name('kitchen.current');
+        Route::get('/delivery', [MenuDashboard::class, 'currentDelivery'])->name('delivery.current');
+        Route::get('/tables', [MenuDashboard::class, 'currentTables'])->name('tables.current');
+
         Route::post('/', [MenuDashboard::class, 'store'])->name('store');
         Route::get('/{id}/edit', [MenuDashboard::class, 'edit'])->name('edit');
         Route::put('/{id}', [MenuDashboard::class, 'update'])->name('update');
