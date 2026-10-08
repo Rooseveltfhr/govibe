@@ -247,7 +247,12 @@
     </div>
 
     {{-- ----- Catégories & produits ----- --}}
-    <div class="card" data-step="4 5">
+    {{-- id ciblé depuis le lien « Ajouter un produit » de menu/index.blade.php
+         (#categories-produits) : sans lui, atteindre cette section depuis la
+         liste des menus veut dire ouvrir « Modifier » puis faire défiler
+         toutes les autres cartes (identité, paiement, apparence, horaires)
+         avant d'y arriver — c'est précisément ce qui la rendait introuvable. --}}
+    <div class="card" id="categories-produits" data-step="4 5">
         <div class="h-row">
             <h2>{{ __('Catégories &') }} <span class="tt-nouns">{{ __('Produits') }}</span></h2>
             <div style="display:flex;align-items:center;gap:10px">

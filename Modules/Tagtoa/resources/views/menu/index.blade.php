@@ -45,6 +45,11 @@
                     @if($m->low_stock_count)<span style="color:var(--amber)"><i class="fa-solid fa-triangle-exclamation"></i> {{ $m->low_stock_count }} {{ __('stock faible') }}</span>@endif
                 </div>
                 <div class="row" style="margin-top:14px;gap:8px">
+                    {{-- En premier et en vert : c'est le geste le plus
+                         fréquent une fois le menu créé, et il menait avant
+                         à « Modifier » puis à faire défiler tout le
+                         formulaire pour trouver la section catégories. --}}
+                    <a href="{{ route('tagtoa.menu.dashboard.edit',$m->id) }}#categories-produits" class="btn btn-p btn-sm" style="flex:0"><i class="fa-solid fa-plus"></i> {{ __('Ajouter un produit') }}</a>
                     <a href="{{ route('tagtoa.menu.dashboard.orders',$m->id) }}" class="btn btn-d btn-sm" style="flex:0"><i class="fa-solid fa-receipt"></i> {{ __('Commandes') }}</a>
                     <a href="{{ route('tagtoa.menu.dashboard.kitchen',$m->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-kitchen-set"></i> {{ __('Cuisine') }}</a>
                     <a href="{{ route('tagtoa.menu.dashboard.counter',$m->id) }}" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-bell-concierge"></i> {{ __('Caisse') }}</a>

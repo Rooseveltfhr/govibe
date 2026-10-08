@@ -177,4 +177,34 @@ class MenuWizardRefinementsTest extends TestCase
 
         $this->assertStringContainsString('id="hoursFields" style=""', $html);
     }
+
+    /* ---------- 7. « Ajouter un produit » introuvable depuis la liste ---------- */
+
+    public function test_the_menu_list_links_directly_to_the_products_section(): void
+    {
+        // Signalé : « pa jwenn kote vre pou ajouter produit » — « Modifier »
+        // menait au tout premier champ du formulaire (identité du commerce),
+        // la section Catégories & produits étant la toute DERNIÈRE carte
+        // après paiement/apparence/horaires. Le lien doit sauter droit dessus.
+        $this->patron();
+        $menu = Menu::create(['tenant_id' => 't-1', 'name' => 'Lounge', 'alias' => 'lounge-'.uniqid(), 'currency' => 'HTG']);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString(
+            'href="'.route('tagtoa.menu.dashboard.edit', $menu->id).'#categories-produits"',
+            $html
+        );
+        $this->assertStringContainsString(__('Ajouter un produit'), $html);
+    }
+
+    public function test_the_products_section_carries_the_anchor_the_list_links_to(): void
+    {
+        $this->patron();
+        $menu = Menu::create(['tenant_id' => 't-1', 'name' => 'Lounge', 'alias' => 'lounge-'.uniqid(), 'currency' => 'HTG']);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.edit', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('id="categories-produits"', $html);
+    }
 }
