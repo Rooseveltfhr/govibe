@@ -142,4 +142,60 @@ class MenuWizardTest extends TestCase
 
         $response->assertStatus(422)->assertJsonValidationErrors('name');
     }
+
+    /** Le résumé replié d'un article « Enregistré » ne doit porter que des
+     *  boutons icônes (Modifier/Supprimer) — demandé explicitement, pour ne
+     *  pas avoir à rouvrir le formulaire juste pour supprimer un article. */
+    public function test_the_collapsed_item_summary_carries_both_an_edit_and_a_delete_icon(): void
+    {
+        $this->patron();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.wizard'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('edititem', $html);
+        $this->assertStringContainsString('delitemsum', $html);
+    }
+
+    /* ------------------------------------------------------------------
+       Un établissement n'a qu'UN menu.
+       ------------------------------------------------------------------ */
+
+    public function test_create_and_wizard_redirect_to_the_existing_menu_instead_of_a_blank_form(): void
+    {
+        $this->patron();
+        $menu = Menu::create(['tenant_id' => 'compte-1', 'name' => 'Lounge', 'alias' => 'lounge-'.uniqid(), 'currency' => 'HTG']);
+
+        $this->get(route('tagtoa.menu.dashboard.create'))
+            ->assertRedirect(route('tagtoa.menu.dashboard.edit', $menu->id));
+        $this->get(route('tagtoa.menu.dashboard.wizard'))
+            ->assertRedirect(route('tagtoa.menu.dashboard.edit', $menu->id));
+    }
+
+    public function test_store_never_creates_a_second_menu_for_the_same_tenant(): void
+    {
+        $this->patron();
+        $menu = Menu::create(['tenant_id' => 'compte-1', 'name' => 'Lounge', 'alias' => 'lounge-'.uniqid(), 'currency' => 'HTG']);
+
+        $response = $this->postJson(route('tagtoa.menu.dashboard.store'), [
+            'name' => 'Deuxième menu', 'alias' => '', 'type' => 'bar', 'currency' => 'HTG', 'form_end' => '1',
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true)->assertJsonPath('id', $menu->id);
+        $this->assertSame(1, Menu::where('tenant_id', 'compte-1')->count());
+        $this->assertDatabaseMissing('tagtoa_menus', ['name' => 'Deuxième menu']);
+    }
+
+    public function test_a_tenant_with_no_menu_yet_can_still_create_the_first_one(): void
+    {
+        $this->patron();
+
+        $this->get(route('tagtoa.menu.dashboard.wizard'))->assertOk();
+
+        $response = $this->postJson(route('tagtoa.menu.dashboard.store'), [
+            'name' => 'Premier menu', 'alias' => '', 'type' => 'bar', 'currency' => 'HTG', 'form_end' => '1',
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $this->assertSame(1, Menu::where('tenant_id', 'compte-1')->count());
+    }
 }

@@ -308,7 +308,8 @@
                     <span class="itemsummary-name" style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
                     <span class="itemsummary-price" style="color:var(--muted);flex:0 0 auto;white-space:nowrap"></span>
                 </div>
-                <button type="button" class="btn btn-o btn-sm edititem" style="flex:0 0 auto"><i class="fa-solid fa-pen"></i> {{ __('Modifier') }}</button>
+                <button type="button" class="btn btn-o btn-sm edititem" style="flex:0 0 auto"><i class="fa-solid fa-pen"></i></button>
+                <button type="button" class="btn btn-o btn-sm delitemsum" style="flex:0 0 auto;color:var(--red)" title="{{ __('Supprimer l\'article') }}"><i class="fa-solid fa-trash"></i></button>
             </div>
         @endif
         <div class="itemedit">
@@ -801,6 +802,15 @@ function addItem(catEl, d){
         btnEdit.addEventListener('click', function(){
             row.classList.remove('saved');
             updateItemCounter();
+        });
+    }
+    // Supprimer directement depuis le résumé replié : revient à cliquer
+    // .delitem (même confirmation, même suppression) — pas de logique
+    // dupliquée, la ligne repliée n'a juste pas à se redéplier d'abord.
+    var btnDelSum = row.querySelector('.delitemsum');
+    if (btnDelSum){
+        btnDelSum.addEventListener('click', function(){
+            row.querySelector('.delitem').click();
         });
     }
     // Un article chargé depuis la base (d.id présent) est déjà acquis : il
