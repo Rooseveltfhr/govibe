@@ -17,7 +17,7 @@ class Product extends Model
 
     protected $table = 'tagtoa_pos_products';
 
-    protected $fillable = ['tenant_id', 'terminal_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'unit', 'is_service', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'emoji', 'color', 'image_path', 'purchased_at', 'stock', 'is_active', 'sort', 'parent_product_id', 'units_per_parent'];
+    protected $fillable = ['tenant_id', 'terminal_id', 'category_id', 'menu_item_id', 'name', 'description', 'price', 'cost_price', 'unit', 'is_service', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'emoji', 'color', 'image_path', 'purchased_at', 'stock', 'is_active', 'sort', 'parent_product_id', 'units_per_parent'];
 
     protected $casts = [
         'price'      => 'decimal:2',
@@ -92,5 +92,16 @@ class Product extends Model
     public function getSellsFromParentAttribute(): bool
     {
         return $this->parent_product_id !== null && (float) $this->units_per_parent > 0;
+    }
+
+    /**
+     * L'article de Menu dont celui-ci a été synchronisé (voir MenuProductSync).
+     * Nullable et sans contrainte, même raison que category()/parent() :
+     * supprimer l'article de Menu ne doit jamais casser ce produit POS, qui a
+     * sa propre vie depuis (stock vendu, lots, retours...).
+     */
+    public function menuItem(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\Tagtoa\App\Models\Menu\Item::class, 'menu_item_id');
     }
 }

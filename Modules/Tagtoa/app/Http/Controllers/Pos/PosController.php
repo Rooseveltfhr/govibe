@@ -788,4 +788,28 @@ JS;
     {
         return $this->report($this->caisseCourante()->id, $request);
     }
+
+    /**
+     * SYNCHRONISER AVEC LA CAISSE — geste du propriétaire, jamais automatique.
+     *
+     * Un article de Menu se vend déjà au comptoir (PosCatalog les fusionne à
+     * la vente), mais sans exister comme un vrai produit POS : impossible de
+     * lui suivre un stock, un code-barres ou un prix d'achat. Ce bouton crée
+     * ou met à jour le produit POS lié de chaque article de Menu — voir
+     * MenuProductSync pour ce qui est copié et ce qui ne l'est jamais
+     * (les champs propres à la caisse restent gérés là, pas écrasés ici).
+     */
+    public function syncFromMenu(\Modules\Tagtoa\App\Services\Pos\MenuProductSync $sync): RedirectResponse
+    {
+        $terminal = $this->caisseCourante();
+        $this->denyUnless($this->currentStaff($terminal), 'catalog.edit');
+
+        $resultat = $sync->sync(Tenant::id(), $terminal->id);
+
+        return back()->with('success', $resultat['created'] + $resultat['updated'] === 0
+            ? __('Aucun article dans votre menu — rien à synchroniser.')
+            : __(':created créé(s), :updated mis à jour dans la caisse.', [
+                'created' => $resultat['created'], 'updated' => $resultat['updated'],
+            ]));
+    }
 }

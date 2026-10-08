@@ -68,12 +68,18 @@ class PosCatalog
      * Seuls les articles disponibles et non épuisés remontent : proposer au
      * caissier un plat que la cuisine n'a plus, c'est le faire encaisser pour
      * rien.
+     *
+     * Un article déjà SYNCHRONISÉ (voir MenuProductSync) n'en fait plus partie :
+     * c'est son produit POS lié qui le représente désormais en caisse — sinon
+     * sellable() le compterait deux fois (« menu:7 » ET « pos:12 » pour le
+     * même plat, deux lignes au lieu d'une).
      */
     public function menuItems(?string $tenantId): Collection
     {
         return Item::query()
             ->whereHas('menu', fn ($m) => $m->where('tenant_id', $tenantId)->where('is_active', true))
             ->where('is_available', true)
+            ->whereDoesntHave('posProduct')
             ->with('category:id,name')
             ->orderBy('sort')->orderBy('id')
             ->get()

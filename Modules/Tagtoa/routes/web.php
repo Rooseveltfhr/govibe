@@ -450,6 +450,10 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
            numéro de poste. */
         Route::get('/sell', [PosController::class, 'currentRegister'])->name('sell');
         Route::get('/products', [PosController::class, 'currentProducts'])->name('products');
+        // Copie/met à jour, depuis le menu du commerce, les produits que la
+        // caisse ne connaissait pas encore comme de vrais produits POS — voir
+        // PosController::syncFromMenu(). Tenant-wide, pas lié à un poste.
+        Route::post('/products/sync', [PosController::class, 'syncFromMenu'])->name('products.sync');
         Route::get('/reports', [PosController::class, 'currentReport'])->name('reports');
 
         $cat = \Modules\Tagtoa\App\Http\Controllers\Pos\CategoryController::class;
