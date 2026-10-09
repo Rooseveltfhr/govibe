@@ -1,0 +1,306 @@
+name: Djounes.com — inventaire & maintenance
+
+# Bouton manuel pour travailler sur djounes.com depuis GitHub Actions, sans
+# jamais exposer d'identifiants dans le dépôt.
+#
+# ⚠ djounes.com est sur un hébergement web SÉPARÉ (panneau DirectAdmin
+# vda8400.is.cc:2222) — PAS sur le VPS qui héberge tagtoa.com / govibepay.com.
+# Les deux serveurs sont distincts (djounes.com → 173.225.109.155,
+# tagtoa.com → 67.217.56.29), donc ce workflow n'utilise JAMAIS les secrets
+# VPS_* : il exige ses propres identifiants, sinon il s'arrête.
+#
+# Par défaut : LECTURE SEULE (inventaire). Les actions qui modifient quelque
+# chose doivent être choisies explicitement dans le menu déroulant.
+#
+# Secrets requis (Settings > Secrets and variables > Actions) :
+#   DJOUNES_SSH_HOST / DJOUNES_SSH_USER / DJOUNES_SSH_KEY  (+ DJOUNES_SSH_PORT si ≠ 22)
+# Procédure d'obtention pas à pas : docs/DJOUNES.md
+on:
+  # Temporaire : tant que ce workflow n'est pas sur `main`, GitHub n'affiche pas
+  # son bouton dans l'onglet Actions. On le déclenche donc aussi sur push de la
+  # branche de travail, avec l'action « inventaire » (lecture seule) par défaut.
+  # À retirer une fois la PR fusionnée.
+  push:
+    branches: ["claude/hebergement-web-djounes-9z6q6i"]
+    paths:
+      - ".github/workflows/djounes.yml"
+      - ".github/scripts/djounes-ops.sh"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action (inventaire = lecture seule)"
+        type: choice
+        default: inventaire
+        options:
+          - inventaire
+          - scan_banner
+          - scan_accueil
+          - scan_collection
+          - scan_fiche
+          - scan_modeles
+          - diag_catalogue
+          - scan_marque
+          - scan_admin
+          - admin_marque
+          - schema_catalogue
+          - demarrage_marque
+          - contenu_marque
+          - catalogue_variantes
+          - bannieres_marque
+          - fiche_marque
+          - vider_cache
+          - securiser_install
+          - mettre_en_pause
+          - reprendre_site
+      domain:
+        description: "Domaine à inspecter"
+        type: string
+        default: djounes.com
+      fetch_file:
+        description: "Chemin RELATIF au dossier du domaine à récupérer en artefact (ex: public_html/wp-config.php)"
+        type: string
+        default: ""
+
+concurrency:
+  group: djounes-ops
+  cancel-in-progress: false
+
+jobs:
+  ops:
+    name: Inventaire / maintenance djounes.com
+    runs-on: ubuntu-latest
+    env:
+      # Hébergement propre à djounes.com — aucun repli sur les secrets VPS_*
+      # (autre serveur : s'y connecter par erreur ne trouverait rien, ou pire,
+      # agirait sur le mauvais compte).
+      SSH_HOST: ${{ secrets.DJOUNES_SSH_HOST }}
+      SSH_USER: ${{ secrets.DJOUNES_SSH_USER }}
+      SSH_PORT: ${{ secrets.DJOUNES_SSH_PORT || '22' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Valider les entrées (anti-injection)
+        env:
+          IN_ACTION: ${{ inputs.action || 'inventaire' }}
+          IN_DOMAIN: ${{ inputs.domain || 'djounes.com' }}
+          IN_FETCH: ${{ inputs.fetch_file }}
+        run: |
+          set -euo pipefail
+          case "$IN_ACTION" in
+            inventaire|scan_banner|scan_accueil|scan_collection|scan_fiche|scan_modeles|diag_catalogue|scan_marque|scan_admin|admin_marque|schema_catalogue|demarrage_marque|contenu_marque|catalogue_variantes|bannieres_marque|fiche_marque|vider_cache|securiser_install|mettre_en_pause|reprendre_site) ;;
+            *) echo "::error::action invalide"; exit 1;;
+          esac
+          # Domaine : lettres/chiffres/point/tiret uniquement.
+          printf '%s' "$IN_DOMAIN" | grep -qE '^[A-Za-z0-9.-]+$' \
+            || { echo "::error::domaine invalide"; exit 1; }
+          # Fichier : chemin relatif simple, pas de remontée de dossier ni de métacaractère.
+          if [ -n "$IN_FETCH" ]; then
+            printf '%s' "$IN_FETCH" | grep -qE '^[A-Za-z0-9._/-]+$' \
+              || { echo "::error::chemin de fichier invalide"; exit 1; }
+            case "$IN_FETCH" in
+              /*|*..*) echo "::error::chemin absolu ou remontée (..) interdits"; exit 1;;
+            esac
+          fi
+          echo "Entrées valides : action=$IN_ACTION domaine=$IN_DOMAIN"
+
+      # Le secret d'hôte est souvent copié depuis la barre d'adresse du panneau
+      # (« https://vda8400.is.cc:2222 »). On le nettoie ici plutôt que d'exiger
+      # un secret parfait : schéma, chemin, port et espaces sont retirés, et un
+      # port collé à l'hôte devient un candidat pour la connexion SSH.
+      - name: Préparer la clé SSH et normaliser l'hôte
+        env:
+          KEY_DJOUNES: ${{ secrets.DJOUNES_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          MISSING=""
+          [ -n "${SSH_HOST:-}" ]    || MISSING="$MISSING DJOUNES_SSH_HOST"
+          [ -n "${SSH_USER:-}" ]    || MISSING="$MISSING DJOUNES_SSH_USER"
+          [ -n "${KEY_DJOUNES:-}" ] || MISSING="$MISSING DJOUNES_SSH_KEY"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Secrets manquants :$MISSING — djounes.com est sur un hébergement séparé, il lui faut ses propres identifiants (procédure : docs/DJOUNES.md)."
+            exit 1
+          fi
+
+          H=$(printf '%s' "$SSH_HOST" | tr -d '[:space:]')
+          case "$H" in *://*) H="${H#*://}"; echo "note : schéma d'URL retiré de l'hôte";; esac
+          case "$H" in */*)   H="${H%%/*}";  echo "note : chemin retiré de l'hôte";; esac
+          HOST_PORT=""
+          case "$H" in
+            *:*) HOST_PORT="${H##*:}"; H="${H%%:*}"; echo "note : port $HOST_PORT trouvé collé à l'hôte";;
+          esac
+          U=$(printf '%s' "$SSH_USER" | tr -d '[:space:]')
+
+          if ! getent hosts "$H" >/dev/null 2>&1; then
+            echo "::error::L'hôte du secret DJOUNES_SSH_HOST ne se résout pas en DNS, même après nettoyage. Attendu : « vda8400.is.cc » (ou l'IP 173.225.109.155) — sans https://, sans :2222, sans espace."
+            exit 1
+          fi
+          echo "Hôte résolu en DNS. Utilisateur : ${#U} caractères."
+
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY_DJOUNES" > ~/.ssh/id_djounes
+          chmod 600 ~/.ssh/id_djounes
+          head -1 ~/.ssh/id_djounes | grep -q "BEGIN .*PRIVATE KEY" \
+            || { echo "::error::Le secret DJOUNES_SSH_KEY ne commence pas par « -----BEGIN ... PRIVATE KEY----- ». C'est la clé PRIVÉE complète qu'il faut coller, pas l'empreinte ni la clé .pub."; exit 1; }
+
+          {
+            echo "DJ_HOST=$H"
+            echo "DJ_USER=$U"
+            echo "DJ_PORT_HINT=$HOST_PORT"
+          } >> "$GITHUB_ENV"
+
+      # SSH n'est pas toujours sur 22 : certains serveurs DirectAdmin l'exposent
+      # aussi sur 2222. On teste les candidats et on distingue « mauvais port »
+      # de « clé refusée », pour que le message dise quoi corriger.
+      - name: Détecter le port SSH et tester la connexion
+        run: |
+          # Pas de -e ici : un ssh qui échoue est un RÉSULTAT de test, pas une
+          # erreur de script (GitHub lance chaque étape avec `bash -e`).
+          set +e
+          set -u
+          # Ordre voulu : le port configuré, puis 22. Un port collé à l'hôte
+          # vient du panneau (2222) et n'expose presque jamais SSH : il passe en
+          # DERNIER. Le tenter en premier faisait une connexion perdue à chaque
+          # exécution — exactement ce qu'une protection anti-brute-force compte.
+          CANDIDATES="$SSH_PORT"
+          case " $CANDIDATES " in *" 22 "*) ;; *) CANDIDATES="$CANDIDATES 22";; esac
+          if [ -n "${DJ_PORT_HINT:-}" ]; then
+            case " $CANDIDATES " in
+              *" $DJ_PORT_HINT "*) ;;
+              *) CANDIDATES="$CANDIDATES $DJ_PORT_HINT";;
+            esac
+          fi
+
+          FOUND=""; DENIED=""
+          for p in $CANDIDATES; do
+            ssh-keyscan -p "$p" "$DJ_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+            OUT=$(ssh -i ~/.ssh/id_djounes -p "$p" -o BatchMode=yes -o ConnectTimeout=12 \
+                    -o StrictHostKeyChecking=accept-new "$DJ_USER@$DJ_HOST" 'echo TAGTOA_SSH_OK' 2>&1) || true
+            if printf '%s' "$OUT" | grep -q TAGTOA_SSH_OK; then
+              echo "Connexion réussie sur le port $p."
+              FOUND="$p"; break
+            fi
+            if printf '%s' "$OUT" | grep -qi "permission denied\|publickey"; then
+              echo "Port $p : le serveur répond mais refuse la clé."
+              DENIED="$p"
+            else
+              echo "Port $p : pas de service SSH joignable."
+            fi
+          done
+
+          if [ -z "$FOUND" ]; then
+            if [ -n "$DENIED" ]; then
+              echo "::error::SSH répond sur le port $DENIED mais refuse la connexion. Deux causes : la clé n'est pas dans « Authorized Keys » dans DirectAdmin, ou DJOUNES_SSH_USER n'est pas le nom d'utilisateur du compte."
+            else
+              echo "::error::Aucun service SSH joignable sur les ports testés ($CANDIDATES). L'offre d'hébergement n'inclut peut-être pas SSH — voir docs/DJOUNES.md."
+            fi
+            exit 1
+          fi
+          echo "DJ_PORT=$FOUND" >> "$GITHUB_ENV"
+
+      - name: Exécuter l'inventaire / l'action
+        env:
+          IN_ACTION: ${{ inputs.action || 'inventaire' }}
+          IN_DOMAIN: ${{ inputs.domain || 'djounes.com' }}
+        run: |
+          set -uo pipefail
+          ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
+            "ACTION='$IN_ACTION' DOMAIN='$IN_DOMAIN' bash -s" < .github/scripts/djounes-ops.sh
+
+      # Mise à la marque : envoie les images puis exécute le script d'amorçage.
+      # Séparé des autres actions parce que c'est la seule qui écrit en base.
+      - name: Poser la marque et amorcer le catalogue
+        if: ${{ inputs.action == 'demarrage_marque' }}
+        run: |
+          set -uo pipefail
+          echo "Envoi des images (logo + démonstration)…"
+          tar czf - -C docs/brand png demo \
+            | ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+                "$DJ_USER@$DJ_HOST" \
+                'rm -rf ~/djounes-brand-upload && mkdir -p ~/djounes-brand-upload && tar xzf - -C ~/djounes-brand-upload && ls -1 ~/djounes-brand-upload'
+          ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
+            "DOMAIN='${{ inputs.domain || 'djounes.com' }}' bash -s" < .github/scripts/djounes-bootstrap.sh
+
+      - name: Inspecter les modèles Eloquent
+        if: ${{ inputs.action == 'scan_modeles' }}
+        run: |
+          set -uo pipefail
+          ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
+            "DOMAIN='${{ inputs.domain || 'djounes.com' }}' bash -s" < .github/scripts/djounes-modeles.sh
+
+      - name: Mettre le panneau d'administration à la charte
+        if: ${{ inputs.action == 'admin_marque' }}
+        run: |
+          set -uo pipefail
+          ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
+            "DOMAIN='${{ inputs.domain || 'djounes.com' }}' bash -s" < .github/scripts/djounes-admin.sh
+
+      - name: Vitrine, découpes, attributs et variantes
+        if: ${{ inputs.action == 'catalogue_variantes' }}
+        run: |
+          set -uo pipefail
+          echo "Envoi des découpes transparentes…"
+          tar czf - -C docs/brand demo-cut \
+            | ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+                "$DJ_USER@$DJ_HOST" \
+                'mkdir -p ~/djounes-brand-upload && tar xzf - -C ~/djounes-brand-upload && ls -1 ~/djounes-brand-upload/demo-cut | wc -l'
+          ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
+            "DOMAIN='${{ inputs.domain || 'djounes.com' }}' bash -s" < .github/scripts/djounes-catalogue.sh
+
+      - name: Remplacer les bannières du carrousel
+        if: ${{ inputs.action == 'bannieres_marque' }}
+        run: |
+          set -uo pipefail
+          echo "Envoi des huit visuels…"
+          tar czf - -C docs/brand banners \
+            | ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+                "$DJ_USER@$DJ_HOST" \
+                'mkdir -p ~/djounes-brand-upload && tar xzf - -C ~/djounes-brand-upload && ls -1 ~/djounes-brand-upload/banners | wc -l'
+          ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
+            "DOMAIN='${{ inputs.domain || 'djounes.com' }}' bash -s" < .github/scripts/djounes-bannieres.sh
+
+      - name: Mettre la fiche produit à la charte
+        if: ${{ inputs.action == 'fiche_marque' }}
+        run: |
+          set -uo pipefail
+          ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
+            "DOMAIN='${{ inputs.domain || 'djounes.com' }}' bash -s" < .github/scripts/djounes-fiche.sh
+
+      - name: Écrire les textes de marque et installer la sauvegarde
+        if: ${{ inputs.action == 'contenu_marque' }}
+        run: |
+          set -uo pipefail
+          ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 "$DJ_USER@$DJ_HOST" \
+            "DOMAIN='${{ inputs.domain || 'djounes.com' }}' bash -s" < .github/scripts/djounes-contenu.sh
+
+      # Récupération d'un fichier de configuration : passe par un artefact et
+      # jamais par le log (le masquage de secrets corromprait le contenu).
+      - name: Récupérer le fichier demandé
+        if: ${{ inputs.fetch_file != '' }}
+        env:
+          IN_DOMAIN: ${{ inputs.domain || 'djounes.com' }}
+          IN_FETCH: ${{ inputs.fetch_file }}
+        run: |
+          set -uo pipefail
+          ssh -i ~/.ssh/id_djounes -p "$DJ_PORT" -o StrictHostKeyChecking=accept-new \
+            "$DJ_USER@$DJ_HOST" "D='$IN_DOMAIN' F='$IN_FETCH' bash -s" <<'EOSSH' > fetched-file
+          BASE="$HOME/domains/$D"
+          [ -d "$BASE" ] || BASE="$HOME/$D"
+          cat "$BASE/$F"
+          EOSSH
+          echo "Fichier récupéré ($(wc -c < fetched-file) octets)."
+
+      - name: Publier le fichier en artefact
+        if: ${{ inputs.fetch_file != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: djounes-fetched-file
+          path: fetched-file
+          retention-days: 1
