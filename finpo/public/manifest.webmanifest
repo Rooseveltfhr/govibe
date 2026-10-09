@@ -1,0 +1,14 @@
+{
+  "name": "FINPO 2026 — Forum & Expo National",
+  "short_name": "FINPO 2026",
+  "description": "Connecter les institutions. Construire des partenariats. Accélérer le développement d'Haïti.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070d1a",
+  "theme_color": "#070d1a",
+  "lang": "fr",
+  "icons": [
+    { "src": "/assets/img/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/assets/img/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
