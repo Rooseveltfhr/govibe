@@ -42,6 +42,28 @@ class BusinessProfileTest extends TestCase
         $this->assertSame($exemples, array_unique($exemples), 'Deux métiers partagent le même exemple de nom.');
     }
 
+    /** Signalé : un restaurant se voyait suggérer des rayons de boutique
+     *  (« Nettoyage & hygiène », « Cosmétique ») — hors de propos pour un
+     *  restaurant. La liste proposée doit être celle du métier, et rien d'autre. */
+    public function test_a_restaurant_suggests_only_its_own_curated_categories(): void
+    {
+        $this->assertSame(
+            ['Plats principaux', 'Boisson', 'Alcool', 'Cocktail', 'Dessert', 'Fast-food', 'Salade', 'Nourriture', 'Crèmes', 'Jus naturel', 'Plats du jour'],
+            BusinessProfile::for('restaurant')['categories']
+        );
+    }
+
+    /** Signalé : « Sur table / À emporter / Livraison » se choisissait pour
+     *  tout le menu — un plat qui ne voyage pas (un flambé, une soupe très
+     *  chaude) doit pouvoir restreindre ses propres modes de service. */
+    public function test_a_restaurant_dish_can_declare_its_own_service_modes_and_extra_ingredients(): void
+    {
+        $restaurant = BusinessProfile::for('restaurant');
+
+        $this->assertSame(['Sur place', 'À emporter', 'Livraison'], $restaurant['fields']['service_modes']['options']);
+        $this->assertContains('Fromage', $restaurant['fields']['extras']['options']);
+    }
+
     public function test_an_unknown_type_falls_back_instead_of_crashing(): void
     {
         $this->assertSame(BusinessProfile::PROFILES['other'], BusinessProfile::for('spatioport'));

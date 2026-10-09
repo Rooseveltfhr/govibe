@@ -107,6 +107,19 @@ class MenuBusinessTypeTest extends TestCase
             Item::find($coupe->id)->specs);
     }
 
+    public function test_a_restaurant_dish_keeps_its_service_modes_and_extras_through_the_database(): void
+    {
+        $plat = $this->item('restaurant', [
+            'service_modes' => ['Sur place', 'Livraison', 'Sur la lune'],
+            'extras'        => ['Fromage', 'Avocat', 'Caviar'],
+        ]);
+
+        $this->assertSame(
+            ['service_modes' => ['Sur place', 'Livraison'], 'extras' => ['Fromage', 'Avocat']],
+            Item::find($plat->id)->specs
+        );
+    }
+
     public function test_only_a_hotel_prices_per_night(): void
     {
         $this->assertSame('/ nuit', BusinessProfile::priceSuffix('hotel'));

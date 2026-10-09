@@ -46,13 +46,18 @@ class BusinessProfile
             'price_suffix' => null,
             'name_example'    => 'Lakay Grill',
             'tagline_example' => 'Cuisine créole • Ambiance conviviale',
-            'categories' => ['Entrées', 'Plats principaux', 'Grillades', 'Accompagnements', 'Desserts', 'Boissons'],
+            'categories' => ['Plats principaux', 'Boisson', 'Alcool', 'Cocktail', 'Dessert', 'Fast-food', 'Salade', 'Nourriture', 'Crèmes', 'Jus naturel', 'Plats du jour'],
             'fields'     => [
-                'prep_time'   => ['label' => 'Temps de préparation', 'type' => self::T_NUMBER, 'unit' => 'min', 'min' => 0, 'max' => 480],
-                'portion'     => ['label' => 'Portion',              'type' => self::T_SELECT, 'options' => ['1 personne', '2 personnes', 'À partager', 'Familial']],
-                'spice'       => ['label' => 'Piment',               'type' => self::T_SELECT, 'options' => ['Pas piquant', 'Doux', 'Piquant', 'Très piquant']],
-                'diet'        => ['label' => 'Régime',               'type' => self::T_TAGS,   'options' => ['Végétarien', 'Végan', 'Sans gluten', 'Halal', 'Sans porc']],
-                'allergens'   => ['label' => 'Allergènes',           'type' => self::T_TAGS,   'options' => ['Arachides', 'Fruits de mer', 'Lait', 'Œufs', 'Gluten', 'Soja', 'Fruits à coque']],
+                'prep_time'     => ['label' => 'Temps de préparation', 'type' => self::T_NUMBER, 'unit' => 'min', 'min' => 0, 'max' => 480],
+                'portion'       => ['label' => 'Portion',              'type' => self::T_SELECT, 'options' => ['1 personne', '2 personnes', 'À partager', 'Familial']],
+                'spice'         => ['label' => 'Piment',               'type' => self::T_SELECT, 'options' => ['Pas piquant', 'Doux', 'Piquant', 'Très piquant']],
+                'diet'          => ['label' => 'Régime',               'type' => self::T_TAGS,   'options' => ['Végétarien', 'Végan', 'Sans gluten', 'Halal', 'Sans porc']],
+                'allergens'     => ['label' => 'Allergènes',           'type' => self::T_TAGS,   'options' => ['Arachides', 'Fruits de mer', 'Lait', 'Œufs', 'Gluten', 'Soja', 'Fruits à coque']],
+                // Sur place / à emporter / livraison : certains plats (un
+                // flambé, une soupe très chaude) ne voyagent pas bien — le
+                // choix se fait PAR PLAT, pas seulement pour tout le menu.
+                'service_modes' => ['label' => 'Mode de service',          'type' => self::T_TAGS,   'options' => ['Sur place', 'À emporter', 'Livraison']],
+                'extras'        => ['label' => 'Ingrédients supplémentaires', 'type' => self::T_TAGS, 'options' => ['Fromage', 'Bacon', 'Avocat', 'Pikliz', 'Sauce épicée', 'Œuf', 'Oignon', 'Champignons']],
             ],
         ],
 
