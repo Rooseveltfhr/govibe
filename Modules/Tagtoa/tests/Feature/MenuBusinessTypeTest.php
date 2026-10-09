@@ -97,6 +97,16 @@ class MenuBusinessTypeTest extends TestCase
         $this->assertNull(Item::find($item->id)->specs);
     }
 
+    public function test_a_hardware_store_item_and_a_salon_prestation_get_their_own_fields(): void
+    {
+        $outil = $this->item('quincaillerie', ['brand' => 'Stanley', 'unit' => 'Sac 50lb']);
+        $coupe = $this->item('salon', ['duration' => 30, 'requires_appointment' => '1', 'for_whom' => 'Hommes']);
+
+        $this->assertSame(['brand' => 'Stanley', 'unit' => 'Sac 50lb'], Item::find($outil->id)->specs);
+        $this->assertSame(['duration' => 30, 'requires_appointment' => true, 'for_whom' => 'Hommes'],
+            Item::find($coupe->id)->specs);
+    }
+
     public function test_only_a_hotel_prices_per_night(): void
     {
         $this->assertSame('/ nuit', BusinessProfile::priceSuffix('hotel'));

@@ -146,6 +146,35 @@ class BusinessProfileTest extends TestCase
         $this->assertArrayNotHasKey('prep_time', $boutique['fields']);
     }
 
+    /** Signalé : une quincaillerie se retrouvait sans son propre type — elle
+     *  était simplement une « boutique » parmi d'autres, sans son vocabulaire
+     *  ni ses rayons (plomberie, électricité, peinture…). */
+    public function test_a_hardware_store_speaks_of_tools_and_pipes_not_of_clothes(): void
+    {
+        $quincaillerie = BusinessProfile::for('quincaillerie');
+
+        $this->assertArrayHasKey('unit', $quincaillerie['fields']);
+        $this->assertArrayHasKey('brand', $quincaillerie['fields']);
+        $this->assertArrayNotHasKey('size', $quincaillerie['fields']);
+        $this->assertContains('Plomberie', $quincaillerie['categories']);
+        $this->assertContains('Électricité', $quincaillerie['categories']);
+    }
+
+    /** Autre manque signalé : un salon de beauté/barbershop n'avait pas de
+     *  type propre non plus — « Salon » n'apparaissait même pas dans la
+     *  liste, seulement dans la description de « Autre ». */
+    public function test_a_beauty_salon_speaks_of_appointments_and_hair_not_of_hardware(): void
+    {
+        $salon = BusinessProfile::for('salon');
+
+        $this->assertSame('Prestation', $salon['noun']);
+        $this->assertArrayHasKey('requires_appointment', $salon['fields']);
+        $this->assertArrayHasKey('for_whom', $salon['fields']);
+        $this->assertContains('Coiffure', $salon['categories']);
+        $this->assertContains('Rasage & barbe', $salon['categories']);
+        $this->assertArrayNotHasKey('abv', $salon['fields']);
+    }
+
     public function test_a_service_provider_speaks_of_appointments_not_of_dishes(): void
     {
         $service = BusinessProfile::for('service');
