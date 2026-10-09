@@ -84,7 +84,7 @@ class HomeTest extends TestCase
         $arrondissement = Arrondissement::create(['department_id' => $department->id, 'name' => 'Môle-Saint-Nicolas']);
         Commune::create(['arrondissement_id' => $arrondissement->id, 'name' => 'Môle-Saint-Nicolas']);
 
-        $this->get('/')->assertOk()->assertDontSee('Population :');
+        $this->get('/')->assertOk()->assertDontSee('habitants');
     }
 
     public function test_home_page_hero_has_no_video_layer_when_none_is_configured(): void
