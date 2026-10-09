@@ -15,6 +15,7 @@ use Modules\Tagtoa\App\Http\Controllers\Links\PublicController as LinksPublic;
 use Modules\Tagtoa\App\Http\Controllers\Loyalty\DashboardController as LoyaltyDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Loyalty\PublicController as LoyaltyPublic;
 use Modules\Tagtoa\App\Http\Controllers\Menu\DashboardController as MenuDashboard;
+use Modules\Tagtoa\App\Http\Controllers\Menu\ItemController as MenuItemController;
 use Modules\Tagtoa\App\Http\Controllers\Menu\PublicController as MenuPublic;
 use Modules\Tagtoa\App\Http\Controllers\Pay\DashboardController as PayDashboard;
 use Modules\Tagtoa\App\Http\Controllers\Pay\PublicController as PayPublic;
@@ -195,11 +196,23 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/kitchen', [MenuDashboard::class, 'currentKitchen'])->name('kitchen.current');
         Route::get('/delivery', [MenuDashboard::class, 'currentDelivery'])->name('delivery.current');
         Route::get('/tables', [MenuDashboard::class, 'currentTables'])->name('tables.current');
+        Route::get('/items', [MenuItemController::class, 'currentIndex'])->name('items.current');
 
         Route::post('/', [MenuDashboard::class, 'store'])->name('store');
         Route::get('/{id}/edit', [MenuDashboard::class, 'edit'])->name('edit');
         Route::put('/{id}', [MenuDashboard::class, 'update'])->name('update');
         Route::delete('/{id}', [MenuDashboard::class, 'destroy'])->name('destroy');
+
+        // PRODUITS — écran à part, SANS les champs de l'établissement ni du
+        // menu (voir ItemController) : « Ajouter un produit » n'ouvrait avant
+        // que le même formulaire que créer/modifier l'établissement.
+        Route::get('/{id}/items', [MenuItemController::class, 'index'])->whereNumber('id')->name('items.index');
+        Route::get('/{id}/items/create', [MenuItemController::class, 'create'])->whereNumber('id')->name('items.create');
+        Route::post('/{id}/items', [MenuItemController::class, 'store'])->whereNumber('id')->name('items.store');
+        Route::get('/{id}/items/{itemId}/edit', [MenuItemController::class, 'edit'])
+            ->whereNumber(['id', 'itemId'])->name('items.edit');
+        Route::put('/{id}/items/{itemId}', [MenuItemController::class, 'update'])
+            ->whereNumber(['id', 'itemId'])->name('items.update');
 
         // Supprimer est un acte à part, jamais un effet de bord de
         // l'enregistrement — même règle qu'au comptoir (0.1b).

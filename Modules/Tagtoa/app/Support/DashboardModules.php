@@ -95,6 +95,9 @@ class DashboardModules
             'children' => [
                 ['label' => 'Mes Menus',    'icon' => 'fa-utensils',    'url' => '/tagtoa/menu', 'sep' => 'Menu'],
                 ['label' => 'Nouveau menu', 'icon' => 'fa-plus',        'url' => '/tagtoa/menu/wizard'],
+                // Écran dédié (ItemController) — jamais plus le formulaire
+                // de l'établissement pour ajouter un simple produit.
+                ['label' => 'Produits',     'icon' => 'fa-bowl-food',   'url' => '/tagtoa/menu/items'],
 
                 // Le menu n'a qu'UN établissement lié (voir menuExistant()) :
                 // ces quatre écrans se résolvent donc sans numéro, comme la
