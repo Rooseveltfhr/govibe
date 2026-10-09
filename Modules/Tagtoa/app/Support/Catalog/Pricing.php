@@ -43,6 +43,9 @@ class Pricing
         'comprime'  => ['label' => 'Comprimé',   'decimal' => false],
         'plaquette' => ['label' => 'Plaquette',  'decimal' => false],
         'ampoule'   => ['label' => 'Ampoule',    'decimal' => false],
+        // Quincaillerie : le tuyau/câble au mètre, la peinture au gallon.
+        'metre'     => ['label' => 'Mètre',      'decimal' => true],
+        'gallon'    => ['label' => 'Gallon',     'decimal' => true],
     ];
 
     public const DEFAULT_UNIT = 'piece';
@@ -65,6 +68,7 @@ class Pricing
             'bar', 'club', 'lounge' => ['bouteille', 'caisse', 'verre', 'shot', 'piece'],
             'restaurant', 'cafe', 'hotel' => ['piece', 'kg', 'g', 'l', 'ml', 'douzaine'],
             'boutique'  => ['piece', 'douzaine', 'kg', 'boite'],
+            'quincaillerie' => ['piece', 'metre', 'sac', 'gallon', 'boite'],
             default     => ['piece', 'kg', 'l', 'boite', 'sac', 'douzaine'],
         };
     }

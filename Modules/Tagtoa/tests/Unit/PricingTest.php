@@ -149,6 +149,18 @@ class PricingTest extends TestCase
         }
     }
 
+    public function test_hardware_store_units_are_part_of_the_list(): void
+    {
+        foreach (['metre', 'gallon'] as $unite) {
+            $this->assertArrayHasKey($unite, Pricing::UNITS, "L'unité « $unite » doit exister.");
+        }
+    }
+
+    public function test_a_hardware_store_is_suggested_pipe_and_paint_units_first(): void
+    {
+        $this->assertSame(['piece', 'metre', 'sac', 'gallon', 'boite'], Pricing::unitsFor('quincaillerie'));
+    }
+
     public function test_a_bar_is_suggested_bottle_case_glass_and_shot_first(): void
     {
         $suggerees = Pricing::unitsFor('bar');
@@ -185,7 +197,7 @@ class PricingTest extends TestCase
     {
         // Une suggestion qui pointerait vers une unité inexistante casserait
         // le menu déroulant en silence.
-        foreach (['restaurant', 'cafe', 'bar', 'club', 'lounge', 'hotel', 'pharmacy', 'clinic', 'boutique', 'other', null] as $type) {
+        foreach (['restaurant', 'cafe', 'bar', 'club', 'lounge', 'hotel', 'pharmacy', 'clinic', 'boutique', 'quincaillerie', 'salon', 'service', 'other', null] as $type) {
             foreach (Pricing::unitsFor($type) as $unite) {
                 $this->assertArrayHasKey($unite, Pricing::UNITS, "Type « $type » suggère une unité inconnue : $unite");
             }

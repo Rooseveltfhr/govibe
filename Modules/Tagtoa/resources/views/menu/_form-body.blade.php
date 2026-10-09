@@ -524,12 +524,6 @@ var PROFILES = @json(\Modules\Tagtoa\App\Support\Menu\BusinessProfile::PROFILES)
 // commentaire sur .itemsummary dans le <style> ci-dessus.
 var IS_WIZARD = @json($isWizard ?? false);
 
-// Rayons courants d'un petit commerce, en plus des catégories du métier
-// choisi — LA MÊME liste que celle proposée dans POS (CategoryPresets::COMMON) :
-// sans liste unique, les deux écrans finiraient par diverger pour la même
-// réalité.
-var CATEGORY_PRESETS_COMMON = @json(\Modules\Tagtoa\App\Support\Catalog\CategoryPresets::COMMON);
-
 function currentProfile(){
     var sel = document.querySelector('select[name="type"]');
     var t = sel ? sel.value : 'other';
@@ -657,11 +651,11 @@ function renderPresets(){
         function(el){ return (el.value || '').toLowerCase().trim(); }
     );
     box.innerHTML = '';
-    // Les catégories du métier D'ABORD (les plus pertinentes), puis les
-    // rayons génériques — sans doublon entre les deux listes ni avec ce qui
-    // est déjà ajouté.
+    // Uniquement les catégories DU MÉTIER choisi — un restaurant ne doit pas
+    // se voir suggérer des rayons de boutique ou d'épicerie, hors sujet ici.
+    // Sans doublon avec ce qui est déjà ajouté.
     var dejaSuggere = [];
-    (currentProfile().categories || []).concat(CATEGORY_PRESETS_COMMON).forEach(function(name){
+    (currentProfile().categories || []).forEach(function(name){
         var cle = name.toLowerCase();
         if (existing.indexOf(cle) !== -1 || dejaSuggere.indexOf(cle) !== -1) { return; }
         dejaSuggere.push(cle);

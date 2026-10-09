@@ -182,17 +182,18 @@ class MenuWizardRefinementsTest extends TestCase
 
     public function test_the_menu_list_links_directly_to_the_products_section(): void
     {
-        // Signalé : « pa jwenn kote vre pou ajouter produit » — « Modifier »
-        // menait au tout premier champ du formulaire (identité du commerce),
-        // la section Catégories & produits étant la toute DERNIÈRE carte
-        // après paiement/apparence/horaires. Le lien doit sauter droit dessus.
+        // Signalé d'abord : « pa jwenn kote vre pou ajouter produit » — réglé
+        // ici par un ANCRAGE sur le gros formulaire. Signalé ENSUITE (vidéo) :
+        // cet ancrage ouvrait encore le même formulaire que l'établissement.
+        // Le lien mène maintenant à un écran à part (ItemController), qui ne
+        // montre que le produit — voir MenuItemScreenTest.
         $this->patron();
         $menu = Menu::create(['tenant_id' => 't-1', 'name' => 'Lounge', 'alias' => 'lounge-'.uniqid(), 'currency' => 'HTG']);
 
         $html = $this->get(route('tagtoa.menu.dashboard.index'))->assertOk()->getContent();
 
         $this->assertStringContainsString(
-            'href="'.route('tagtoa.menu.dashboard.edit', $menu->id).'#categories-produits"',
+            'href="'.route('tagtoa.menu.dashboard.items.create', $menu->id).'"',
             $html
         );
         $this->assertStringContainsString(__('Ajouter un produit'), $html);
