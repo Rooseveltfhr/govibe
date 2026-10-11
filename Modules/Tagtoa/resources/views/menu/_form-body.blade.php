@@ -395,10 +395,14 @@
         <div style="display:flex;gap:16px;align-items:center;margin-top:8px;flex-wrap:wrap">
             <div style="display:flex;align-items:center;gap:8px">
                 <img class="itemphoto" style="height:40px;width:40px;border-radius:8px;object-fit:cover;display:none">
-                {{-- `capture="environment"` ouvre directement l'appareil photo
-                     arrière sur téléphone, sans empêcher de choisir une photo
-                     déjà prise dans la galerie. --}}
-                <input name="cats[CIDX][items][IIDX][image]" class="inp" type="file" accept="image/*" capture="environment" style="max-width:190px" onchange="previewItemImage(this)">
+                {{-- Signalé depuis un téléphone réel : `capture="environment"`
+                     n'ouvre PAS « appareil photo OU galerie » comme le
+                     supposait ce commentaire — sur la plupart des navigateurs
+                     mobiles, il saute la boîte de choix et lance l'appareil
+                     photo arrière directement, sans jamais proposer la
+                     galerie depuis ce champ. Retiré : le sélecteur natif du
+                     téléphone, sans cet attribut, propose bien les deux. --}}
+                <input name="cats[CIDX][items][IIDX][image]" class="inp" type="file" accept="image/*" style="max-width:190px" onchange="previewItemImage(this)">
                 <label class="switch removeimgwrap" style="flex:0;display:none"><input type="checkbox" name="cats[CIDX][items][IIDX][remove_image]" value="1"> {{ __('Retirer') }}</label>
             </div>
             <input name="cats[CIDX][items][IIDX][badge]" class="inp" placeholder="{{ __('Badge: Nouveau, Promo…') }}" style="max-width:200px">

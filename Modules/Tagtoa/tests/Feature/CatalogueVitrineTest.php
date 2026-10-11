@@ -64,6 +64,21 @@ class CatalogueVitrineTest extends TestCase
             ->assertSee('Griot');
     }
 
+    public function test_the_grid_never_leaves_a_dead_empty_column(): void
+    {
+        // Signalé en testant depuis un téléphone : un commerce qui démarre
+        // n'a souvent qu'UN SEUL produit par catégorie. Avec auto-fill, la
+        // grille réservait quand même la place d'une deuxième colonne vide —
+        // la carte restait collée à gauche, petite, avec un grand vide à
+        // côté. auto-fit efface cette colonne fantôme.
+        $m = $this->menu();
+        $this->plat($this->categorie($m, 'Boissons'));
+
+        $this->get('/menu/'.$m->alias)->assertOk()
+            ->assertSee('repeat(auto-fit,minmax(150px,1fr))', false)
+            ->assertDontSee('repeat(auto-fill,minmax(150px,1fr))', false);
+    }
+
     public function test_a_category_gets_a_real_icon_without_anyone_configuring_it(): void
     {
         // Presque aucun marchand ne saisit d'icône : sans déduction, la barre
@@ -93,6 +108,22 @@ class CatalogueVitrineTest extends TestCase
         $this->plat($this->categorie($m, 'Plats'), ['name' => 'Griot', 'emoji' => '🍽️']);
 
         $this->get('/menu/'.$m->alias)->assertOk()->assertDontSee('🍽️');
+    }
+
+    public function test_a_dish_without_a_photo_shows_its_category_icon_not_a_bare_letter(): void
+    {
+        // Signalé en testant depuis un téléphone : sur un produit seul dans sa
+        // catégorie, la carte remplit toute la largeur (voir le test sur
+        // auto-fit plus bas) — une simple lettre géante y a l'air vide et
+        // bâclée. L'icône de la catégorie, elle, reste reconnaissable à
+        // n'importe quelle taille, et c'est déjà celle affichée juste
+        // au-dessus dans l'en-tête de section : rien de nouveau à apprendre.
+        $m = $this->menu();
+        $this->plat($this->categorie($m, 'Plats'), ['name' => 'Griot']);
+
+        $reponse = $this->get('/menu/'.$m->alias)->assertOk();
+        $reponse->assertSee('<div class="ph"><i class="fa-solid fa-utensils"></i></div>', false);
+        $reponse->assertDontSee('<div class="ph">G</div>', false);
     }
 
     public function test_the_page_carries_the_sound_that_confirms_an_add(): void

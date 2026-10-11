@@ -264,6 +264,12 @@ class BusinessProfile
         return self::for($type)['price_suffix'] ?? null;
     }
 
+    /** Catégories suggérées pour ce type (jamais imposées, voir CategoryPresets). */
+    public static function categories(?string $type): array
+    {
+        return self::for($type)['categories'] ?? [];
+    }
+
     /** Champs supplémentaires déclarés pour ce type. */
     public static function fields(?string $type): array
     {

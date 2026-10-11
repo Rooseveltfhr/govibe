@@ -4,6 +4,13 @@
 @section('page', $editing ? __('Modifier le produit') : __('Ajouter un produit'))
 
 @section('content')
+<style>
+    /* L'attribut `hidden` seul ne suffit pas : un style inline `display:flex`
+       sur le MÊME élément l'emporterait sur le display:none de la feuille
+       UA (même bug que _form-body.blade.php .itemdet, déjà rencontré dans ce
+       module). `:not([hidden])` ne s'applique qu'une fois le volet déplié. */
+    .item-advanced:not([hidden]) { display: flex; }
+</style>
 {{-- Écran à part, EXPRÈS : ni le nom de l'établissement, ni son logo, ni ses
      catégories ou autres produits n'apparaissent ici — seulement ce qui
      concerne CE produit. --}}
@@ -26,10 +33,28 @@
                 @endforeach
             </select>
         </div>
-        <div id="newCatWrap" style="display:{{ old('category_id', $item?->category_id) ? 'none' : 'flex' }};gap:8px;margin-top:8px">
-            <input name="new_category_name" class="inp" placeholder="{{ __('Nom de la nouvelle catégorie') }}" value="{{ old('new_category_name') }}" style="flex:1">
+        <div id="newCatWrap" style="display:{{ old('category_id', $item?->category_id) ? 'none' : 'flex' }};flex-direction:column;gap:8px;margin-top:8px">
+            <input name="new_category_name" id="newCatName" class="inp" placeholder="{{ __('Nom de la nouvelle catégorie') }}" value="{{ old('new_category_name') }}" style="flex:1">
+            {{-- Suggestions propres au métier de ce commerce (« Chambres » pour
+                 un hôtel, « Bières » pour un bar…) — jamais imposées : un clic
+                 remplit juste le champ texte au-dessus, qu'on peut toujours
+                 modifier. Celles déjà créées pour ce menu ne sont pas reproposées. --}}
+            @if(!empty($categoryPresets))
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                    @foreach($categoryPresets as $preset)
+                        <button type="button" class="btn btn-o btn-sm catpreset" data-nom="{{ $preset }}" style="font-size:12.5px;padding:4px 10px">{{ $preset }}</button>
+                    @endforeach
+                </div>
+            @endif
         </div>
         @error('new_category_name')<div class="err">{{ $message }}</div>@enderror
+        <script>
+            document.querySelectorAll('.catpreset').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    document.getElementById('newCatName').value = btn.dataset.nom;
+                });
+            });
+        </script>
 
         <label class="lbl" style="margin-top:14px">{{ __('Nom du produit') }} *</label>
         <input name="item_name" class="inp" required maxlength="160" value="{{ old('item_name', $item?->name) }}" placeholder="{{ \Modules\Tagtoa\App\Support\Menu\BusinessProfile::for($menu->type)['noun'] ?? __('Produit') }}">
@@ -46,7 +71,13 @@
             </div>
             <div>
                 <label class="lbl">{{ __('Photo') }}</label>
-                <input name="item_image" type="file" accept="image/*" capture="environment" class="inp" style="max-width:220px">
+                {{-- SANS `capture` : sur téléphone, cet attribut ne propose pas
+                     « appareil photo OU galerie » comme on pourrait le croire —
+                     il saute la boîte de choix et ouvre l'appareil photo
+                     DIRECTEMENT, rendant la galerie inaccessible depuis ce
+                     champ. Sans lui, le sélecteur natif du téléphone propose
+                     les deux. --}}
+                <input name="item_image" type="file" accept="image/*" class="inp" style="max-width:220px">
             </div>
             @if($editing && $item->image_url)
                 <label class="switch" style="flex:0"><input type="checkbox" name="item_remove_image" value="1"> {{ __('Retirer la photo actuelle') }}</label>
@@ -97,13 +128,38 @@
             </div>
         @endif
 
+        {{-- Options & variantes : « Taille », « Suppléments »… Le moteur
+             (ItemOption/ItemOptionChoice + DashboardController::syncItemOptions)
+             existe déjà et fonctionne dans le grand formulaire — jamais
+             affiché sur CET écran jusqu'ici. Replié par défaut, comme
+             « Coût & gestion » juste en dessous : la plupart des produits
+             n'en ont pas, et ne doivent pas le subir. SANS style inline sur
+             l'élément qui porte `hidden` — le bloc reprend son display:block
+             normal une fois déplié, pas de conflit de spécificité à gérer. --}}
+        <button type="button" class="btn btn-o btn-sm" style="margin-top:14px" onclick="var d=document.getElementById('itemOptions');d.hidden=!d.hidden">
+            <i class="fa-solid fa-layer-group"></i> {{ __('Options & variantes (taille, suppléments…)') }}
+        </button>
+        @php
+            // `$item?->options->isEmpty()` serait FAUX ici : l'opérateur
+            // nullsafe ne protège que l'accès juste après lui (`->options`),
+            // pas toute la chaîne — `->isEmpty()` planterait quand même sur
+            // null en création. D'où ce booléen calculé à part.
+            $panneauOptionsVide = ($item === null || $item->options->isEmpty()) && ! old('item_options');
+        @endphp
+        <div id="itemOptions" @if($panneauOptionsVide) hidden @endif style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)">
+            <div id="optionsList"></div>
+            <button type="button" class="btn btn-o btn-sm" onclick="addOpt()" style="margin-top:6px">
+                <i class="fa-solid fa-plus"></i> {{ __('Groupe d\'options (ex. Taille)') }}
+            </button>
+        </div>
+
         {{-- Gestion : coût, stock, unité, référence, fournisseur — replié par
              défaut, comme dans l'assistant complet (voir _form-body.blade.php) :
              un commerce qui veut seulement afficher sa carte ne doit pas le subir. --}}
         <button type="button" class="btn btn-o btn-sm" style="margin-top:14px" onclick="var d=document.getElementById('itemAdvanced');d.hidden=!d.hidden">
             <i class="fa-solid fa-sliders"></i> {{ __('Coût & gestion') }}
         </button>
-        <div id="itemAdvanced" {{ old('item_cost_price') || old('item_sku') || old('item_stock') ? '' : 'hidden' }} style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)">
+        <div id="itemAdvanced" class="item-advanced" {{ old('item_cost_price') || old('item_sku') || old('item_stock') ? '' : 'hidden' }} style="gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)">
             <label style="font-size:12px;color:var(--muted)">{{ __('Coût matière') }}
                 <input name="item_cost_price" class="inp" type="number" step="0.01" min="0" value="{{ old('item_cost_price', $item?->cost_price) }}" style="max-width:130px">
             </label>
@@ -138,4 +194,83 @@
         </div>
     </form>
 </div>
+
+{{-- Template groupe d'options — mêmes noms de champs et même structure que
+     le grand formulaire (_form-body.blade.php), sans les indices CIDX/IIDX
+     puisque cet écran ne porte toujours qu'UN seul produit. --}}
+<template id="opttpl">
+    <div class="optblock" data-chi="0" style="border:1px dashed var(--bd);border-radius:10px;padding:8px;margin-top:8px;background:#fafafa">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input name="item_options[OIDX][name]" class="inp" placeholder="{{ __('Nom du groupe (ex. Taille)') }}" style="flex:1;min-width:140px">
+            <label class="switch" style="flex:0"><input type="checkbox" name="item_options[OIDX][required]" value="1"> {{ __('Obligatoire') }}</label>
+            <label class="switch" style="flex:0"><input type="checkbox" name="item_options[OIDX][multiple]" value="1"> {{ __('Choix multiples') }}</label>
+            <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.optblock').remove()"><i class="fa-solid fa-trash"></i></button>
+        </div>
+        <div class="choices" style="margin-top:6px"></div>
+        <button type="button" class="btn btn-o btn-sm" onclick="addChoiceRow(this.closest('.optblock'))" style="margin-top:4px"><i class="fa-solid fa-plus"></i> {{ __('Choix') }}</button>
+    </div>
+</template>
+
+<template id="choicetpl">
+    <div class="choicerow" style="display:flex;gap:8px;align-items:center;margin-top:4px">
+        <input name="item_options[OIDX][choices][CHIDX][label]" class="inp" placeholder="{{ __('Libellé (ex. Grand)') }}">
+        <input name="item_options[OIDX][choices][CHIDX][price_delta]" class="inp" type="number" step="0.01" placeholder="{{ __('+/- prix') }}" style="max-width:110px">
+        <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.choicerow').remove()"><i class="fa-solid fa-trash"></i></button>
+    </div>
+</template>
+
+<script>
+(function () {
+    var oiCounter = 0;
+
+    window.addOpt = function (d) {
+        var oi = oiCounter++;
+        var html = document.getElementById('opttpl').innerHTML.replace(/OIDX/g, oi);
+        var box = document.createElement('div'); box.innerHTML = html;
+        var row = box.firstElementChild;
+        document.getElementById('optionsList').appendChild(row);
+        if (d) {
+            row.querySelector('[name$="[name]"]').value = d.name || '';
+            row.querySelector('[name$="[required]"]').checked = !!d.required;
+            row.querySelector('[name$="[multiple]"]').checked = !!d.multiple;
+            if (d.id) {
+                var h = document.createElement('input'); h.type = 'hidden'; h.name = 'item_options[' + oi + '][id]'; h.value = d.id; row.appendChild(h);
+            }
+            (d.choices || []).forEach(function (ch) { addChoiceRow(row, ch); });
+        }
+        return row;
+    };
+
+    window.addChoiceRow = function (optRow, d) {
+        var oiMatch = optRow.querySelector('[name$="[name]"]').name.match(/item_options\[(\d+)\]/);
+        var oi = oiMatch[1];
+        var chi = parseInt(optRow.getAttribute('data-chi') || '0', 10);
+        optRow.setAttribute('data-chi', chi + 1);
+        var html = document.getElementById('choicetpl').innerHTML.replace(/OIDX/g, oi).replace(/CHIDX/g, chi);
+        var box = document.createElement('div'); box.innerHTML = html;
+        var row = box.firstElementChild;
+        optRow.querySelector('.choices').appendChild(row);
+        if (d) {
+            row.querySelector('[name$="[label]"]').value = d.label || '';
+            row.querySelector('[name$="[price_delta]"]').value = (d.price_delta != null ? d.price_delta : '');
+            if (d.id) {
+                var h = document.createElement('input'); h.type = 'hidden'; h.name = 'item_options[' + oi + '][choices][' + chi + '][id]'; h.value = d.id; row.appendChild(h);
+            }
+        }
+        return row;
+    };
+
+    @php
+        // Même piège que $panneauOptionsVide plus haut : `$item?->options->map`
+        // plante sur null dès que `$item` est null (création), le nullsafe ne
+        // protégeant que `->options`. D'où le `$item === null ? [] : …` ici.
+        $optionsExistantes = $item === null ? [] : $item->options->map(fn ($o) => [
+            'id' => $o->id, 'name' => $o->name, 'required' => $o->required, 'multiple' => $o->multiple,
+            'choices' => $o->choices->map(fn ($ch) => ['id' => $ch->id, 'label' => $ch->label, 'price_delta' => $ch->price_delta])->values(),
+        ])->values();
+    @endphp
+    var existingOptions = @json(old('item_options') ?: $optionsExistantes);
+    existingOptions.forEach(function (o) { addOpt(o); });
+})();
+</script>
 @endsection

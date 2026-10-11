@@ -59,6 +59,62 @@ class MenuItemScreenTest extends TestCase
         $this->assertStringNotContainsString('name="alias"', $html);
     }
 
+    public function test_the_photo_field_does_not_force_the_camera_open_directly(): void
+    {
+        // Signalé depuis un téléphone réel : `capture="environment"` saute la
+        // boîte de choix du système et ouvre l'appareil photo directement,
+        // rendant la galerie inaccessible depuis ce champ — l'inverse de ce
+        // qu'on attend d'un champ « photo » classique.
+        $this->patron();
+        $menu = $this->menu();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.create', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('name="item_image"', $html);
+        $this->assertDoesNotMatchRegularExpression(
+            '/name="item_image"[^>]*capture=/',
+            $html
+        );
+    }
+
+    public function test_the_new_category_field_suggests_presets_for_the_business_type(): void
+    {
+        // Demandé : la même liste déjà utilisée dans BusinessProfile pour les
+        // champs propres au métier sert aussi de suggestion de catégorie —
+        // « Chambres » pour un hôtel, « Bières » pour un bar — un clic
+        // remplit le champ texte, jamais une case imposée.
+        $this->patron();
+        $menu = $this->menu('t-1', ['type' => 'restaurant']);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.create', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('class="btn btn-o btn-sm catpreset" data-nom="Plats principaux"', $html);
+        $this->assertStringContainsString('class="btn btn-o btn-sm catpreset" data-nom="Dessert"', $html);
+    }
+
+    public function test_a_category_already_created_is_not_suggested_again(): void
+    {
+        $this->patron();
+        $menu = $this->menu('t-1', ['type' => 'restaurant']);
+        Category::create(['menu_id' => $menu->id, 'name' => 'Dessert', 'is_active' => true]);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.create', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('data-nom="Plats principaux"', $html);
+        $this->assertStringNotContainsString('data-nom="Dessert"', $html);
+    }
+
+    public function test_the_category_presets_follow_the_business_type(): void
+    {
+        $this->patron();
+        $menu = $this->menu('t-1', ['type' => 'quincaillerie']);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.create', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('data-nom="Plomberie"', $html);
+        $this->assertStringNotContainsString('data-nom="Plats principaux"', $html);
+    }
+
     public function test_adding_a_product_creates_it_in_a_new_category_without_touching_the_menu_identity(): void
     {
         $this->patron();
@@ -102,6 +158,86 @@ class MenuItemScreenTest extends TestCase
         $this->assertSame('Servie chaude, le dimanche', Item::where('name', 'Soupe joumou')->firstOrFail()->description);
     }
 
+    public function test_adding_a_product_with_an_option_group_and_choices_persists_them(): void
+    {
+        // Demandé : pouvoir ajouter des variantes (taille, couleur…) avec un
+        // prix différent par choix, obligatoire ou non. Le moteur existait
+        // déjà (ItemOption/ItemOptionChoice, utilisé par le grand
+        // formulaire) — cet écran dédié ne le proposait pas encore.
+        $this->patron();
+        $menu = $this->menu();
+
+        $this->post(route('tagtoa.menu.dashboard.items.store', $menu->id), [
+            'new_category_name' => 'Plats',
+            'item_name'          => 'Riz collé',
+            'item_price'         => 250,
+            'item_options'       => [
+                0 => [
+                    'name'     => 'Portion',
+                    'required' => '1',
+                    'choices'  => [
+                        0 => ['label' => 'Normale', 'price_delta' => 0],
+                        1 => ['label' => 'Grande', 'price_delta' => 150],
+                    ],
+                ],
+            ],
+        ])->assertRedirect();
+
+        $item = Item::where('name', 'Riz collé')->firstOrFail();
+        $opt = $item->options()->firstOrFail();
+        $this->assertSame('Portion', $opt->name);
+        $this->assertTrue($opt->required);
+        $this->assertFalse($opt->multiple);
+        $this->assertCount(2, $opt->choices);
+        $this->assertSame('Grande', $opt->choices()->where('price_delta', 150)->firstOrFail()->label);
+    }
+
+    public function test_removing_every_option_while_editing_actually_deletes_them(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $cat = Category::create(['menu_id' => $menu->id, 'name' => 'Plats', 'is_active' => true]);
+        $item = Item::create(['menu_id' => $menu->id, 'category_id' => $cat->id, 'name' => 'Riz collé', 'price' => 250, 'is_available' => true]);
+        $opt = $item->options()->create(['name' => 'Portion', 'required' => true, 'multiple' => false, 'sort' => 0]);
+        $opt->choices()->create(['label' => 'Normale', 'price_delta' => 0, 'sort' => 0]);
+
+        $this->put(route('tagtoa.menu.dashboard.items.update', [$menu->id, $item->id]), [
+            'category_id' => $cat->id,
+            'item_name'    => 'Riz collé',
+            'item_price'   => 250,
+            // Aucun item_options : le marchand a retiré le dernier groupe.
+        ])->assertRedirect();
+
+        $this->assertCount(0, $item->fresh()->options);
+    }
+
+    public function test_the_edit_screen_hydrates_the_existing_options_for_the_javascript_editor(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $cat = Category::create(['menu_id' => $menu->id, 'name' => 'Plats', 'is_active' => true]);
+        $item = Item::create(['menu_id' => $menu->id, 'category_id' => $cat->id, 'name' => 'Riz collé', 'price' => 250, 'is_available' => true]);
+        $opt = $item->options()->create(['name' => 'Portion', 'required' => true, 'multiple' => false, 'sort' => 0]);
+        $opt->choices()->create(['label' => 'Grande', 'price_delta' => 150, 'sort' => 0]);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.edit', [$menu->id, $item->id]))->assertOk()->getContent();
+
+        $this->assertStringContainsString('"name":"Portion"', $html);
+        $this->assertStringContainsString('"label":"Grande"', $html);
+        // Des options existent déjà : le volet s'ouvre déplié, pas à découvrir.
+        $this->assertDoesNotMatchRegularExpression('/id="itemOptions"[^>]*\bhidden\b/', $html);
+    }
+
+    public function test_the_options_panel_is_collapsed_by_default_on_a_fresh_product(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.create', $menu->id))->assertOk()->getContent();
+
+        $this->assertMatchesRegularExpression('/id="itemOptions"[^>]*\bhidden\b/', $html);
+    }
+
     public function test_adding_a_product_to_an_existing_category_reuses_it_instead_of_duplicating(): void
     {
         $this->patron();
@@ -116,6 +252,32 @@ class MenuItemScreenTest extends TestCase
         ]);
 
         $this->assertSame(1, Category::where('menu_id', $menu->id)->count());
+        $this->assertSame(2, Item::where('category_id', $cat->id)->count());
+    }
+
+    /** Signalé (test manuel, commerce Hôtel) : une deuxième chambre ajoutée
+     *  en tapant à nouveau « Chambres » dans « Nouvelle catégorie » (plutôt
+     *  que de choisir la catégorie existante dans la liste déroulante) créait
+     *  un DOUBLON — le menu public affichait deux sections « Chambres »
+     *  distinctes, chacune avec un seul article. */
+    public function test_typing_an_existing_category_name_again_reuses_it_instead_of_duplicating(): void
+    {
+        $this->patron();
+        $menu = $this->menu(attrs: ['type' => 'hotel']);
+
+        $this->post(route('tagtoa.menu.dashboard.items.store', $menu->id), [
+            'new_category_name' => 'Chambres',
+            'item_name'          => 'Suite Vue Mer',
+            'item_price'         => 4500,
+        ]);
+        $this->post(route('tagtoa.menu.dashboard.items.store', $menu->id), [
+            'new_category_name' => 'chambres', // casse différente, comme un marchand retaperait
+            'item_name'          => 'Chambre Standard',
+            'item_price'         => 2200,
+        ]);
+
+        $this->assertSame(1, Category::where('menu_id', $menu->id)->count());
+        $cat = Category::where('menu_id', $menu->id)->firstOrFail();
         $this->assertSame(2, Item::where('category_id', $cat->id)->count());
     }
 
@@ -242,5 +404,30 @@ class MenuItemScreenTest extends TestCase
 
         $this->assertStringContainsString('Boissons', $html);
         $this->assertStringContainsString('Cola', $html);
+    }
+
+    /** Signalé (test manuel navigateur, 3 commerces) : le volet « Coût &
+     *  gestion » apparaissait toujours déplié, quel que soit l'attribut
+     *  `hidden` — un style inline `display:flex` sur le MÊME élément
+     *  l'emportait sur le display:none de la feuille UA (même bug que
+     *  _form-body.blade.php .itemdet, déjà rencontré dans ce module). */
+    public function test_the_advanced_panel_has_no_inline_display_fighting_its_hidden_attribute(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.create', $menu->id))->assertOk()->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<div id="itemAdvanced"[^>]*\bhidden\b[^>]*>/',
+            $html,
+            'Le volet « Coût & gestion » doit porter hidden par défaut.'
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/<div id="itemAdvanced"[^>]*style="[^"]*display:\s*flex/',
+            $html,
+            'Un display:flex inline sur ce même élément annule hidden.'
+        );
+        $this->assertStringContainsString('.item-advanced:not([hidden])', $html);
     }
 }

@@ -68,9 +68,17 @@
 
            Deux colonnes sur téléphone (172 px de carte : assez pour une photo
            lisible), et autant que la largeur le permet ensuite. Personne ne
-           choisit le nombre de colonnes : c'est la place disponible qui décide. */
-        .grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
-        @media(min-width:560px){.grille{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}}
+           choisit le nombre de colonnes : c'est la place disponible qui décide.
+
+           auto-fit, pas auto-fill : une catégorie qui n'a encore qu'UN seul
+           produit (le cas le plus fréquent chez un commerce qui démarre) est
+           un piège avec auto-fill — la grille réserve quand même la place
+           d'une deuxième colonne vide, et la carte reste collée à gauche avec
+           un grand vide à côté. auto-fit efface cette colonne fantôme : seul
+           produit = carte en pleine largeur, deux produits ou plus = toujours
+           côte à côte comme avant. */
+        .grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+        @media(min-width:560px){.grille{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}}
         .item{display:flex;flex-direction:column;background:var(--surf);border:1px solid var(--bd);
               border-radius:16px;overflow:hidden;position:relative}
         /* La photo d'abord, en 4:3 : le format qui montre une assiette entière
@@ -236,12 +244,17 @@
                     @php $out = ! $it->in_stock; $itNom = $it->translated('name'); $itDesc = $it->translated('description'); @endphp
                     <div class="item" @if($out) style="opacity:.55" @endif>
                         {{-- La photo d'abord : c'est elle qui fait commander,
-                             pas le nom. À défaut, l'initiale du plat sur la
-                             couleur du commerce — jamais un emoji, qui tombe en
-                             carré blanc sur la moitié des téléphones. --}}
+                             pas le nom. À défaut, l'icône de SA catégorie (la
+                             même que l'en-tête juste au-dessus) — jamais un
+                             emoji, qui tombe en carré blanc sur la moitié des
+                             téléphones, et jamais non plus une simple lettre
+                             posée seule : sur une grande carte (un produit
+                             seul dans sa catégorie remplit toute la largeur),
+                             une lettre géante a l'air vide et bâclée, alors
+                             qu'une icône reste reconnaissable à toute taille. --}}
                         @if($menu->show_images ?? true)
                             @if($it->image_url)<img class="ph" src="{{ $it->image_url }}" alt="{{ $itNom }}" loading="lazy">
-                            @else<div class="ph">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($itNom, 0, 1)) }}</div>@endif
+                            @else<div class="ph"><i class="fa-solid {{ \Modules\Tagtoa\App\Support\Menu\CategoryIcon::resolve($c->icon, $c->name) }}"></i></div>@endif
                         @endif
                         <div class="body">
                             <div class="nm">{{ $itNom }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ __('Épuisé') }}</span>@endif</div>
