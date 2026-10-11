@@ -33,10 +33,28 @@
                 @endforeach
             </select>
         </div>
-        <div id="newCatWrap" style="display:{{ old('category_id', $item?->category_id) ? 'none' : 'flex' }};gap:8px;margin-top:8px">
-            <input name="new_category_name" class="inp" placeholder="{{ __('Nom de la nouvelle catégorie') }}" value="{{ old('new_category_name') }}" style="flex:1">
+        <div id="newCatWrap" style="display:{{ old('category_id', $item?->category_id) ? 'none' : 'flex' }};flex-direction:column;gap:8px;margin-top:8px">
+            <input name="new_category_name" id="newCatName" class="inp" placeholder="{{ __('Nom de la nouvelle catégorie') }}" value="{{ old('new_category_name') }}" style="flex:1">
+            {{-- Suggestions propres au métier de ce commerce (« Chambres » pour
+                 un hôtel, « Bières » pour un bar…) — jamais imposées : un clic
+                 remplit juste le champ texte au-dessus, qu'on peut toujours
+                 modifier. Celles déjà créées pour ce menu ne sont pas reproposées. --}}
+            @if(!empty($categoryPresets))
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                    @foreach($categoryPresets as $preset)
+                        <button type="button" class="btn btn-o btn-sm catpreset" data-nom="{{ $preset }}" style="font-size:12.5px;padding:4px 10px">{{ $preset }}</button>
+                    @endforeach
+                </div>
+            @endif
         </div>
         @error('new_category_name')<div class="err">{{ $message }}</div>@enderror
+        <script>
+            document.querySelectorAll('.catpreset').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    document.getElementById('newCatName').value = btn.dataset.nom;
+                });
+            });
+        </script>
 
         <label class="lbl" style="margin-top:14px">{{ __('Nom du produit') }} *</label>
         <input name="item_name" class="inp" required maxlength="160" value="{{ old('item_name', $item?->name) }}" placeholder="{{ \Modules\Tagtoa\App\Support\Menu\BusinessProfile::for($menu->type)['noun'] ?? __('Produit') }}">
@@ -53,7 +71,13 @@
             </div>
             <div>
                 <label class="lbl">{{ __('Photo') }}</label>
-                <input name="item_image" type="file" accept="image/*" capture="environment" class="inp" style="max-width:220px">
+                {{-- SANS `capture` : sur téléphone, cet attribut ne propose pas
+                     « appareil photo OU galerie » comme on pourrait le croire —
+                     il saute la boîte de choix et ouvre l'appareil photo
+                     DIRECTEMENT, rendant la galerie inaccessible depuis ce
+                     champ. Sans lui, le sélecteur natif du téléphone propose
+                     les deux. --}}
+                <input name="item_image" type="file" accept="image/*" class="inp" style="max-width:220px">
             </div>
             @if($editing && $item->image_url)
                 <label class="switch" style="flex:0"><input type="checkbox" name="item_remove_image" value="1"> {{ __('Retirer la photo actuelle') }}</label>

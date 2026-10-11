@@ -192,12 +192,24 @@ class ItemController extends Controller
 
     private function formData(Menu $menu, ?Item $item = null): array
     {
+        // Suggestions propres au métier (« Plats principaux », « Bières »…) :
+        // celles déjà créées pour CE menu ne servent à rien en double, et le
+        // marchand doit pouvoir les retrouver dans le select du dessus —
+        // jamais les deux à la fois pour la même catégorie.
+        $dejaCrees = $menu->categories->pluck('name')
+            ->map(fn ($n) => mb_strtolower(trim($n)))->all();
+        $categoryPresets = array_values(array_filter(
+            BusinessProfile::categories($menu->type),
+            fn ($nom) => ! in_array(mb_strtolower($nom), $dejaCrees, true)
+        ));
+
         return [
-            'menu'      => $menu,
-            'item'      => $item,
-            'fields'    => BusinessProfile::fields($menu->type),
-            'units'     => Pricing::UNITS,
-            'suppliers' => \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'menu'            => $menu,
+            'item'            => $item,
+            'fields'          => BusinessProfile::fields($menu->type),
+            'units'           => Pricing::UNITS,
+            'categoryPresets' => $categoryPresets,
+            'suppliers'       => \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ];
     }
 

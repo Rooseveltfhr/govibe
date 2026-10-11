@@ -10,11 +10,18 @@ namespace Modules\Tagtoa\Tests\Feature;
 | CategoryIcon, et l'emoji d'article n'est lu par aucune vue) : de la
 | saisie perdue, sur un formulaire déjà dense. Ce test fige leur absence.
 |
-| Il fige aussi deux ajouts demandés par le fondateur :
-|   - la photo d'un article peut venir directement de l'appareil photo
-|     (capture="environment"), pas seulement de la galerie ;
+| Il fige aussi un ajout demandé par le fondateur :
 |   - un menu sans couverture envoyée affiche l'icône du métier en
 |     filigrane plutôt qu'un bandeau vide.
+|
+| Un deuxième ajout du fondateur — permettre à la photo d'un article de
+| venir directement de l'appareil photo, PAS SEULEMENT de la galerie — avait
+| d'abord été fait avec `capture="environment"`. Signalé depuis un téléphone
+| réel : cet attribut fait l'INVERSE de ce qui était demandé. Sur la plupart
+| des navigateurs mobiles, il saute la boîte de choix du système et ouvre
+| l'appareil photo directement, rendant la galerie INACCESSIBLE depuis ce
+| champ — alors que sans lui, le sélecteur natif du téléphone propose bien
+| les deux. Retiré ; voir test_the_item_photo_field_offers_both_camera_and_gallery.
 |--------------------------------------------------------------------------
 */
 
@@ -71,14 +78,23 @@ class MenuFormPresentationTest extends TestCase
         $this->assertStringNotContainsString('[emoji]', $html);
     }
 
-    public function test_the_item_photo_field_accepts_a_direct_camera_capture(): void
+    public function test_the_item_photo_field_offers_both_camera_and_gallery(): void
     {
+        // Signalé depuis un téléphone réel : `capture="environment"` fait
+        // l'inverse de ce qui était demandé — il saute la boîte de choix du
+        // système et ouvre l'appareil photo DIRECTEMENT, rendant la galerie
+        // inaccessible depuis ce champ. Sans cet attribut, le sélecteur natif
+        // du téléphone propose les deux.
         $this->patron();
 
         $html = $this->get(route('tagtoa.menu.dashboard.create'))->assertOk()->getContent();
 
         $this->assertMatchesRegularExpression(
-            '/name="cats\[CIDX\]\[items\]\[IIDX\]\[image\]"[^>]*capture="environment"/',
+            '/name="cats\[CIDX\]\[items\]\[IIDX\]\[image\]"[^>]*>/',
+            $html
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/name="cats\[CIDX\]\[items\]\[IIDX\]\[image\]"[^>]*capture=/',
             $html
         );
     }

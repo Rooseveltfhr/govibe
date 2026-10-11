@@ -59,6 +59,62 @@ class MenuItemScreenTest extends TestCase
         $this->assertStringNotContainsString('name="alias"', $html);
     }
 
+    public function test_the_photo_field_does_not_force_the_camera_open_directly(): void
+    {
+        // Signalé depuis un téléphone réel : `capture="environment"` saute la
+        // boîte de choix du système et ouvre l'appareil photo directement,
+        // rendant la galerie inaccessible depuis ce champ — l'inverse de ce
+        // qu'on attend d'un champ « photo » classique.
+        $this->patron();
+        $menu = $this->menu();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.create', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('name="item_image"', $html);
+        $this->assertDoesNotMatchRegularExpression(
+            '/name="item_image"[^>]*capture=/',
+            $html
+        );
+    }
+
+    public function test_the_new_category_field_suggests_presets_for_the_business_type(): void
+    {
+        // Demandé : la même liste déjà utilisée dans BusinessProfile pour les
+        // champs propres au métier sert aussi de suggestion de catégorie —
+        // « Chambres » pour un hôtel, « Bières » pour un bar — un clic
+        // remplit le champ texte, jamais une case imposée.
+        $this->patron();
+        $menu = $this->menu('t-1', ['type' => 'restaurant']);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.create', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('class="btn btn-o btn-sm catpreset" data-nom="Plats principaux"', $html);
+        $this->assertStringContainsString('class="btn btn-o btn-sm catpreset" data-nom="Dessert"', $html);
+    }
+
+    public function test_a_category_already_created_is_not_suggested_again(): void
+    {
+        $this->patron();
+        $menu = $this->menu('t-1', ['type' => 'restaurant']);
+        Category::create(['menu_id' => $menu->id, 'name' => 'Dessert', 'is_active' => true]);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.create', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('data-nom="Plats principaux"', $html);
+        $this->assertStringNotContainsString('data-nom="Dessert"', $html);
+    }
+
+    public function test_the_category_presets_follow_the_business_type(): void
+    {
+        $this->patron();
+        $menu = $this->menu('t-1', ['type' => 'quincaillerie']);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.create', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('data-nom="Plomberie"', $html);
+        $this->assertStringNotContainsString('data-nom="Plats principaux"', $html);
+    }
+
     public function test_adding_a_product_creates_it_in_a_new_category_without_touching_the_menu_identity(): void
     {
         $this->patron();
