@@ -41,9 +41,11 @@ class Menu extends Model
         'hotel'      => ['label' => 'Hôtel',       'icon' => 'fa-solid fa-hotel', 'desc' => 'Chambres, services'],
         'pharmacy'   => ['label' => 'Pharmacie',   'icon' => 'fa-solid fa-prescription-bottle-medical', 'desc' => 'Médicaments, parapharmacie'],
         'clinic'     => ['label' => 'Clinique',    'icon' => 'fa-solid fa-stethoscope', 'desc' => 'Consultations, soins'],
-        'boutique'   => ['label' => 'Boutique / Commerce', 'icon' => 'fa-solid fa-bag-shopping', 'desc' => 'Articles, vêtements, accessoires'],
+        'boutique'   => ['label' => 'Boutique / Magasin', 'icon' => 'fa-solid fa-bag-shopping', 'desc' => 'Articles, vêtements, accessoires'],
+        'quincaillerie' => ['label' => 'Quincaillerie', 'icon' => 'fa-solid fa-screwdriver-wrench', 'desc' => 'Outils, matériaux, plomberie'],
+        'salon'      => ['label' => 'Salon de beauté / Barbershop', 'icon' => 'fa-solid fa-scissors', 'desc' => 'Coiffure, soins, rasage'],
         'service'    => ['label' => 'Service',     'icon' => 'fa-solid fa-handshake', 'desc' => 'Consultations, réparations'],
-        'other'      => ['label' => 'Autre',       'icon' => 'fa-solid fa-store', 'desc' => 'Salon, boutique, etc.'],
+        'other'      => ['label' => 'Autre',       'icon' => 'fa-solid fa-store', 'desc' => 'Ce qui ne rentre dans aucune autre case'],
     ];
 
     public const THEMES = ['light', 'dark'];

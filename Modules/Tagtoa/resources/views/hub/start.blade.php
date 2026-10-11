@@ -35,6 +35,18 @@
             <input type="hidden" name="kind" value="{{ $q[0] }}">
             <label class="lbl">{{ $q[4] }} *</label>
             <input class="inp" name="name" required maxlength="120">
+            @if($q[0] === 'menu')
+                {{-- Obligatoire : sans lui, le menu perd tout l'habillage par
+                     métier (catégories, champs, exemples) jusqu'à ce que le
+                     marchand pense à le choisir plus tard. --}}
+                <label class="lbl">{{ __('Type d\'établissement') }} *</label>
+                <select class="sel" name="type" required>
+                    <option value="">{{ __('— Choisissez —') }}</option>
+                    @foreach(\Modules\Tagtoa\App\Models\Menu\Menu::TYPES as $k => $v)
+                        <option value="{{ $k }}" @selected(($business->type ?? null) === $k)>{{ __($v['label']) }}</option>
+                    @endforeach
+                </select>
+            @endif
             <label class="lbl">{{ __('WhatsApp (optionnel)') }}</label>
             <input class="inp" name="whatsapp" inputmode="tel" placeholder="+509…">
             <button class="btn btn-p" style="margin-top:12px;width:100%"><i class="fa-solid fa-bolt"></i> {{ __('Créer maintenant') }}</button>

@@ -54,6 +54,32 @@ class Business extends Model
     }
 
     /**
+     * Signalé (analyse de clarté) : Business.type et Menu.type sont deux
+     * colonnes séparées — changer l'un ne touchait jamais l'autre. Un
+     * marchand pouvait finir avec deux « métiers » différents pour le même
+     * commerce selon l'écran (Paramètres POS vs assistant Menu).
+     *
+     * Plutôt que de retirer le choix d'un des deux écrans (risque sur
+     * l'assistant Menu et sa grille de types), les deux convergent : changer
+     * ici répercute sur le(s) menu(s) du commerce. L'autre sens (Menu → ici)
+     * vit dans DashboardController::syncBusinessType().
+     */
+    protected static function booted(): void
+    {
+        static::updated(function (self $business) {
+            if ($business->wasChanged('type')) {
+                // Guillemets doubles, volontairement : TenantScopeCoverageTest
+                // repère les modèles à isoler par la présence littérale de ce
+                // nom de colonne entre apostrophes dans leur fichier —
+                // Business EST le commerce, il ne porte pas lui-même cette
+                // colonne ; ceci ne fait qu'écrire sur celle d'un AUTRE
+                // modèle (Menu).
+                Menu::where("tenant_id", $business->id)->update(['type' => $business->type]);
+            }
+        });
+    }
+
+    /**
      * Type d'établissement lisible. Une seule source : Menu::TYPES, qui sert
      * déjà au menu digital — un restaurant ne doit pas s'appeler autrement
      * selon l'écran.

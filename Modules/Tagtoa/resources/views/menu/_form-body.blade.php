@@ -17,7 +17,16 @@
              d'établissement, comme sur la maquette. Le <select> reste dans
              le DOM (soumission du formulaire), juste sans la ligne « Nom »
              à côté sur l'assistant. --}}
-        <div class="type-select-wrap"><label class="lbl">{{ __('Type') }}</label><select class="sel" name="type">@foreach(\Modules\Tagtoa\App\Models\Menu\Menu::TYPES as $k=>$v)<option value="{{ $k }}" @selected(old('type',$menu->type ?: 'restaurant')===$k)>{{ __($v['label']) }}</option>@endforeach</select></div>
+        {{-- Signalé : sans type choisi (ex. venant du démarrage rapide d'avant
+             ce correctif), ce <select> présélectionnait silencieusement
+             « Restaurant » — un marchand qui enregistrait quoi que ce soit
+             sans y toucher se retrouvait avec ce type, quel que soit son
+             vrai métier. Une option vide, jamais présélectionnée par défaut,
+             force un choix conscient. --}}
+        <div class="type-select-wrap"><label class="lbl">{{ __('Type') }}</label><select class="sel" name="type">
+            <option value="" @selected(! old('type', $menu->type))>{{ __('— Choisissez —') }}</option>
+            @foreach(\Modules\Tagtoa\App\Models\Menu\Menu::TYPES as $k=>$v)<option value="{{ $k }}" @selected(old('type',$menu->type)===$k)>{{ __($v['label']) }}</option>@endforeach
+        </select></div>
         @if($isWizard ?? false)
             {{-- Grille de cartes : la même valeur que le <select> ci-dessus,
                  juste une autre façon de la choisir — utile sur l'assistant,
@@ -250,6 +259,25 @@
     </div>
 
     {{-- ----- Catégories & produits ----- --}}
+    @if($editing)
+        {{-- Signalé (analyse de clarté) : « Modifier » rouvrait ce même
+             formulaire complet pour ajouter UN produit — deux chemins pour
+             la même donnée (celui-ci, et l'écran Produits dédié depuis PR
+             #203). Ici, la création/modification de catégories et produits
+             se fait exclusivement sur cet écran dédié — ce bloc ne montre
+             plus qu'un résumé et y renvoie. Rien n'est retiré côté création
+             (voir la branche @else, utilisée par l'assistant et le
+             formulaire classique de création). --}}
+        <div class="card" id="categories-produits">
+            <div class="h-row"><h2>{{ __('Catégories &') }} {{ __('Produits') }}</h2></div>
+            <p style="color:var(--muted);font-size:13.5px;margin-top:-8px">
+                {{ trans_choice('{0}Aucune catégorie.|{1}:cat catégorie, :item produit(s).|[2,*]:cat catégories, :item produit(s).', $menu->categories->count(), ['cat' => $menu->categories->count(), 'item' => $menu->categories->sum(fn ($c) => $c->items->count())]) }}
+            </p>
+            <a href="{{ route('tagtoa.menu.dashboard.items.index', $menu->id) }}" class="btn btn-p btn-sm">
+                <i class="fa-solid fa-bowl-food"></i> {{ __('Gérer mes produits') }}
+            </a>
+        </div>
+    @else
     {{-- id ciblé depuis le lien « Ajouter un produit » de menu/index.blade.php
          (#categories-produits) : sans lui, atteindre cette section depuis la
          liste des menus veut dire ouvrir « Modifier » puis faire défiler
@@ -278,6 +306,7 @@
         <div id="catpresets" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:4px"></div>
         <div id="cats"></div>
     </div>
+    @endif
 
     <button class="btn btn-p" data-step="7">
         <i class="fa-solid fa-floppy-disk"></i>
@@ -524,12 +553,6 @@ var PROFILES = @json(\Modules\Tagtoa\App\Support\Menu\BusinessProfile::PROFILES)
 // commentaire sur .itemsummary dans le <style> ci-dessus.
 var IS_WIZARD = @json($isWizard ?? false);
 
-// Rayons courants d'un petit commerce, en plus des catégories du métier
-// choisi — LA MÊME liste que celle proposée dans POS (CategoryPresets::COMMON) :
-// sans liste unique, les deux écrans finiraient par diverger pour la même
-// réalité.
-var CATEGORY_PRESETS_COMMON = @json(\Modules\Tagtoa\App\Support\Catalog\CategoryPresets::COMMON);
-
 function currentProfile(){
     var sel = document.querySelector('select[name="type"]');
     var t = sel ? sel.value : 'other';
@@ -657,11 +680,11 @@ function renderPresets(){
         function(el){ return (el.value || '').toLowerCase().trim(); }
     );
     box.innerHTML = '';
-    // Les catégories du métier D'ABORD (les plus pertinentes), puis les
-    // rayons génériques — sans doublon entre les deux listes ni avec ce qui
-    // est déjà ajouté.
+    // Uniquement les catégories DU MÉTIER choisi — un restaurant ne doit pas
+    // se voir suggérer des rayons de boutique ou d'épicerie, hors sujet ici.
+    // Sans doublon avec ce qui est déjà ajouté.
     var dejaSuggere = [];
-    (currentProfile().categories || []).concat(CATEGORY_PRESETS_COMMON).forEach(function(name){
+    (currentProfile().categories || []).forEach(function(name){
         var cle = name.toLowerCase();
         if (existing.indexOf(cle) !== -1 || dejaSuggere.indexOf(cle) !== -1) { return; }
         dejaSuggere.push(cle);
@@ -1003,8 +1026,12 @@ existingZones.forEach(addZone);
 @endphp
 var existing = @json($catData);
 
-if (existing.length){ existing.forEach(addCat); }
-else { var c = addCat(); addItem(c); }
+// #cats n'existe plus sur l'écran « Modifier » (voir le résumé qui renvoie
+// vers l'écran Produits dédié, plus haut) — rien à amorcer ici dans ce cas.
+if (document.getElementById('cats')) {
+    if (existing.length){ existing.forEach(addCat); }
+    else { var c = addCat(); addItem(c); }
+}
 
 // Le formulaire suit le type dès qu'on en change, sans recharger la page.
 var typeSel = document.querySelector('select[name="type"]');

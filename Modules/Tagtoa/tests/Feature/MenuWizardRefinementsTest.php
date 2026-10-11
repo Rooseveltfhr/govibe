@@ -182,17 +182,18 @@ class MenuWizardRefinementsTest extends TestCase
 
     public function test_the_menu_list_links_directly_to_the_products_section(): void
     {
-        // Signalé : « pa jwenn kote vre pou ajouter produit » — « Modifier »
-        // menait au tout premier champ du formulaire (identité du commerce),
-        // la section Catégories & produits étant la toute DERNIÈRE carte
-        // après paiement/apparence/horaires. Le lien doit sauter droit dessus.
+        // Signalé d'abord : « pa jwenn kote vre pou ajouter produit » — réglé
+        // ici par un ANCRAGE sur le gros formulaire. Signalé ENSUITE (vidéo) :
+        // cet ancrage ouvrait encore le même formulaire que l'établissement.
+        // Le lien mène maintenant à un écran à part (ItemController), qui ne
+        // montre que le produit — voir MenuItemScreenTest.
         $this->patron();
         $menu = Menu::create(['tenant_id' => 't-1', 'name' => 'Lounge', 'alias' => 'lounge-'.uniqid(), 'currency' => 'HTG']);
 
         $html = $this->get(route('tagtoa.menu.dashboard.index'))->assertOk()->getContent();
 
         $this->assertStringContainsString(
-            'href="'.route('tagtoa.menu.dashboard.edit', $menu->id).'#categories-produits"',
+            'href="'.route('tagtoa.menu.dashboard.items.create', $menu->id).'"',
             $html
         );
         $this->assertStringContainsString(__('Ajouter un produit'), $html);
@@ -254,5 +255,68 @@ class MenuWizardRefinementsTest extends TestCase
         $this->assertStringContainsString('el.placeholder = p.tagline_example', $html);
         // Les exemples par métier voyagent bien jusqu'au navigateur.
         $this->assertStringContainsString('"name_example":"Pharmacie Lakay"', $html);
+    }
+
+    /* ---------- 9. Pas de type présélectionné en silence ---------- */
+
+    /** Signalé (analyse de clarté) : sans type choisi, le <select> présélectionnait
+     *  « Restaurant » sans le dire — un marchand qui enregistrait quoi que ce
+     *  soit sans y toucher se retrouvait avec ce type, quel que soit son métier. */
+    public function test_a_menu_without_a_type_shows_an_empty_choice_not_a_silent_restaurant_default(): void
+    {
+        $this->patron();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.wizard'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('<option value="" selected>', $html);
+        $this->assertStringNotContainsString('<option value="restaurant" selected>', $html);
+    }
+
+    public function test_a_menu_with_a_real_type_shows_it_selected(): void
+    {
+        $this->patron();
+        $menu = Menu::create(['tenant_id' => 't-1', 'name' => 'Salon Lakay', 'alias' => 'salon-'.uniqid(), 'type' => 'salon', 'currency' => 'HTG']);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.edit', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('<option value="salon" selected>', $html);
+        $this->assertStringNotContainsString('<option value="" selected>', $html);
+    }
+
+    /* ---------- 10. « Modifier » ne duplique plus l'écran Produits ---------- */
+
+    /** Signalé (analyse de clarté) : « Modifier » rouvrait le formulaire
+     *  complet d'ajout de catégories/produits — un second chemin pour la
+     *  même donnée que l'écran Produits dédié (PR #203). */
+    public function test_editing_an_existing_menu_shows_a_summary_instead_of_the_full_category_editor(): void
+    {
+        $this->patron();
+        $menu = Menu::create(['tenant_id' => 't-1', 'name' => 'Lakay', 'alias' => 'lakay-'.uniqid(), 'type' => 'restaurant', 'currency' => 'HTG']);
+        $cat = $menu->categories()->create(['name' => 'Plats', 'is_active' => true]);
+        $cat->items()->create(['menu_id' => $menu->id, 'name' => 'Griot', 'price' => 500, 'is_available' => true]);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.edit', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('id="categories-produits"', $html);
+        $this->assertStringContainsString(route('tagtoa.menu.dashboard.items.index', $menu->id), $html);
+        $this->assertStringContainsString('1 catégorie', $html);
+        // L'éditeur complet (bouton « Catégorie », conteneur #cats) a disparu.
+        $this->assertStringNotContainsString('id="cats"', $html);
+        $this->assertStringNotContainsString('onclick="addCat()"', $html);
+    }
+
+    public function test_creating_a_menu_still_shows_the_full_category_editor(): void
+    {
+        // La création (assistant ET formulaire classique) garde l'éditeur
+        // complet — seul « Modifier » un menu déjà créé renvoie vers l'écran
+        // Produits.
+        $this->patron();
+
+        $htmlAssistant = $this->get(route('tagtoa.menu.dashboard.wizard'))->assertOk()->getContent();
+        $this->assertStringContainsString('id="cats"', $htmlAssistant);
+        $this->assertStringContainsString('onclick="addCat()"', $htmlAssistant);
+
+        $htmlClassique = $this->get(route('tagtoa.menu.dashboard.create'))->assertOk()->getContent();
+        $this->assertStringContainsString('id="cats"', $htmlClassique);
     }
 }

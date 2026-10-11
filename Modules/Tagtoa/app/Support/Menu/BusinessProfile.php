@@ -46,13 +46,18 @@ class BusinessProfile
             'price_suffix' => null,
             'name_example'    => 'Lakay Grill',
             'tagline_example' => 'Cuisine créole • Ambiance conviviale',
-            'categories' => ['Entrées', 'Plats principaux', 'Grillades', 'Accompagnements', 'Desserts', 'Boissons'],
+            'categories' => ['Plats principaux', 'Boisson', 'Alcool', 'Cocktail', 'Dessert', 'Fast-food', 'Salade', 'Nourriture', 'Crèmes', 'Jus naturel', 'Plats du jour'],
             'fields'     => [
-                'prep_time'   => ['label' => 'Temps de préparation', 'type' => self::T_NUMBER, 'unit' => 'min', 'min' => 0, 'max' => 480],
-                'portion'     => ['label' => 'Portion',              'type' => self::T_SELECT, 'options' => ['1 personne', '2 personnes', 'À partager', 'Familial']],
-                'spice'       => ['label' => 'Piment',               'type' => self::T_SELECT, 'options' => ['Pas piquant', 'Doux', 'Piquant', 'Très piquant']],
-                'diet'        => ['label' => 'Régime',               'type' => self::T_TAGS,   'options' => ['Végétarien', 'Végan', 'Sans gluten', 'Halal', 'Sans porc']],
-                'allergens'   => ['label' => 'Allergènes',           'type' => self::T_TAGS,   'options' => ['Arachides', 'Fruits de mer', 'Lait', 'Œufs', 'Gluten', 'Soja', 'Fruits à coque']],
+                'prep_time'     => ['label' => 'Temps de préparation', 'type' => self::T_NUMBER, 'unit' => 'min', 'min' => 0, 'max' => 480],
+                'portion'       => ['label' => 'Portion',              'type' => self::T_SELECT, 'options' => ['1 personne', '2 personnes', 'À partager', 'Familial']],
+                'spice'         => ['label' => 'Piment',               'type' => self::T_SELECT, 'options' => ['Pas piquant', 'Doux', 'Piquant', 'Très piquant']],
+                'diet'          => ['label' => 'Régime',               'type' => self::T_TAGS,   'options' => ['Végétarien', 'Végan', 'Sans gluten', 'Halal', 'Sans porc']],
+                'allergens'     => ['label' => 'Allergènes',           'type' => self::T_TAGS,   'options' => ['Arachides', 'Fruits de mer', 'Lait', 'Œufs', 'Gluten', 'Soja', 'Fruits à coque']],
+                // Sur place / à emporter / livraison : certains plats (un
+                // flambé, une soupe très chaude) ne voyagent pas bien — le
+                // choix se fait PAR PLAT, pas seulement pour tout le menu.
+                'service_modes' => ['label' => 'Mode de service',          'type' => self::T_TAGS,   'options' => ['Sur place', 'À emporter', 'Livraison']],
+                'extras'        => ['label' => 'Ingrédients supplémentaires', 'type' => self::T_TAGS, 'options' => ['Fromage', 'Bacon', 'Avocat', 'Pikliz', 'Sauce épicée', 'Œuf', 'Oignon', 'Champignons']],
             ],
         ],
 
@@ -176,15 +181,44 @@ class BusinessProfile
             'nouns'      => 'Articles',
             'price_hint' => 'Prix',
             'price_suffix' => null,
-            // Couvre aussi bien la boutique de vêtements que la quincaillerie
-            // du coin : « commerce » au sens large, l'exemple le dit.
-            'name_example'    => 'Quincaillerie Lakay',
+            'name_example'    => 'Boutique Lakay',
             'tagline_example' => 'Tout ce qu\'il vous faut, au même endroit',
             'categories' => ['Vêtements', 'Chaussures', 'Accessoires', 'Électronique', 'Maison', 'Divers'],
             'fields'     => [
                 'size'   => ['label' => 'Taille',   'type' => self::T_TEXT, 'max' => 20],
                 'color'  => ['label' => 'Couleur',  'type' => self::T_TEXT, 'max' => 30],
                 'brand'  => ['label' => 'Marque',   'type' => self::T_TEXT, 'max' => 60],
+            ],
+        ],
+
+        'quincaillerie' => [
+            'noun'       => 'Article',
+            'nouns'      => 'Articles',
+            'price_hint' => 'Prix',
+            'price_suffix' => null,
+            'name_example'    => 'Quincaillerie Lakay',
+            'tagline_example' => 'Outils et matériaux pour tous vos travaux',
+            'categories' => ['Outils', 'Plomberie', 'Électricité', 'Peinture', 'Quincaillerie générale', 'Matériaux de construction'],
+            'fields'     => [
+                'brand' => ['label' => 'Marque', 'type' => self::T_TEXT, 'max' => 60],
+                // Pièce, mètre, sac, gallon… — jamais la même unité d'un
+                // rayon à l'autre dans une quincaillerie.
+                'unit'  => ['label' => 'Unité de vente', 'type' => self::T_TEXT, 'max' => 40],
+            ],
+        ],
+
+        'salon' => [
+            'noun'       => 'Prestation',
+            'nouns'      => 'Prestations',
+            'price_hint' => 'Prix de la prestation',
+            'price_suffix' => null,
+            'name_example'    => 'Salon Belle Coiffure',
+            'tagline_example' => 'Coiffure et soins, dans la bonne humeur',
+            'categories' => ['Coiffure', 'Coloration', 'Soins du visage', 'Manucure & pédicure', 'Rasage & barbe', 'Massages'],
+            'fields'     => [
+                'duration'             => ['label' => 'Durée',           'type' => self::T_NUMBER, 'unit' => 'min', 'min' => 0, 'max' => 480],
+                'requires_appointment' => ['label' => 'Sur rendez-vous', 'type' => self::T_BOOL],
+                'for_whom'             => ['label' => 'Pour',            'type' => self::T_SELECT, 'options' => ['Hommes', 'Femmes', 'Mixte']],
             ],
         ],
 

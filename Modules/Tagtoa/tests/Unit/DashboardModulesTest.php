@@ -158,4 +158,18 @@ class DashboardModulesTest extends TestCase
             $this->assertContains($attendu, $urls, "« $attendu » absent des écrans de Menu.");
         }
     }
+
+    /** Signalé (analyse de clarté) : la sidebar disait « Établissement »
+     *  pendant que l'écran lui-même (business/index.blade.php) et ses
+     *  messages disent tous « commerce » — deux mots pour la même chose. */
+    public function test_the_business_module_speaks_of_commerce_not_establishment(): void
+    {
+        $labels = array_column(DashboardModules::children('business'), 'label');
+
+        foreach ($labels as $l) {
+            $this->assertStringNotContainsString('tablissement', $l, "« $l » parle encore d'établissement.");
+        }
+        $this->assertContains('Mes commerces', $labels);
+        $this->assertContains('Créer un commerce', $labels);
+    }
 }
