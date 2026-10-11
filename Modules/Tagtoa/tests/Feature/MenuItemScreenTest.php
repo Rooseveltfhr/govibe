@@ -158,6 +158,86 @@ class MenuItemScreenTest extends TestCase
         $this->assertSame('Servie chaude, le dimanche', Item::where('name', 'Soupe joumou')->firstOrFail()->description);
     }
 
+    public function test_adding_a_product_with_an_option_group_and_choices_persists_them(): void
+    {
+        // Demandé : pouvoir ajouter des variantes (taille, couleur…) avec un
+        // prix différent par choix, obligatoire ou non. Le moteur existait
+        // déjà (ItemOption/ItemOptionChoice, utilisé par le grand
+        // formulaire) — cet écran dédié ne le proposait pas encore.
+        $this->patron();
+        $menu = $this->menu();
+
+        $this->post(route('tagtoa.menu.dashboard.items.store', $menu->id), [
+            'new_category_name' => 'Plats',
+            'item_name'          => 'Riz collé',
+            'item_price'         => 250,
+            'item_options'       => [
+                0 => [
+                    'name'     => 'Portion',
+                    'required' => '1',
+                    'choices'  => [
+                        0 => ['label' => 'Normale', 'price_delta' => 0],
+                        1 => ['label' => 'Grande', 'price_delta' => 150],
+                    ],
+                ],
+            ],
+        ])->assertRedirect();
+
+        $item = Item::where('name', 'Riz collé')->firstOrFail();
+        $opt = $item->options()->firstOrFail();
+        $this->assertSame('Portion', $opt->name);
+        $this->assertTrue($opt->required);
+        $this->assertFalse($opt->multiple);
+        $this->assertCount(2, $opt->choices);
+        $this->assertSame('Grande', $opt->choices()->where('price_delta', 150)->firstOrFail()->label);
+    }
+
+    public function test_removing_every_option_while_editing_actually_deletes_them(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $cat = Category::create(['menu_id' => $menu->id, 'name' => 'Plats', 'is_active' => true]);
+        $item = Item::create(['menu_id' => $menu->id, 'category_id' => $cat->id, 'name' => 'Riz collé', 'price' => 250, 'is_available' => true]);
+        $opt = $item->options()->create(['name' => 'Portion', 'required' => true, 'multiple' => false, 'sort' => 0]);
+        $opt->choices()->create(['label' => 'Normale', 'price_delta' => 0, 'sort' => 0]);
+
+        $this->put(route('tagtoa.menu.dashboard.items.update', [$menu->id, $item->id]), [
+            'category_id' => $cat->id,
+            'item_name'    => 'Riz collé',
+            'item_price'   => 250,
+            // Aucun item_options : le marchand a retiré le dernier groupe.
+        ])->assertRedirect();
+
+        $this->assertCount(0, $item->fresh()->options);
+    }
+
+    public function test_the_edit_screen_hydrates_the_existing_options_for_the_javascript_editor(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $cat = Category::create(['menu_id' => $menu->id, 'name' => 'Plats', 'is_active' => true]);
+        $item = Item::create(['menu_id' => $menu->id, 'category_id' => $cat->id, 'name' => 'Riz collé', 'price' => 250, 'is_available' => true]);
+        $opt = $item->options()->create(['name' => 'Portion', 'required' => true, 'multiple' => false, 'sort' => 0]);
+        $opt->choices()->create(['label' => 'Grande', 'price_delta' => 150, 'sort' => 0]);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.edit', [$menu->id, $item->id]))->assertOk()->getContent();
+
+        $this->assertStringContainsString('"name":"Portion"', $html);
+        $this->assertStringContainsString('"label":"Grande"', $html);
+        // Des options existent déjà : le volet s'ouvre déplié, pas à découvrir.
+        $this->assertDoesNotMatchRegularExpression('/id="itemOptions"[^>]*\bhidden\b/', $html);
+    }
+
+    public function test_the_options_panel_is_collapsed_by_default_on_a_fresh_product(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.create', $menu->id))->assertOk()->getContent();
+
+        $this->assertMatchesRegularExpression('/id="itemOptions"[^>]*\bhidden\b/', $html);
+    }
+
     public function test_adding_a_product_to_an_existing_category_reuses_it_instead_of_duplicating(): void
     {
         $this->patron();

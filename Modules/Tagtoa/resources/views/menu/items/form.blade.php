@@ -128,6 +128,31 @@
             </div>
         @endif
 
+        {{-- Options & variantes : « Taille », « Suppléments »… Le moteur
+             (ItemOption/ItemOptionChoice + DashboardController::syncItemOptions)
+             existe déjà et fonctionne dans le grand formulaire — jamais
+             affiché sur CET écran jusqu'ici. Replié par défaut, comme
+             « Coût & gestion » juste en dessous : la plupart des produits
+             n'en ont pas, et ne doivent pas le subir. SANS style inline sur
+             l'élément qui porte `hidden` — le bloc reprend son display:block
+             normal une fois déplié, pas de conflit de spécificité à gérer. --}}
+        <button type="button" class="btn btn-o btn-sm" style="margin-top:14px" onclick="var d=document.getElementById('itemOptions');d.hidden=!d.hidden">
+            <i class="fa-solid fa-layer-group"></i> {{ __('Options & variantes (taille, suppléments…)') }}
+        </button>
+        @php
+            // `$item?->options->isEmpty()` serait FAUX ici : l'opérateur
+            // nullsafe ne protège que l'accès juste après lui (`->options`),
+            // pas toute la chaîne — `->isEmpty()` planterait quand même sur
+            // null en création. D'où ce booléen calculé à part.
+            $panneauOptionsVide = ($item === null || $item->options->isEmpty()) && ! old('item_options');
+        @endphp
+        <div id="itemOptions" @if($panneauOptionsVide) hidden @endif style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)">
+            <div id="optionsList"></div>
+            <button type="button" class="btn btn-o btn-sm" onclick="addOpt()" style="margin-top:6px">
+                <i class="fa-solid fa-plus"></i> {{ __('Groupe d\'options (ex. Taille)') }}
+            </button>
+        </div>
+
         {{-- Gestion : coût, stock, unité, référence, fournisseur — replié par
              défaut, comme dans l'assistant complet (voir _form-body.blade.php) :
              un commerce qui veut seulement afficher sa carte ne doit pas le subir. --}}
@@ -169,4 +194,83 @@
         </div>
     </form>
 </div>
+
+{{-- Template groupe d'options — mêmes noms de champs et même structure que
+     le grand formulaire (_form-body.blade.php), sans les indices CIDX/IIDX
+     puisque cet écran ne porte toujours qu'UN seul produit. --}}
+<template id="opttpl">
+    <div class="optblock" data-chi="0" style="border:1px dashed var(--bd);border-radius:10px;padding:8px;margin-top:8px;background:#fafafa">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input name="item_options[OIDX][name]" class="inp" placeholder="{{ __('Nom du groupe (ex. Taille)') }}" style="flex:1;min-width:140px">
+            <label class="switch" style="flex:0"><input type="checkbox" name="item_options[OIDX][required]" value="1"> {{ __('Obligatoire') }}</label>
+            <label class="switch" style="flex:0"><input type="checkbox" name="item_options[OIDX][multiple]" value="1"> {{ __('Choix multiples') }}</label>
+            <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.optblock').remove()"><i class="fa-solid fa-trash"></i></button>
+        </div>
+        <div class="choices" style="margin-top:6px"></div>
+        <button type="button" class="btn btn-o btn-sm" onclick="addChoiceRow(this.closest('.optblock'))" style="margin-top:4px"><i class="fa-solid fa-plus"></i> {{ __('Choix') }}</button>
+    </div>
+</template>
+
+<template id="choicetpl">
+    <div class="choicerow" style="display:flex;gap:8px;align-items:center;margin-top:4px">
+        <input name="item_options[OIDX][choices][CHIDX][label]" class="inp" placeholder="{{ __('Libellé (ex. Grand)') }}">
+        <input name="item_options[OIDX][choices][CHIDX][price_delta]" class="inp" type="number" step="0.01" placeholder="{{ __('+/- prix') }}" style="max-width:110px">
+        <button type="button" class="btn btn-o btn-sm" style="flex:0;color:var(--red)" onclick="this.closest('.choicerow').remove()"><i class="fa-solid fa-trash"></i></button>
+    </div>
+</template>
+
+<script>
+(function () {
+    var oiCounter = 0;
+
+    window.addOpt = function (d) {
+        var oi = oiCounter++;
+        var html = document.getElementById('opttpl').innerHTML.replace(/OIDX/g, oi);
+        var box = document.createElement('div'); box.innerHTML = html;
+        var row = box.firstElementChild;
+        document.getElementById('optionsList').appendChild(row);
+        if (d) {
+            row.querySelector('[name$="[name]"]').value = d.name || '';
+            row.querySelector('[name$="[required]"]').checked = !!d.required;
+            row.querySelector('[name$="[multiple]"]').checked = !!d.multiple;
+            if (d.id) {
+                var h = document.createElement('input'); h.type = 'hidden'; h.name = 'item_options[' + oi + '][id]'; h.value = d.id; row.appendChild(h);
+            }
+            (d.choices || []).forEach(function (ch) { addChoiceRow(row, ch); });
+        }
+        return row;
+    };
+
+    window.addChoiceRow = function (optRow, d) {
+        var oiMatch = optRow.querySelector('[name$="[name]"]').name.match(/item_options\[(\d+)\]/);
+        var oi = oiMatch[1];
+        var chi = parseInt(optRow.getAttribute('data-chi') || '0', 10);
+        optRow.setAttribute('data-chi', chi + 1);
+        var html = document.getElementById('choicetpl').innerHTML.replace(/OIDX/g, oi).replace(/CHIDX/g, chi);
+        var box = document.createElement('div'); box.innerHTML = html;
+        var row = box.firstElementChild;
+        optRow.querySelector('.choices').appendChild(row);
+        if (d) {
+            row.querySelector('[name$="[label]"]').value = d.label || '';
+            row.querySelector('[name$="[price_delta]"]').value = (d.price_delta != null ? d.price_delta : '');
+            if (d.id) {
+                var h = document.createElement('input'); h.type = 'hidden'; h.name = 'item_options[' + oi + '][choices][' + chi + '][id]'; h.value = d.id; row.appendChild(h);
+            }
+        }
+        return row;
+    };
+
+    @php
+        // Même piège que $panneauOptionsVide plus haut : `$item?->options->map`
+        // plante sur null dès que `$item` est null (création), le nullsafe ne
+        // protégeant que `->options`. D'où le `$item === null ? [] : …` ici.
+        $optionsExistantes = $item === null ? [] : $item->options->map(fn ($o) => [
+            'id' => $o->id, 'name' => $o->name, 'required' => $o->required, 'multiple' => $o->multiple,
+            'choices' => $o->choices->map(fn ($ch) => ['id' => $ch->id, 'label' => $ch->label, 'price_delta' => $ch->price_delta])->values(),
+        ])->values();
+    @endphp
+    var existingOptions = @json(old('item_options') ?: $optionsExistantes);
+    existingOptions.forEach(function (o) { addOpt(o); });
+})();
+</script>
 @endsection

@@ -105,6 +105,11 @@ class ItemController extends Controller
             'item_low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'item_sku'             => ['nullable', 'string', 'max:60'],
             'item_image'           => ['nullable', 'image', 'max:2048'],
+            'item_options'                          => ['nullable', 'array'],
+            'item_options.*.name'                   => ['nullable', 'string', 'max:120'],
+            'item_options.*.choices'                => ['nullable', 'array'],
+            'item_options.*.choices.*.label'        => ['nullable', 'string', 'max:120'],
+            'item_options.*.choices.*.price_delta'  => ['nullable', 'numeric'],
         ]);
 
         $category = null;
@@ -153,7 +158,13 @@ class ItemController extends Controller
             'remove_image'        => $request->boolean('item_remove_image') ? '1' : '0',
             'specs'               => $request->input('specs', []),
             'translations_sent'   => '0',
-            'options_sent'        => '0',
+            // TOUJOURS '1' : contrairement aux autres marqueurs *_sent de cet
+            // écran (traductions, jamais montrées ici), les options ONT un
+            // éditeur sur CET écran — syncItemOptions() doit donc lire ce que
+            // le marchand a réellement envoyé, y compris « plus aucune
+            // option » s'il les a toutes retirées.
+            'options_sent'        => '1',
+            'options'             => $request->input('item_options', []),
         ];
 
         // Mêmes clés que le gros formulaire (cats[0][items][0][…]) : le même
