@@ -4,6 +4,13 @@
 @section('page', $editing ? __('Modifier le produit') : __('Ajouter un produit'))
 
 @section('content')
+<style>
+    /* L'attribut `hidden` seul ne suffit pas : un style inline `display:flex`
+       sur le MÊME élément l'emporterait sur le display:none de la feuille
+       UA (même bug que _form-body.blade.php .itemdet, déjà rencontré dans ce
+       module). `:not([hidden])` ne s'applique qu'une fois le volet déplié. */
+    .item-advanced:not([hidden]) { display: flex; }
+</style>
 {{-- Écran à part, EXPRÈS : ni le nom de l'établissement, ni son logo, ni ses
      catégories ou autres produits n'apparaissent ici — seulement ce qui
      concerne CE produit. --}}
@@ -103,7 +110,7 @@
         <button type="button" class="btn btn-o btn-sm" style="margin-top:14px" onclick="var d=document.getElementById('itemAdvanced');d.hidden=!d.hidden">
             <i class="fa-solid fa-sliders"></i> {{ __('Coût & gestion') }}
         </button>
-        <div id="itemAdvanced" {{ old('item_cost_price') || old('item_sku') || old('item_stock') ? '' : 'hidden' }} style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)">
+        <div id="itemAdvanced" class="item-advanced" {{ old('item_cost_price') || old('item_sku') || old('item_stock') ? '' : 'hidden' }} style="gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)">
             <label style="font-size:12px;color:var(--muted)">{{ __('Coût matière') }}
                 <input name="item_cost_price" class="inp" type="number" step="0.01" min="0" value="{{ old('item_cost_price', $item?->cost_price) }}" style="max-width:130px">
             </label>

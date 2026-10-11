@@ -119,6 +119,32 @@ class MenuItemScreenTest extends TestCase
         $this->assertSame(2, Item::where('category_id', $cat->id)->count());
     }
 
+    /** Signalé (test manuel, commerce Hôtel) : une deuxième chambre ajoutée
+     *  en tapant à nouveau « Chambres » dans « Nouvelle catégorie » (plutôt
+     *  que de choisir la catégorie existante dans la liste déroulante) créait
+     *  un DOUBLON — le menu public affichait deux sections « Chambres »
+     *  distinctes, chacune avec un seul article. */
+    public function test_typing_an_existing_category_name_again_reuses_it_instead_of_duplicating(): void
+    {
+        $this->patron();
+        $menu = $this->menu(attrs: ['type' => 'hotel']);
+
+        $this->post(route('tagtoa.menu.dashboard.items.store', $menu->id), [
+            'new_category_name' => 'Chambres',
+            'item_name'          => 'Suite Vue Mer',
+            'item_price'         => 4500,
+        ]);
+        $this->post(route('tagtoa.menu.dashboard.items.store', $menu->id), [
+            'new_category_name' => 'chambres', // casse différente, comme un marchand retaperait
+            'item_name'          => 'Chambre Standard',
+            'item_price'         => 2200,
+        ]);
+
+        $this->assertSame(1, Category::where('menu_id', $menu->id)->count());
+        $cat = Category::where('menu_id', $menu->id)->firstOrFail();
+        $this->assertSame(2, Item::where('category_id', $cat->id)->count());
+    }
+
     public function test_editing_an_existing_product_updates_it_in_place(): void
     {
         $this->patron();
@@ -242,5 +268,30 @@ class MenuItemScreenTest extends TestCase
 
         $this->assertStringContainsString('Boissons', $html);
         $this->assertStringContainsString('Cola', $html);
+    }
+
+    /** Signalé (test manuel navigateur, 3 commerces) : le volet « Coût &
+     *  gestion » apparaissait toujours déplié, quel que soit l'attribut
+     *  `hidden` — un style inline `display:flex` sur le MÊME élément
+     *  l'emportait sur le display:none de la feuille UA (même bug que
+     *  _form-body.blade.php .itemdet, déjà rencontré dans ce module). */
+    public function test_the_advanced_panel_has_no_inline_display_fighting_its_hidden_attribute(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.create', $menu->id))->assertOk()->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<div id="itemAdvanced"[^>]*\bhidden\b[^>]*>/',
+            $html,
+            'Le volet « Coût & gestion » doit porter hidden par défaut.'
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/<div id="itemAdvanced"[^>]*style="[^"]*display:\s*flex/',
+            $html,
+            'Un display:flex inline sur ce même élément annule hidden.'
+        );
+        $this->assertStringContainsString('.item-advanced:not([hidden])', $html);
     }
 }

@@ -118,6 +118,16 @@ class ItemController extends Controller
             ]);
         }
 
+        // Signalé (test manuel, 3 commerces) : taper deux fois le nom d'une
+        // catégorie déjà créée (ex. « Chambres » pour une deuxième chambre)
+        // créait un DOUBLON — rien ne reliait le texte tapé à la catégorie
+        // existante du même nom. Même garde, insensible à la casse, que
+        // MenuProductSync::resoudreCategorie() pour le même problème côté
+        // synchronisation POS.
+        if (! $category) {
+            $category = $menu->categories()->whereRaw('LOWER(name) = ?', [mb_strtolower($categoryName)])->first();
+        }
+
         $item = $itemId ? Item::where('menu_id', $menu->id)->whereKey($itemId)->first() : null;
         abort_if($itemId && ! $item, 404);
 
