@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Models\Business\Business;
 use Modules\Tagtoa\App\Models\Links\LinkPage;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
@@ -42,22 +43,49 @@ class OnboardingController extends Controller
 
     public function index(): View
     {
-        return view('tagtoa::hub.start');
+        return view('tagtoa::hub.start', [
+            'business' => Business::find(Tenant::id()),
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $tenantId = Tenant::id();
+
+        // Un commerce n'a qu'UN menu (même règle que
+        // DashboardController::menuExistant()) : ce démarrage rapide n'avait
+        // pas cette garde et pouvait en empiler un second. AVANT le
+        // planGuard, pour la même raison que DashboardController::store() —
+        // un commerce qui a déjà son menu ne doit pas recevoir un message
+        // « passez à un forfait supérieur » absurde.
+        if ($request->input('kind') === 'menu' && ($existant = Menu::where('tenant_id', $tenantId)->oldest()->first())) {
+            return redirect()->route('tagtoa.menu.dashboard.edit', $existant->id)
+                ->with('success', __('Vous avez déjà un menu pour ce commerce — le voici.'));
+        }
+
+        // Type requis pour un menu (voir la règle plus bas) — mais un
+        // commerce qui a déjà déclaré le sien ne doit pas le retaper : même
+        // reprise que DashboardController::store() pour le même champ.
+        if ($request->input('kind') === 'menu' && ! $request->filled('type')) {
+            $request->merge(['type' => Business::find($tenantId)?->type]);
+        }
+
         $data = $request->validate([
             'kind'     => ['required', Rule::in(self::quickKinds())],
             'name'     => ['required', 'string', 'max:120'],
             'whatsapp' => ['nullable', 'string', 'max:40'],
+            // Signalé : un menu créé ici sans type perdait tout l'habillage
+            // par métier (catégories, champs, exemples) — silencieusement
+            // repris comme « Restaurant » au premier « Modifier ». Obligatoire
+            // uniquement pour « menu » : les autres démarrages n'ont pas de
+            // notion de métier.
+            'type'     => ['required_if:kind,menu', 'nullable', Rule::in(array_keys(Menu::TYPES))],
         ]);
 
         if ($r = $this->planGuard($data['kind'])) {
             return $r;
         }
 
-        $tenantId = Tenant::id();
         $name = $data['name'];
         $whatsapp = $data['whatsapp'] ?? null;
 
@@ -68,6 +96,7 @@ class OnboardingController extends Controller
                     'name'      => $name,
                     'alias'     => Menu::generateAlias($name),
                     'whatsapp'  => $whatsapp,
+                    'type'      => $data['type'],
                 ]);
 
                 return redirect()->route('tagtoa.menu.dashboard.edit', $menu->id)

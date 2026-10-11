@@ -77,11 +77,17 @@ class DashboardModules
         // créer un second (BusinessController::index()/create()) ; il ne lui
         // manquait qu'une place en tête de barre et un libellé qui le dise.
         'business' => [
-            'label' => 'Mes Établissements', 'icon' => 'fa-shop', 'group' => 'module',
+            // Signalé (analyse de clarté) : la sidebar disait « Établissement »
+            // pendant que l'écran lui-même, ses boutons et ses messages
+            // disent tous « commerce » (business/index.blade.php,
+            // BusinessController, hub/index.blade.php…) — deux mots pour la
+            // même chose. Alignée sur le terme déjà majoritaire partout
+            // ailleurs dans l'app.
+            'label' => 'Mes Commerces', 'icon' => 'fa-shop', 'group' => 'module',
             'desc'  => 'Votre commerce : nom, métier, catégories, devise. Et un second si vous en ouvrez un.',
             'children' => [
-                ['label' => 'Mes établissements',     'icon' => 'fa-shop', 'url' => '/tagtoa/business'],
-                ['label' => 'Créer un établissement', 'icon' => 'fa-plus', 'url' => '/tagtoa/business/new'],
+                ['label' => 'Mes commerces',     'icon' => 'fa-shop', 'url' => '/tagtoa/business'],
+                ['label' => 'Créer un commerce', 'icon' => 'fa-plus', 'url' => '/tagtoa/business/new'],
             ],
         ],
 

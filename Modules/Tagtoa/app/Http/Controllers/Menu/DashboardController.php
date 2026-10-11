@@ -176,6 +176,13 @@ class DashboardController extends Controller
 
             return $r;
         }
+
+        // Type requis à la création (voir validateMenu()) — mais un commerce
+        // qui a déjà déclaré le sien ne doit pas le retaper : même reprise
+        // que pour le logo plus bas, faite ICI pour que la validation la voie.
+        if (! $request->filled('type')) {
+            $request->merge(['type' => Business::find(Tenant::id())?->type]);
+        }
         $data = $this->validateMenu($request);
         $menu = new Menu($data);
         $menu->tenant_id = Tenant::id();
@@ -194,6 +201,7 @@ class DashboardController extends Controller
             $menu->logo_path = Business::find(Tenant::id())?->logo_path;
         }
         $menu->save();
+        $this->syncBusinessType($menu);
         $this->syncContent($menu, $request);
         $this->syncDeliveryZones($menu, $request);
 
@@ -238,10 +246,29 @@ class DashboardController extends Controller
         $this->syncTranslations($menu, $request);
         $this->handleUploads($menu, $request);
         $menu->save();
+        $this->syncBusinessType($menu);
         $this->syncContent($menu, $request);
         $this->syncDeliveryZones($menu, $request);
 
         return back()->with('success', __('Menu mis à jour.'));
+    }
+
+    /**
+     * Fait converger Business.type vers Menu.type quand ce dernier vient de
+     * changer. Le sens inverse (Business → Menu) vit dans Business::booted() :
+     * ensemble, les deux colonnes ne peuvent plus diverger durablement, quel
+     * que soit l'écran où le marchand change son métier.
+     */
+    protected function syncBusinessType(Menu $menu): void
+    {
+        if (! $menu->wasChanged('type') || ! $menu->type) {
+            return;
+        }
+
+        $business = Business::find($menu->tenant_id);
+        if ($business && $business->type !== $menu->type) {
+            $business->update(['type' => $menu->type]);
+        }
     }
 
     public function destroy(int $id): RedirectResponse
@@ -766,7 +793,11 @@ class DashboardController extends Controller
             'vcard_id'         => ['nullable', 'integer', Rule::in($ownVcardIds)],
             'name'             => ['required', 'string', 'max:160'],
             'alias'            => ['nullable', 'string', 'max:120', 'alpha_dash', 'unique:tagtoa_menus,alias'.($ignoreId ? ','.$ignoreId : '')],
-            'type'             => ['nullable', Rule::in(array_keys(Menu::TYPES))],
+            // Obligatoire à la CRÉATION seulement ($ignoreId absent) : un menu
+            // sans type perd tout l'habillage par métier (catégories, champs,
+            // exemples). Toléré en modification pour ne jamais bloquer un
+            // menu déjà en base dont le type n'a jamais été choisi.
+            'type'             => [$ignoreId ? 'nullable' : 'required', Rule::in(array_keys(Menu::TYPES))],
             'tagline'          => ['nullable', 'string', 'max:160'],
             'description'      => ['nullable', 'string', 'max:600'],
             'currency'         => ['nullable', Rule::in(array_keys((array) config('tagtoa.currencies', [])))],
