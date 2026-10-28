@@ -62,3 +62,21 @@ dépenser son solde.
 - [ ] Migration NTAG424 DNA (voir feuille de route ci-dessus). **En cours** :
       groundwork logiciel opt-in câblé (PR #208) — reste bloqué sur le
       provisionnement physique d'une première puce.
+- [ ] **Activer le vidage OPcache post-déploiement — action requise sur le
+      VPS.** Diagnostic (2026-10-28) : plusieurs correctifs mergés + déployés
+      avec succès (CI verte, migrations exécutées, `DEPLOY_OK`) restaient
+      invisibles sur tagtoa.com. Reproduit en rendant la page via le harnais
+      de test du module : le HTML/CSS est correct dès qu'il est rendu frais
+      — ce que des workers PHP-FPM déjà démarrés ne font PAS tant qu'OPcache
+      ne les a pas oubliés (courant en production avec
+      `validate_timestamps=0`, pour la performance). `remote-deploy.sh`
+      appelle désormais une route dédiée (`OpcacheController`, jeton requis)
+      qui vide OPcache depuis de VRAIS workers FPM — mais elle reste
+      INACTIVE tant que `TAGTOA_OPCACHE_RESET_TOKEN` n'est pas ajouté au
+      `.env` du VPS (valeur vide = route désactivée, échec fermé, par
+      design). **Action nécessaire** : générer une valeur aléatoire longue
+      (ex. `openssl rand -hex 32`) et l'ajouter au `.env` de production sous
+      `TAGTOA_OPCACHE_RESET_TOKEN=…`. Alternative plus directe si un accès
+      SSH est disponible : configurer `opcache.validate_timestamps=1` avec
+      un `opcache.revalidate_freq` court (1–2 s) dans le php.ini du VPS, ou
+      redémarrer php-fpm après chaque déploiement.

@@ -238,4 +238,26 @@ return [
         'ZAR' => ['symbol' => 'R',    'name' => 'Rand sud-africain',     'decimals' => 2, 'position' => 'before'],
         'COP' => ['symbol' => 'CO$',  'name' => 'Peso colombien',        'decimals' => 2, 'position' => 'before'],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ops — remise à zéro d'OPcache après déploiement
+    |--------------------------------------------------------------------------
+    | Diagnostic (session du 2026-10-28) : un déploiement qui rsync + migre +
+    | recompile les vues avec succès ne garantit PAS que les workers PHP-FPM
+    | déjà démarrés voient le nouveau code — tant qu'OPcache (souvent configuré
+    | en production avec validate_timestamps=0 pour la performance) n'a pas été
+    | vidé, chaque worker continue de servir le bytecode compilé AVANT le
+    | déploiement, parfois indéfiniment. C'est ce qui expliquait des correctifs
+    | mergés + déployés avec succès (logs CI verts) mais invisibles pour de
+    | vrai sur tagtoa.com. Aucun accès SSH/VPS n'étant disponible pour
+    | redémarrer php-fpm directement depuis cette session, la solution
+    | standard sans accès serveur est une route HTTP protégée par jeton qui
+    | appelle opcache_reset() DEPUIS un worker FPM réel (OpcacheController).
+    | Jeton VIDE par défaut = route désactivée (échec fermé) : définir
+    | TAGTOA_OPCACHE_RESET_TOKEN sur le VPS pour l'activer.
+    */
+    'ops' => [
+        'opcache_reset_token' => env('TAGTOA_OPCACHE_RESET_TOKEN'),
+    ],
 ];

@@ -150,6 +150,30 @@ php artisan config:cache >/dev/null 2>&1 || true
 php artisan view:cache >/dev/null 2>&1 || true
 php artisan up
 
+# 5.5) Vide OPcache sur de VRAIS workers PHP-FPM (voir OpcacheController).
+#      Un rsync + une migration réussis ne garantissent PAS qu'un worker
+#      déjà démarré voie le nouveau code : si OPcache tourne avec
+#      validate_timestamps=0 (courant en prod, pour la performance), il
+#      continue de servir le bytecode d'AVANT ce déploiement jusqu'à son
+#      propre redémarrage. `php artisan` (CLI) a son propre OPcache, séparé
+#      de celui des workers FPM — l'appeler ici ne viderait pas le bon
+#      cache. OPcache est PAR WORKER : une seule requête n'en réinitialise
+#      qu'un seul, donc on répète l'appel pour couvrir tout le pool.
+#      Inactif tant que TAGTOA_OPCACHE_RESET_TOKEN n'est pas dans ce .env.
+OPCACHE_TOKEN="$(grep -m1 '^TAGTOA_OPCACHE_RESET_TOKEN=' .env 2>/dev/null | cut -d= -f2-)"
+APP_BASE_URL="$(grep -m1 '^APP_URL=' .env 2>/dev/null | cut -d= -f2-)"
+if [ -n "$OPCACHE_TOKEN" ] && [ -n "$APP_BASE_URL" ]; then
+  echo "==> Vidage OPcache (workers FPM)"
+  ok=0
+  for i in $(seq 1 20); do
+    code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${APP_BASE_URL%/}/tagtoa-ops/opcache-reset/${OPCACHE_TOKEN}" 2>/dev/null || echo 000)
+    [ "$code" = "200" ] && ok=$((ok + 1))
+  done
+  echo "   OPcache reset : $ok/20 requêtes OK"
+else
+  echo "OPcache reset : TAGTOA_OPCACHE_RESET_TOKEN absent du .env (étape ignorée — voir docs/SECURITY.md)"
+fi
+
 # 6) Smoke test public (non bloquant). Activer : TAGTOA_SMOKE_BASE=https://tagtoa.com/tapbiz/public
 if [ -n "${TAGTOA_SMOKE_BASE:-}" ]; then
   echo "==> Smoke test public @ ${TAGTOA_SMOKE_BASE}"
