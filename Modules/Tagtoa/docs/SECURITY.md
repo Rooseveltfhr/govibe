@@ -45,10 +45,20 @@ dépenser son solde.
 
 ## À faire (backlog sécurité)
 
-- [ ] Déplacer les preuves de paiement du disque `public` vers un disque privé
-      + route de service authentifiée (aujourd'hui : URL non devinable mais
-      publique si fuitée).
+- [x] Déplacer les preuves de paiement du disque `public` vers un disque privé
+      + route de service authentifiée. **Fait** : `FILESYSTEM_DISK=local` par
+      défaut, `PublicController::store()` n'écrit sur aucun disque explicite
+      (donc le disque par défaut, privé), `PaymentProof::getImageUrlAttribute()`
+      renvoie uniquement `route('tagtoa.pay.dashboard.proof.image', …)` —
+      authentifiée (`auth`+`role:admin|super_admin`) et scopée tenant
+      (`DashboardController::proofImage()`). Repli sur le disque `public`
+      conservé uniquement pour d'éventuelles preuves héritées d'avant ce fix.
+      Cette case était restée cochée « à faire » alors que le code l'avait
+      déjà résolu — corrigé ici pour que ce registre reste fiable.
 - [ ] Ops VPS : `APP_DEBUG=false`, `APP_ENV=production`, **rotation de
       `DB_PASSWORD`** (exposé lors de la restructuration), vérifier que
-      `tagtoa.com/.env` renvoie 404.
-- [ ] Migration NTAG424 DNA (voir feuille de route ci-dessus).
+      `tagtoa.com/.env` renvoie 404. **Bloqué** : nécessite un accès direct au
+      serveur (SSH/panneau d'hébergement) que cette session n'a pas.
+- [ ] Migration NTAG424 DNA (voir feuille de route ci-dessus). **En cours** :
+      groundwork logiciel opt-in câblé (PR #208) — reste bloqué sur le
+      provisionnement physique d'une première puce.
