@@ -10,6 +10,7 @@ use Modules\Tagtoa\App\Models\Event\NfcTag;
 use Modules\Tagtoa\App\Models\Event\Ticket;
 use Modules\Tagtoa\App\Services\Notifications\NotificationService;
 use Modules\Tagtoa\App\Support\Event\EventDays;
+use Modules\Tagtoa\App\Support\Nfc\NfcTapVerifier;
 
 /**
  * TAGTOA Event — moteur de check-in (scanner PWA, offline-first).
@@ -23,15 +24,17 @@ class CheckinService
     }
 
     /** Résout un UID de carte NFC -> code du billet (pour check-in par tap). */
-    public function resolveNfcCode(Event $event, string $uid): ?string
+    public function resolveNfcCode(Event $event, string $uid, ?string $ctr = null, ?string $cmac = null): ?string
     {
         $tag = NfcTag::where('event_id', $event->id)
             ->where('uid_hash', NfcTag::hashUid($uid))
             ->where('status', 'active')->first();
 
-        return ($tag && $tag->ticket_id)
-            ? optional(Ticket::find($tag->ticket_id))->code
-            : null;
+        if (! $tag || ! $tag->ticket_id || ! NfcTapVerifier::passes($tag, $uid, $ctr, $cmac)) {
+            return null;
+        }
+
+        return optional(Ticket::find($tag->ticket_id))->code;
     }
 
     public function processScan(Event $event, string $code, string $direction = 'in', string $method = 'qr', ?string $gate = null, ?string $clientUuid = null, ?int $staffId = null): array

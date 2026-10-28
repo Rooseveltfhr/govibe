@@ -227,8 +227,15 @@ class WalletController extends Controller
     public function resolve(Request $request, int $id): JsonResponse
     {
         $event = $this->own($id);
-        $data = $request->validate(['uid' => ['required', 'string', 'max:120']]);
-        $acct = app(ResolveNfcTag::class)->handle($event, $data['uid']);
+        $data = $request->validate([
+            'uid'  => ['required', 'string', 'max:120'],
+            // Hexadécimal, tels que lus dans l'URL SDM du tag — absents pour
+            // un tag ordinaire (UID seul) ou un terminal qui ne les lit pas
+            // encore. Voir NfcTapVerifier : ignorés sauf tag sun_required.
+            'ctr'  => ['nullable', 'string', 'max:16'],
+            'cmac' => ['nullable', 'string', 'max:32'],
+        ]);
+        $acct = app(ResolveNfcTag::class)->handle($event, $data['uid'], $data['ctr'] ?? null, $data['cmac'] ?? null);
         if (! $acct) {
             return response()->json(['ok' => false, 'message' => __('Tag introuvable.')], 404);
         }
@@ -251,9 +258,11 @@ class WalletController extends Controller
             'vendor_id'   => ['required', 'integer'],
             'amount'      => ['required', 'numeric', 'min:0.01', 'max:1000000'],
             'client_uuid' => ['nullable', 'string', 'max:64'],
+            'ctr'         => ['nullable', 'string', 'max:16'],
+            'cmac'        => ['nullable', 'string', 'max:32'],
         ]);
 
-        $participant = app(ResolveNfcTag::class)->handle($event, $data['uid']);
+        $participant = app(ResolveNfcTag::class)->handle($event, $data['uid'], $data['ctr'] ?? null, $data['cmac'] ?? null);
         if (! $participant) {
             return response()->json(['ok' => false, 'message' => __('Tag introuvable.')], 404);
         }

@@ -91,22 +91,27 @@ class StatusController extends Controller
     }
 
     /**
-     * Sécurité NFC anti-clonage (NTAG424/SUN) : le drapeau de config existe et
-     * est testé unitairement (AesCmac/Ntag424/SunVerifier), mais N'EST PAS
-     * câblé dans le check-in/wallet en production — l'activer aujourd'hui ne
-     * changerait rien. On le dit clairement plutôt que de laisser croire le
-     * contraire (voir docs/NFC_SECURITY.md).
+     * Sécurité NFC anti-clonage (NTAG424/SUN) : le calcul CMAC/anti-rejeu est
+     * câblé dans le check-in ET le wallet (NfcTapVerifier), mais ne protège
+     * QUE les tags explicitement marqués sun_required=true — aucun ne l'est
+     * tant qu'aucune puce NTAG424 n'a été provisionnée et validée (voir
+     * docs/NFC_SECURITY.md). Le lire côté terminal (ctr/cmac depuis l'URL SDM
+     * du tag) reste à faire une fois une puce réelle disponible.
      */
     protected function nfcSecurity(): array
     {
         $flagEnabled = (bool) config('tagtoa.nfc.ntag424.enabled');
         $hasKey = filled(config('tagtoa.nfc.ntag424.key'));
+        $protectedTags = \Modules\Tagtoa\App\Models\Event\NfcTag::where('sun_required', true)->count();
 
         return [
             'flag_enabled' => $flagEnabled,
             'has_key'      => $hasKey,
-            'wired_in_production' => false,
-            'note' => __('Le calcul CMAC/anti-rejeu est codé et testé, mais pas encore branché dans le scan de check-in — activer le drapeau seul ne protège rien tant que ce n\'est pas fait après validation sur un vrai tag.'),
+            'wired_in_production' => true,
+            'protected_tags' => $protectedTags,
+            'note' => $protectedTags > 0
+                ? __('Câblé et actif pour :n tag(s) marqué(s) sun_required.', ['n' => $protectedTags])
+                : __('Câblé (check-in + wallet), mais sans effet : aucun tag n\'est encore marqué sun_required — ça suppose une puce NTAG424 provisionnée et validée.'),
         ];
     }
 

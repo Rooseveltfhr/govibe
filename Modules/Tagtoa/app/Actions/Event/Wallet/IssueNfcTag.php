@@ -27,6 +27,9 @@ class IssueNfcTag
                 'ticket_id'   => $opts['ticket_id'] ?? null,
                 'status'      => 'active',
                 'assigned_at' => now(),
+                // true seulement si CETTE puce a été provisionnée avec une clé
+                // NTAG424 — défaut false, la quasi-totalité des cartes aujourd'hui.
+                'sun_required' => $opts['sun_required'] ?? false,
             ]
         );
 
