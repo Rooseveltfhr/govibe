@@ -26,6 +26,7 @@ use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Event\NfcTag;
 use Modules\Tagtoa\App\Models\Event\Ticket;
 use Modules\Tagtoa\App\Services\Event\CheckinService;
+use Modules\Tagtoa\App\Support\Nfc\NfcTapVerifier;
 use Modules\Tagtoa\App\Support\Nfc\Ntag424;
 use Modules\Tagtoa\Tests\TestCase;
 
@@ -129,6 +130,28 @@ class NfcSunVerificationTest extends TestCase
         $resolved = app(ResolveNfcTag::class)->handle($this->event, self::UID, '010000', $this->cmacHex('010000'));
 
         $this->assertNull($resolved);
+    }
+
+    public function test_a_stale_in_memory_copy_cannot_replay_a_tap_already_consumed(): void
+    {
+        // Simule deux requêtes "concurrentes" : chacune charge SA PROPRE copie
+        // du tag avant que l'autre n'écrive — exactement ce qu'un rejeu
+        // délibéré en parallèle produirait. Sans verrou de ligne au moment de
+        // vérifier/avancer le compteur, la copie périmée (B) croirait encore
+        // last_counter=null et accepterait le même tap une 2e fois : double
+        // dépense sur un wallet réel. Avec le verrou, B relit l'état réel en
+        // base et rejette.
+        $this->enableNtag424();
+        app(IssueNfcTag::class)->handle($this->event, self::UID, ['label' => 'VIP', 'sun_required' => true]);
+
+        $hash = NfcTag::hashUid(self::UID);
+        $copyA = NfcTag::where('uid_hash', $hash)->first();
+        $copyB = NfcTag::where('uid_hash', $hash)->first();
+        $cmac = $this->cmacHex('010000');
+
+        $this->assertTrue(NfcTapVerifier::passes($copyA, self::UID, '010000', $cmac));
+        $this->assertFalse(NfcTapVerifier::passes($copyB, self::UID, '010000', $cmac),
+            'une copie périmée du même tag ne doit pas pouvoir rejouer le tap que A vient de consommer.');
     }
 
     public function test_checkin_by_tap_enforces_the_same_guarantee(): void

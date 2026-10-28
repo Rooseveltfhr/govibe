@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Support\Nfc;
 
+use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Event\NfcTag;
 
 /**
@@ -19,6 +20,15 @@ use Modules\Tagtoa\App\Models\Event\NfcTag;
  * lus dans l'URL SDM du tag (TagTapVerifier n'existe pas encore côté lecteur
  * — c'est la prochaine étape, une fois une puce réelle disponible pour
  * valider le format exact de l'URL ; voir docs/NFC_SECURITY.md).
+ *
+ * La lecture du compteur et son avancement sont faits sous verrou de ligne
+ * (comme PostLedgerTransaction pour le solde) : sans ça, deux rejeux
+ * CONCURRENTS du même tap capturé liraient le même last_counter avant que
+ * l'un des deux n'écrive, passeraient tous les deux la fraîcheur, et
+ * ChargeWallet ne les rattraperait pas — client_uuid est fourni par
+ * l'appelant, donc un rejeu délibéré l'omet simplement et obtient deux clés
+ * d'idempotence différentes. C'est ICI, pas dans le ledger, que le rejeu
+ * doit être bloqué.
  */
 class NfcTapVerifier
 {
@@ -37,14 +47,25 @@ class NfcTapVerifier
             return false;
         }
 
-        $result = SunVerifier::verifyTap($key, $uidBin, $ctrBin, $cmacBin, $tag->last_counter);
-        if (! $result['ok']) {
-            return false;
-        }
+        return DB::transaction(function () use ($tag, $key, $uidBin, $ctrBin, $cmacBin) {
+            // Relecture sous verrou : la copie déjà chargée dans $tag peut être
+            // périmée si un autre tap concurrent vient juste de faire avancer
+            // last_counter.
+            $locked = NfcTag::whereKey($tag->getKey())->lockForUpdate()->first();
+            if (! $locked) {
+                return false;
+            }
 
-        $tag->update(['last_counter' => $result['counter']]);
+            $result = SunVerifier::verifyTap($key, $uidBin, $ctrBin, $cmacBin, $locked->last_counter);
+            if (! $result['ok']) {
+                return false;
+            }
 
-        return true;
+            $locked->update(['last_counter' => $result['counter']]);
+            $tag->last_counter = $result['counter'];
+
+            return true;
+        });
     }
 
     /** Hexadécimal attendu -> binaire, ou null si absent/malformé (longueur, caractères). */
