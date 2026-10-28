@@ -19,7 +19,7 @@ class Item extends Model
 
     protected $fillable = [
         'menu_id', 'category_id', 'name', 'description', 'price', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'image_path',
-        'emoji', 'badge', 'specs', 'is_available', 'is_featured', 'stock', 'sort',
+        'emoji', 'badge', 'specs', 'is_available', 'is_published', 'is_featured', 'stock', 'sort',
         'translations',
     ];
 
@@ -32,6 +32,7 @@ class Item extends Model
         // Quantités décimales — même règle que côté caisse (StockService).
         'low_stock_threshold' => 'float',
         'is_available' => 'boolean',
+        'is_published' => 'boolean',
         'is_featured'  => 'boolean',
         'stock'        => 'float',
         'sort'         => 'integer',

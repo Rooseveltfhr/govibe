@@ -158,6 +158,69 @@ class MenuItemScreenTest extends TestCase
         $this->assertSame('Servie chaude, le dimanche', Item::where('name', 'Soupe joumou')->firstOrFail()->description);
     }
 
+    public function test_saving_a_product_as_draft_keeps_it_unpublished(): void
+    {
+        // Étape 3/7 du cahier des charges : « brouillon » est distinct de
+        // « disponible » — un produit en brouillon peut être enregistré sans
+        // apparaître déjà aux clients.
+        $this->patron();
+        $menu = $this->menu();
+
+        $this->post(route('tagtoa.menu.dashboard.items.store', $menu->id), [
+            'new_category_name' => 'Plats',
+            'item_name'          => 'Soupe joumou',
+            'item_price'         => 300,
+            'publish_action'     => 'draft',
+        ])->assertRedirect();
+
+        $this->assertFalse(Item::where('name', 'Soupe joumou')->firstOrFail()->is_published);
+    }
+
+    public function test_publishing_a_product_marks_it_published(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+
+        $this->post(route('tagtoa.menu.dashboard.items.store', $menu->id), [
+            'new_category_name' => 'Plats',
+            'item_name'          => 'Soupe joumou',
+            'item_price'         => 300,
+            'publish_action'     => 'publish',
+        ])->assertRedirect();
+
+        $this->assertTrue(Item::where('name', 'Soupe joumou')->firstOrFail()->is_published);
+    }
+
+    public function test_a_draft_still_appears_in_the_merchants_own_product_list(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $cat = Category::create(['menu_id' => $menu->id, 'name' => 'Plats', 'is_active' => true]);
+        Item::create(['menu_id' => $menu->id, 'category_id' => $cat->id, 'name' => 'Soupe joumou', 'price' => 300, 'is_available' => true, 'is_published' => false]);
+
+        $html = $this->get(route('tagtoa.menu.dashboard.items.index', $menu->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Soupe joumou', $html);
+        $this->assertStringContainsString('Brouillon', $html);
+    }
+
+    public function test_editing_a_published_product_back_to_draft_unpublishes_it(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $cat = Category::create(['menu_id' => $menu->id, 'name' => 'Plats', 'is_active' => true]);
+        $item = Item::create(['menu_id' => $menu->id, 'category_id' => $cat->id, 'name' => 'Soupe joumou', 'price' => 300, 'is_available' => true, 'is_published' => true]);
+
+        $this->put(route('tagtoa.menu.dashboard.items.update', [$menu->id, $item->id]), [
+            'category_id'     => $cat->id,
+            'item_name'        => 'Soupe joumou',
+            'item_price'       => 300,
+            'publish_action'   => 'draft',
+        ])->assertRedirect();
+
+        $this->assertFalse($item->fresh()->is_published);
+    }
+
     public function test_adding_a_product_with_an_option_group_and_choices_persists_them(): void
     {
         // Demandé : pouvoir ajouter des variantes (taille, couleur…) avec un
