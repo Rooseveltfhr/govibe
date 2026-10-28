@@ -61,7 +61,7 @@ class LinkPage extends Model
 
     public function getAvatarUrlAttribute(): ?string
     {
-        return $this->avatar_path ? Storage::url($this->avatar_path) : null;
+        return $this->avatar_path ? Storage::disk('public')->url($this->avatar_path) : null;
     }
 
     public function getPublicUrlAttribute(): string

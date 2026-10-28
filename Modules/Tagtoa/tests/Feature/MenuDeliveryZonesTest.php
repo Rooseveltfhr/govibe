@@ -36,8 +36,6 @@ class MenuDeliveryZonesTest extends TestCase
         return Menu::create(array_merge([
             'tenant_id' => 't-1', 'name' => 'Lounge', 'alias' => 'lounge-'.uniqid(),
             'currency' => 'HTG', 'is_active' => true, 'delivery_fee' => 50,
-            // La commande publique n'apparaît que si le commerce l'a activée
-            // ET renseigné un WhatsApp — voir menu/show.blade.php ($canOrder).
             'ordering_enabled' => true, 'whatsapp' => '+509 0000 0000',
         ], $attrs));
     }

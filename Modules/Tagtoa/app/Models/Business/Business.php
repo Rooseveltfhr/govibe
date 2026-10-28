@@ -107,7 +107,7 @@ class Business extends Model
 
     public function getLogoUrlAttribute(): ?string
     {
-        return $this->logo_path ? \Illuminate\Support\Facades\Storage::url($this->logo_path) : null;
+        return $this->logo_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->logo_path) : null;
     }
 
     /** Initiales, pour le sélecteur de commerce quand il n'y a pas de logo. */

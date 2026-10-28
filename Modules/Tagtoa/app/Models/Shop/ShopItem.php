@@ -32,7 +32,7 @@ class ShopItem extends Model
 
     public function getImageUrlAttribute(): ?string
     {
-        return $this->image_path ? Storage::url($this->image_path) : null;
+        return $this->image_path ? Storage::disk('public')->url($this->image_path) : null;
     }
 
     /** Ce qui est réellement commandable, dans l'ordre d'affichage. */

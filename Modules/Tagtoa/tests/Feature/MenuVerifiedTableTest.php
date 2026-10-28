@@ -35,9 +35,6 @@ class MenuVerifiedTableTest extends TestCase
         return Menu::create([
             'tenant_id' => $tenantId, 'name' => 'Lounge', 'alias' => 'lounge-'.uniqid(),
             'currency' => 'HTG', 'is_active' => true, 'ordering_enabled' => true,
-            // $canOrder (show.blade.php) exige un WhatsApp : sans lui, le
-            // formulaire de commande — et donc l'indicateur de table — ne
-            // s'affiche pas du tout, quel que soit le contenu du menu.
             'whatsapp' => '+509 3000 0000',
         ]);
     }
