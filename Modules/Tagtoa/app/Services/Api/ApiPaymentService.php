@@ -7,6 +7,7 @@ use Modules\Tagtoa\App\Models\Api\ApiKey;
 use Modules\Tagtoa\App\Models\Api\ApiPayment;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Services\Pay\MerchantMethods;
+use Modules\Tagtoa\App\Services\Pay\PaymentLedger;
 use Modules\Tagtoa\App\Support\Pay\GatewayCatalog;
 
 /**
@@ -25,6 +26,10 @@ class ApiPaymentService
 
     /** Erreur : aucune méthode de paiement activée sur la page. */
     public const ERR_NO_METHOD = 'no_payment_method';
+
+    public function __construct(protected PaymentLedger $ledger = new PaymentLedger())
+    {
+    }
 
     /**
      * Crée un paiement. Idempotent sur `external_id` : rappeler l'API avec la
@@ -96,7 +101,9 @@ class ApiPaymentService
             return $payment;
         }
 
+        $avant = $payment->status;
         $payment->update(['status' => ApiPayment::STATUS_PAID, 'paid_at' => now()]);
+        $this->ledger->record($payment, $avant, ApiPayment::STATUS_PAID);
         $this->notifyCallback($payment);
 
         return $payment;
