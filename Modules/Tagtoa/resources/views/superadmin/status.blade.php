@@ -58,7 +58,8 @@
     <div class="h-row"><h2><i class="fa-solid fa-shield-halved"></i> {{ __('Sécurité NFC anti-clonage (NTAG424)') }}</h2></div>
     <div class="kv"><span>{{ __('Drapeau de configuration') }}</span><b>{{ $nfc['flag_enabled'] ? __('Activé') : __('Désactivé') }}</b></div>
     <div class="kv"><span>{{ __('Clé configurée') }}</span><b>{{ $nfc['has_key'] ? __('Oui') : __('Non') }}</b></div>
-    <div class="kv"><span>{{ __('Branché dans le check-in en production') }}</span><b style="color:#9a2820">{{ __('Non') }}</b></div>
+    <div class="kv"><span>{{ __('Branché dans le check-in/wallet') }}</span><b>{{ $nfc['wired_in_production'] ? __('Oui') : __('Non') }}</b></div>
+    <div class="kv"><span>{{ __('Tags protégés (sun_required)') }}</span><b>{{ $nfc['protected_tags'] }}</b></div>
     <p style="color:#9a2820;font-size:13px;margin-top:8px"><i class="fa-solid fa-triangle-exclamation"></i> {{ $nfc['note'] }}</p>
 </div>
 

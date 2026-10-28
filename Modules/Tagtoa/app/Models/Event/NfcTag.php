@@ -22,11 +22,13 @@ class NfcTag extends Model
 
     protected $fillable = [
         'tenant_id', 'event_id', 'uid_hash', 'uid_enc', 'label', 'kind',
-        'ticket_id', 'status', 'assigned_at',
+        'ticket_id', 'status', 'assigned_at', 'sun_required', 'last_counter',
     ];
 
     protected $casts = [
-        'assigned_at' => 'datetime',
+        'assigned_at'  => 'datetime',
+        'sun_required' => 'boolean',
+        'last_counter' => 'integer',
     ];
 
     /** Hash stable d'un UID NFC (jamais l'UID en clair en base/lookup). */
@@ -53,5 +55,11 @@ class NfcTag extends Model
     public function isUsable(): bool
     {
         return $this->status === 'active';
+    }
+
+    /** Ce tag précis a été provisionné avec une clé NTAG424 : jamais d'UID seul pour lui. */
+    public function requiresSun(): bool
+    {
+        return (bool) $this->sun_required;
     }
 }
