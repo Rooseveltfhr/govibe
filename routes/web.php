@@ -45,6 +45,8 @@ use App\Http\Controllers\ERP\AgentIaAdminController;
 use App\Http\Controllers\ERP\InscriptionSessionController;
 use App\Http\Controllers\ERP\PaiementAdminController;
 use App\Http\Controllers\CommandeAbonnementController;
+use App\Http\Controllers\EnqueteController;
+use App\Http\Controllers\ERP\EnqueteAdminController;
 use App\Http\Controllers\ERP\AbonnementAdminController;
 use App\Http\Controllers\ERP\CommandeAbonnementController as CommandeAdminController;
 use App\Http\Controllers\ERP\ReservationLandryController;
@@ -135,6 +137,18 @@ Route::post('/commande/{plan}', [CommandeAbonnementController::class, 'store'])
 Route::get('/{service}', [CommandeAbonnementController::class, 'index'])
     ->whereIn('service', ['sites-web', 'hebergement', 'domaines'])
     ->name('abonnements.service');
+
+// Enquête sur les besoins des entreprises haïtiennes. Adresse courte, à
+// diffuser : /enquete. La langue vit dans l'adresse (?lang=ht) pour qu'un lien
+// partagé en créole s'ouvre en créole.
+//
+// /enquete/merci est déclaré AVANT rien d'autre sous ce préfixe, mais l'ordre
+// reste explicite au cas où une route à paramètre serait ajoutée plus tard.
+Route::get('/enquete', [EnqueteController::class, 'show'])->name('enquete.show');
+Route::post('/enquete', [EnqueteController::class, 'store'])
+    ->middleware('throttle:10,10')
+    ->name('enquete.store');
+Route::get('/enquete/merci', [EnqueteController::class, 'merci'])->name('enquete.merci');
 
 Route::view('/paiement', 'paiement')->name('paiement');
 
@@ -404,6 +418,17 @@ Route::prefix('erp')->name('erp.')->group(function () {
             Route::get('/{reservation}', [ReservationLandryController::class, 'show'])->name('show');
             Route::patch('/{reservation}', [ReservationLandryController::class, 'update'])->name('update');
             Route::delete('/{reservation}', [ReservationLandryController::class, 'destroy'])->name('destroy');
+        });
+
+        // ── Enquête sur les besoins ───────────────────────
+        Route::prefix('enquete')->name('enquete.')->group(function () {
+            Route::get('/', [EnqueteAdminController::class, 'index'])->name('index');
+            // Avant /{reponse} : « export » n'est pas un uuid, mais la route la
+            // plus générale gagnerait si elle était déclarée en premier.
+            Route::get('/export', [EnqueteAdminController::class, 'export'])->name('export');
+            Route::get('/{reponse}', [EnqueteAdminController::class, 'show'])->name('show');
+            Route::patch('/{reponse}', [EnqueteAdminController::class, 'update'])->name('update');
+            Route::delete('/{reponse}', [EnqueteAdminController::class, 'destroy'])->name('destroy');
         });
 
         // ── Commandes venues du site ──────────────────────

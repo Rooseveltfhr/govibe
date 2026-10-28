@@ -190,6 +190,17 @@
 
             {{-- Le compteur ne s'affiche que s'il y a quelque chose à traiter :
                  un « 0 » permanent cesse vite d'être regardé. --}}
+            @php $enqueteNouvelles = \App\Models\ReponseEnquete::nouvelles()->count(); @endphp
+            <a href="{{ route('erp.enquete.index') }}" class="sidebar-link {{ request()->routeIs('erp.enquete.*') ? 'active' : '' }}">
+                <i class="bi bi-clipboard-data-fill icon"></i>
+                <span class="label">
+                    Enquête besoins
+                    @if ($enqueteNouvelles > 0)
+                        <span class="ml-1 text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5">{{ $enqueteNouvelles }}</span>
+                    @endif
+                </span>
+            </a>
+
             @php $commandesAtraiter = \App\Models\CommandeAbonnement::atraiter()->count(); @endphp
             <a href="{{ route('erp.commandes.index') }}" class="sidebar-link {{ request()->routeIs('erp.commandes.*') ? 'active' : '' }}">
                 <i class="bi bi-bag-fill icon"></i>
