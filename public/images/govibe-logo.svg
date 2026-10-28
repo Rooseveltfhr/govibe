@@ -1,7 +1,34 @@
-<svg viewBox="0 0 520 110" xmlns="http://www.w3.org/2000/svg" fill="none">
-  <!-- G - blue -->
-  <text x="2" y="92" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="100" fill="#1D4ED8">G</text>
-  <!-- O - replaced by icon at position ~90,0 w:100 h:100 -->
+<svg viewBox="0 0 520 110" xmlns="http://www.w3.org/2000/svg" fill="none"
+     role="img" aria-label="GOVIBE">
+  <title>GOVIBE</title>
+
+  <!--
+    Les lettres ne sont plus posées une par une sur des coordonnées fixes.
+
+    Elles l'étaient, et ces coordonnées avaient été calculées pour les mesures
+    exactes d'Arial Black — une police absente d'Android, de Linux et d'iOS.
+    Partout ailleurs le navigateur substituait une police plus étroite, et les
+    lettres se dispersaient ou se chevauchaient. Le logo étant dans l'en-tête
+    partagé, il cassait sur CHAQUE page du site.
+
+    Désormais chaque bloc est un seul <text> : les lettres s'enchaînent, c'est
+    la police qui les place. textLength verrouille la largeur de chaque bloc,
+    donc « VIBE » occupe le même espace quelle que soit la police trouvée, et
+    ne peut plus déborder sur l'icône ni laisser de trou.
+
+    Un fichier SVG chargé dans une <img> est rendu dans un contexte isolé :
+    il n'a accès ni aux polices de la page ni à Google Fonts. La pile de
+    polices ci-dessous ne contient donc que des familles réellement présentes
+    sur les systèmes, et le poids 900 fait le reste là où aucune ne l'est.
+  -->
+
+  <!-- G - bleu -->
+  <text x="2" y="92"
+        font-family="Arial Black, Arial Bold, Helvetica Neue, Helvetica, Roboto, Arial, sans-serif"
+        font-weight="900" font-size="100" fill="#1D4ED8"
+        textLength="78" lengthAdjust="spacingAndGlyphs">G</text>
+
+  <!-- O - remplacé par l'icône. Formes pures : aucune police en jeu. -->
   <g transform="translate(92,5)">
     <circle cx="48" cy="48" r="47" fill="#DC2626"/>
     <circle cx="48" cy="48" r="35" fill="white"/>
@@ -10,12 +37,10 @@
     <rect x="45.5" y="3" width="5" height="16" rx="2.5" fill="white"/>
     <path d="M56 20 L36 54 H50 L40 77 L65 44 H51 Z" fill="white"/>
   </g>
-  <!-- V - yellow/gold -->
-  <text x="190" y="92" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="100" fill="#F59E0B">V</text>
-  <!-- I - green -->
-  <text x="280" y="92" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="100" fill="#16A34A">I</text>
-  <!-- B - blue -->
-  <text x="310" y="92" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="100" fill="#1D4ED8">B</text>
-  <!-- E - blue -->
-  <text x="388" y="92" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="100" fill="#1D4ED8">E</text>
+
+  <!-- VIBE - or, vert, bleu. Un seul bloc : les lettres s'enchaînent. -->
+  <text x="190" y="92"
+        font-family="Arial Black, Arial Bold, Helvetica Neue, Helvetica, Roboto, Arial, sans-serif"
+        font-weight="900" font-size="100"
+        textLength="265" lengthAdjust="spacingAndGlyphs"><tspan fill="#F59E0B">V</tspan><tspan fill="#16A34A">I</tspan><tspan fill="#1D4ED8">BE</tspan></text>
 </svg>

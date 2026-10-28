@@ -254,6 +254,8 @@ jobs:
           verifier "/agents-ia/demande" "200 301 302" "demande d'Agent IA"
           verifier "/formation/formation-ai" "200 301 302" "inscription Formation AI"
           verifier "/landry"           "200 301 302" "réservation LANDRY"
+          verifier "/enquete"          "200 301 302" "enquête besoins (français)"
+          verifier "/enquete?lang=ht"  "200 301 302" "enquête besoins (créole)"
           # Les trois services vendus par abonnement : ce sont les pages
           # diffusées en publicité.
           verifier "/sites-web"        "200 301 302" "offre sites web"
@@ -282,6 +284,7 @@ jobs:
           verifier "/erp/abonnements" "302 301 403" "abonnements protégés"
           verifier "/erp/landry"       "302 301 403" "réservations LANDRY protégées"
           verifier "/erp/commandes"    "302 301 403" "commandes en ligne protégées"
+          verifier "/erp/enquete"      "302 301 403" "réponses d'enquête protégées"
 
           # ── Le domaine applicatif ───────────────────────────────────────
           # Quand l'isolation est armée, ces contrôles font foi : si le
