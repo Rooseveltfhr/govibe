@@ -105,6 +105,11 @@ class ItemController extends Controller
             'item_low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'item_sku'             => ['nullable', 'string', 'max:60'],
             'item_image'           => ['nullable', 'image', 'max:2048'],
+            'item_options'                          => ['nullable', 'array'],
+            'item_options.*.name'                   => ['nullable', 'string', 'max:120'],
+            'item_options.*.choices'                => ['nullable', 'array'],
+            'item_options.*.choices.*.label'        => ['nullable', 'string', 'max:120'],
+            'item_options.*.choices.*.price_delta'  => ['nullable', 'numeric'],
         ]);
 
         $category = null;
@@ -116,6 +121,16 @@ class ItemController extends Controller
             return back()->withInput()->withErrors([
                 'new_category_name' => __('Choisissez une catégorie, ou tapez-en une nouvelle.'),
             ]);
+        }
+
+        // Signalé (test manuel, 3 commerces) : taper deux fois le nom d'une
+        // catégorie déjà créée (ex. « Chambres » pour une deuxième chambre)
+        // créait un DOUBLON — rien ne reliait le texte tapé à la catégorie
+        // existante du même nom. Même garde, insensible à la casse, que
+        // MenuProductSync::resoudreCategorie() pour le même problème côté
+        // synchronisation POS.
+        if (! $category) {
+            $category = $menu->categories()->whereRaw('LOWER(name) = ?', [mb_strtolower($categoryName)])->first();
         }
 
         $item = $itemId ? Item::where('menu_id', $menu->id)->whereKey($itemId)->first() : null;
@@ -143,7 +158,13 @@ class ItemController extends Controller
             'remove_image'        => $request->boolean('item_remove_image') ? '1' : '0',
             'specs'               => $request->input('specs', []),
             'translations_sent'   => '0',
-            'options_sent'        => '0',
+            // TOUJOURS '1' : contrairement aux autres marqueurs *_sent de cet
+            // écran (traductions, jamais montrées ici), les options ONT un
+            // éditeur sur CET écran — syncItemOptions() doit donc lire ce que
+            // le marchand a réellement envoyé, y compris « plus aucune
+            // option » s'il les a toutes retirées.
+            'options_sent'        => '1',
+            'options'             => $request->input('item_options', []),
         ];
 
         // Mêmes clés que le gros formulaire (cats[0][items][0][…]) : le même
@@ -182,12 +203,24 @@ class ItemController extends Controller
 
     private function formData(Menu $menu, ?Item $item = null): array
     {
+        // Suggestions propres au métier (« Plats principaux », « Bières »…) :
+        // celles déjà créées pour CE menu ne servent à rien en double, et le
+        // marchand doit pouvoir les retrouver dans le select du dessus —
+        // jamais les deux à la fois pour la même catégorie.
+        $dejaCrees = $menu->categories->pluck('name')
+            ->map(fn ($n) => mb_strtolower(trim($n)))->all();
+        $categoryPresets = array_values(array_filter(
+            BusinessProfile::categories($menu->type),
+            fn ($nom) => ! in_array(mb_strtolower($nom), $dejaCrees, true)
+        ));
+
         return [
-            'menu'      => $menu,
-            'item'      => $item,
-            'fields'    => BusinessProfile::fields($menu->type),
-            'units'     => Pricing::UNITS,
-            'suppliers' => \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'menu'            => $menu,
+            'item'            => $item,
+            'fields'          => BusinessProfile::fields($menu->type),
+            'units'           => Pricing::UNITS,
+            'categoryPresets' => $categoryPresets,
+            'suppliers'       => \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ];
     }
 

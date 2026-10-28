@@ -6,7 +6,7 @@
 <div class="h-row">
     <h2>{{ $menu->name }} — {{ __('Produits') }}</h2>
     <div style="display:flex;gap:8px">
-        <a href="{{ route('tagtoa.menu.dashboard.edit', $menu->id) }}" class="btn btn-o btn-sm"><i class="fa-solid fa-store"></i> {{ __('Établissement & menu') }}</a>
+        <a href="{{ route('tagtoa.menu.dashboard.edit', $menu->id) }}" class="btn btn-o btn-sm"><i class="fa-solid fa-gear"></i> {{ __('Paramètres du menu') }}</a>
         <a href="{{ route('tagtoa.menu.dashboard.items.create', $menu->id) }}" class="btn btn-p btn-sm"><i class="fa-solid fa-plus"></i> {{ __('Ajouter un produit') }}</a>
     </div>
 </div>
