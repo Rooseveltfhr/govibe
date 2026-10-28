@@ -92,6 +92,12 @@ Route::get('/book/{alias}', [BookingPublic::class, 'show'])->name('tagtoa.bookin
 Route::get('/tagtoa-asset/{file}', [\Modules\Tagtoa\App\Http\Controllers\Asset\AssetController::class, 'vendor'])
     ->where('file', '[A-Za-z0-9._-]+')->name('tagtoa.asset');
 
+// Vidage OPcache post-déploiement (voir OpcacheController) — jeton requis,
+// désactivée par défaut (TAGTOA_OPCACHE_RESET_TOKEN vide). Throttle serré :
+// appelée une seule fois par déploiement, jamais par un visiteur normal.
+Route::get('/tagtoa-ops/opcache-reset/{token}', [\Modules\Tagtoa\App\Http\Controllers\Ops\OpcacheController::class, 'reset'])
+    ->middleware('throttle:10,1')->name('tagtoa.ops.opcache-reset');
+
 // Écritures publiques : rate-limit (anti-spam / anti-DoS / anti-épuisement disque).
 Route::middleware('throttle:20,1')->group(function () {
     Route::post('/pay/{alias}/submit-proof', [PayPublic::class, 'submitProof'])->name('tagtoa.pay.submit-proof');
