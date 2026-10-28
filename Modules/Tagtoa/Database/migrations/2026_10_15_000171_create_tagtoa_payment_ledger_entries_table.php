@@ -27,11 +27,27 @@ use Illuminate\Support\Facades\Schema;
  * forcer un vrai grand livre en partie double serait une construction
  * spéculative. Cette table couvre ce qui existe réellement aujourd'hui :
  * la trace immuable d'un paiement passerelle, pas un bilan de comptes.
+ *
+ * INCIDENT PROD (constaté via les logs de déploiement GitHub Actions) : un
+ * premier déploiement a créé cette table puis échoué sur une étape
+ * SUIVANTE (sans rapport avec cette migration) ; le script de déploiement
+ * (deploy/remote-deploy.sh) a alors fait un rollback qui désactive le
+ * MODULE entier sans jamais annuler la migration elle-même — chaque
+ * redéploiement suivant retombait donc sur "table already exists" et
+ * désactivait Tagtoa à nouveau (c'est ce que l'utilisateur voyait sur
+ * tagtoa.com : uniquement Biztap, le module Tagtoa étant resté désactivé).
+ * Garde explicite pour que cette migration survive ce genre de redéploiement
+ * partiel, comme le fait déjà le reste du module (`Schema::hasColumn`) pour
+ * les migrations additives.
  */
 return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('tagtoa_payment_ledger_entries')) {
+            return;
+        }
+
         Schema::create('tagtoa_payment_ledger_entries', function (Blueprint $table) {
             $table->id();
             $table->string('tenant_id');
