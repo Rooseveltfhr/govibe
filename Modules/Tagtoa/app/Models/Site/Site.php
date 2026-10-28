@@ -78,12 +78,12 @@ class Site extends Model
 
     public function getLogoUrlAttribute(): ?string
     {
-        return $this->logo_path ? Storage::url($this->logo_path) : null;
+        return $this->logo_path ? Storage::disk('public')->url($this->logo_path) : null;
     }
 
     public function getCoverUrlAttribute(): ?string
     {
-        return $this->cover_path ? Storage::url($this->cover_path) : null;
+        return $this->cover_path ? Storage::disk('public')->url($this->cover_path) : null;
     }
 
     public function getWhatsappDigitsAttribute(): ?string

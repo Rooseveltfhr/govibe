@@ -8,7 +8,16 @@
     $mut  = $dark ? 'rgba(255,255,255,.6)' : '#888888';
     $bd   = $dark ? 'rgba(255,255,255,.10)' : 'rgba(0,0,0,.08)';
     $tm   = $menu->type_meta;
-    $canOrder = $menu->ordering_enabled && $menu->whatsapp_digits;
+    // Signalé : le panier, le bouton « + » et l'Agent IA disparaissaient
+    // ENTIÈREMENT (sans explication) dès qu'un commerce n'avait pas encore
+    // saisi de numéro WhatsApp — un champ facultatif à la création. Hérité
+    // d'une époque où WhatsApp était le SEUL moyen pour le marchand de
+    // savoir qu'une commande était passée ; ce n'est plus vrai depuis que
+    // MenuOrderService::placeOrder() enregistre toute commande en base
+    // (OrderSpine + écran Commandes du tableau de bord) indépendamment de
+    // WhatsApp — qui ne sert plus qu'à une confirmation OPTIONNELLE
+    // (notifyMerchant()/notifyCustomer(), no-op silencieux sans numéro).
+    $canOrder = $menu->ordering_enabled;
     $cur = $menu->currency ?: 'HTG';
     $ouvert = $menu->isOpenNow();
 @endphp
@@ -96,9 +105,13 @@
         .pillb{font:700 10.5px var(--fh);background:var(--acc);color:#fff;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
         .item .ds{color:var(--mut);font-size:12.5px;margin-top:4px;line-height:1.45;min-height:2.9em}
         .item .ft{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px}
-        .item .specs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-        .item .spec{font-size:12px;color:var(--mut);background:color-mix(in srgb,var(--acc) 8%,var(--surf));
-                    border-radius:999px;padding:3px 10px;line-height:1.5}
+        /* Signalé : les badges (fond + forme pilule) prenaient trop de
+           place sur une petite carte et alourdissaient visuellement chaque
+           produit — remplacés par du texte plat, séparé par un point
+           médian, sans fond ni padding superflu. */
+        .item .specs{display:flex;flex-wrap:wrap;align-items:center;gap:0 8px;margin-top:6px}
+        .item .spec{font-size:11px;color:var(--mut);line-height:1.4}
+        .item .spec:not(:last-child)::after{content:'·';margin-left:8px;opacity:.5}
         .item .spec b{font-weight:700;color:inherit}
         .item .psuf{font-weight:500;font-size:12px;color:var(--mut);margin-left:2px}
         .price{font:700 15px var(--fh);color:var(--acc)}

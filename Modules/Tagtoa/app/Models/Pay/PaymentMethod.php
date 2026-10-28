@@ -70,11 +70,11 @@ class PaymentMethod extends Model
 
     public function getQrUrlAttribute(): ?string
     {
-        return $this->qr_path ? Storage::url($this->qr_path) : null;
+        return $this->qr_path ? Storage::disk('public')->url($this->qr_path) : null;
     }
 
     public function getLogoUrlAttribute(): ?string
     {
-        return $this->logo_path ? Storage::url($this->logo_path) : null;
+        return $this->logo_path ? Storage::disk('public')->url($this->logo_path) : null;
     }
 }
