@@ -326,6 +326,7 @@
                     <a class="home" href="{{ url('/tagtoa/home') }}" title="{{ __('Retour à l\'accueil') }}"><i class="fa-solid fa-house"></i></a>
                 @endunless
                 <h1>@yield('page', 'TAGTOA')</h1>
+                @include('tagtoa::partials.business-switch')
                 @include('tagtoa::partials.lang')
                 <span class="who">{{ optional($u)->name ?? '' }}</span>
                 @if(\Illuminate\Support\Facades\Route::has('logout'))
