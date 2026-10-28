@@ -189,8 +189,26 @@
             </label>
         </div>
 
-        <div style="margin-top:18px">
-            <button type="submit" class="btn btn-p"><i class="fa-solid fa-check"></i> {{ $editing ? __('Enregistrer les modifications') : __('Ajouter le produit') }}</button>
+        {{-- Deux actions finales distinctes, pas une case à cocher : un
+             brouillon reste invisible pour les clients (voir
+             Category::availableItems()) tant qu'il n'est pas publié. --}}
+        @if($editing)
+            <p style="margin-top:18px;color:var(--muted);font-size:13px">
+                {{ __('Statut actuel :') }}
+                @if($item->is_published)
+                    <span class="pill" style="background:#2cb809;color:#fff">{{ __('Publié') }}</span>
+                @else
+                    <span class="pill" style="background:var(--muted);color:#fff">{{ __('Brouillon') }}</span>
+                @endif
+            </p>
+        @endif
+        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+            <button type="submit" name="publish_action" value="draft" class="btn btn-o">
+                <i class="fa-solid fa-file-pen"></i> {{ __('Enregistrer comme brouillon') }}
+            </button>
+            <button type="submit" name="publish_action" value="publish" class="btn btn-p">
+                <i class="fa-solid fa-check"></i> {{ $editing ? __('Publier les modifications') : __('Publier le produit') }}
+            </button>
         </div>
     </form>
 </div>

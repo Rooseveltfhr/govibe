@@ -1066,6 +1066,11 @@ class DashboardController extends Controller
                         'specs'        => BusinessProfile::sanitize($menu->type, $it['specs'] ?? null),
                         'is_featured'  => ! empty($it['is_featured']),
                         'is_available' => ! isset($it['is_available']) ? true : (bool) $it['is_available'],
+                        // Par défaut PUBLIÉ : le grand formulaire (assistant,
+                        // édition classique) ne porte pas encore ce champ, et
+                        // un envoi qui ne l'envoie pas ne doit jamais mettre
+                        // en brouillon un produit déjà visible.
+                        'is_published' => ! isset($it['is_published']) ? true : (bool) $it['is_published'],
                         'sort'         => (int) $ii,
 
                         // Coût matière, unité, seuil, référence — même volet

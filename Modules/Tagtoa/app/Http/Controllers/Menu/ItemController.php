@@ -154,6 +154,12 @@ class ItemController extends Controller
             'unit'                => $request->input('item_unit'),
             'badge'               => $request->input('item_badge'),
             'is_available'        => $request->boolean('item_is_available', true) ? '1' : '0',
+            // « Enregistrer comme brouillon » / « Publier le produit » — deux
+            // boutons de soumission distincts (name="publish_action"), pas
+            // une case à cocher : la demande était explicitement deux actions
+            // finales séparées. Toute autre valeur (y compris absente) publie —
+            // c'est l'action principale, mise en avant dans l'écran.
+            'is_published'        => $request->input('publish_action') === 'draft' ? '0' : '1',
             'is_featured'         => $request->boolean('item_is_featured') ? '1' : '0',
             'remove_image'        => $request->boolean('item_remove_image') ? '1' : '0',
             'specs'               => $request->input('specs', []),
@@ -196,8 +202,12 @@ class ItemController extends Controller
 
         $nouveauId = $item?->id ?? $menu->items()->where('id', '>', $dernierIdAvant)->value('id');
 
+        $message = $itemPayload['is_published'] === '0'
+            ? __(':nom enregistré comme brouillon — invisible pour vos clients tant qu\'il n\'est pas publié.', ['nom' => $itemPayload['name']])
+            : __(':nom publié.', ['nom' => $itemPayload['name']]);
+
         return redirect()->route('tagtoa.menu.dashboard.items.index', $menu->id)
-            ->with('success', __(':nom enregistré.', ['nom' => $itemPayload['name']]))
+            ->with('success', $message)
             ->with('highlight_item', $nouveauId);
     }
 

@@ -42,6 +42,7 @@
                                 <b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $it->name }}</b>
                                 <span style="font-size:13px;color:var(--muted)">{{ \Modules\Tagtoa\App\Support\Money::format($it->price, $menu->currency) }}</span>
                                 @unless($it->is_available)<span class="pill n" style="margin-left:6px">{{ __('Indisponible') }}</span>@endunless
+                                @unless($it->is_published)<span class="pill n" style="margin-left:6px">{{ __('Brouillon') }}</span>@endunless
                             </div>
                             <div style="display:flex;gap:6px;flex:0 0 auto">
                                 <a href="{{ route('tagtoa.menu.dashboard.items.edit', [$menu->id, $it->id]) }}" class="btn btn-o btn-sm" title="{{ __('Modifier') }}"><i class="fa-solid fa-pen"></i></a>

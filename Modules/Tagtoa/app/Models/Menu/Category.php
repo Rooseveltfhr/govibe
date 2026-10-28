@@ -31,9 +31,15 @@ class Category extends Model
         return $this->hasMany(Item::class, 'category_id')->orderBy('sort');
     }
 
+    /**
+     * Ce qu'un CLIENT peut voir : disponible ET publié. Un produit « en
+     * brouillon » (encore en train d'être rempli) n'apparaît jamais ici,
+     * même s'il est par ailleurs marqué disponible — voir la migration
+     * is_published pour la distinction avec « disponible/épuisé ».
+     */
     public function availableItems(): HasMany
     {
-        return $this->items()->where('is_available', true);
+        return $this->items()->where('is_available', true)->where('is_published', true);
     }
 
     /** Le nom de cette catégorie, dans une langue. Voir Menu::translated(). */

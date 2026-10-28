@@ -64,6 +64,20 @@ class CatalogueVitrineTest extends TestCase
             ->assertSee('Griot');
     }
 
+    public function test_a_draft_product_never_appears_on_the_public_menu(): void
+    {
+        // Étape 3/7 du cahier des charges : un produit « brouillon » (encore
+        // en train d'être rempli) ne doit jamais apparaître côté client,
+        // même s'il est par ailleurs marqué disponible.
+        $m = $this->menu();
+        $this->plat($this->categorie($m, 'Plats'), ['name' => 'Brouillon du chef', 'is_published' => false]);
+        $this->plat($this->categorie($m, 'Plats'), ['name' => 'Griot']);
+
+        $reponse = $this->get('/menu/'.$m->alias)->assertOk();
+        $reponse->assertDontSee('Brouillon du chef');
+        $reponse->assertSee('Griot');
+    }
+
     public function test_the_grid_never_leaves_a_dead_empty_column(): void
     {
         // Signalé en testant depuis un téléphone : un commerce qui démarre
