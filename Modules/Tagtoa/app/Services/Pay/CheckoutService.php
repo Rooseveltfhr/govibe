@@ -18,8 +18,10 @@ use Modules\Tagtoa\App\Support\GatewayManager;
  */
 class CheckoutService
 {
-    public function __construct(protected NotificationService $notifications = new NotificationService())
-    {
+    public function __construct(
+        protected NotificationService $notifications = new NotificationService(),
+        protected PaymentLedger $ledger = new PaymentLedger(),
+    ) {
     }
 
     /** Modèle + service markPaid par type de commande. */
@@ -96,13 +98,17 @@ class CheckoutService
 
         $status = $driver->verify($txn);
         if ($status === 'paid') {
+            $avant = $txn->status;
             $txn->update(['status' => PayTransaction::STATUS_PAID, 'paid_at' => now()]);
+            $this->ledger->record($txn, $avant, PayTransaction::STATUS_PAID);
             $this->applyPaid($txn);
 
             return true;
         }
         if ($status === 'failed') {
+            $avant = $txn->status;
             $txn->update(['status' => PayTransaction::STATUS_FAILED]);
+            $this->ledger->record($txn, $avant, PayTransaction::STATUS_FAILED);
         }
 
         return false;
