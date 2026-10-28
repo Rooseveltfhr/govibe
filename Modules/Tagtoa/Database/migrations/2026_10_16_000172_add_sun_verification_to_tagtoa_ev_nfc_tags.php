@@ -21,9 +21,16 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Garde (voir l'incident documenté dans 2026_10_15_000171) : un
+        // redéploiement qui a échoué APRÈS cette migration ne doit pas la
+        // faire échouer à nouveau sur une colonne déjà posée.
         Schema::table('tagtoa_ev_nfc_tags', function (Blueprint $table) {
-            $table->boolean('sun_required')->default(false)->after('status');
-            $table->unsignedInteger('last_counter')->nullable()->after('sun_required');
+            if (! Schema::hasColumn('tagtoa_ev_nfc_tags', 'sun_required')) {
+                $table->boolean('sun_required')->default(false)->after('status');
+            }
+            if (! Schema::hasColumn('tagtoa_ev_nfc_tags', 'last_counter')) {
+                $table->unsignedInteger('last_counter')->nullable()->after('sun_required');
+            }
         });
     }
 
