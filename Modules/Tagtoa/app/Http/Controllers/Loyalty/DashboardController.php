@@ -106,7 +106,11 @@ $data = $this->validateProgram($request);
     public function topUp(Request $request, int $cardId): RedirectResponse
     {
         $card = $this->ownCard($cardId);
-        $data = $request->validate(['amount' => ['required', 'numeric', 'min:0.01'], 'payment_method' => ['nullable', 'string', 'max:40']]);
+        // `max` borné sur la colonne réelle : amount et balance_after sont
+        // des decimal(10,2). Sans borne, un montant plus grand débordait la
+        // colonne et faisait échouer l'écriture en base — une panne, pour
+        // une valeur que le formulaire aurait dû refuser d'emblée.
+        $data = $request->validate(['amount' => ['required', 'numeric', 'min:0.01', 'max:99999999'], 'payment_method' => ['nullable', 'string', 'max:40']]);
         try {
             $this->service->topUp($card, (float) $data['amount'], ['payment_method' => $data['payment_method'] ?? null]);
         } catch (LoyaltyRuleException $e) {
@@ -124,7 +128,7 @@ $data = $this->validateProgram($request);
     public function redeem(Request $request, int $cardId): RedirectResponse
     {
         $card = $this->ownCard($cardId);
-        $data = $request->validate(['amount' => ['required', 'numeric', 'min:0.01']]);
+        $data = $request->validate(['amount' => ['required', 'numeric', 'min:0.01', 'max:99999999']]);
         try {
             $this->service->redeem($card, (float) $data['amount']);
         } catch (LoyaltyRuleException $e) {

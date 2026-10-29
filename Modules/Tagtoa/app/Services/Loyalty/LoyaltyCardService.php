@@ -96,7 +96,7 @@ class LoyaltyCardService
         $transaction = DB::transaction(function () use ($card, $amount, $opts) {
             $card = Card::lockForUpdate()->findOrFail($card->id);
 
-            if ($existing = $this->existingTransaction($card, $opts)) {
+            if ($existing = $this->existingTransaction($card, Transaction::TYPE_TOP_UP, $opts)) {
                 return $existing;
             }
             if (! $card->isActive()) {
@@ -131,21 +131,27 @@ class LoyaltyCardService
     }
 
     /**
-     * Mouvement déjà enregistré pour cette (carte, référence) ? Clé
+     * Mouvement déjà enregistré pour ce (carte, TYPE, référence) ? Clé
      * d'idempotence : sans elle, deux confirmations du même paiement
      * (webhook + retour navigateur) créditeraient/débiteraient deux fois —
      * le verrou sur la carte sérialise les appels concurrents mais ne les
      * rend pas idempotents à lui seul. Une référence absente (recharge/
      * débit manuels) ne protège jamais contre rien : chaque appel compte.
+     *
+     * Le TYPE fait partie de la clé, et ce n'est pas un détail : une même
+     * référence de commande porte deux mouvements légitimes et opposés —
+     * les points gagnés à l'achat, puis repris au remboursement. Sans lui,
+     * un remboursement retrouvait la ligne du GAIN, la prenait pour un
+     * rejeu et renvoyait « déjà fait » SANS débiter.
      */
-    protected function existingTransaction(Card $card, array $opts): ?Transaction
+    protected function existingTransaction(Card $card, string $type, array $opts): ?Transaction
     {
         $reference = $opts['reference'] ?? null;
         if ($reference === null) {
             return null;
         }
 
-        return $card->transactions()->where('reference', $reference)->first();
+        return $card->transactions()->where('type', $type)->where('reference', $reference)->first();
     }
 
     /** Vrai si l'exception vient de la contrainte unique (card_id, reference). */
@@ -173,7 +179,7 @@ class LoyaltyCardService
             $transaction = DB::transaction(function () use ($card, $points, $opts) {
                 $card = Card::lockForUpdate()->findOrFail($card->id);
 
-                if ($existing = $this->existingTransaction($card, $opts)) {
+                if ($existing = $this->existingTransaction($card, Transaction::TYPE_EARN, $opts)) {
                     return $existing;
                 }
                 if (! $card->isActive()) {
@@ -206,7 +212,7 @@ class LoyaltyCardService
                 throw $e;
             }
 
-            return $this->existingTransaction($card, $opts);
+            return $this->existingTransaction($card, Transaction::TYPE_EARN, $opts);
         }
 
         if ($transaction !== null && $transaction->wasRecentlyCreated) {
@@ -221,7 +227,7 @@ class LoyaltyCardService
         $transaction = DB::transaction(function () use ($card, $amount, $opts) {
             $card = Card::lockForUpdate()->findOrFail($card->id);
 
-            if ($existing = $this->existingTransaction($card, $opts)) {
+            if ($existing = $this->existingTransaction($card, Transaction::TYPE_REDEEM, $opts)) {
                 return $existing;
             }
             if (! $card->isActive()) {
