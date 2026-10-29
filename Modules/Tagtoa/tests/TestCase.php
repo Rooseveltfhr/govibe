@@ -106,6 +106,21 @@ abstract class TestCase extends BaseTestCase
         ])->group(function () {
             require __DIR__.'/../routes/web.php';
         });
+
+        // L'API développeur, sous son VRAI préfixe. Elle n'était pas chargée
+        // du tout : toute la surface HTTP publique de l'API — le middleware
+        // d'authentification par clé, le plafond de débit, le nom et la forme
+        // de chaque route — n'était donc exercée par aucun test. Un endpoint
+        // mal câblé ici partait en production sans que rien ne le signale ;
+        // les tests existants appelaient le service et le middleware
+        // séparément, c'est-à-dire tout sauf leur assemblage.
+        //
+        // Hors du groupe ci-dessus, volontairement : une API par clé est sans
+        // session. Lui en donner une masquerait un endpoint qui dépendrait
+        // par erreur de l'état de session.
+        $router->prefix('api')->group(function () {
+            require __DIR__.'/../routes/api.php';
+        });
     }
 
     protected function setUp(): void
