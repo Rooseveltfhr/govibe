@@ -151,6 +151,7 @@ $data = $this->validatePage($request);
             'title'            => ['nullable', 'string', 'max:160'],
             'type'             => ['nullable', Rule::in(array_keys(PaymentPage::TYPES))],
             'alias'            => ['nullable', 'string', 'max:120', 'alpha_dash',
+                                   Rule::notIn(PaymentPage::RESERVED_ALIASES),
                                    'unique:tagtoa_payment_pages,alias'.($ignoreId ? ','.$ignoreId : '')],
             'description'      => ['nullable', 'string', 'max:1000'],
             // Devise contrainte au catalogue : une devise inconnue casserait
