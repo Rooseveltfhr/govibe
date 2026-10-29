@@ -60,6 +60,10 @@
             </ul>
             @if($isCur)
                 <button class="btn btn-o" style="width:100%;justify-content:center" disabled>{{ __('Forfait actuel') }}</button>
+            @elseif(($p['price'] ?? null) === null)
+                {{-- Sur devis : aucun formulaire. Le contrôleur le refuserait de
+                     toute façon ; ne pas offrir un bouton qui ne peut qu'échouer. --}}
+                <button class="btn btn-o" style="width:100%;justify-content:center" disabled>{{ __('Sur devis — contactez-nous') }}</button>
             @else
                 <form method="POST" action="{{ route('tagtoa.plan.subscribe') }}">
                     @csrf<input type="hidden" name="plan" value="{{ $key }}">

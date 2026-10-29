@@ -44,7 +44,23 @@ class PlanController extends Controller
             'plan' => ['required', Rule::in(array_keys($plans))],
         ]);
         $plan = $data['plan'];
-        $price = (float) ($plans[$plan]['price'] ?? 0);
+
+        // « Sur devis » = prix NULL. Surtout pas `?? 0` : null devenait 0, le
+        // forfait passait pour gratuit et s'activait sans date de fin — tout
+        // illimité, cartes NFC comprises, pour rien. Un forfait sans prix se
+        // négocie, il ne se prend pas en libre-service.
+        $rawPrice = $plans[$plan]['price'] ?? null;
+        if ($rawPrice === null) {
+            return back()->with('error', __('Ce forfait est sur devis. Contactez-nous pour y souscrire.'));
+        }
+
+        // Un forfait désactivé par l'administrateur ne se souscrit plus (les
+        // abonnements déjà en cours ne sont pas touchés).
+        if (($plans[$plan]['is_active'] ?? true) === false) {
+            return back()->with('error', __('Ce forfait n\'est plus disponible.'));
+        }
+
+        $price = (float) $rawPrice;
 
         // Forfait PAYANT + passerelle active → paiement avant activation.
         if ($price > 0) {
