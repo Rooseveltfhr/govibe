@@ -116,7 +116,9 @@ class LoyaltyIdempotencyTest extends TestCase
         $this->withoutExceptionHandling();
         $this->expectException(QueryException::class);
 
-        $this->post(route('tagtoa.loyalty.dashboard.cards.topup', $card->id), ['amount' => 999999999]);
+        // Montant volontairement valide : c'est le service substitué qui
+        // lève la panne, pas la validation (voir le test de la borne).
+        $this->post(route('tagtoa.loyalty.dashboard.cards.topup', $card->id), ['amount' => 100]);
     }
 
     /** La règle métier, elle, reste bien affichée au marchand. */
@@ -129,6 +131,92 @@ class LoyaltyIdempotencyTest extends TestCase
 
         $this->post(route('tagtoa.loyalty.dashboard.cards.topup', $card->id), ['amount' => 100])
             ->assertSessionHasErrors('amount');
+    }
+
+
+    /**
+     * Le piège que la portée (card_id, reference) laissait ouvert : une même
+     * référence de commande porte DEUX mouvements légitimes et opposés — les
+     * points gagnés à l'achat, puis repris au remboursement. Avec l'ancienne
+     * portée, le remboursement retrouvait la ligne du GAIN, la prenait pour un
+     * rejeu, et renvoyait « déjà fait » SANS débiter : argent rendu, points
+     * gardés, écran vert.
+     */
+    public function test_a_refund_can_reuse_the_order_reference_of_the_earn_it_reverses(): void
+    {
+        $svc = app(LoyaltyCardService::class);
+        $card = $svc->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
+        $svc->topUp($card, 500);
+
+        $svc->earnPoints($card, 40, ['reference' => 'CMD-77']);
+        $this->assertEquals(540, $card->fresh()->points);
+
+        // Le remboursement de LA MÊME commande doit vraiment débiter.
+        $svc->redeem($card, 0, ['points_delta' => -40, 'reference' => 'CMD-77']);
+
+        $this->assertEquals(500, $card->fresh()->points, 'le remboursement doit reprendre les points, pas se croire déjà fait.');
+        $this->assertSame(2, Transaction::where('card_id', $card->id)->where('reference', 'CMD-77')->count());
+    }
+
+    /** Chaque type reste idempotent pour lui-même. */
+    public function test_each_movement_type_stays_idempotent_on_its_own(): void
+    {
+        $svc = app(LoyaltyCardService::class);
+        $card = $svc->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
+
+        $svc->earnPoints($card, 25, ['reference' => 'CMD-88']);
+        $svc->earnPoints($card, 25, ['reference' => 'CMD-88']);
+
+        $this->assertEquals(25, $card->fresh()->points);
+        $this->assertSame(1, Transaction::where('card_id', $card->id)->where('type', Transaction::TYPE_EARN)->count());
+    }
+
+    public function test_an_amount_above_the_form_ceiling_is_refused_by_validation(): void
+    {
+        // 99 999 999,50 tient dans decimal(10,2) : le SERVICE l'accepterait sur
+        // une carte vide. Seule la validation du formulaire (max:99999999) le
+        // refuse — c'est ce qui distingue ce test de celui du débordement, où
+        // la garde du service répond à la place du formulaire.
+        $card = app(LoyaltyCardService::class)
+            ->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
+        $this->be(new GenericUser(['id' => 1, 'tenant_id' => null]));
+
+        $this->post(route('tagtoa.loyalty.dashboard.cards.topup', $card->id), ['amount' => 99999999.5])
+            ->assertSessionHasErrors('amount');
+
+        $this->assertSame(0, Transaction::where('card_id', $card->id)->count());
+    }
+
+    /**
+     * `max` sur le formulaire borne le MONTANT, pas le solde qui en résulte :
+     * 99 999 999 ajoutés à une carte déjà créditée dépassent decimal(10,2).
+     * Avant, l'écriture échouait en base ; c'est maintenant une règle métier
+     * lisible, et rien n'est crédité.
+     */
+    public function test_a_topup_that_would_overflow_the_balance_column_is_refused(): void
+    {
+        $svc = app(LoyaltyCardService::class);
+        $card = $svc->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
+        $svc->topUp($card, 500);
+
+        $this->expectException(\Modules\Tagtoa\App\Exceptions\LoyaltyRuleException::class);
+
+        try {
+            $svc->topUp($card, 99999999);
+        } finally {
+            $this->assertEquals(500, $card->fresh()->balance, 'aucun crédit ne doit passer.');
+            $this->assertSame(1, Transaction::where('card_id', $card->id)->count());
+        }
+    }
+
+    public function test_a_topup_right_up_to_the_ceiling_still_works(): void
+    {
+        $svc = app(LoyaltyCardService::class);
+        $card = $svc->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
+
+        $svc->topUp($card, 99999999);
+
+        $this->assertEquals(99999999, $card->fresh()->balance);
     }
 
     public function test_a_suspended_card_cannot_be_topped_up(): void

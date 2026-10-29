@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Services\Menu;
 
+use Modules\Tagtoa\App\Exceptions\OrderRuleException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Loyalty\Card;
@@ -47,7 +48,7 @@ class MenuOrderService
         // transaction — un client ne doit pas pouvoir commander à 3h du matin
         // parce que la cuisine ne surveille plus l'écran.
         if (! $menu->isOpenNow()) {
-            throw new \RuntimeException('closed');
+            throw new OrderRuleException('closed');
         }
 
         // Comme le JS côté client : confort d'affichage là-bas, mais la
@@ -58,7 +59,7 @@ class MenuOrderService
             $nom = trim((string) ($payload['customer_name'] ?? ''));
             $tel = trim((string) ($payload['customer_phone'] ?? ''));
             if ($nom === '' || $tel === '') {
-                throw new \RuntimeException('missing_customer_info');
+                throw new OrderRuleException('missing_customer_info');
             }
         }
 
@@ -111,7 +112,7 @@ class MenuOrderService
 
                 // Stock : refuse la commande si un article suivi n'a pas assez de stock.
                 if (! StockService::canFulfill($item->stock, $qty)) {
-                    throw new \RuntimeException('out_of_stock');
+                    throw new OrderRuleException('out_of_stock');
                 }
 
                 [$optionsExtra, $optionsSnapshot] = $this->resolveOptions($item, $it['options'] ?? []);
@@ -130,7 +131,7 @@ class MenuOrderService
             }
 
             if (! $lines) {
-                throw new \RuntimeException('empty_order');
+                throw new OrderRuleException('empty_order');
             }
 
             $subtotal = round($subtotal, 2);
@@ -161,7 +162,7 @@ class MenuOrderService
                 $table = \Modules\Tagtoa\App\Models\Menu\Table::where('menu_id', $menu->id)
                     ->where('code', $payload['table_code'])->where('is_active', true)->first();
                 if (! $table) {
-                    throw new \RuntimeException('invalid_table');
+                    throw new OrderRuleException('invalid_table');
                 }
                 $tableLabel = $table->label;
             }

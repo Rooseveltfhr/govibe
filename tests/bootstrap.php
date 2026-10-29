@@ -13,6 +13,16 @@ require __DIR__.'/../vendor/autoload.php';
 $base = __DIR__.'/../Modules/Tagtoa/app';
 
 // Uniquement des classes sans parent Eloquent (sinon il faudrait charger Laravel).
+//
+// Ce bootstrap N'A PAS d'autoload PSR-4 pour Modules\Tagtoa\ : l'autoloader
+// racine est celui de l'app GOVIBE. Une classe qui n'est pas listée ici
+// n'existe tout simplement pas — il faut donc lister aussi ce dont une classe
+// listée dépend À L'EXÉCUTION, même si c'est une exception de trois lignes.
+// (ItemOptionPricing lève OrderRuleException : sans elle, le test « un groupe
+// obligatoire sans choix lève » reçoit « Class not found » au lieu de
+// l'exception attendue — et seulement en CI, car le phpunit.xml du module,
+// lui, résout tout par PSR-4.)
+require_once $base.'/Exceptions/OrderRuleException.php';
 require_once $base.'/Services/Loyalty/LoyaltyCardService.php';
 require_once $base.'/Services/Billing/RevenueService.php';
 require_once $base.'/Services/Notifications/NotificationService.php';

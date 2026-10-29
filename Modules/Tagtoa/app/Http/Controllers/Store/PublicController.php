@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Http\Controllers\Store;
 
+use Modules\Tagtoa\App\Exceptions\OrderRuleException;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,7 +54,7 @@ class PublicController extends Controller
 
         try {
             $order = app(StoreOrderService::class)->placeOrder($store, $data);
-        } catch (\RuntimeException $e) {
+        } catch (OrderRuleException $e) {
             $message = $e->getMessage() === 'out_of_stock'
                 ? __('Un produit est en rupture de stock. Ajustez votre panier.')
                 : __('Votre panier est vide.');

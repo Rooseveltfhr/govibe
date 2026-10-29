@@ -2,6 +2,8 @@
 
 namespace Modules\Tagtoa\App\Support\Menu;
 
+use Modules\Tagtoa\App\Exceptions\OrderRuleException;
+
 /**
  * TAGTOA MENU — calcule le supplément de prix + snapshot des options choisies
  * pour une ligne de commande. PUR (tableaux simples, pas d'Eloquent) : testable
@@ -27,7 +29,7 @@ class ItemOptionPricing
             $chosen = array_values(array_intersect($choiceIds, $selected));
 
             if (! empty($group['required']) && empty($chosen)) {
-                throw new \RuntimeException(self::ERR_MISSING_REQUIRED);
+                throw new OrderRuleException(self::ERR_MISSING_REQUIRED);
             }
             if (empty($group['multiple']) && count($chosen) > 1) {
                 $chosen = [$chosen[0]];

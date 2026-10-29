@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Http\Controllers\Menu;
 
+use Modules\Tagtoa\App\Exceptions\OrderRuleException;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -98,7 +99,7 @@ class PublicController extends Controller
 
         try {
             $order = app(MenuOrderService::class)->placeOrder($menu, $data);
-        } catch (\RuntimeException $e) {
+        } catch (OrderRuleException $e) {
             $message = match ($e->getMessage()) {
                 'out_of_stock'            => __('Un article est en rupture de stock. Ajustez votre commande.'),
                 'missing_required_option' => __('Choisissez une option obligatoire pour chaque article.'),

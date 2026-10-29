@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Services\Booking;
 
+use Modules\Tagtoa\App\Exceptions\OrderRuleException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Booking\Booking;
@@ -39,7 +40,7 @@ class BookingService
 
             $starts = $this->parseStart($payload['starts_at'] ?? null);
             if (! $starts) {
-                throw new \RuntimeException('invalid_slot');
+                throw new OrderRuleException('invalid_slot');
             }
 
             return $page->bookings()->create([
