@@ -25,19 +25,22 @@ class ReponseEnquete extends Model
     protected $fillable = [
         'uuid', 'reference', 'langue',
         'entreprise', 'type_activite', 'type_activite_autre', 'ville', 'departement',
-        'effectif', 'anciennete',
-        'outils', 'encaissements', 'connexion', 'presences',
-        'difficultes', 'perte_de_temps', 'pertes', 'priorite',
-        'solutions', 'budget',
+        'effectif', 'anciennete', 'points_vente', 'volume',
+        'outils', 'materiel', 'encaissements', 'connexion', 'presences',
+        'essai', 'essai_raison',
+        'difficultes', 'perte_de_temps', 'pertes', 'priorite', 'freins',
+        'solutions', 'budget', 'echeance',
         'souhaite_contact', 'nom_contact', 'whatsapp', 'email',
         'statut', 'notes_internes', 'traitee_par', 'traitee_le', 'ip',
     ];
 
     protected $casts = [
         'outils' => 'array',
+        'materiel' => 'array',
         'encaissements' => 'array',
         'presences' => 'array',
         'difficultes' => 'array',
+        'freins' => 'array',
         'solutions' => 'array',
         'souhaite_contact' => 'boolean',
         'traitee_le' => 'datetime',
@@ -111,6 +114,26 @@ class ReponseEnquete extends Model
         return Questionnaire::libelle(Questionnaire::connexions(), $this->connexion, $this->enLangue($langue));
     }
 
+    public function pointsVenteLibelle(?string $langue = null): ?string
+    {
+        return Questionnaire::libelle(Questionnaire::pointsVente(), $this->points_vente, $this->enLangue($langue));
+    }
+
+    public function volumeLibelle(?string $langue = null): ?string
+    {
+        return Questionnaire::libelle(Questionnaire::volumes(), $this->volume, $this->enLangue($langue));
+    }
+
+    public function essaiLibelle(?string $langue = null): ?string
+    {
+        return Questionnaire::libelle(Questionnaire::essais(), $this->essai, $this->enLangue($langue));
+    }
+
+    public function echeanceLibelle(?string $langue = null): ?string
+    {
+        return Questionnaire::libelle(Questionnaire::echeances(), $this->echeance, $this->enLangue($langue));
+    }
+
     public function budgetLibelle(?string $langue = null): ?string
     {
         return Questionnaire::libelle(Questionnaire::budgets(), $this->budget, $this->enLangue($langue));
@@ -144,6 +167,18 @@ class ReponseEnquete extends Model
     public function difficultesLibelles(?string $langue = null): array
     {
         return Questionnaire::libelles(Questionnaire::difficultes(), $this->difficultes, $this->enLangue($langue));
+    }
+
+    /** @return array<int, string> */
+    public function materielLibelles(?string $langue = null): array
+    {
+        return Questionnaire::libelles(Questionnaire::materiels(), $this->materiel, $this->enLangue($langue));
+    }
+
+    /** @return array<int, string> */
+    public function freinsLibelles(?string $langue = null): array
+    {
+        return Questionnaire::libelles(Questionnaire::freins(), $this->freins, $this->enLangue($langue));
     }
 
     /** @return array<int, string> */

@@ -31,6 +31,25 @@
   }
   .eq-langues a[aria-current="true"] { background:#fff; color:var(--eq-bleu); border-color:#fff; }
 
+  .eq-meta { display:flex; flex-wrap:wrap; gap:7px 20px; margin:16px 0 0; }
+  .eq-meta span { display:inline-flex; align-items:center; gap:7px; font-size:13px; color:rgba(255,255,255,.82); }
+  .eq-meta i { opacity:.75; }
+
+  /* ── Le contexte, replié ── */
+  .eq-deplier { background:#fff; border:1px solid var(--eq-trait); border-radius:14px; margin-bottom:14px; }
+  .eq-deplier > summary {
+    cursor:pointer; list-style:none; padding:15px 20px; font-size:14.5px; font-weight:700;
+    color:var(--eq-bleu); display:flex; align-items:center; gap:9px;
+  }
+  .eq-deplier > summary::-webkit-details-marker { display:none; }
+  .eq-deplier > summary::before { content:"\f078"; font-family:"Font Awesome 6 Free"; font-weight:900; font-size:11px; transition:transform .2s; }
+  .eq-deplier[open] > summary::before { transform:rotate(180deg); }
+  @media (prefers-reduced-motion: reduce) { .eq-deplier > summary::before { transition:none; } }
+  .eq-deplier > summary:focus-visible { outline:2px solid rgba(27,58,140,.45); outline-offset:-2px; border-radius:14px; }
+  .eq-deplier-corps { padding:0 20px 18px; }
+  .eq-deplier-corps p { font-size:14.5px; line-height:1.7; color:var(--eq-gris); margin:0 0 11px; }
+  .eq-deplier-corps h2 { margin:18px 0 12px; font-size:15.5px; font-weight:800; color:var(--eq-encre); }
+
   /* ── Pourquoi ── */
   .eq-sect { background:var(--eq-fond); padding:34px 0; }
   .eq-wrap { max-width:900px; margin:auto; padding:0 16px; }
@@ -124,9 +143,13 @@
       <span class="eq-bandeau">{{ $textes['bandeau'] }}</span>
       <h1>{{ $textes['titre'] }}</h1>
       <p class="eq-accroche">{{ $textes['accroche'] }}</p>
-      <p class="eq-intro">{{ $textes['intro_1'] }}</p>
-      <p class="eq-intro">{{ $textes['intro_2'] }}</p>
-      <p class="eq-intro">{{ $textes['intro_3'] }}</p>
+
+      {{-- La durée seule. La mention « vous pouvez répondre en créole »
+           répéterait ce que le sélecteur de langue, juste dessous, montre
+           déjà — et chaque ligne de trop éloigne la première question. --}}
+      <p class="eq-meta">
+        <span><i class="fas fa-clock"></i> {{ $textes['duree'] }}</span>
+      </p>
 
       <nav class="eq-langues" aria-label="{{ $textes['choisir_langue'] }}">
         <span>{{ $textes['choisir_langue'] }} :</span>
@@ -139,28 +162,36 @@
     </div>
   </section>
 
-  <section class="eq-sect">
+  <section class="eq-sect" style="padding-bottom:0">
     <div class="eq-wrap">
-      <div class="eq-carte">
-        <h2>{{ $textes['pourquoi_titre'] }}</h2>
-        <ul class="eq-raisons">
-          @foreach (['pourquoi_1', 'pourquoi_2', 'pourquoi_3', 'pourquoi_4'] as $cle)
-            <li><i class="fas fa-circle-check"></i> <span>{{ $textes[$cle] }}</span></li>
-          @endforeach
-        </ul>
+      {{-- Replié par défaut. Le contexte reste disponible pour qui veut le
+           lire, mais un mur de texte avant la première question fait partir
+           ceux qu'on cherche justement à entendre. --}}
+      <details class="eq-deplier">
+        <summary>{{ $textes['deplier'] }}</summary>
+        <div class="eq-deplier-corps">
+          <p>{{ $textes['intro_1'] }}</p>
+          <p>{{ $textes['intro_2'] }}</p>
+          <p>{{ $textes['intro_3'] }}</p>
+          <p>{{ $textes['langue_note'] }}</p>
 
-        <div class="eq-notes">
-          <p class="eq-note"><i class="fas fa-clock"></i> <span>{{ $textes['duree'] }}</span></p>
-          <p class="eq-note"><i class="fas fa-globe"></i> <span>{{ $textes['langue_note'] }}</span></p>
-          {{-- L'engagement de ne rien demander de secret est tenu par le
-               formulaire lui-même : aucun champ n'y touche. --}}
-          <p class="eq-note eq-prive"><i class="fas fa-lock"></i> <span>{{ $textes['confidentialite'] }}</span></p>
+          <h2>{{ $textes['pourquoi_titre'] }}</h2>
+          <ul class="eq-raisons">
+            @foreach (['pourquoi_1', 'pourquoi_2', 'pourquoi_3', 'pourquoi_4'] as $cle)
+              <li><i class="fas fa-circle-check"></i> <span>{{ $textes[$cle] }}</span></li>
+            @endforeach
+          </ul>
         </div>
-      </div>
+      </details>
+
+      {{-- L'engagement de ne rien demander de secret reste visible, lui : il
+           décide si quelqu'un répond. Il est tenu par le formulaire lui-même,
+           où aucun champ n'y touche. --}}
+      <p class="eq-note eq-prive"><i class="fas fa-lock"></i> <span>{{ $textes['confidentialite'] }}</span></p>
     </div>
   </section>
 
-  <section class="eq-sect" style="padding-top:0">
+  <section class="eq-sect">
     <form class="eq-wrap" method="POST" action="{{ route('enquete.store') }}" id="eqForm">
       @csrf
       <input type="hidden" name="lang" value="{{ $langue }}">
@@ -238,6 +269,32 @@
             @endforeach
           </div>
         </fieldset>
+
+        <fieldset class="eq-champ">
+          <legend class="eq-legende">{{ $textes['q_points_vente'] }}</legend>
+          <div class="eq-choix">
+            @foreach ($pointsVente as $cle => $libelle)
+              <label class="eq-opt">
+                <input type="radio" name="points_vente" value="{{ $cle }}" @checked(old('points_vente') === $cle)>
+                <span>{{ $libelle[$langue] }}</span>
+              </label>
+            @endforeach
+          </div>
+        </fieldset>
+
+        <fieldset class="eq-champ">
+          <legend class="eq-legende">{{ $textes['q_volume'] }}
+            <span class="eq-aide">{{ $textes['q_volume_aide'] }}</span>
+          </legend>
+          <div class="eq-choix">
+            @foreach ($volumes as $cle => $libelle)
+              <label class="eq-opt">
+                <input type="radio" name="volume" value="{{ $cle }}" @checked(old('volume') === $cle)>
+                <span>{{ $libelle[$langue] }}</span>
+              </label>
+            @endforeach
+          </div>
+        </fieldset>
       </div>
 
       {{-- ── 2. Comment l'activité est tenue ── --}}
@@ -276,6 +333,47 @@
             @endforeach
           </div>
         </fieldset>
+
+        {{-- La question la plus déterminante du formulaire : aucun outil ne
+             s'installe sur du matériel que la personne n'a pas. --}}
+        <fieldset class="eq-champ">
+          <legend class="eq-legende">{{ $textes['q_materiel'] }}
+            <span class="eq-aide">{{ $textes['q_materiel_aide'] }}</span>
+          </legend>
+          <div class="eq-choix">
+            @foreach ($materiels as $cle => $libelle)
+              <label class="eq-opt">
+                <input type="checkbox" name="materiel[]" value="{{ $cle }}"
+                       @checked(in_array($cle, old('materiel', []), true))>
+                <span>{{ $libelle[$langue] }}</span>
+              </label>
+            @endforeach
+          </div>
+        </fieldset>
+
+        <fieldset class="eq-champ">
+          <legend class="eq-legende">{{ $textes['q_essai'] }}</legend>
+          <div class="eq-choix">
+            @foreach ($essais as $cle => $libelle)
+              <label class="eq-opt">
+                <input type="radio" name="essai" value="{{ $cle }}"
+                       data-abandon="{{ $cle === 'abandonne' ? '1' : '0' }}"
+                       @checked(old('essai') === $cle)>
+                <span>{{ $libelle[$langue] }}</span>
+              </label>
+            @endforeach
+          </div>
+        </fieldset>
+
+        {{-- N'apparaît qu'après « j'ai abandonné ». Un outil délaissé en dit
+             plus long sur ce qu'il faut construire qu'une liste de souhaits. --}}
+        <div class="eq-champ" id="eqChampAbandon" style="display:none">
+          <label for="essai_raison">{{ $textes['q_essai_raison'] }} <span class="eq-req">*</span>
+            <span class="eq-aide">{{ $textes['q_essai_raison_aide'] }}</span>
+          </label>
+          <textarea id="essai_raison" name="essai_raison" maxlength="2000">{{ old('essai_raison') }}</textarea>
+          @error('essai_raison')<p class="eq-erreur">{{ $message }}</p>@enderror
+        </div>
       </div>
 
       {{-- ── 3. Les difficultés : le cœur de l'enquête ── --}}
@@ -311,6 +409,23 @@
             @error($nom)<p class="eq-erreur">{{ $message }}</p>@enderror
           </div>
         @endforeach
+
+        {{-- Les objections, avant de construire l'offre : le prix, le courant
+             et la formation ne se corrigent pas de la même façon. --}}
+        <fieldset class="eq-champ">
+          <legend class="eq-legende">{{ $textes['q_freins'] }}
+            <span class="eq-aide">{{ $textes['multi_aide'] }}</span>
+          </legend>
+          <div class="eq-choix">
+            @foreach ($freins as $cle => $libelle)
+              <label class="eq-opt">
+                <input type="checkbox" name="freins[]" value="{{ $cle }}"
+                       @checked(in_array($cle, old('freins', []), true))>
+                <span>{{ $libelle[$langue] }}</span>
+              </label>
+            @endforeach
+          </div>
+        </fieldset>
       </div>
 
       {{-- ── 4. Ce qui intéresse ── --}}
@@ -326,6 +441,18 @@
               <label class="eq-opt">
                 <input type="checkbox" name="solutions[]" value="{{ $cle }}"
                        @checked(in_array($cle, old('solutions', []), true))>
+                <span>{{ $libelle[$langue] }}</span>
+              </label>
+            @endforeach
+          </div>
+        </fieldset>
+
+        <fieldset class="eq-champ">
+          <legend class="eq-legende">{{ $textes['q_echeance'] }}</legend>
+          <div class="eq-choix">
+            @foreach ($echeances as $cle => $libelle)
+              <label class="eq-opt">
+                <input type="radio" name="echeance" value="{{ $cle }}" @checked(old('echeance') === $cle)>
                 <span>{{ $libelle[$langue] }}</span>
               </label>
             @endforeach
@@ -421,6 +548,23 @@
 
   if (type) type.addEventListener('change', basculerAutre);
 
+  // ── « Pourquoi abandonné » : seulement après cette réponse ──
+  var champAbandon = document.getElementById('eqChampAbandon');
+  var raison = document.getElementById('essai_raison');
+
+  function basculerAbandon() {
+    var choisi = form.querySelector('input[name="essai"]:checked');
+    var actif = !!(choisi && choisi.dataset.abandon === '1');
+    if (!champAbandon) return;
+    champAbandon.style.display = actif ? '' : 'none';
+    if (raison) {
+      raison.required = actif;
+      // Vidé quand il se referme : une raison laissée derrière contredirait
+      // la réponse que la personne vient de changer.
+      if (!actif) raison.value = '';
+    }
+  }
+
   // ── Coordonnées : seulement si la personne veut être rappelée ──
   var coordonnees = document.getElementById('eqCoordonnees');
   var obligatoires = ['nom_contact', 'whatsapp'];
@@ -438,11 +582,13 @@
 
   form.addEventListener('change', function (e) {
     if (e.target.name === 'souhaite_contact') basculerContact();
+    if (e.target.name === 'essai') basculerAbandon();
   });
 
   // Au retour d'une erreur de validation, les choix sont déjà cochés : les
   // champs conditionnels doivent réapparaître sans nouveau clic.
   basculerAutre();
+  basculerAbandon();
   basculerContact();
 
   // ── Un seul envoi ──

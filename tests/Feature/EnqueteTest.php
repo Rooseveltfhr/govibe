@@ -35,6 +35,12 @@ class EnqueteTest extends TestCase
             'encaissements' => ['especes', 'moncash'],
             'connexion' => 'intermittente',
             'presences' => ['facebook'],
+            'points_vente' => 'un',
+            'volume' => '10_50',
+            'materiel' => ['android', 'imprimante'],
+            'essai' => 'jamais',
+            'freins' => ['prix', 'courant'],
+            'echeance' => 'trois_mois',
             'difficultes' => ['stock', 'caisse'],
             'perte_de_temps' => 'Compter le stock chaque soir.',
             'solutions' => ['caisse', 'stock'],
@@ -69,6 +75,22 @@ class EnqueteTest extends TestCase
             ->assertSee('Kenkayri / Materyo')
             ->assertSee('Voye repons mwen yo')
             ->assertDontSee('Pourquoi remplir ce formulaire');
+    }
+
+    public function test_l_en_tete_est_court_et_le_contexte_se_deplie(): void
+    {
+        $reponse = $this->get('/enquete')->assertOk();
+
+        // Le contexte long n'est plus dans l'en-tête : il vit dans un bloc
+        // replié, pour qu'un mur de texte ne précède pas la première question.
+        $reponse->assertSee('En savoir plus sur cette enquête')
+            ->assertSee('<details', false)
+            // Rien n'est perdu pour autant.
+            ->assertSee('Pourquoi remplir ce formulaire ?');
+
+        // L'engagement de confidentialité, lui, reste visible : c'est lui qui
+        // décide si quelqu'un répond.
+        $reponse->assertSee('ni mot de passe, ni code PIN', false);
     }
 
     public function test_une_langue_inconnue_retombe_sur_le_francais(): void
@@ -137,6 +159,83 @@ class EnqueteTest extends TestCase
             ->assertSessionHasErrors('difficultes');
 
         $this->assertSame(0, ReponseEnquete::count());
+    }
+
+    // ── Les questions ajoutées pour rendre l'enquête productive ──
+
+    public function test_les_questions_cles_sont_enregistrees(): void
+    {
+        $this->post('/enquete', $this->reponses());
+
+        $r = ReponseEnquete::firstOrFail();
+        $this->assertSame('un', $r->points_vente);
+        $this->assertSame('10_50', $r->volume);
+        $this->assertSame(['android', 'imprimante'], $r->materiel);
+        $this->assertSame(['prix', 'courant'], $r->freins);
+        $this->assertSame('trois_mois', $r->echeance);
+        $this->assertSame('jamais', $r->essai);
+    }
+
+    public function test_la_question_du_materiel_est_posee_dans_les_deux_langues(): void
+    {
+        // La plus déterminante du formulaire : aucun outil ne s'installe sur
+        // du matériel que la personne n'a pas.
+        $this->get('/enquete')->assertOk()
+            ->assertSee('De quel matériel disposez-vous déjà ?')
+            ->assertSee('Un téléphone Android')
+            ->assertSee('Rien de tout cela');
+
+        $this->get('/enquete?lang=ht')->assertOk()
+            ->assertSee('Ki materyèl ou genyen deja ?')
+            ->assertSee('Yon telefòn Android')
+            ->assertSee('Anyen nan sa yo');
+    }
+
+    public function test_abandonner_un_outil_oblige_a_dire_pourquoi(): void
+    {
+        // C'est ce que l'enquête cherche le plus à apprendre : un outil
+        // délaissé en dit plus long qu'une liste de souhaits.
+        $this->post('/enquete', $this->reponses(['essai' => 'abandonne']))
+            ->assertSessionHasErrors('essai_raison');
+
+        $this->post('/enquete', $this->reponses([
+            'essai' => 'abandonne',
+            'essai_raison' => 'Trop compliqué, et personne pour nous former.',
+        ]))->assertSessionHasNoErrors();
+
+        $this->assertSame(
+            'Trop compliqué, et personne pour nous former.',
+            ReponseEnquete::firstOrFail()->essai_raison
+        );
+    }
+
+    public function test_la_raison_n_est_gardee_qu_avec_un_abandon(): void
+    {
+        // Gardée ailleurs, elle contredirait la réponse donnée.
+        $this->post('/enquete', $this->reponses([
+            'essai' => 'utilise',
+            'essai_raison' => 'Trop compliqué.',
+        ]))->assertSessionHasNoErrors();
+
+        $this->assertNull(ReponseEnquete::firstOrFail()->essai_raison);
+    }
+
+    public function test_les_nouvelles_questions_restent_facultatives(): void
+    {
+        // Seules les difficultés sont obligatoires : alourdir le formulaire
+        // ferait abandonner ceux qu'on cherche à entendre.
+        $minimal = [
+            'type_activite' => 'boutique',
+            'difficultes' => ['stock'],
+            'souhaite_contact' => '0',
+        ];
+
+        $this->post('/enquete', $minimal)->assertSessionHasNoErrors();
+
+        $r = ReponseEnquete::firstOrFail();
+        $this->assertNull($r->materiel);
+        $this->assertNull($r->echeance);
+        $this->assertNull($r->volume);
     }
 
     public function test_le_message_d_erreur_suit_la_langue_choisie(): void
@@ -294,7 +393,9 @@ class EnqueteTest extends TestCase
             ->assertSee($r->reference)
             ->assertSee('Restaurant Sainte-Anne')
             // Le dépouillement, pas seulement la liste.
-            ->assertSee('Ce qui coince le plus');
+            ->assertSee('Ce qui coince le plus')
+            ->assertSee('Ce qui empêcherait d\'adopter')
+            ->assertSee('Le matériel déjà disponible');
 
         $this->actingAs($this->admin())
             ->get(route('erp.enquete.show', $r))
