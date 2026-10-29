@@ -3,6 +3,7 @@
 namespace Modules\Tagtoa\App\Services\Event;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Tagtoa\App\Exceptions\TicketRuleException;
 use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Event\Order;
 use Modules\Tagtoa\App\Models\Event\Ticket;
@@ -28,10 +29,10 @@ class TicketService
                 }
                 $type = TicketType::where('event_id', $event->id)->lockForUpdate()->findOrFail($line['ticket_type_id']);
                 if (! $type->isOnSale()) {
-                    throw new \RuntimeException(__('Billet « :n » non disponible.', ['n' => $type->name]));
+                    throw new TicketRuleException(__('Billet « :n » non disponible.', ['n' => $type->name]));
                 }
                 if ($type->remaining !== null && $qty > $type->remaining) {
-                    throw new \RuntimeException(__('Stock insuffisant pour « :n ».', ['n' => $type->name]));
+                    throw new TicketRuleException(__('Stock insuffisant pour « :n ».', ['n' => $type->name]));
                 }
                 $total += (float) $type->price * $qty;
                 $type->sold += $qty;
@@ -40,7 +41,7 @@ class TicketService
             }
 
             if (empty($toIssue)) {
-                throw new \RuntimeException(__('Aucun billet sélectionné.'));
+                throw new TicketRuleException(__('Aucun billet sélectionné.'));
             }
 
             $order = $event->orders()->create([
@@ -85,7 +86,7 @@ class TicketService
         return DB::transaction(function () use ($event, $type, $guest) {
             $type = TicketType::where('event_id', $event->id)->lockForUpdate()->findOrFail($type->id);
             if ($type->remaining !== null && $type->remaining < 1) {
-                throw new \RuntimeException(__('Plus de place disponible pour « :n ».', ['n' => $type->name]));
+                throw new TicketRuleException(__('Plus de place disponible pour « :n ».', ['n' => $type->name]));
             }
             $type->sold += 1;
             $type->save();
