@@ -86,6 +86,25 @@ class Site extends Model
         return $this->cover_path ? Storage::disk('public')->url($this->cover_path) : null;
     }
 
+    /**
+     * URL publiques de la galerie.
+     *
+     * `gallery` est un simple tableau de chemins, sans accesseur : les vues
+     * bouclaient donc dessus en appelant `Storage::url()` à la main, et le
+     * correctif « disque public » appliqué à tous les accesseurs du module
+     * les a manquées. En production le disque par défaut est `local`, privé
+     * et sans URL publique — toutes les photos de galerie étaient cassées.
+     * L'URL se construit désormais ICI, comme pour le logo et la couverture,
+     * pour qu'aucune vue n'ait à s'en souvenir.
+     */
+    public function getGalleryUrlsAttribute(): array
+    {
+        return array_map(
+            fn ($path) => Storage::disk('public')->url($path),
+            array_filter((array) $this->gallery)
+        );
+    }
+
     public function getWhatsappDigitsAttribute(): ?string
     {
         return $this->whatsapp ? preg_replace('/\D+/', '', $this->whatsapp) : null;

@@ -76,7 +76,7 @@
         <input class="inp" type="file" name="gallery_files[]" accept="image/*" multiple>
         @if($editing && !empty($site->gallery))
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
-                @foreach($site->gallery as $g)<img src="{{ Storage::url($g) }}" style="height:64px;width:64px;object-fit:cover;border-radius:10px;border:1px solid var(--bd)">@endforeach
+                @foreach($site->gallery_urls as $g)<img src="{{ $g }}" style="height:64px;width:64px;object-fit:cover;border-radius:10px;border:1px solid var(--bd)">@endforeach
             </div>
         @endif
     </div>

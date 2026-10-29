@@ -31,9 +31,20 @@ class PublicController extends Controller
         return view('tagtoa::links.show', ['page' => $page, 'links' => $page->activeLinks]);
     }
 
+    /**
+     * Redirection + comptage de clics.
+     *
+     * La page parente décide AUSSI. Sans elle dans la condition, désactiver
+     * une page de liens ne désactivait que `/links/{alias}` : chacun de ses
+     * liens restait joignable un par un, indéfiniment. Un marchand qui
+     * retire sa page — parce qu'un lien a été compromis, ou qu'il a quitté
+     * TAGTOA — croyait avoir tout fermé alors que rien ne l'était.
+     */
     public function go(int $link): RedirectResponse
     {
-        $link = Link::where('is_active', true)->findOrFail($link);
+        $link = Link::where('is_active', true)
+            ->whereHas('page', fn ($q) => $q->where('is_active', true))
+            ->findOrFail($link);
         $link->incrementQuietly('clicks');
 
         return redirect()->away($link->url);

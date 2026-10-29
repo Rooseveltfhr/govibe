@@ -3,6 +3,7 @@
 namespace Modules\Tagtoa\App\Http\Controllers\Event;
 
 use App\Http\Controllers\Controller;
+use Modules\Tagtoa\App\Exceptions\TicketRuleException;
 use Modules\Tagtoa\App\Support\EnforcesPlan;
 use App\Models\Vcard;
 use Illuminate\Http\RedirectResponse;
@@ -159,7 +160,7 @@ $data = $this->validateEvent($request);
 
         try {
             app(TicketService::class)->inviteGuest($event, $type, $data);
-        } catch (\RuntimeException $e) {
+        } catch (TicketRuleException $e) {
             return back()->withInput()->withErrors(['ticket_type_id' => $e->getMessage()]);
         }
 

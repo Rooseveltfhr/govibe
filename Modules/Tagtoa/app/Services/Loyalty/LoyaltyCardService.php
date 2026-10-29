@@ -2,10 +2,12 @@
 
 namespace Modules\Tagtoa\App\Services\Loyalty;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Modules\Tagtoa\App\Exceptions\LoyaltyRuleException;
 use Modules\Tagtoa\App\Models\Loyalty\Card;
 use Modules\Tagtoa\App\Models\Loyalty\Program;
 use Modules\Tagtoa\App\Models\Loyalty\Reward;
@@ -93,6 +95,14 @@ class LoyaltyCardService
     {
         $transaction = DB::transaction(function () use ($card, $amount, $opts) {
             $card = Card::lockForUpdate()->findOrFail($card->id);
+
+            if ($existing = $this->existingTransaction($card, $opts)) {
+                return $existing;
+            }
+            if (! $card->isActive()) {
+                throw new LoyaltyRuleException(__('Carte inactive ou expirée.'));
+            }
+
             $points = $opts['points'] ?? $card->program->pointsForAmount($amount);
             $card->balance += $amount;
             $card->points  += $points;
@@ -112,9 +122,41 @@ class LoyaltyCardService
 
         // APRÈS le commit, jamais dedans : une notification qui échoue ne doit
         // pas faire échouer la recharge elle-même (voir NotificationService).
-        $this->notifications->notifyLoyaltyMovement($transaction->card, $transaction);
+        // Jamais si la référence existait déjà — un rejeu ne doit pas renotifier.
+        if ($transaction->wasRecentlyCreated) {
+            $this->notifications->notifyLoyaltyMovement($transaction->card, $transaction);
+        }
 
         return $transaction;
+    }
+
+    /**
+     * Mouvement déjà enregistré pour cette (carte, référence) ? Clé
+     * d'idempotence : sans elle, deux confirmations du même paiement
+     * (webhook + retour navigateur) créditeraient/débiteraient deux fois —
+     * le verrou sur la carte sérialise les appels concurrents mais ne les
+     * rend pas idempotents à lui seul. Une référence absente (recharge/
+     * débit manuels) ne protège jamais contre rien : chaque appel compte.
+     */
+    protected function existingTransaction(Card $card, array $opts): ?Transaction
+    {
+        $reference = $opts['reference'] ?? null;
+        if ($reference === null) {
+            return null;
+        }
+
+        return $card->transactions()->where('reference', $reference)->first();
+    }
+
+    /** Vrai si l'exception vient de la contrainte unique (card_id, reference). */
+    private function isDuplicateReference(QueryException $e): bool
+    {
+        $message = $e->getMessage();
+
+        return str_contains($message, 'reference') && (
+            str_contains($message, 'Integrity constraint violation')
+            || str_contains($message, 'UNIQUE constraint failed')
+        );
     }
 
     /**
@@ -127,26 +169,47 @@ class LoyaltyCardService
             return null;
         }
 
-        $transaction = DB::transaction(function () use ($card, $points, $opts) {
-            $card = Card::lockForUpdate()->findOrFail($card->id);
-            if (! $card->isActive()) {
-                return null;
+        try {
+            $transaction = DB::transaction(function () use ($card, $points, $opts) {
+                $card = Card::lockForUpdate()->findOrFail($card->id);
+
+                if ($existing = $this->existingTransaction($card, $opts)) {
+                    return $existing;
+                }
+                if (! $card->isActive()) {
+                    return null;
+                }
+                $card->points += $points;
+                $card->save();
+
+                return $card->transactions()->create([
+                    'type'          => Transaction::TYPE_EARN,
+                    'points_delta'  => $points,
+                    'balance_after' => $card->balance,
+                    'points_after'  => $card->points,
+                    'reference'     => $opts['reference'] ?? null,
+                    'note'          => $opts['note'] ?? null,
+                    'status'        => 1,
+                ]);
+            });
+        } catch (QueryException $e) {
+            // Dernier filet, et seulement ici : earnPoints() est la SEULE des
+            // trois méthodes atteignable depuis une route publique (webhook de
+            // passerelle + retour navigateur confirment la même commande). La
+            // lecture ci-dessus se fait sous le verrou, mais en REPEATABLE READ
+            // un SELECT non verrouillant lit un instantané : si la ligne de
+            // l'autre requête y échappait, c'est la contrainte unique en base
+            // qui refuserait l'écriture. Rendre le mouvement déjà enregistré
+            // plutôt qu'une 500 : une passerelle qui reçoit une erreur réessaie,
+            // et rejouerait la course indéfiniment.
+            if (! $this->isDuplicateReference($e)) {
+                throw $e;
             }
-            $card->points += $points;
-            $card->save();
 
-            return $card->transactions()->create([
-                'type'          => Transaction::TYPE_EARN,
-                'points_delta'  => $points,
-                'balance_after' => $card->balance,
-                'points_after'  => $card->points,
-                'reference'     => $opts['reference'] ?? null,
-                'note'          => $opts['note'] ?? null,
-                'status'        => 1,
-            ]);
-        });
+            return $this->existingTransaction($card, $opts);
+        }
 
-        if ($transaction !== null) {
+        if ($transaction !== null && $transaction->wasRecentlyCreated) {
             $this->notifications->notifyLoyaltyMovement($transaction->card, $transaction);
         }
 
@@ -157,15 +220,19 @@ class LoyaltyCardService
     {
         $transaction = DB::transaction(function () use ($card, $amount, $opts) {
             $card = Card::lockForUpdate()->findOrFail($card->id);
+
+            if ($existing = $this->existingTransaction($card, $opts)) {
+                return $existing;
+            }
             if (! $card->isActive()) {
-                throw new \RuntimeException(__('Carte inactive ou expirée.'));
+                throw new LoyaltyRuleException(__('Carte inactive ou expirée.'));
             }
             $pd = (int) ($opts['points_delta'] ?? 0);
             if ($amount > (float) $card->balance + 1e-6) {
-                throw new \RuntimeException(__('Solde insuffisant.'));
+                throw new LoyaltyRuleException(__('Solde insuffisant.'));
             }
             if ($card->points + $pd < 0) {
-                throw new \RuntimeException(__('Points insuffisants.'));
+                throw new LoyaltyRuleException(__('Points insuffisants.'));
             }
             $card->balance -= $amount;
             $card->points  += $pd;
@@ -184,7 +251,9 @@ class LoyaltyCardService
             ]);
         });
 
-        $this->notifications->notifyLoyaltyMovement($transaction->card, $transaction);
+        if ($transaction->wasRecentlyCreated) {
+            $this->notifications->notifyLoyaltyMovement($transaction->card, $transaction);
+        }
 
         return $transaction;
     }
@@ -192,7 +261,7 @@ class LoyaltyCardService
     public function redeemReward(Card $card, Reward $reward): Transaction
     {
         if ($card->points < $reward->points_required) {
-            throw new \RuntimeException(__('Points insuffisants pour cette récompense.'));
+            throw new LoyaltyRuleException(__('Points insuffisants pour cette récompense.'));
         }
         return $this->redeem($card, 0, [
             'points_delta' => -$reward->points_required,

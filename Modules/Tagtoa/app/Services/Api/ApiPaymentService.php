@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Services\Api;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Api\ApiKey;
 use Modules\Tagtoa\App\Models\Api\ApiPayment;
@@ -49,6 +50,29 @@ class ApiPaymentService
 
         $page = $this->resolvePage($key->tenant_id, $data['page_alias'] ?? null);
 
+        try {
+            return $this->insertPayment($key, $page, $data, $external);
+        } catch (QueryException $e) {
+            // Double-tap réseau lent côté intégrateur : deux requêtes ont pu
+            // passer la vérification ci-dessus avant que l'une des deux ne
+            // pose la contrainte unique sur (tenant_id, external_id). Sans ce
+            // filet, la seconde remontait une erreur 500 au lieu de lui
+            // rendre le paiement déjà créé par la première — même défaut,
+            // même correctif que MenuOrderService::placeOrder().
+            if ($external && $this->isDuplicateExternalId($e)) {
+                $existing = ApiPayment::where('tenant_id', $key->tenant_id)
+                    ->where('external_id', $external)->first();
+                if ($existing) {
+                    return $existing;
+                }
+            }
+
+            throw $e;
+        }
+    }
+
+    protected function insertPayment(ApiKey $key, PaymentPage $page, array $data, ?string $external): ApiPayment
+    {
         return DB::transaction(fn () => ApiPayment::create([
             'tenant_id'       => $key->tenant_id,
             'api_key_id'      => $key->id,
@@ -66,6 +90,17 @@ class ApiPaymentService
             'callback_url'    => $data['callback_url'] ?? $key->webhook_url,
             'meta'            => $data['meta'] ?? null,
         ]));
+    }
+
+    /** Vrai si l'exception vient de la contrainte unique sur external_id, pas d'autre chose. */
+    private function isDuplicateExternalId(QueryException $e): bool
+    {
+        $message = $e->getMessage();
+
+        return str_contains($message, 'external_id') && (
+            str_contains($message, 'Integrity constraint violation')
+            || str_contains($message, 'UNIQUE constraint failed')
+        );
     }
 
     /**

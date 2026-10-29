@@ -13,8 +13,15 @@
         <p style="color:var(--muted);font-size:13px;margin:6px 0 10px">{{ __('Copiez-la maintenant : pour votre sécurité, elle ne sera plus jamais affichée.') }}</p>
         <div style="display:flex;gap:8px;align-items:center">
             <input class="inp" id="newtok" readonly value="{{ session('new_api_token') }}" style="font-family:monospace;font-size:13px">
-            <button type="button" class="btn btn-d btn-sm" style="flex:0" onclick="copyTok()"><i class="fa-solid fa-copy"></i> {{ __('Copier') }}</button>
+            <button type="button" class="btn btn-d btn-sm" style="flex:0" onclick="copyTok('newtok')"><i class="fa-solid fa-copy"></i> {{ __('Copier') }}</button>
         </div>
+        @if(session('new_webhook_secret'))
+            <p style="color:var(--muted);font-size:13px;margin:14px 0 6px">{{ __('Secret de signature des webhooks (pour vérifier X-Tagtoa-Signature) :') }}</p>
+            <div style="display:flex;gap:8px;align-items:center">
+                <input class="inp" id="newwhsecret" readonly value="{{ session('new_webhook_secret') }}" style="font-family:monospace;font-size:13px">
+                <button type="button" class="btn btn-d btn-sm" style="flex:0" onclick="copyTok('newwhsecret')"><i class="fa-solid fa-copy"></i> {{ __('Copier') }}</button>
+            </div>
+        @endif
     </div>
 @endif
 
@@ -138,8 +145,8 @@
 </div>
 @push('scripts')
 <script>
-    function copyTok(){
-        var el = document.getElementById('newtok');
+    function copyTok(id){
+        var el = document.getElementById(id);
         el.select(); el.setSelectionRange(0, 99999);
         try { document.execCommand('copy'); } catch (e) {}
     }

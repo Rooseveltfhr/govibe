@@ -148,7 +148,7 @@
 <section style="background:var(--bg2)"><div class="wrap">
     <div class="sec-h"><div class="ey">{{ __('Galerie') }}</div><h2>{{ __('En images') }}</h2></div>
     <div class="ggrid">
-        @foreach($gallery as $img)<img src="{{ \Illuminate\Support\Facades\Storage::url($img) }}" alt="" loading="lazy">@endforeach
+        @foreach($site->gallery_urls as $img)<img src="{{ $img }}" alt="" loading="lazy">@endforeach
     </div>
 </div></section>
 @endif

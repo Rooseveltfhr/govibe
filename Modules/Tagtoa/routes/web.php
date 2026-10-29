@@ -50,7 +50,9 @@ Route::get('/pay/{gateway}/return', [\Modules\Tagtoa\App\Http\Controllers\Pay\Ch
 Route::post('/pay/{gateway}/webhook', [\Modules\Tagtoa\App\Http\Controllers\Pay\CheckoutController::class, 'webhook'])->middleware('throttle:60,1')->name('tagtoa.pay.online.webhook');
 Route::get('/loyalty/card/{token}', [LoyaltyPublic::class, 'show'])->name('tagtoa.loyalty.card');
 Route::get('/links/{alias}', [LinksPublic::class, 'show'])->name('tagtoa.links.show');
-Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->name('tagtoa.links.go');
+// Débit borné : l'identifiant est séquentiel, donc énumérable. Le plafond
+// ne rend pas l'énumération impossible, il la rend lente et visible.
+Route::get('/links/go/{link}', [LinksPublic::class, 'go'])->middleware('throttle:60,1')->name('tagtoa.links.go');
 Route::get('/site/{alias}', [SitePublic::class, 'show'])->name('tagtoa.site.show');
 // Page de paiement hébergée pour un paiement créé via l'API développeur.
 Route::get('/pay/i/{reference}', [PayPublic::class, 'apiCheckout'])->name('tagtoa.pay.api.checkout');

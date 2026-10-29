@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Exceptions\TicketRuleException;
 use Modules\Tagtoa\App\Models\Event\Event;
 use Modules\Tagtoa\App\Models\Event\Order;
 use Modules\Tagtoa\App\Models\Event\Ticket;
@@ -112,7 +113,14 @@ class PublicController extends Controller
             $order = $this->tickets->createOrder($event, $lines, [
                 'name' => $data['buyer_name'], 'phone' => $data['buyer_phone'] ?? null, 'email' => $data['buyer_email'] ?? null,
             ]);
-        } catch (\RuntimeException $e) {
+        } catch (TicketRuleException $e) {
+            // Uniquement les règles métier. Surtout pas \RuntimeException :
+            // QueryException en hérite (via PDOException), et createOrder()
+            // écrit la commande, les billets et le compteur de ventes DANS
+            // ce try. Une panne de base (interblocage, collision de code
+            // billet) afficherait donc la requête SQL et ses valeurs sur une
+            // page PUBLIQUE — et un achat réellement planté passerait pour
+            // une mauvaise quantité.
             return back()->withInput()->withErrors(['qty' => $e->getMessage()]);
         }
 
