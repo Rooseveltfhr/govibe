@@ -171,15 +171,17 @@ class LoyaltyIdempotencyTest extends TestCase
         $this->assertSame(1, Transaction::where('card_id', $card->id)->where('type', Transaction::TYPE_EARN)->count());
     }
 
-    public function test_an_amount_beyond_the_column_is_refused_by_validation(): void
+    public function test_an_amount_above_the_form_ceiling_is_refused_by_validation(): void
     {
-        // decimal(10,2) : au-delà, l'écriture échouait en base. La borne
-        // appartient au formulaire, pas au moteur de stockage.
+        // 99 999 999,50 tient dans decimal(10,2) : le SERVICE l'accepterait sur
+        // une carte vide. Seule la validation du formulaire (max:99999999) le
+        // refuse — c'est ce qui distingue ce test de celui du débordement, où
+        // la garde du service répond à la place du formulaire.
         $card = app(LoyaltyCardService::class)
             ->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
         $this->be(new GenericUser(['id' => 1, 'tenant_id' => null]));
 
-        $this->post(route('tagtoa.loyalty.dashboard.cards.topup', $card->id), ['amount' => 999999999])
+        $this->post(route('tagtoa.loyalty.dashboard.cards.topup', $card->id), ['amount' => 99999999.5])
             ->assertSessionHasErrors('amount');
 
         $this->assertSame(0, Transaction::where('card_id', $card->id)->count());
