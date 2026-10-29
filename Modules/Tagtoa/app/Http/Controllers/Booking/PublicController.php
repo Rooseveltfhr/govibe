@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Http\Controllers\Booking;
 
+use Modules\Tagtoa\App\Exceptions\OrderRuleException;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,7 +54,7 @@ class PublicController extends Controller
 
         try {
             $booking = app(BookingService::class)->placeBooking($page, $data);
-        } catch (\RuntimeException $e) {
+        } catch (OrderRuleException $e) {
             return response()->json(['ok' => false, 'message' => __('Créneau invalide. Choisissez une date à venir.')], 422);
         }
 

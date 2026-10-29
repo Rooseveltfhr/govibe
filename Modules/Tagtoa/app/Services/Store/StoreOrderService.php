@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Services\Store;
 
+use Modules\Tagtoa\App\Exceptions\OrderRuleException;
 use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Store\Order;
 use Modules\Tagtoa\App\Models\Store\Store;
@@ -44,14 +45,14 @@ class StoreOrderService
 
             $cart = Cart::build($catalog, (array) ($payload['items'] ?? []));
             if (! $cart['lines']) {
-                throw new \RuntimeException('empty_order');
+                throw new OrderRuleException('empty_order');
             }
 
             // Stock : refuse si un produit suivi n'a pas assez de stock.
             foreach ($cart['lines'] as $l) {
                 $p = $products->get($l['id']);
                 if ($p && ! StockService::canFulfill($p->stock, $l['qty'])) {
-                    throw new \RuntimeException('out_of_stock');
+                    throw new OrderRuleException('out_of_stock');
                 }
             }
 
