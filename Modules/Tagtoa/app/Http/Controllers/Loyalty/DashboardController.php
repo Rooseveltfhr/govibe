@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Exceptions\LoyaltyRuleException;
 use Modules\Tagtoa\App\Models\Loyalty\Card;
 use Modules\Tagtoa\App\Models\Loyalty\Program;
 use Modules\Tagtoa\App\Services\Loyalty\LoyaltyCardService;
@@ -108,7 +109,12 @@ $data = $this->validateProgram($request);
         $data = $request->validate(['amount' => ['required', 'numeric', 'min:0.01'], 'payment_method' => ['nullable', 'string', 'max:40']]);
         try {
             $this->service->topUp($card, (float) $data['amount'], ['payment_method' => $data['payment_method'] ?? null]);
-        } catch (\RuntimeException $e) {
+        } catch (LoyaltyRuleException $e) {
+            // Uniquement les règles métier. Surtout pas \RuntimeException :
+            // QueryException en hérite (via PDOException), et son message
+            // contient la requête SQL complète avec ses valeurs — affichée
+            // telle quelle au marchand. Une écriture qui échoue doit remonter
+            // comme une erreur, pas se déguiser en saisie invalide.
             return back()->withErrors(['amount' => $e->getMessage()]);
         }
 
@@ -121,7 +127,7 @@ $data = $this->validateProgram($request);
         $data = $request->validate(['amount' => ['required', 'numeric', 'min:0.01']]);
         try {
             $this->service->redeem($card, (float) $data['amount']);
-        } catch (\RuntimeException $e) {
+        } catch (LoyaltyRuleException $e) {
             return back()->withErrors(['amount' => $e->getMessage()]);
         }
 

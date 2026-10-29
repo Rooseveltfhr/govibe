@@ -15,6 +15,7 @@ namespace Modules\Tagtoa\Tests\Feature;
 | tous les deux sur earnPoints() avec la même Order::reference.
 */
 
+use Illuminate\Auth\GenericUser;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Tagtoa\App\Models\Loyalty\Card;
@@ -87,6 +88,47 @@ class LoyaltyIdempotencyTest extends TestCase
         $card->refresh();
         $this->assertEquals(20, $card->points);
         $this->assertSame(2, Transaction::where('card_id', $card->id)->whereNull('reference')->count());
+    }
+
+    /**
+     * Une erreur de base de données ne doit JAMAIS atterrir dans le bandeau
+     * d'erreur du marchand. En PHP, QueryException hérite de PDOException,
+     * qui hérite de RuntimeException : un `catch (\RuntimeException)` posé
+     * pour afficher « Solde insuffisant » attrapait donc aussi la panne SQL,
+     * et en affichait le message — la requête complète avec ses valeurs. Et
+     * une écriture réellement échouée passait pour une saisie invalide.
+     */
+    public function test_a_database_error_is_never_shown_as_a_validation_error(): void
+    {
+        $card = app(LoyaltyCardService::class)
+            ->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
+        $this->be(new GenericUser(['id' => 1, 'tenant_id' => null]));
+
+        $svc = \Mockery::mock(LoyaltyCardService::class);
+        $svc->shouldReceive('topUp')->andThrow(new QueryException(
+            'sqlite',
+            'insert into "tagtoa_loyalty_transactions" ("amount") values (?)',
+            [999999999],
+            new \Exception('SQLSTATE[22003]: Numeric value out of range')
+        ));
+        $this->app->instance(LoyaltyCardService::class, $svc);
+
+        $this->withoutExceptionHandling();
+        $this->expectException(QueryException::class);
+
+        $this->post(route('tagtoa.loyalty.dashboard.cards.topup', $card->id), ['amount' => 999999999]);
+    }
+
+    /** La règle métier, elle, reste bien affichée au marchand. */
+    public function test_a_business_rule_is_still_shown_to_the_merchant(): void
+    {
+        $card = app(LoyaltyCardService::class)
+            ->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
+        $card->update(['status' => Card::STATUS_SUSPENDED]);
+        $this->be(new GenericUser(['id' => 1, 'tenant_id' => null]));
+
+        $this->post(route('tagtoa.loyalty.dashboard.cards.topup', $card->id), ['amount' => 100])
+            ->assertSessionHasErrors('amount');
     }
 
     public function test_a_suspended_card_cannot_be_topped_up(): void

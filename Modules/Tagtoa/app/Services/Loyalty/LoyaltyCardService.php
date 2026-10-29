@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Modules\Tagtoa\App\Exceptions\LoyaltyRuleException;
 use Modules\Tagtoa\App\Models\Loyalty\Card;
 use Modules\Tagtoa\App\Models\Loyalty\Program;
 use Modules\Tagtoa\App\Models\Loyalty\Reward;
@@ -99,7 +100,7 @@ class LoyaltyCardService
                 return $existing;
             }
             if (! $card->isActive()) {
-                throw new \RuntimeException(__('Carte inactive ou expirée.'));
+                throw new LoyaltyRuleException(__('Carte inactive ou expirée.'));
             }
 
             $points = $opts['points'] ?? $card->program->pointsForAmount($amount);
@@ -224,14 +225,14 @@ class LoyaltyCardService
                 return $existing;
             }
             if (! $card->isActive()) {
-                throw new \RuntimeException(__('Carte inactive ou expirée.'));
+                throw new LoyaltyRuleException(__('Carte inactive ou expirée.'));
             }
             $pd = (int) ($opts['points_delta'] ?? 0);
             if ($amount > (float) $card->balance + 1e-6) {
-                throw new \RuntimeException(__('Solde insuffisant.'));
+                throw new LoyaltyRuleException(__('Solde insuffisant.'));
             }
             if ($card->points + $pd < 0) {
-                throw new \RuntimeException(__('Points insuffisants.'));
+                throw new LoyaltyRuleException(__('Points insuffisants.'));
             }
             $card->balance -= $amount;
             $card->points  += $pd;
@@ -260,7 +261,7 @@ class LoyaltyCardService
     public function redeemReward(Card $card, Reward $reward): Transaction
     {
         if ($card->points < $reward->points_required) {
-            throw new \RuntimeException(__('Points insuffisants pour cette récompense.'));
+            throw new LoyaltyRuleException(__('Points insuffisants pour cette récompense.'));
         }
         return $this->redeem($card, 0, [
             'points_delta' => -$reward->points_required,
