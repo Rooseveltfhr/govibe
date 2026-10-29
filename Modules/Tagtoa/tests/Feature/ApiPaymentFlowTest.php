@@ -10,6 +10,7 @@ namespace Modules\Tagtoa\Tests\Feature;
 |--------------------------------------------------------------------------
 */
 
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Tagtoa\App\Models\Api\ApiKey;
 use Modules\Tagtoa\App\Models\Api\ApiPayment;
@@ -81,6 +82,127 @@ class ApiPaymentFlowTest extends TestCase
 
         $this->assertSame($a->id, $b->id);
         $this->assertSame(1, ApiPayment::count());
+    }
+
+    /* ------------------------------------------------------------------
+       La course critique sur external_id — un double-tap réseau lent côté
+       intégrateur (voir MenuOrderTaxTest pour le même défaut sur client_uuid).
+       ------------------------------------------------------------------ */
+
+    public function test_a_racing_duplicate_external_id_is_recognized_and_handled_gracefully(): void
+    {
+        $key = $this->key();
+        $page = $this->pageWithMethod();
+        $svc = app(ApiPaymentService::class);
+
+        $insert = new \ReflectionMethod($svc, 'insertPayment');
+        $insert->setAccessible(true);
+
+        // Le premier « thread » écrit directement, en contournant le
+        // contrôle préalable — exactement ce qui se passe quand deux
+        // requêtes le franchissent toutes les deux avant que l'une des deux
+        // n'écrive.
+        $premier = $insert->invoke($svc, $key, $page, ['amount' => 100], 'course-1');
+
+        // Le second « thread » tente le MÊME external_id : la contrainte
+        // unique en base doit refuser une deuxième ligne, jamais dupliquer
+        // silencieusement le paiement.
+        try {
+            $insert->invoke($svc, $key, $page, ['amount' => 100], 'course-1');
+            $this->fail('Une deuxième écriture avec le même external_id aurait dû être refusée par la base.');
+        } catch (QueryException $e) {
+            $reconnue = new \ReflectionMethod($svc, 'isDuplicateExternalId');
+            $reconnue->setAccessible(true);
+            $this->assertTrue($reconnue->invoke($svc, $e));
+        }
+
+        // Le chemin PUBLIC, lui, ne doit jamais laisser passer une erreur
+        // 500 : il rend le paiement déjà écrit.
+        $encore = $svc->create($key, ['amount' => 100, 'external_id' => 'course-1']);
+        $this->assertSame($premier->id, $encore->id);
+        $this->assertSame(1, ApiPayment::count());
+    }
+
+    /**
+     * La vraie fenêtre de course : AUCUN paiement n'existe au moment où
+     * create() vérifie — puis une autre requête commit AVANT que celle-ci
+     * n'écrive. insertPayment() est substitué pour simuler précisément cet
+     * ordre d'événements (impossible à provoquer de façon fiable avec de
+     * vrais threads dans un test).
+     */
+    public function test_the_public_path_recovers_from_a_genuine_concurrent_commit_without_a_500(): void
+    {
+        $key = $this->key();
+        $page = $this->pageWithMethod();
+
+        $svc = \Mockery::mock(ApiPaymentService::class, [])
+            ->makePartial()->shouldAllowMockingProtectedMethods();
+
+        $svc->shouldReceive('insertPayment')->once()->andReturnUsing(function () use ($key, $page) {
+            // L'AUTRE requête vient de committer, exactement entre le
+            // contrôle initial de create() et cette tentative d'écriture.
+            $existing = ApiPayment::create([
+                'tenant_id' => $key->tenant_id, 'api_key_id' => $key->id,
+                'payment_page_id' => $page->id, 'reference' => ApiPayment::generateReference(),
+                'external_id' => 'course-2', 'amount' => 100, 'currency' => 'HTG',
+                'status' => ApiPayment::STATUS_PENDING,
+            ]);
+
+            throw new QueryException(
+                'sqlite', 'insert into "tagtoa_api_payments" ("external_id") values (?)', ['course-2'],
+                new \Exception('UNIQUE constraint failed: tagtoa_api_payments.tenant_id, tagtoa_api_payments.external_id')
+            );
+        });
+
+        $payment = $svc->create($key, ['amount' => 100, 'external_id' => 'course-2']);
+
+        $this->assertSame('course-2', $payment->external_id);
+        // Une seule ligne en base malgré la collision : le résultat de
+        // l'AUTRE requête, jamais un deuxième paiement.
+        $this->assertSame(1, ApiPayment::count());
+    }
+
+    /* ------------------------------------------------------------------
+       Validation de la devise à la frontière HTTP. routes/api.php n'est pas
+       chargé par le harnais (voir tests/TestCase.php) : on appelle donc le
+       contrôleur directement, comme ApiAuthTest le fait pour le middleware.
+       ------------------------------------------------------------------ */
+
+    private function storeRequest(ApiKey $key, array $payload): \Illuminate\Http\JsonResponse
+    {
+        $request = \Illuminate\Http\Request::create('/api/v1/tagtoa/payments', 'POST', $payload);
+        $request->attributes->set('tagtoa_api_key', $key);
+
+        return app(\Modules\Tagtoa\App\Http\Controllers\Api\PaymentApiController::class)->store($request);
+    }
+
+    public function test_an_unknown_currency_is_refused_instead_of_creating_a_ghost_payment(): void
+    {
+        // Sans cette garde, POST {"currency":"ZZZ"} créait un paiement réel,
+        // visible par l'intégrateur et inscrit au journal — mais qu'AUCUNE
+        // passerelle ne peut encaisser (chaque driver vérifie supportsCurrency).
+        $key = $this->key();
+        $this->pageWithMethod();
+
+        $response = $this->storeRequest($key, ['amount' => 100, 'currency' => 'ZZZ']);
+
+        $this->assertSame(422, $response->getStatusCode());
+        $this->assertSame('validation_failed', $response->getData(true)['error']);
+        $this->assertSame(0, ApiPayment::count());
+    }
+
+    public function test_a_lowercase_currency_is_still_accepted(): void
+    {
+        // Le service faisait déjà strtoupper() : contraindre la devise au
+        // catalogue ne doit pas rejeter « usd », qu'un intégrateur envoie
+        // légitimement aujourd'hui.
+        $key = $this->key();
+        $this->pageWithMethod();
+
+        $response = $this->storeRequest($key, ['amount' => 100, 'currency' => 'usd']);
+
+        $this->assertSame(201, $response->getStatusCode());
+        $this->assertSame('USD', ApiPayment::first()->currency);
     }
 
     public function test_a_merchant_without_an_active_page_gets_an_actionable_error(): void

@@ -39,6 +39,7 @@ class DashboardController extends Controller
         ]);
 
         $generated = ApiToken::generate();
+        $webhookSecret = Str::random(48);
 
         $key = ApiKey::create([
             'tenant_id'      => Tenant::id(),
@@ -48,14 +49,19 @@ class DashboardController extends Controller
             'webhook_url'    => $data['webhook_url'] ?? null,
             // Secret de signature des webhooks : permet au site tiers de vérifier
             // que la notification vient bien de TAGTOA (HMAC-SHA256).
-            'webhook_secret' => Str::random(48),
+            'webhook_secret' => $webhookSecret,
         ]);
 
         app(AuditService::class)->log('api_key.created', $key, $key->key_prefix);
 
-        // Affiché une seule fois : on ne pourra plus jamais le retrouver.
+        // Affichés une seule fois : on ne pourra plus jamais les retrouver.
+        // webhook_secret est $hidden sur le modèle (jamais exposé ailleurs) —
+        // sans ce flash, la vérification HMAC documentée au développeur
+        // (X-Tagtoa-Signature) est tout simplement irréalisable : personne ne
+        // peut jamais récupérer la clé qui signe.
         return back()
             ->with('new_api_token', $generated['token'])
+            ->with('new_webhook_secret', $webhookSecret)
             ->with('success', __('Clé créée. Copiez-la maintenant : elle ne sera plus affichée.'));
     }
 

@@ -5,9 +5,11 @@ namespace Modules\Tagtoa\App\Http\Controllers\Api;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Modules\Tagtoa\App\Models\Api\ApiKey;
 use Modules\Tagtoa\App\Models\Api\ApiPayment;
 use Modules\Tagtoa\App\Services\Api\ApiPaymentService;
+use Modules\Tagtoa\App\Support\Money;
 
 /**
  * TAGTOA API v1 — endpoints publics pour intégrateurs tiers.
@@ -57,9 +59,21 @@ class PaymentApiController
     {
         $key = $this->key($request);
 
-        $validator = Validator::make($request->all(), [
+        // Normalisé AVANT validation : le catalogue de devises est en
+        // majuscules, mais un intégrateur envoie parfois "usd" — refuser ce
+        // cas rejetterait des appels valides que le service acceptait déjà
+        // (il fait lui-même un strtoupper() avant d'écrire).
+        $input = $request->all();
+        if (isset($input['currency']) && is_string($input['currency'])) {
+            $input['currency'] = strtoupper($input['currency']);
+        }
+
+        $validator = Validator::make($input, [
             'amount'         => ['required', 'numeric', 'min:0.01', 'max:99999999'],
-            'currency'       => ['nullable', 'string', 'size:3'],
+            // Devise contrainte au catalogue : une devise inconnue créerait un
+            // paiement "fantôme" qu'aucune passerelle ne pourra jamais encaisser
+            // (chaque driver vérifie supportsCurrency() avant de charger).
+            'currency'       => ['nullable', 'string', 'size:3', Rule::in(array_keys(Money::currencies()))],
             'external_id'    => ['nullable', 'string', 'max:190'],
             'description'    => ['nullable', 'string', 'max:190'],
             'page_alias'     => ['nullable', 'string', 'max:120'],
