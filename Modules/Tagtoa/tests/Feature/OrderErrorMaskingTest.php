@@ -21,6 +21,7 @@ namespace Modules\Tagtoa\Tests\Feature;
 
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Tagtoa\App\Exceptions\InsufficientStockException;
 use Modules\Tagtoa\App\Models\Booking\BookingPage;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Models\Store\Store;
@@ -86,6 +87,51 @@ class OrderErrorMaskingTest extends TestCase
             'items' => [['id' => $product->id, 'qty' => 1]],
             'customer_name' => 'Wilner', 'customer_phone' => '38112345',
         ]);
+    }
+
+    /**
+     * Deux clients prennent la dernière unité en même temps. Les deux passent la
+     * vérification de stock du service (lue HORS verrou) ; le premier décrémente ;
+     * le second bute sur la garde du StockLedger, posée SOUS verrou, qui lève
+     * InsufficientStockException. C'est une condition métier ordinaire — pas une
+     * panne — et elle doit répondre 422 « rupture de stock », jamais une 500.
+     *
+     * Régression trouvée en relisant le correctif des catch : cette exception
+     * héritait de \RuntimeException nu, donc le `catch (OrderRuleException)`
+     * posé pour ne plus avaler les pannes de base la laissait aussi passer.
+     */
+    public function test_losing_the_last_unit_race_answers_422_out_of_stock_on_menu(): void
+    {
+        $menu = Menu::create([
+            'tenant_id' => null, 'name' => 'BS Restaurant', 'alias' => 'bs-resto-3',
+            'currency' => 'HTG', 'ordering_enabled' => true,
+        ]);
+
+        $svc = \Mockery::mock(MenuOrderService::class);
+        $svc->shouldReceive('placeOrder')->andThrow(new InsufficientStockException('Griot', 0.0));
+        $this->app->instance(MenuOrderService::class, $svc);
+
+        $this->postJson(route('tagtoa.menu.order', $menu->alias), [
+            'items' => [['id' => 1, 'qty' => 1]],
+            'customer_name' => 'Wilner', 'customer_phone' => '38112345',
+        ])->assertStatus(422)->assertJson(['ok' => false]);
+    }
+
+    public function test_losing_the_last_unit_race_answers_422_out_of_stock_on_store(): void
+    {
+        $store = Store::create([
+            'tenant_id' => null, 'name' => 'Boutik', 'alias' => 'boutik-2',
+            'currency' => 'HTG', 'is_published' => true,
+        ]);
+
+        $svc = \Mockery::mock(StoreOrderService::class);
+        $svc->shouldReceive('placeOrder')->andThrow(new InsufficientStockException('Rad', 0.0));
+        $this->app->instance(StoreOrderService::class, $svc);
+
+        $this->postJson(route('tagtoa.store.order', $store->alias), [
+            'items' => [['id' => 1, 'qty' => 1]],
+            'customer_name' => 'Wilner', 'customer_phone' => '38112345',
+        ])->assertStatus(422)->assertJson(['ok' => false]);
     }
 
     public function test_a_booking_that_crashes_is_not_reported_as_an_invalid_slot(): void

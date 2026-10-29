@@ -13,8 +13,15 @@ namespace Modules\Tagtoa\App\Exceptions;
  * StockLedger::apply() — sous verrou de ligne — ferme la vraie faille :
  * deux commandes simultanées qui liraient toutes les deux « assez de
  * stock » avant que l'une des deux n'écrive.
+ *
+ * C'est une OrderRuleException, pas un \RuntimeException nu : ces deux
+ * contrôleurs n'attrapent plus que les règles métier (une panne de base ne
+ * doit pas se faire passer pour « panier vide »). « Plus de stock » EN EST
+ * une, et la plus ordinaire : deux clients qui prennent la dernière unité en
+ * même temps — le second doit lire « rupture de stock » (422), pas recevoir
+ * une erreur serveur.
  */
-class InsufficientStockException extends \RuntimeException
+class InsufficientStockException extends OrderRuleException
 {
     public function __construct(
         public readonly ?string $productName = null,
