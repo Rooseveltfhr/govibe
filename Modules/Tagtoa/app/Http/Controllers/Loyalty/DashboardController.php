@@ -106,7 +106,11 @@ $data = $this->validateProgram($request);
     {
         $card = $this->ownCard($cardId);
         $data = $request->validate(['amount' => ['required', 'numeric', 'min:0.01'], 'payment_method' => ['nullable', 'string', 'max:40']]);
-        $this->service->topUp($card, (float) $data['amount'], ['payment_method' => $data['payment_method'] ?? null]);
+        try {
+            $this->service->topUp($card, (float) $data['amount'], ['payment_method' => $data['payment_method'] ?? null]);
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['amount' => $e->getMessage()]);
+        }
 
         return back()->with('success', __('Carte rechargée.'));
     }
