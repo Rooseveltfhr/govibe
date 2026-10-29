@@ -38,7 +38,21 @@
                     <p class="text-gray-400">Aucune difficulté cochée.</p>
                 @endif
 
+                @if ($reponse->freinsLibelles($langue))
+                    <div class="pt-4 mt-4 border-t border-gray-100 dark:border-slate-700">
+                        <span class="text-gray-400 block mb-1.5 text-xs uppercase tracking-wide">Ce qui l'empêcherait d'adopter un outil</span>
+                        <div class="flex flex-wrap gap-1.5">
+                            @foreach ($reponse->freinsLibelles($langue) as $frein)
+                                <span class="rounded-lg px-2 py-1 text-xs bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900">
+                                    {{ $frein }}
+                                </span>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
                 @foreach ([
+                    'Pourquoi il a abandonné son outil précédent' => $reponse->essai_raison,
                     'Ce qui fait perdre le plus de temps' => $reponse->perte_de_temps,
                     'Ce qui fait perdre de l\'argent ou des clients' => $reponse->pertes,
                     'La priorité si une seule chose pouvait changer' => $reponse->priorite,
@@ -67,8 +81,12 @@
                         'Département' => $reponse->departementLibelle($langue),
                         'Effectif' => $reponse->effectifLibelle($langue),
                         'Ancienneté' => $reponse->ancienneteLibelle($langue),
+                        'Nombre de sites' => $reponse->pointsVenteLibelle($langue),
+                        'Volume par jour' => $reponse->volumeLibelle($langue),
                         'Internet sur place' => $reponse->connexionLibelle($langue),
                         'Budget envisagé' => $reponse->budgetLibelle($langue),
+                        'Voudrait commencer' => $reponse->echeanceLibelle($langue),
+                        'A déjà essayé un outil' => $reponse->essaiLibelle($langue),
                         'Répondu en' => \App\Enquete\Questionnaire::langues()[$reponse->langue] ?? $reponse->langue,
                         'Reçue le' => $reponse->created_at->format('d/m/Y à H:i'),
                     ];
@@ -91,6 +109,7 @@
             </div>
             <div class="p-5 text-sm space-y-4">
                 @foreach ([
+                    'Matériel disponible' => $reponse->materielLibelles($langue),
                     'Outils actuels' => $reponse->outilsLibelles($langue),
                     'Encaissement' => $reponse->encaissementsLibelles($langue),
                     'Présence en ligne' => $reponse->presencesLibelles($langue),

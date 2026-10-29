@@ -46,19 +46,31 @@ class EnqueteController extends Controller
             'departement' => $valide['departement'] ?? null,
             'effectif' => $valide['effectif'] ?? null,
             'anciennete' => $valide['anciennete'] ?? null,
+            'points_vente' => $valide['points_vente'] ?? null,
+            'volume' => $valide['volume'] ?? null,
 
             'outils' => $valide['outils'] ?? null,
+            'materiel' => $valide['materiel'] ?? null,
             'encaissements' => $valide['encaissements'] ?? null,
             'connexion' => $valide['connexion'] ?? null,
             'presences' => $valide['presences'] ?? null,
+
+            'essai' => $valide['essai'] ?? null,
+            // La raison ne concerne qu'un outil abandonné : gardée ailleurs,
+            // elle contredirait la réponse donnée.
+            'essai_raison' => ($valide['essai'] ?? null) === 'abandonne'
+                ? ($valide['essai_raison'] ?? null)
+                : null,
 
             'difficultes' => $valide['difficultes'],
             'perte_de_temps' => $valide['perte_de_temps'] ?? null,
             'pertes' => $valide['pertes'] ?? null,
             'priorite' => $valide['priorite'] ?? null,
+            'freins' => $valide['freins'] ?? null,
 
             'solutions' => $valide['solutions'] ?? null,
             'budget' => $valide['budget'] ?? null,
+            'echeance' => $valide['echeance'] ?? null,
 
             'souhaite_contact' => $request->boolean('souhaite_contact'),
             // Les coordonnées ne sont conservées que si la personne a demandé
@@ -123,6 +135,12 @@ class EnqueteController extends Controller
             'departements' => Questionnaire::departements(),
             'effectifs' => Questionnaire::effectifs(),
             'anciennetes' => Questionnaire::anciennetes(),
+            'pointsVente' => Questionnaire::pointsVente(),
+            'volumes' => Questionnaire::volumes(),
+            'materiels' => Questionnaire::materiels(),
+            'essais' => Questionnaire::essais(),
+            'freins' => Questionnaire::freins(),
+            'echeances' => Questionnaire::echeances(),
             'outils' => Questionnaire::outils(),
             'encaissements' => Questionnaire::encaissements(),
             'connexions' => Questionnaire::connexions(),
@@ -152,14 +170,25 @@ class EnqueteController extends Controller
             'departement' => ['nullable', $cles(Questionnaire::departements())],
             'effectif' => ['nullable', $cles(Questionnaire::effectifs())],
             'anciennete' => ['nullable', $cles(Questionnaire::anciennetes())],
+            'points_vente' => ['nullable', $cles(Questionnaire::pointsVente())],
+            'volume' => ['nullable', $cles(Questionnaire::volumes())],
 
             'outils' => 'nullable|array',
             'outils.*' => [$cles(Questionnaire::outils())],
+            'materiel' => 'nullable|array',
+            'materiel.*' => [$cles(Questionnaire::materiels())],
             'encaissements' => 'nullable|array',
             'encaissements.*' => [$cles(Questionnaire::encaissements())],
             'connexion' => ['nullable', $cles(Questionnaire::connexions())],
             'presences' => 'nullable|array',
             'presences.*' => [$cles(Questionnaire::presences())],
+            'essai' => ['nullable', $cles(Questionnaire::essais())],
+            // Dire qu'on a abandonné sans dire pourquoi laisse passer ce que
+            // l'enquête cherche justement à apprendre.
+            'essai_raison' => [
+                Rule::requiredIf(fn () => request('essai') === 'abandonne'),
+                'nullable', 'string', 'max:2000',
+            ],
 
             // La seule question à choix obligatoire : une enquête sur les
             // difficultés dont la réponse n'en nomme aucune n'apprend rien.
@@ -168,10 +197,13 @@ class EnqueteController extends Controller
             'perte_de_temps' => 'nullable|string|max:2000',
             'pertes' => 'nullable|string|max:2000',
             'priorite' => 'nullable|string|max:2000',
+            'freins' => 'nullable|array',
+            'freins.*' => [$cles(Questionnaire::freins())],
 
             'solutions' => 'nullable|array',
             'solutions.*' => [$cles(Questionnaire::solutions())],
             'budget' => ['nullable', $cles(Questionnaire::budgets())],
+            'echeance' => ['nullable', $cles(Questionnaire::echeances())],
 
             'souhaite_contact' => 'nullable|boolean',
             // Demander à être rappelé sans laisser de numéro rend la demande
@@ -195,6 +227,7 @@ class EnqueteController extends Controller
                 'type_activite.required' => 'Chwazi kalite aktivite w ap fè a.',
                 'type_activite.in' => 'Chwazi yon kalite aktivite nan lis la.',
                 'type_activite_autre.required' => 'Di nou ki aktivite w ap fè.',
+                'essai_raison.required' => 'Di nou poukisa w te lage l — se sa ki aprann nou plis.',
                 'difficultes.required' => 'Chwazi omwen yon difikilte — se kesyon ki pi enpòtan an.',
                 'difficultes.min' => 'Chwazi omwen yon difikilte — se kesyon ki pi enpòtan an.',
                 'nom_contact.required' => 'Ban nou non w pou nou ka kontakte w.',
@@ -207,6 +240,7 @@ class EnqueteController extends Controller
             'type_activite.required' => 'Choisissez votre type d\'activité.',
             'type_activite.in' => 'Choisissez un type d\'activité dans la liste.',
             'type_activite_autre.required' => 'Précisez votre activité.',
+            'essai_raison.required' => 'Dites-nous pourquoi vous l\'avez abandonné — c\'est ce qui nous apprend le plus.',
             'difficultes.required' => 'Choisissez au moins une difficulté — c\'est la question la plus importante.',
             'difficultes.min' => 'Choisissez au moins une difficulté — c\'est la question la plus importante.',
             'nom_contact.required' => 'Indiquez votre nom pour que nous puissions vous recontacter.',

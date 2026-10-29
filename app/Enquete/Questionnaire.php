@@ -225,6 +225,92 @@ final class Questionnaire
         ];
     }
 
+    /**
+     * Le matériel disponible. La question la plus déterminante du formulaire :
+     * aucune caisse, aucune application et aucun site ne s'installe chez
+     * quelqu'un qui n'a ni téléphone capable ni ordinateur. Sans elle, on
+     * proposerait des outils que le répondant ne peut pas faire tourner.
+     */
+    public static function materiels(): array
+    {
+        return [
+            'android' => ['fr' => 'Un téléphone Android', 'ht' => 'Yon telefòn Android'],
+            'iphone' => ['fr' => 'Un iPhone', 'ht' => 'Yon iPhone'],
+            'ordinateur' => ['fr' => 'Un ordinateur', 'ht' => 'Yon òdinatè'],
+            'tablette' => ['fr' => 'Une tablette', 'ht' => 'Yon tablèt'],
+            'imprimante' => ['fr' => 'Une imprimante', 'ht' => 'Yon enprimant'],
+            'inverter' => ['fr' => 'Un inverter ou un générateur', 'ht' => 'Yon envètè oswa yon dèlko'],
+            'aucun' => ['fr' => 'Rien de tout cela', 'ht' => 'Anyen nan sa yo'],
+        ];
+    }
+
+    /** L'ordre de grandeur de l'activité : il décide de l'outil qui convient. */
+    public static function volumes(): array
+    {
+        return [
+            'moins_10' => ['fr' => 'Moins de 10 par jour', 'ht' => 'Mwens pase 10 pa jou'],
+            '10_50' => ['fr' => '10 à 50 par jour', 'ht' => '10 a 50 pa jou'],
+            '50_200' => ['fr' => '50 à 200 par jour', 'ht' => '50 a 200 pa jou'],
+            'plus_200' => ['fr' => 'Plus de 200 par jour', 'ht' => 'Plis pase 200 pa jou'],
+            'variable' => ['fr' => 'Très variable selon les jours', 'ht' => 'Chanje anpil selon jou a'],
+        ];
+    }
+
+    public static function pointsVente(): array
+    {
+        return [
+            'un' => ['fr' => 'Un seul endroit', 'ht' => 'Yon sèl kote'],
+            'deux_trois' => ['fr' => '2 ou 3 endroits', 'ht' => '2 oswa 3 kote'],
+            'plus_trois' => ['fr' => 'Plus de 3 endroits', 'ht' => 'Plis pase 3 kote'],
+            'ambulant' => ['fr' => 'Pas de local fixe, je me déplace', 'ht' => 'Pa gen lokal fiks, m ap deplase'],
+            'en_ligne' => ['fr' => 'Seulement en ligne', 'ht' => 'Sèlman sou entènèt'],
+        ];
+    }
+
+    /**
+     * Ce qu'une tentative passée apprend : un outil abandonné en dit plus long
+     * sur ce qu'il faut construire qu'une liste de souhaits.
+     */
+    public static function essais(): array
+    {
+        return [
+            'jamais' => ['fr' => 'Jamais essayé', 'ht' => 'Pa janm eseye'],
+            'utilise' => ['fr' => 'Oui, et je l\'utilise encore', 'ht' => 'Wi, epi m ap sèvi avè l toujou'],
+            'abandonne' => ['fr' => 'Oui, mais j\'ai abandonné', 'ht' => 'Wi, men m lage l'],
+        ];
+    }
+
+    /**
+     * Ce qui empêcherait d'adopter un outil. Autant savoir à quoi se heurte
+     * une offre avant de la construire : le prix, le courant et la formation
+     * ne se corrigent pas de la même façon.
+     */
+    public static function freins(): array
+    {
+        return [
+            'prix' => ['fr' => 'Le prix', 'ht' => 'Pri a'],
+            'courant' => ['fr' => 'Le courant qui coupe', 'ht' => 'Kouran an ki koupe'],
+            'internet' => ['fr' => 'L\'internet qui manque', 'ht' => 'Entènèt ki manke'],
+            'formation' => ['fr' => 'Savoir m\'en servir', 'ht' => 'Konn sèvi avè l'],
+            'equipe' => ['fr' => 'Mon équipe ne suivrait pas', 'ht' => 'Ekip mwen pa t ap swiv'],
+            'temps' => ['fr' => 'Le temps de tout mettre en place', 'ht' => 'Tan pou mete tout bagay an plas'],
+            'confiance' => ['fr' => 'La confiance : mes données, mon argent', 'ht' => 'Konfyans : done m, lajan m'],
+            'utilite' => ['fr' => 'Ne pas être sûr que ça serve vraiment', 'ht' => 'Pa sèten si l ap sèvi vre'],
+            'aucun' => ['fr' => 'Rien, je suis prêt', 'ht' => 'Anyen, m pare'],
+        ];
+    }
+
+    /** Quand la personne voudrait commencer : l'ordre dans lequel rappeler. */
+    public static function echeances(): array
+    {
+        return [
+            'maintenant' => ['fr' => 'Tout de suite', 'ht' => 'Kounye a menm'],
+            'trois_mois' => ['fr' => 'Dans les 3 mois', 'ht' => 'Nan 3 mwa k ap vini yo'],
+            'cette_annee' => ['fr' => 'Cette année', 'ht' => 'Ane sa a'],
+            'renseigne' => ['fr' => 'Je me renseigne seulement', 'ht' => 'M ap chèche konnen sèlman'],
+        ];
+    }
+
     public static function statuts(): array
     {
         return [
@@ -274,7 +360,11 @@ final class Questionnaire
 
                 'bandeau' => 'Enquête sur vos besoins',
                 'titre' => 'Aidons les entreprises haïtiennes à devenir plus performantes grâce à la technologie',
-                'accroche' => 'GOVIBE Innovation Hub écoute les entreprises haïtiennes.',
+                // Une seule phrase avant le formulaire. Le reste se déplie pour
+                // qui veut lire : un mur de texte fait partir ceux qu'on veut
+                // justement entendre.
+                'accroche' => 'Dites-nous ce qui vous bloque au quotidien. Nous construisons les outils qui y répondent.',
+                'deplier' => 'En savoir plus sur cette enquête',
                 'intro_1' => 'Vous dirigez une entreprise, une école, un hôtel, un restaurant, une boutique, une agence ou toute autre activité ?',
                 'intro_2' => 'Nous voulons comprendre les vraies difficultés que vous rencontrez chaque jour, ce qui vous fait perdre du temps, des clients ou de l\'argent, et ce que vous aimeriez améliorer dans votre activité.',
                 'intro_3' => 'Notre objectif est de développer des solutions digitales adaptées à la réalité des entreprises haïtiennes : logiciels de gestion, applications mobiles, paiement digital, automatisation, intelligence artificielle et autres outils technologiques.',
@@ -307,6 +397,15 @@ final class Questionnaire
                 'q_effectif' => 'Combien de personnes travaillent avec vous ?',
                 'q_anciennete' => 'Depuis combien de temps l\'activité existe-t-elle ?',
 
+                'q_points_vente' => 'Combien d\'endroits votre activité occupe-t-elle ?',
+                'q_volume' => 'Combien de ventes, commandes ou dossiers traitez-vous par jour ?',
+                'q_volume_aide' => 'Un ordre de grandeur suffit',
+
+                'q_materiel' => 'De quel matériel disposez-vous déjà ?',
+                'q_materiel_aide' => 'Important : un outil ne s\'installe que sur ce que vous avez déjà',
+                'q_essai' => 'Avez-vous déjà essayé un logiciel ou une application pour votre activité ?',
+                'q_essai_raison' => 'Pourquoi l\'avez-vous abandonné ?',
+                'q_essai_raison_aide' => 'C\'est ce qui nous apprend le plus',
                 'q_outils' => 'Avec quoi tenez-vous votre activité aujourd\'hui ?',
                 'q_encaissement' => 'Comment vos clients vous paient-ils ?',
                 'q_connexion' => 'Avez-vous internet sur place ?',
@@ -318,6 +417,8 @@ final class Questionnaire
                 'q_pertes' => 'Qu\'est-ce qui vous fait perdre de l\'argent ou des clients ?',
                 'q_priorite' => 'Si une seule chose pouvait être améliorée demain, laquelle ?',
 
+                'q_freins' => 'Qu\'est-ce qui pourrait vous empêcher d\'utiliser un outil digital ?',
+                'q_echeance' => 'Quand voudriez-vous commencer ?',
                 'q_solutions' => 'Quelles solutions vous intéresseraient ?',
                 'q_budget' => 'Quel budget mensuel serait envisageable ?',
                 'q_budget_aide' => 'Une fourchette suffit. Cela nous aide à concevoir une offre réaliste.',
@@ -352,7 +453,8 @@ final class Questionnaire
 
                 'bandeau' => 'Ankèt sou bezwen w',
                 'titre' => 'Ann ede antrepriz ayisyen yo vin pi pèfòman gras a teknoloji',
-                'accroche' => 'GOVIBE Innovation Hub ap koute antrepriz ayisyen yo.',
+                'accroche' => 'Di nou sa k bloke w chak jou. N ap bati zouti ki reponn yo.',
+                'deplier' => 'Konnen plis sou ankèt sa a',
                 'intro_1' => 'Èske w ap dirije yon biznis, yon lekòl, yon otèl, yon restoran, yon boutik, yon ajans oswa nenpòt lòt kalite aktivite ?',
                 'intro_2' => 'Nou vle konprann vrè difikilte w ap rankontre chak jou, sa k ap fè w pèdi tan, kliyan oswa lajan, ak sa w ta renmen amelyore nan biznis ou.',
                 'intro_3' => 'Objektif nou se devlope solisyon dijital ki adapte ak reyalite antrepriz ayisyen yo : lojisyèl jesyon, aplikasyon mobil, peman dijital, otomatizasyon, entèlijans atifisyèl ak lòt zouti teknolojik.',
@@ -385,6 +487,15 @@ final class Questionnaire
                 'q_effectif' => 'Konbyen moun k ap travay avè w ?',
                 'q_anciennete' => 'Depi konbyen tan aktivite a egziste ?',
 
+                'q_points_vente' => 'Konbyen kote aktivite w ap fèt ?',
+                'q_volume' => 'Konbyen lavant, kòmand oswa dosye w ap trete pa jou ?',
+                'q_volume_aide' => 'Yon lide apeprè sifi',
+
+                'q_materiel' => 'Ki materyèl ou genyen deja ?',
+                'q_materiel_aide' => 'Enpòtan : yon zouti enstale sèlman sou sa w gen tan genyen',
+                'q_essai' => 'Èske w te deja eseye yon lojisyèl oswa yon aplikasyon pou aktivite w ?',
+                'q_essai_raison' => 'Poukisa w te lage l ?',
+                'q_essai_raison_aide' => 'Se sa ki aprann nou plis',
                 'q_outils' => 'Ak kisa w ap jere aktivite w jodi a ?',
                 'q_encaissement' => 'Kijan kliyan w yo peye w ?',
                 'q_connexion' => 'Èske w gen entènèt sou plas ?',
@@ -396,6 +507,8 @@ final class Questionnaire
                 'q_pertes' => 'Kisa ki fè w pèdi lajan oswa kliyan ?',
                 'q_priorite' => 'Si yon sèl bagay te ka amelyore demen, kiyès ?',
 
+                'q_freins' => 'Kisa ki ta ka anpeche w sèvi ak yon zouti dijital ?',
+                'q_echeance' => 'Kilè w ta renmen kòmanse ?',
                 'q_solutions' => 'Ki solisyon ki ta enterese w ?',
                 'q_budget' => 'Ki bidjè pa mwa ki ta posib ?',
                 'q_budget_aide' => 'Yon echèl sifi. Sa ede nou fè yon òf reyalis.',

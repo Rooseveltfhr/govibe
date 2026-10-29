@@ -35,9 +35,14 @@
 @endif
 
 {{-- ── Le dépouillement : ce qui fait d'une pile de fiches une enquête ── --}}
-@if ($difficultes || $solutions)
+@if ($difficultes || $solutions || $freins || $materiel)
 <div class="grid gap-5 mb-6" style="grid-template-columns: 1fr 1fr;">
-    @foreach ([['Ce qui coince le plus', $difficultes, '#dc2626'], ['Ce qui intéresse le plus', $solutions, '#1e3a8c']] as [$titre, $palmares, $couleur])
+    @foreach ([
+        ['Ce qui coince le plus', $difficultes, '#dc2626'],
+        ['Ce qui intéresse le plus', $solutions, '#1e3a8c'],
+        ['Ce qui empêcherait d\'adopter', $freins, '#b45309'],
+        ['Le matériel déjà disponible', $materiel, '#059669'],
+    ] as [$titre, $palmares, $couleur])
         <div class="content-card">
             <div class="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
                 <span class="font-semibold text-gray-800 dark:text-gray-100">{{ $titre }}</span>
