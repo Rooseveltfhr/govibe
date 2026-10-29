@@ -21,6 +21,9 @@ class LoyaltyCardService
 {
     private const PREFIX = '4297';
 
+    /** Plafond réel de la colonne : balance est un decimal(10,2). */
+    private const BALANCE_MAX = 99999999.99;
+
     public function __construct(private NotificationService $notifications = new NotificationService())
     {
     }
@@ -101,6 +104,14 @@ class LoyaltyCardService
             }
             if (! $card->isActive()) {
                 throw new LoyaltyRuleException(__('Carte inactive ou expirée.'));
+            }
+
+            // `max` sur le formulaire borne le MONTANT, pas le solde qui en
+            // résulte : 99 999 999 ajoutés à une carte déjà créditée dépassent
+            // decimal(10,2), et l'écriture échoue en base. Le solde n'est connu
+            // qu'ici, sous le verrou de la carte — c'est donc ici que se tranche.
+            if ((float) $card->balance + $amount > self::BALANCE_MAX) {
+                throw new LoyaltyRuleException(__('Le solde de la carte dépasserait le maximum autorisé.'));
             }
 
             $points = $opts['points'] ?? $card->program->pointsForAmount($amount);

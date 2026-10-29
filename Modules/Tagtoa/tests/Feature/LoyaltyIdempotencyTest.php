@@ -185,6 +185,38 @@ class LoyaltyIdempotencyTest extends TestCase
         $this->assertSame(0, Transaction::where('card_id', $card->id)->count());
     }
 
+    /**
+     * `max` sur le formulaire borne le MONTANT, pas le solde qui en résulte :
+     * 99 999 999 ajoutés à une carte déjà créditée dépassent decimal(10,2).
+     * Avant, l'écriture échouait en base ; c'est maintenant une règle métier
+     * lisible, et rien n'est crédité.
+     */
+    public function test_a_topup_that_would_overflow_the_balance_column_is_refused(): void
+    {
+        $svc = app(LoyaltyCardService::class);
+        $card = $svc->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
+        $svc->topUp($card, 500);
+
+        $this->expectException(\Modules\Tagtoa\App\Exceptions\LoyaltyRuleException::class);
+
+        try {
+            $svc->topUp($card, 99999999);
+        } finally {
+            $this->assertEquals(500, $card->fresh()->balance, 'aucun crédit ne doit passer.');
+            $this->assertSame(1, Transaction::where('card_id', $card->id)->count());
+        }
+    }
+
+    public function test_a_topup_right_up_to_the_ceiling_still_works(): void
+    {
+        $svc = app(LoyaltyCardService::class);
+        $card = $svc->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
+
+        $svc->topUp($card, 99999999);
+
+        $this->assertEquals(99999999, $card->fresh()->balance);
+    }
+
     public function test_a_suspended_card_cannot_be_topped_up(): void
     {
         $svc = app(LoyaltyCardService::class);
