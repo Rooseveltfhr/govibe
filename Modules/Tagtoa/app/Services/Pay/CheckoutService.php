@@ -262,7 +262,7 @@ class CheckoutService
                 app(\Modules\Tagtoa\App\Services\Store\StoreOrderService::class)->markPaid($order);
                 break;
             case 'menu':
-                app(\Modules\Tagtoa\App\Services\Menu\MenuOrderService::class)->markPaid($order);
+                app(\Modules\Tagtoa\App\Services\Menu\MenuOrderService::class)->markPaid($order, (string) $txn->gateway);
                 break;
             case 'event':
                 app(\Modules\Tagtoa\App\Services\Event\TicketService::class)->markPaid($order, 'moncash');

@@ -76,7 +76,7 @@ class Order extends Model
 
     protected $fillable = [
         'menu_id', 'tenant_id', 'reference', 'subtotal', 'total', 'tip', 'currency',
-        'status', 'payment_status', 'channel', 'order_type', 'customer_name', 'customer_phone',
+        'status', 'payment_status', 'payment_method', 'paid_at', 'paid_by', 'channel', 'order_type', 'customer_name', 'customer_phone',
         'table_label', 'delivery_address', 'delivery_zone_label', 'note', 'client_uuid', 'placed_at',
         'tax_total', 'tax_base', 'tax_inclusive', 'tax_label', 'tax_breakdown', 'delivery_fee',
         'courier_id', 'courier_assigned_at', 'picked_up_at',
@@ -88,6 +88,7 @@ class Order extends Model
         'tip'           => 'decimal:2',
         'delivery_fee'  => 'decimal:2',
         'placed_at'     => 'datetime',
+        'paid_at'       => 'datetime',
         // Copiés sur la commande : changer le réglage du commerce ne doit
         // jamais retourner le sens d'une commande déjà passée.
         'tax_total'     => 'decimal:2',
@@ -121,6 +122,29 @@ class Order extends Model
     public function isPaid(): bool
     {
         return $this->payment_status === 'paid';
+    }
+
+    /**
+     * Les moyens qu'un encaissement à la main peut déclarer. Les passerelles
+     * (moncash, paypal, stripe…) s'ajoutent d'elles-mêmes via markPaid(), mais
+     * ne se choisissent jamais dans la liste du caissier.
+     */
+    public const MANUAL_PAYMENT_METHODS = [
+        'cash'     => 'Espèces',
+        'moncash'  => 'MonCash',
+        'natcash'  => 'NatCash',
+        'card'     => 'Carte',
+        'transfer' => 'Virement',
+        'other'    => 'Autre',
+    ];
+
+    public function getPaymentMethodLabelAttribute(): ?string
+    {
+        if (! $this->payment_method) {
+            return null;
+        }
+
+        return self::MANUAL_PAYMENT_METHODS[$this->payment_method] ?? ucfirst($this->payment_method);
     }
 
     public function getStatusMetaAttribute(): array

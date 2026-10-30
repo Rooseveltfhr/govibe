@@ -237,6 +237,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/{id}/orders', [MenuDashboard::class, 'orders'])->name('orders');
         Route::post('/orders/{order}/status', [MenuDashboard::class, 'setStatus'])->name('orders.status');
         Route::post('/orders/{order}/paid', [MenuDashboard::class, 'markPaid'])->name('orders.paid');
+        Route::get('/{id}/orders/feed', [MenuDashboard::class, 'ordersFeed'])->name('orders.feed');
 
         // Tables vérifiées par QR/NFC — voir Table::generateCode().
         Route::get('/{id}/tables', [MenuDashboard::class, 'tables'])->name('tables');

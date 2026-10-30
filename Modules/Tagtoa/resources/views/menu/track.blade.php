@@ -86,6 +86,15 @@
         @if($order->delivery_address)<div class="row"><span>{{ __('Adresse') }}</span><span>{{ $order->delivery_address }}</span></div>@endif
     </div>
 
+    {{-- Le client a commandé, il n'a pas fini : il veut peut-être ajouter un
+         plat ou regarder la carte. Sans ce lien, la seule issue était le
+         bouton « retour » du navigateur. --}}
+    @if(! empty($menu->alias))
+        <a href="{{ route('tagtoa.menu.show', $menu->alias) }}" style="display:flex;align-items:center;justify-content:center;gap:9px;background:var(--acc);color:#fff;text-decoration:none;border-radius:14px;padding:15px;font:700 15px var(--fh)">
+            <i class="fa-solid fa-utensils"></i> {{ __('Continuer à voir le menu') }}
+        </a>
+    @endif
+
     <div class="foot">{{ __('Propulsé par') }} <b>TAGTOA</b> · tagtoa.com</div>
 </div>
 

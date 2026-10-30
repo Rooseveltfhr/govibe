@@ -31,7 +31,9 @@
     'use strict';
 
     var ctx = null,
-        actif = true;
+        actif = true,
+        alerteTimer = null,
+        alerteFin = 0;
 
     function contexte() {
         if (ctx) return ctx;
@@ -96,6 +98,42 @@
             note(659.3, 0, 0.09, 0.30);
             note(880, 0.09, 0.09, 0.30);
             note(1318.5, 0.18, 0.2, 0.28);
+        },
+
+        /**
+         * NOUVELLE COMMANDE — une sonnerie qui se répète pendant `secondes`
+         * (10 à 20 : assez pour qu'un patron occupé l'entende, pas assez pour
+         * harceler). Trois notes qui montent puis une pause, en boucle : plus
+         * insistant que ok(), qui n'est qu'un accusé de réception. Une seule
+         * alerte à la fois — une commande de plus pendant la sonnerie la
+         * prolonge au lieu de superposer deux sonneries.
+         */
+        alerte: function (secondes) {
+            var duree = Math.min(20, Math.max(10, Number(secondes) || 15)) * 1000;
+            Sound.alerteStop();
+            Sound.reveiller();
+            function sonner() {
+                note(880, 0, 0.16, 0.42);
+                note(1108.7, 0.18, 0.16, 0.42);
+                note(1318.5, 0.36, 0.28, 0.42);
+            }
+            sonner();
+            alerteFin = Date.now() + duree;
+            alerteTimer = setInterval(function () {
+                if (Date.now() >= alerteFin) { Sound.alerteStop(); return; }
+                sonner();
+            }, 1500);
+        },
+
+        /** Coupe la sonnerie en cours (le bouton « Arrêter le son »). */
+        alerteStop: function () {
+            if (alerteTimer) { clearInterval(alerteTimer); alerteTimer = null; }
+        },
+
+        /** Le navigateur a-t-il déjà autorisé le son ? Faux tant que personne n'a touché la page. */
+        pret: function () {
+            var c = contexte();
+            return !!c && c.state === 'running';
         },
 
         /** Refus : une note grave, tenue. Jamais agréable, c'est le but. */
