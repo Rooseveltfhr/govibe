@@ -44,6 +44,27 @@ rollback() {
   exit 1
 }
 
+# 1.5) SAUVEGARDE avant migration — AVANT la maintenance, pour qu'un échec de
+#      sauvegarde ne coûte jamais une minute d'indisponibilité.
+#      rollback() désactive le module mais NE DÉFAIT AUCUNE migration : sans ce
+#      dump, une migration ratée à mi-chemin n'a aucun retour arrière.
+#      Ne s'exécute que si une migration est en attente (--if-pending).
+#      Échec = AVERTISSEMENT bruyant et déploiement poursuivi (comportement
+#      historique), sauf TAGTOA_BACKUP_REQUIRED=1 : le déploiement s'arrête alors,
+#      site intact. Voir DEPLOY.md (restauration).
+if [ "${TAGTOA_BACKUP_SKIP:-0}" != "1" ]; then
+  echo "==> Sauvegarde de la base (si migration en attente)"
+  if ! php artisan tagtoa:backup-db --if-pending --keep="${TAGTOA_BACKUP_KEEP:-14}"; then
+    echo "!!!!!!!! WARN: SAUVEGARDE DE LA BASE IMPOSSIBLE — migration sans filet !!!!!!!!"
+    if [ "${TAGTOA_BACKUP_REQUIRED:-0}" = "1" ]; then
+      echo "TAGTOA_BACKUP_REQUIRED=1 : déploiement ANNULÉ avant la maintenance (site intact)."
+      exit 1
+    fi
+  fi
+else
+  echo "==> Sauvegarde ignorée (TAGTOA_BACKUP_SKIP=1)"
+fi
+
 # 2) Maintenance
 php artisan down --retry=10 || true
 
@@ -59,8 +80,10 @@ if ! php artisan package:discover >/dev/null 2>&1; then
 fi
 
 # 4.5) Données de démo (idempotent — firstOrCreate sur les alias).
-#      Ne bloque JAMAIS le déploiement. Désactivable : TAGTOA_SEED_DEMO=0
-if [ "${TAGTOA_SEED_DEMO:-1}" != "0" ]; then
+#      Ne bloque JAMAIS le déploiement. DÉSACTIVÉ par défaut : écrire des
+#      commerces fictifs dans la base de PRODUCTION à chaque déploiement n'est
+#      pas un comportement sûr. Activer sur un environnement de démo : TAGTOA_SEED_DEMO=1
+if [ "${TAGTOA_SEED_DEMO:-0}" = "1" ]; then
   echo "==> Seed démo TAGTOA (idempotent)"
   php artisan db:seed --class="Modules\\Tagtoa\\Database\\Seeders\\TagtoaDemoSeeder" --force \
     || echo "WARN: seed démo ignoré (non bloquant)"

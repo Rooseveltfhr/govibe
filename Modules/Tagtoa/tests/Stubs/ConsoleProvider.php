@@ -4,6 +4,7 @@ namespace Modules\Tagtoa\Tests\Stubs;
 
 use Illuminate\Support\ServiceProvider;
 use Modules\Tagtoa\App\Console\BackfillOrdersCommand;
+use Modules\Tagtoa\App\Console\BackupDatabaseCommand;
 use Modules\Tagtoa\App\Console\MintStandsCommand;
 
 /**
@@ -21,6 +22,7 @@ class ConsoleProvider extends ServiceProvider
     public const COMMANDS = [
         BackfillOrdersCommand::class,
         MintStandsCommand::class,
+        BackupDatabaseCommand::class,
     ];
 
     public function boot(): void

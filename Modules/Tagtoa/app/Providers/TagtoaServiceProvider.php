@@ -36,6 +36,7 @@ class TagtoaServiceProvider extends ServiceProvider
         $this->commands([
             \Modules\Tagtoa\App\Console\BackfillOrdersCommand::class,
             \Modules\Tagtoa\App\Console\MintStandsCommand::class,
+            \Modules\Tagtoa\App\Console\BackupDatabaseCommand::class,
         ]);
     }
 
