@@ -56,7 +56,8 @@ class LinkPage extends Model
 
     public function payPage(): BelongsTo
     {
-        return $this->belongsTo(PaymentPage::class, 'pay_page_id');
+        // Seulement une page ouvrable par le client — voir PaymentPage::scopeServable().
+        return $this->belongsTo(PaymentPage::class, 'pay_page_id')->servable();
     }
 
     public function getAvatarUrlAttribute(): ?string

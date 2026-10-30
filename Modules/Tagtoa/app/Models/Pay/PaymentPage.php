@@ -84,6 +84,20 @@ class PaymentPage extends Model
      */
     public const RESERVED_ALIASES = ['result'];
 
+    /**
+     * Les pages qu'un client peut réellement ouvrir sur /pay/{alias}.
+     *
+     * PublicController::show() refuse (404) une page inactive et la page
+     * technique « Moyens de paiement » (`is_library`). Tout lien « Payer »
+     * posé ailleurs (menu, boutique, réservation, événement, liens) doit donc
+     * pointer vers une page de ce périmètre, jamais vers l'autre : sinon le
+     * client qui vient de commander clique « Payer » et tombe sur une 404.
+     */
+    public function scopeServable($query)
+    {
+        return $query->where('is_active', true)->where('is_library', false);
+    }
+
     public static function generateAlias(string $base): string
     {
         $slug = Str::slug($base) ?: 'pay';

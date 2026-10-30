@@ -205,6 +205,6 @@ class DashboardController extends Controller
 
     protected function payPages()
     {
-        return PaymentPage::where('tenant_id', Tenant::id())->get(['id', 'title', 'alias']);
+        return PaymentPage::where('tenant_id', Tenant::id())->servable()->get(['id', 'title', 'alias']);
     }
 }
