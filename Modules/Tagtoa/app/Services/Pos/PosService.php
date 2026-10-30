@@ -2,12 +2,15 @@
 
 namespace Modules\Tagtoa\App\Services\Pos;
 
+use Carbon\Carbon;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Menu\Item as MenuItem;
 use Modules\Tagtoa\App\Models\Pos\Product;
 use Modules\Tagtoa\App\Models\Pos\Sale;
 use Modules\Tagtoa\App\Models\Pos\Terminal;
 use Modules\Tagtoa\App\Models\Staff\Staff;
+use Modules\Tagtoa\App\Services\Audit\AuditService;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
 use Modules\Tagtoa\App\Services\Inventory\StockLedger;
 use Modules\Tagtoa\App\Support\Inventory\MovementType;
@@ -44,11 +47,111 @@ class PosService
         // d'un AUTRE commerce, sa propre vente n'était jamais enregistrée, et la
         // référence du voisin lui était renvoyée.
         $uuid = $payload['client_uuid'] ?? null;
-        if ($uuid && $existing = $terminal->sales()->where('client_uuid', $uuid)->first()) {
+        if ($existing = $this->existingSale($terminal, $uuid)) {
             return $existing;
         }
 
-        return DB::transaction(function () use ($terminal, $payload, $uuid, $staff) {
+        // L'heure de la vente est décidée AVANT d'ouvrir la transaction : c'est
+        // une lecture de la requête, pas une écriture. `$flag` dit pourquoi
+        // l'heure annoncée par la caisse n'a pas été retenue (ou null).
+        [$soldAt, $flag] = $this->resolveSoldAt($payload);
+
+        try {
+            $sale = $this->persistSale($terminal, $payload, $uuid, $staff, $soldAt);
+        } catch (UniqueConstraintViolationException $e) {
+            // Course : deux requêtes identiques ont passé la recherche ci-dessus
+            // en même temps ; l'autre a écrit sa vente la première et l'endex
+            // UNIQUE (terminal_id, client_uuid) a refusé la nôtre — AVANT toute
+            // ligne ou mouvement de stock, la transaction a tout annulé. La
+            // vente existe donc : on la rend, comme pour une reprise normale.
+            // Une autre violation d'unicité (la référence) n'a pas de vente à
+            // rendre : elle remonte.
+            if ($existing = $this->existingSale($terminal, $uuid)) {
+                return $existing;
+            }
+
+            throw $e;
+        }
+
+        // Journalisé APRÈS la validation de la vente, et seulement pour la vente
+        // réellement créée ici (jamais pour une reprise qui rend l'existante).
+        if ($flag !== null) {
+            app(AuditService::class)->log(
+                'pos.sale_time_flagged',
+                $sale,
+                $sale->reference.' · '.$flag['reason'].' · '.__('annoncée').' '.$flag['claimed']
+                    .' · '.__('reçue').' '.$sale->created_at?->toIso8601String()
+            );
+        }
+
+        return $sale;
+    }
+
+    /**
+     * Une vente déjà enregistrée sous cette clé d'idempotence, sur CETTE caisse.
+     * Isolée pour pouvoir être lue deux fois : avant d'écrire, et après une
+     * violation d'unicité.
+     */
+    protected function existingSale(Terminal $terminal, ?string $uuid): ?Sale
+    {
+        if (! $uuid) {
+            return null;
+        }
+
+        return $terminal->sales()->where('client_uuid', $uuid)->first();
+    }
+
+    /** Fenêtre acceptée pour l'heure d'une vente rejouée hors ligne. */
+    public const OFFLINE_MAX_AGE_HOURS = 72;
+    public const FUTURE_SKEW_MINUTES   = 5;
+
+    /**
+     * L'heure de la vente : celle de la caisse (hors ligne) si elle est plausible.
+     *
+     * Une vente faite lundi hors ligne et reçue mercredi doit rester une vente de
+     * lundi — sinon rapports, période de taxe et fond de caisse sont faux. Mais
+     * l'horloge d'un appareil se règle à la main : une heure dans le futur, ou
+     * vieille de plus de 72 h, ne mérite pas d'être crue sur parole.
+     *
+     * Hors fenêtre (ou illisible) : la vente prend l'heure du SERVEUR, et l'heure
+     * annoncée n'est pas perdue — elle est retournée dans `$flag` pour être
+     * journalisée avec la raison. Rien n'est réécrit en silence. L'heure de
+     * réception, elle, est toujours `created_at`.
+     *
+     * Sans heure annoncée (vente en ligne, ancienne caisse) : heure du serveur,
+     * sans drapeau.
+     *
+     * @return array{0: Carbon, 1: array{reason:string, claimed:string}|null}
+     */
+    protected function resolveSoldAt(array $payload): array
+    {
+        $now = now();
+        $claimed = $payload['client_created_at'] ?? null;
+        if ($claimed === null || $claimed === '') {
+            return [$now, null];
+        }
+        $claimedText = is_scalar($claimed) ? mb_substr((string) $claimed, 0, 40) : '(illisible)';
+
+        try {
+            $at = Carbon::parse((string) $claimed);
+        } catch (\Throwable $e) {
+            return [$now, ['reason' => 'invalid', 'claimed' => $claimedText]];
+        }
+
+        if ($at->lt($now->copy()->subHours(self::OFFLINE_MAX_AGE_HOURS))) {
+            return [$now, ['reason' => 'too_old', 'claimed' => $claimedText]];
+        }
+        if ($at->gt($now->copy()->addMinutes(self::FUTURE_SKEW_MINUTES))) {
+            return [$now, ['reason' => 'future', 'claimed' => $claimedText]];
+        }
+
+        return [$at, null];
+    }
+
+    /** La transaction qui écrit la vente, ses lignes, le stock et la colonne vertébrale. */
+    private function persistSale(Terminal $terminal, array $payload, ?string $uuid, ?Staff $staff, Carbon $soldAt): Sale
+    {
+        return DB::transaction(function () use ($terminal, $payload, $uuid, $staff, $soldAt) {
             $items    = $payload['items'] ?? [];
             $discount = max(0, (float) ($payload['discount'] ?? 0));
 
@@ -137,7 +240,7 @@ class PosService
                 'staff_id'       => $staff?->id,
                 'client_uuid'    => $uuid,
                 'status'         => 1,
-                'sold_at'        => now(),
+                'sold_at'        => $soldAt,
             ]);
 
             $facteurRemise = $subtotal > 0 ? max(0, $subtotal - $discount) / $subtotal : 0.0;

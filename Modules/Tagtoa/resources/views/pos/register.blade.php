@@ -110,6 +110,14 @@
         .poste .err{color:var(--red);font-weight:600;font-size:13px}
     </style>
     <div class="app">
+        {{-- Ventes que le serveur a REFUSÉES : elles restent sur l'appareil (jamais
+             effacées) tant qu'une personne ne les a pas vues. --}}
+        <div id="attn" style="display:none;position:fixed;top:0;left:0;right:0;z-index:90;box-shadow:0 4px 14px rgba(0,0,0,.25);background:#fdecea;color:#9a2820;padding:10px 18px;font-size:14px;font-weight:600">
+            <span id="attnTxt"></span>
+            <button type="button" onclick="showRefused()" style="margin-left:10px;border:0;border-radius:8px;padding:5px 10px;font-weight:700;cursor:pointer">{{ __('Voir') }}</button>
+            <button type="button" onclick="retryRefused()" style="margin-left:6px;border:0;border-radius:8px;padding:5px 10px;font-weight:700;cursor:pointer">{{ __('Réessayer') }}</button>
+            <button type="button" onclick="copyRefused()" style="margin-left:6px;border:0;border-radius:8px;padding:5px 10px;font-weight:700;cursor:pointer">{{ __('Copier') }}</button>
+        </div>
         <div class="top"><i class="fa-solid fa-cash-register" style="color:var(--blue)"></i><h1>{{ $terminal->name }}</h1><button id="installBtn" class="net" style="display:none;border:0;cursor:pointer;background:var(--blue)" title="{{ __('Installer l\'application') }}"><i class="fa-solid fa-download"></i> {{ __('Installer') }}</button><button id="scanBtn" class="net" style="border:0;cursor:pointer;background:var(--blue)" title="{{ __('Scanner un code-barres') }}"><i class="fa-solid fa-barcode"></i></button>{{-- Le panier s'ouvre d'ICI, à côté du scanner : les deux gestes de la
              caisse sont côte à côte, et l'écran reste entier pour le catalogue.
              Le compteur dit combien d'articles attendent — sans lui, un panier
@@ -552,17 +560,137 @@ function beep(t){
     }
     try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();var o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);var f={add:660,success:[880,1320],error:[200,160]}[t];o.frequency.value=Array.isArray(f)?f[0]:f;o.type='sine';g.gain.value=.3;o.start();if(Array.isArray(f))setTimeout(function(){o.frequency.value=f[1];},80);setTimeout(function(){o.stop();},t==='error'?240:150);}catch(e){}
 }
-function setNet(){var on=navigator.onLine;document.getElementById('net').textContent=on?'● online':'● offline';document.getElementById('net').classList.toggle('off',!on);if(on)flush();}
+function setNet(){var on=navigator.onLine;document.getElementById('net').classList.toggle('off',!on);renderQueue();if(on)flush();}
 window.addEventListener('online',setNet);window.addEventListener('offline',setNet);
 // Filet : certains navigateurs ne déclenchent pas 'online' de façon fiable
 // (même règle que la file d'attente du menu public) — sans lui, une vente
 // en attente pourrait rester bloquée bien après le retour réel du réseau.
 setInterval(flush,20000);
-function q(){return JSON.parse(localStorage.getItem(QKEY)||'[]');}function setQ(a){localStorage.setItem(QKEY,JSON.stringify(a));}
-function flush(){var a=q();if(!a.length)return;fetch(SYNC_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify({sales:a})}).then(function(r){return r.json();}).then(function(){setQ([]);}).catch(function(){});}
-function confirmSale(){var p={items:Object.values(cart),discount:parseFloat(document.getElementById('disc').value)||0,payments:payments(),customer_phone:document.getElementById('phone').value,client_uuid:uuid()};
-    if(navigator.onLine){fetch(SALE_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(function(d){ok(d.reference,p,d);}).catch(function(){off(p);});}else off(p);}
-function off(p){var a=q();a.push(p);setQ(a);ok(p.client_uuid.substr(0,8).toUpperCase()+' ({{ __('hors-ligne') }})',p);}
+/*POSSYNC-START*/
+/* ------------------------------------------------------------------
+   LA FILE DES VENTES HORS LIGNE — la règle unique : on ne retire de
+   l'appareil que ce que le SERVEUR a reconnu.
+
+   Avant, flush() vidait toute la file dès que le serveur répondait un JSON,
+   quel qu'il soit : une vente refusée (stock épuisé ailleurs, formulaire
+   invalide, erreur) disparaissait de l'appareil alors que la marchandise était
+   déjà remise. Et confirmSale() prenait n'importe quel JSON — un refus compris —
+   pour une vente terminée.
+
+   Ce bloc est volontairement sans dépendance à la page (stockage, réseau et
+   jeton lui sont passés) : il est exécuté tel quel par un test sous `node`.
+   ------------------------------------------------------------------ */
+var PosSync=(function(){
+  /* Que veut dire la réponse du serveur à UNE vente envoyée en ligne ?
+       ok      : enregistrée ;
+       refused : le serveur a LU la vente et dit non (409 stock, 422 invalide) —
+                 à montrer au caissier, pas à mettre en file ;
+       unknown : on ne sait pas si elle est passée (réseau, 5xx, 419, page de
+                 connexion…) — on la garde : la reprise est idempotente. */
+  function classify(status,body){
+    if(status>=200&&status<300&&body&&body.ok===true)return 'ok';
+    if(status===409||status===422)return 'refused';
+    return 'unknown';
+  }
+  function refusalMessage(body,fallback){
+    if(body){
+      if(typeof body.error==='string')return body.error;
+      if(body.errors&&typeof body.errors==='object'){var k=Object.keys(body.errors)[0];if(k&&body.errors[k]&&body.errors[k][0])return body.errors[k][0];}
+      if(typeof body.message==='string')return body.message;
+    }
+    return fallback;
+  }
+  function make(d){
+    var flushing=false;
+    /* Une file illisible n'est pas écrasée en silence : son contenu brut est mis
+       de côté sous `<clé>.corrompue` avant de repartir d'une file vide. */
+    function read(){
+      var raw=null;
+      try{raw=d.storage.getItem(d.key);var a=JSON.parse(raw||'[]');if(Array.isArray(a))return a;}catch(e){}
+      if(raw){try{d.storage.setItem(d.key+'.corrompue',raw);}catch(e){}}
+      return [];
+    }
+    function write(a){try{d.storage.setItem(d.key,JSON.stringify(a));return true;}catch(e){return false;}}
+    function notify(){if(d.onChange)d.onChange(read());}
+    /* Ajoute une vente. FAUX si elle n'a pas pu être écrite (stockage plein ou
+       interdit) : l'appelant ne doit alors JAMAIS dire « enregistrée ». */
+    function add(sale){var a=read();a.push(sale);var ok=write(a);notify();return ok;}
+    function pending(){return read().filter(function(e){return !e.rejected;});}
+    function attention(){return read().filter(function(e){return e.rejected;});}
+    function flush(){
+      if(flushing)return Promise.resolve('busy');
+      var batch=pending().slice(0,d.batch||50);
+      if(!batch.length)return Promise.resolve('empty');
+      flushing=true;
+      var done=function(r){flushing=false;return r;};
+      return d.fetchFn(d.url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':d.csrf()},body:JSON.stringify({sales:batch})})
+        .then(function(r){
+          if(!r.ok)throw new Error('http '+r.status);
+          return r.json();
+        })
+        .then(function(j){
+          var res=j&&j.results;
+          if(!Array.isArray(res))throw new Error('no results');
+          var acked={},refused={};
+          res.forEach(function(x){
+            if(!x||typeof x.client_uuid!=='string')return;
+            if(x.ok===true)acked[x.client_uuid]=true;
+            else if(x.ok===false)refused[x.client_uuid]=x;
+          });
+          /* On RELIT la file au moment d'écrire : une vente ajoutée pendant que
+             la requête voyageait n'est pas écrasée. */
+          var cur=read().filter(function(e){return !acked[e.client_uuid];});
+          cur.forEach(function(e){if(refused[e.client_uuid]){e.rejected={code:refused[e.client_uuid].code||'error',message:refused[e.client_uuid].message||null,ref:refused[e.client_uuid].ref||null,errors:refused[e.client_uuid].errors||null};}});
+          write(cur);notify();
+          return done('synced');
+        })
+        .catch(function(){return done('failed');}); // la file reste INTACTE
+    }
+    /* Remet les ventes refusées dans la file normale (le stock a été réapprovisionné…). */
+    function retryRejected(){var a=read();a.forEach(function(e){delete e.rejected;});var ok=write(a);notify();return ok;}
+    return {add:add,flush:flush,pending:pending,attention:attention,retryRejected:retryRejected,all:read};
+  }
+  return {classify:classify,refusalMessage:refusalMessage,make:make};
+})();
+/*POSSYNC-END*/
+var QUEUE=PosSync.make({storage:window.localStorage,key:QKEY,fetchFn:function(u,o){return window.fetch(u,o);},url:SYNC_URL,csrf:function(){return CSRF;},batch:50,onChange:function(){renderQueue();}});
+function flush(){return QUEUE.flush().then(function(){renderQueue();});}
+function renderQueue(){
+  var n=QUEUE.pending().length,bad=QUEUE.attention(),el=document.getElementById('attn'),net=document.getElementById('net');
+  if(net){var on=navigator.onLine;net.textContent=(on?'● online':'● offline')+(n?' · '+n+' '+@js(__('en attente')):'');}
+  if(!el)return;
+  if(!bad.length){el.style.display='none';return;}
+  el.style.display='block';
+  document.getElementById('attnTxt').textContent=bad.length+' '+@js(__('vente(s) refusée(s) par le serveur — à vérifier, elles restent sur cet appareil.'));
+}
+function showRefused(){
+  var lines=QUEUE.attention().map(function(e){var r=e.rejected||{};var items=(e.items||[]).map(function(i){return i.qty+'× '+i.name;}).join(', ');return (e.client_uuid||'').substr(0,8).toUpperCase()+' — '+items+' — '+(r.message||r.code||'')+(r.ref?' ['+r.ref+']':'');});
+  alert(lines.join('\n')||'—');
+}
+function retryRefused(){QUEUE.retryRejected();flush();}
+function copyRefused(){
+  var txt=JSON.stringify(QUEUE.attention(),null,1);
+  try{navigator.clipboard.writeText(txt).then(function(){alert(@js(__('Copié.')));},function(){prompt(@js(__('Copiez ceci')),txt);});}catch(e){prompt(@js(__('Copiez ceci')),txt);}
+}
+function refusedMsg(m){beep('error');alert(m);}
+function confirmSale(){var p={items:Object.values(cart),discount:parseFloat(document.getElementById('disc').value)||0,payments:payments(),customer_phone:document.getElementById('phone').value,client_uuid:uuid(),client_created_at:new Date().toISOString()};
+    if(!navigator.onLine){off(p);return;}
+    var status=0;
+    fetch(SALE_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(p)})
+      .then(function(r){status=r.status;return r.json();})
+      .then(function(d){
+        var c=PosSync.classify(status,d);
+        if(c==='ok'){ok(d.reference,p,d);}
+        else if(c==='refused'){refusedMsg(PosSync.refusalMessage(d,@js(__('Vente refusée.'))));}
+        else{off(p);}  // on ne sait pas si elle est passée : on la garde (reprise idempotente)
+      })
+      .catch(function(){off(p);});}
+function off(p){
+  /* JAMAIS « enregistrée » si l'écriture locale a échoué : stockage plein ou
+     interdit (navigation privée). Le caissier doit le savoir TOUT DE SUITE,
+     pas découvrir plus tard que la vente n'a jamais existé. */
+  if(!QUEUE.add(p)){beep('error');alert(@js(__('Cette vente n\'a PAS pu être enregistrée sur cet appareil (stockage plein ou bloqué). Ne la considérez pas comme faite.')));return;}
+  ok(p.client_uuid.substr(0,8).toUpperCase()+' ('+@js(__('hors-ligne'))+')',p);}
 function ok(ref,p,srv){beep('success');closePay();document.getElementById('dref').textContent=ref;
     // La référence n'est retenue que si le SERVEUR l'a donnée : hors ligne, la
     // vente n'existe pas encore en base et son reçu n'est pas imprimable.

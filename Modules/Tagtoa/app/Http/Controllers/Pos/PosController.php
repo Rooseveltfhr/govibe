@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Exceptions\InsufficientStockException;
@@ -77,23 +80,7 @@ class PosController extends Controller
     public function sale(Request $request, int $id): JsonResponse
     {
         $terminal = $this->own($id);
-        $data = $request->validate([
-            'items'              => ['required', 'array', 'min:1'],
-            'items.*.name'       => ['required', 'string', 'max:120'],
-            'items.*.price'      => ['required', 'numeric', 'min:0'],
-            // DÉCIMAL : le riz se vend à la mamit, la viande à la livre. Un
-            // « integer » ici bloquait 2,5 livres alors que la caisse et la
-            // base savent les traiter depuis 0.2b.
-            'items.*.qty'        => ['required', 'numeric', 'min:0', 'max:999999'],
-            // « menu:7 » / « pos:7 ». `product_id` reste accepté : une caisse
-            // déjà installée ne doit pas s'arrêter de vendre à la mise à jour.
-            'items.*.ref'        => ['nullable', 'string', 'max:30'],
-            'items.*.product_id' => ['nullable', 'integer'],
-            'discount'           => ['nullable', 'numeric', 'min:0'],
-            'payments'           => ['nullable', 'array'],
-            'customer_phone'     => ['nullable', 'string', 'max:40'],
-            'client_uuid'        => ['nullable', 'string', 'max:64'],
-        ]);
+        $data = $request->validate($this->saleRules());
 
         try {
             $sale = $this->service->recordSale($terminal, $data, $this->currentStaff($terminal));
@@ -118,6 +105,33 @@ class PosController extends Controller
         ]);
     }
 
+    /**
+     * Les règles d'une vente — UNE seule définition, pour la vente en ligne
+     * (`sale()`) ET pour la reprise hors ligne (`sync()`). Avant, `sync()` ne
+     * validait rien : un lot mal formé finissait en exception, et le message
+     * de l'exception retournait à la caisse.
+     */
+    private function saleRules(): array
+    {
+        return [
+            'items'              => ['required', 'array', 'min:1'],
+            'items.*.name'       => ['required', 'string', 'max:120'],
+            'items.*.price'      => ['required', 'numeric', 'min:0'],
+            // DÉCIMAL : le riz se vend à la mamit, la viande à la livre. Un
+            // « integer » ici bloquait 2,5 livres alors que la caisse et la
+            // base savent les traiter depuis 0.2b.
+            'items.*.qty'        => ['required', 'numeric', 'min:0', 'max:999999'],
+            // « menu:7 » / « pos:7 ». `product_id` reste accepté : une caisse
+            // déjà installée ne doit pas s'arrêter de vendre à la mise à jour.
+            'items.*.ref'        => ['nullable', 'string', 'max:30'],
+            'items.*.product_id' => ['nullable', 'integer'],
+            'discount'           => ['nullable', 'numeric', 'min:0'],
+            'payments'           => ['nullable', 'array'],
+            'customer_phone'     => ['nullable', 'string', 'max:40'],
+            'client_uuid'        => ['nullable', 'string', 'max:64'],
+        ];
+    }
+
     /** Message lisible depuis une rupture de stock détectée à l'encaissement. */
     private function messageStockInsuffisant(InsufficientStockException $e): string
     {
@@ -132,27 +146,69 @@ class PosController extends Controller
         return __('Stock insuffisant pour « :nom » (reste :reste).', ['nom' => $e->productName, 'reste' => $reste]);
     }
 
+    /**
+     * Reprise des ventes faites HORS LIGNE.
+     *
+     * Le contrat avec la caisse : une entrée de `results` par vente reçue, dans
+     * l'ordre, et la caisse ne retire de sa file QUE celles marquées `ok:true`.
+     * Tout le reste — refus, erreur, réponse illisible — reste sur l'appareil.
+     *
+     * Codes d'échec (`code`), stables et sans détail interne :
+     *   - invalid : la vente est mal formée (`errors` dit quels champs) ;
+     *   - stock   : le stock ne suffit plus (message métier, sans SQL) ;
+     *   - error   : tout le reste. Aucun texte d'exception ne sort : il est
+     *               journalisé côté serveur sous un numéro de suivi (`ref`) que
+     *               le caissier peut donner au support.
+     */
     public function sync(Request $request, int $id): JsonResponse
     {
         $terminal = $this->own($id);
+        $batch = $request->validate([
+            'sales' => ['required', 'array', 'min:1', 'max:50'],
+        ])['sales'];
+
         // Employé au poste au moment de la REPRISE. La caisse hors-ligne rejoue
         // ses ventes dès le retour du réseau, donc en pratique la même personne
         // — et si le poste a été fermé entre-temps, la vente revient au patron
         // plutôt que d'être attribuée à qui a repris le comptoir.
         $staff = $this->currentStaff($terminal);
         $results = [];
-        foreach ($request->input('sales', []) as $payload) {
+        foreach ($batch as $payload) {
+            $payload = is_array($payload) ? $payload : [];
+            $uuid = isset($payload['client_uuid']) && is_string($payload['client_uuid']) ? $payload['client_uuid'] : null;
+
+            // Sans clé d'idempotence, la caisse ne pourrait jamais savoir que la
+            // vente est passée : elle est refusée plutôt que reprise à l'aveugle.
+            $validator = Validator::make($payload, array_merge($this->saleRules(), [
+                'client_uuid'       => ['required', 'string', 'max:64'],
+                'client_created_at' => ['nullable', 'string', 'max:40'],
+            ]));
+            if ($validator->fails()) {
+                $results[] = ['client_uuid' => $uuid, 'ok' => false, 'code' => 'invalid', 'errors' => $validator->errors()->keys()];
+
+                continue;
+            }
+
             try {
-                $sale = $this->service->recordSale($terminal, $payload, $staff);
-                $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => true, 'reference' => $sale->reference];
+                $sale = $this->service->recordSale($terminal, $validator->validated(), $staff);
+                $results[] = ['client_uuid' => $uuid, 'ok' => true, 'reference' => $sale->reference];
             } catch (InsufficientStockException $e) {
                 // Vente faite hors ligne pendant que le stock s'épuisait
                 // ailleurs : elle ne peut pas être rejouée telle quelle. Le
                 // caissier le voit au retour du réseau plutôt que de croire
                 // une vente acquise qui ne l'est pas.
-                $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => false, 'error' => $this->messageStockInsuffisant($e)];
+                // `error` est l'ancien nom du champ, gardé pour les caisses déjà
+                // installées ; `message` est le nom du contrat actuel. Texte métier
+                // (nom d'article, quantité restante), jamais d'exception.
+                $msg = $this->messageStockInsuffisant($e);
+                $results[] = ['client_uuid' => $uuid, 'ok' => false, 'code' => 'stock', 'message' => $msg, 'error' => $msg];
             } catch (\Throwable $e) {
-                $results[] = ['client_uuid' => $payload['client_uuid'] ?? null, 'ok' => false, 'error' => $e->getMessage()];
+                // JAMAIS getMessage() : une QueryException contient le SQL, les
+                // noms de tables et les valeurs liées.
+                $ref = Str::upper(Str::random(8));
+                report($e);
+                Log::error('pos.sync.error', ['ref' => $ref, 'terminal' => $terminal->id, 'client_uuid' => $uuid, 'exception' => $e::class]);
+                $results[] = ['client_uuid' => $uuid, 'ok' => false, 'code' => 'error', 'ref' => $ref];
             }
         }
 
