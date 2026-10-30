@@ -740,7 +740,7 @@
             document.getElementById('aisheet').classList.add('show');
             var log = document.getElementById('aiLog');
             if (!log.children.length){
-                aiBulle({{ json_encode(__('Dites-moi ce que vous voulez commander, en une phrase.')) }}, 'bot');
+                aiBulle(@json(__('Dites-moi ce que vous voulez commander, en une phrase.')), 'bot');
             }
             document.getElementById('aiInput').focus();
         }
@@ -772,10 +772,10 @@
                     });
 
                     var reponse = [];
-                    if (ajoutes.length){ reponse.push({{ json_encode(__('Ajouté au panier :')) }} + ' ' + ajoutes.join(', ') + '.'); }
-                    if (besoinOptions.length){ reponse.push({{ json_encode(__('Ces articles ont des options à choisir, ajoutez-les depuis la carte :')) }} + ' ' + besoinOptions.join(', ') + '.'); }
-                    if (res.unmatched && res.unmatched.length){ reponse.push({{ json_encode(__('Je n\'ai pas trouvé sur la carte :')) }} + ' ' + res.unmatched.join(', ') + '.'); }
-                    if (!reponse.length){ reponse.push({{ json_encode(__('Je n\'ai rien reconnu. Essayez avec le nom exact d\'un plat de la carte.')) }}); }
+                    if (ajoutes.length){ reponse.push(@json(__('Ajouté au panier :')) + ' ' + ajoutes.join(', ') + '.'); }
+                    if (besoinOptions.length){ reponse.push(@json(__('Ces articles ont des options à choisir, ajoutez-les depuis la carte :')) + ' ' + besoinOptions.join(', ') + '.'); }
+                    if (res.unmatched && res.unmatched.length){ reponse.push(@json(__('Je n\'ai pas trouvé sur la carte :')) + ' ' + res.unmatched.join(', ') + '.'); }
+                    if (!reponse.length){ reponse.push(@json(__('Je n\'ai rien reconnu. Essayez avec le nom exact d\'un plat de la carte.'))); }
 
                     aiBulle(reponse.join(' '), 'bot');
                 })

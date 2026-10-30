@@ -36,6 +36,12 @@ use Modules\Tagtoa\App\Http\Controllers\Site\PublicController as SitePublic;
 // (un seul route sur `/`) pour ne pas casser les `route('home')` du back-office
 // Biztap (ex. page de login qui plantait avec « Route [home] not defined »).
 Route::get('/', [LandingController::class, 'index'])->name('home');
+// DOIT rester AVANT `/pay/{alias}` : Laravel retient la première route qui
+// correspond, donc déclarée après, « result » était lu comme l'alias d'une page
+// de paiement et finissait en 404 — alors que CheckoutController::return() y
+// redirige chaque client qui vient de payer en ligne, et que les `cancel_url`
+// de Stripe, PayPal et CoinPayments y pointent aussi.
+Route::get('/pay/result', [\Modules\Tagtoa\App\Http\Controllers\Pay\CheckoutController::class, 'result'])->name('tagtoa.pay.result');
 Route::get('/pay/{alias}', [PayPublic::class, 'show'])->name('tagtoa.pay.show');
 Route::get('/pay/{alias}/checkout/{method}', [PayPublic::class, 'checkout'])->name('tagtoa.pay.checkout');
 // Paiement par CARTE TAGTOA (closed-loop) : tap NFC/UID + PIN → débit instantané.
@@ -44,7 +50,7 @@ Route::post('/pay/{alias}/card/charge', [PayPublic::class, 'cardCharge'])->middl
 Route::get('/card/recharge', [\Modules\Tagtoa\App\Http\Controllers\Card\PublicController::class, 'recharge'])->name('tagtoa.card.recharge');
 Route::post('/card/recharge', [\Modules\Tagtoa\App\Http\Controllers\Card\PublicController::class, 'start'])->middleware('throttle:20,1')->name('tagtoa.card.recharge.start');
 // Paiement en ligne via passerelle API (MonCash…). Public.
-Route::get('/pay/result', [\Modules\Tagtoa\App\Http\Controllers\Pay\CheckoutController::class, 'result'])->name('tagtoa.pay.result');
+// (`/pay/result` est déclarée plus haut, avant `/pay/{alias}` — voir le commentaire.)
 Route::get('/pay/checkout/{gateway}/{type}/{orderId}', [\Modules\Tagtoa\App\Http\Controllers\Pay\CheckoutController::class, 'start'])->middleware('throttle:30,1')->name('tagtoa.pay.online.start');
 Route::get('/pay/{gateway}/return', [\Modules\Tagtoa\App\Http\Controllers\Pay\CheckoutController::class, 'return'])->name('tagtoa.pay.online.return');
 Route::post('/pay/{gateway}/webhook', [\Modules\Tagtoa\App\Http\Controllers\Pay\CheckoutController::class, 'webhook'])->middleware('throttle:60,1')->name('tagtoa.pay.online.webhook');

@@ -75,11 +75,20 @@ class PaymentPage extends Model
         'tagtoa_card' => ['label' => 'Carte TAGTOA',           'icon' => 'fa-solid fa-id-card',               'region' => 'tagtoa'],
     ];
 
+    /**
+     * Alias qu'une page ne peut pas porter : ils sont déjà une route fixe sous
+     * /pay/. « result » est la page où atterrit tout client après un paiement
+     * en ligne — une page de ce nom serait soit injoignable (la route fixe
+     * passe avant), soit, si l'ordre des routes changeait un jour, la page que
+     * voient TOUS les clients de TOUS les marchands après avoir payé.
+     */
+    public const RESERVED_ALIASES = ['result'];
+
     public static function generateAlias(string $base): string
     {
         $slug = Str::slug($base) ?: 'pay';
         $alias = $slug; $i = 1;
-        while (static::query()->where('alias', $alias)->exists()) {
+        while (in_array($alias, self::RESERVED_ALIASES, true) || static::query()->where('alias', $alias)->exists()) {
             $alias = $slug.'-'.(++$i);
         }
         return $alias;
