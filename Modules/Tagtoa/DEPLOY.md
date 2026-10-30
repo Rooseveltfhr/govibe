@@ -53,6 +53,33 @@ Laravel 10.18, `nwidart/laravel-modules`, `simple-qrcode`, `stancl/tenancy`,
 `spatie/permission`, `app/helpers.php`. Rien à installer.
 
 ## 1. Sauvegarde (toujours avant un déploiement)
+
+**Automatique.** `deploy/remote-deploy.sh` lance `php artisan tagtoa:backup-db --if-pending`
+AVANT la mise en maintenance, dès qu'une migration est en attente. Le dump est
+compressé, vérifié (archive lisible + pied de page du dump présent), écrit en
+`0600` dans `storage/app/backups/` (dossier `0700`), et les 14 plus récents sont
+conservés (`TAGTOA_BACKUP_KEEP`).
+
+| Variable | Effet |
+|---|---|
+| `TAGTOA_BACKUP_REQUIRED=1` | Si la sauvegarde échoue, le déploiement s'arrête AVANT la maintenance (site intact). Par défaut : avertissement bruyant puis poursuite. |
+| `TAGTOA_BACKUP_SKIP=1` | Ignore la sauvegarde. |
+| `TAGTOA_BACKUP_KEEP=N` | Nombre de sauvegardes conservées. |
+| `TAGTOA_SEED_DEMO=1` | Réactive le seed de démo (désormais DÉSACTIVÉ par défaut en production). |
+
+⚠️ Le dump contient TOUT, secrets des passerelles compris. Il reste sur le même
+serveur que la base : ce n'est pas une sauvegarde hors site. Copiez-le ailleurs
+(décision D9 : propriétaire et rétention à fixer).
+
+**Restaurer** (le site en maintenance : `php artisan down`) :
+```bash
+gunzip -c storage/app/backups/tagtoa-db-AAAAMMJJ-HHMMSS.sql.gz | mysql -u <DB_USER> -p <DB_NAME>
+php artisan optimize:clear && php artisan up
+```
+Le fichier restaure l'état d'AVANT la migration : toute vente enregistrée entre le
+dump et la restauration est perdue — d'où la maintenance pendant la migration.
+
+**À la main** (hors déploiement) :
 ```bash
 cd /var/www/biztap
 mysqldump -u <DB_USER> -p <DB_NAME> > ~/backup-$(date +%F-%H%M).sql
