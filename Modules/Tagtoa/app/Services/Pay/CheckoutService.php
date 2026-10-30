@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Services\Pay;
 
+use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Pay\PayTransaction;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
 use Modules\Tagtoa\App\Services\Notifications\NotificationService;
@@ -80,8 +81,50 @@ class CheckoutService
         return $driver->createPayment($txn);
     }
 
-    /** Confirme une transaction par sa référence. Retourne true si payée. */
+    /**
+     * Confirme une transaction par sa référence. Retourne true si payée.
+     *
+     * Deux défauts d'avant, tous deux sur de l'argent réel :
+     *
+     *  1. PAS ATOMIQUE. La transaction passait « payée », puis le grand livre,
+     *     puis la commande/l'abonnement/la recharge, chacun sa propre écriture.
+     *     Une panne au milieu (base qui lâche, exception dans applyPaid) laissait
+     *     la transaction « payée » et la commande NON payée — et comme la
+     *     transaction est déjà payée, plus aucun retour ni webhook ne
+     *     réessayait. Le client avait payé, le marchand ne le voyait jamais.
+     *
+     *  2. COURSE. `isPaid()` se lisait sur une copie périmée, hors verrou : le
+     *     retour du client et le webhook de la passerelle arrivent presque
+     *     ensemble, et les deux appliquaient le paiement (commission, points
+     *     fidélité, notification en double).
+     *
+     * Maintenant : l'appel à la passerelle (réseau, lent) reste HORS de toute
+     * transaction ; ensuite, sous verrou sur la ligne, on relit l'état réel et
+     * on applique tout d'un bloc ou rien. Un échec annule le tout — la
+     * transaction reste « en attente » et le prochain retour/webhook réessaie.
+     */
     public function confirm(string $reference): bool
+    {
+        try {
+            return $this->confirmOrFail($reference);
+        } catch (\Throwable $e) {
+            // Annulé en bloc : la transaction est restée « en attente ». On le
+            // signale (supervision) sans faire échouer le retour du client.
+            // Le WEBHOOK, lui, passe par confirmOrFail() : il doit répondre 500
+            // pour que la passerelle rejoue — voir CheckoutController::webhook().
+            report($e);
+
+            return false;
+        }
+    }
+
+    /**
+     * Comme confirm(), mais l'échec d'application remonte. Pour le webhook : un
+     * 200 dirait à la passerelle « bien reçu » alors que le paiement est
+     * revenu en attente — elle ne rejouerait jamais, et si le client ne
+     * revient pas sur le site, la commande resterait impayée pour toujours.
+     */
+    public function confirmOrFail(string $reference): bool
     {
         $txn = PayTransaction::where('reference', $reference)->first();
         if (! $txn) {
@@ -97,21 +140,53 @@ class CheckoutService
         }
 
         $status = $driver->verify($txn);
-        if ($status === 'paid') {
-            $avant = $txn->status;
-            $txn->update(['status' => PayTransaction::STATUS_PAID, 'paid_at' => now()]);
-            $this->ledger->record($txn, $avant, PayTransaction::STATUS_PAID);
-            $this->applyPaid($txn);
 
-            return true;
+        if ($status === 'paid') {
+            return $this->settle($txn, PayTransaction::STATUS_PAID);
         }
         if ($status === 'failed') {
-            $avant = $txn->status;
-            $txn->update(['status' => PayTransaction::STATUS_FAILED]);
-            $this->ledger->record($txn, $avant, PayTransaction::STATUS_FAILED);
+            $this->settle($txn, PayTransaction::STATUS_FAILED);
         }
 
         return false;
+    }
+
+    /**
+     * Fait passer une transaction de « en attente » à `$to`, et applique ses
+     * effets, dans UNE transaction sous verrou. Retourne true seulement pour
+     * « payée » (par nous ou par une requête concurrente).
+     *
+     * Jamais l'inverse de ce qu'une autre requête a déjà fait : une transaction
+     * déjà payée n'est ni rejouée, ni repassée « échouée ».
+     */
+    protected function settle(PayTransaction $txn, string $to): bool
+    {
+        return DB::transaction(function () use ($txn, $to) {
+            $locked = PayTransaction::whereKey($txn->getKey())->lockForUpdate()->first();
+            if (! $locked) {
+                return false;
+            }
+            if ($locked->isPaid()) {
+                return true; // une autre requête a gagné : elle a tout appliqué
+            }
+            if ($to === PayTransaction::STATUS_FAILED && $locked->status !== PayTransaction::STATUS_PENDING) {
+                return false; // déjà échouée : rien à refaire
+            }
+
+            $avant = $locked->status;
+            if ($to === PayTransaction::STATUS_PAID) {
+                $locked->update(['status' => $to, 'paid_at' => now()]);
+            } else {
+                $locked->update(['status' => $to]);
+            }
+            $this->ledger->record($locked, $avant, $to);
+
+            if ($to === PayTransaction::STATUS_PAID) {
+                $this->applyPaid($locked);
+            }
+
+            return $to === PayTransaction::STATUS_PAID;
+        });
     }
 
     /**
@@ -265,7 +340,7 @@ class CheckoutService
                 app(\Modules\Tagtoa\App\Services\Menu\MenuOrderService::class)->markPaid($order, (string) $txn->gateway);
                 break;
             case 'event':
-                app(\Modules\Tagtoa\App\Services\Event\TicketService::class)->markPaid($order, 'moncash');
+                app(\Modules\Tagtoa\App\Services\Event\TicketService::class)->markPaid($order, (string) $txn->gateway);
                 app(RevenueService::class)->record('event_order', $order->id, 'event', (float) $order->total, $order->tenant_id, $order->currency);
                 break;
         }
