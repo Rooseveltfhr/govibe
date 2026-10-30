@@ -19,6 +19,7 @@ namespace Modules\Tagtoa\Tests\Feature;
 */
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Menu\Category;
 use Modules\Tagtoa\App\Models\Menu\Item;
 use Modules\Tagtoa\App\Models\Menu\Menu;
@@ -26,6 +27,7 @@ use Modules\Tagtoa\App\Models\Menu\Order;
 use Modules\Tagtoa\App\Models\Pay\PaymentLedgerEntry;
 use Modules\Tagtoa\App\Models\Pay\PayTransaction;
 use Modules\Tagtoa\App\Services\Menu\MenuOrderService;
+use Modules\Tagtoa\App\Services\Notifications\NotificationService;
 use Modules\Tagtoa\App\Services\Pay\CheckoutService;
 use Modules\Tagtoa\App\Support\Gateways\GatewayDriver;
 use Modules\Tagtoa\Tests\TestCase;
@@ -78,6 +80,17 @@ class TestableCheckout extends CheckoutService
             throw new \RuntimeException('panne simulée dans applyPaid');
         }
         parent::applyPaid($txn);
+    }
+}
+
+/** Compte les envois réels, sans rien envoyer. */
+class SpyNotifications extends NotificationService
+{
+    public int $sent = 0;
+
+    protected function deliverPaymentReceived($page, $proof): void
+    {
+        $this->sent++;
     }
 }
 
@@ -185,5 +198,62 @@ class PayConfirmAtomicTest extends TestCase
 
         $this->assertSame('failed', $txn->fresh()->status);
         $this->assertSame(1, $this->ledgerRows($txn), 'Un verdict « échoué » rejoué ne réécrit pas le grand livre.');
+    }
+
+    /* ---------- le webhook doit pouvoir être rejoué ---------- */
+
+    public function test_the_webhook_answers_500_when_the_payment_could_not_be_applied_so_the_gateway_retries(): void
+    {
+        [$order, $txn] = $this->orderAndTxn();
+        $svc = new TestableCheckout(new FakeGatewayDriver('paid'));
+        $svc->failApplyTimes = 1;
+        $this->app->instance(CheckoutService::class, $svc);
+
+        $this->postJson(route('tagtoa.pay.online.webhook', 'moncash'), ['reference' => $txn->reference])->assertStatus(500);
+        $this->assertSame('pending', $txn->fresh()->status);
+
+        // La passerelle rejoue : cette fois ça passe.
+        $this->postJson(route('tagtoa.pay.online.webhook', 'moncash'), ['reference' => $txn->reference])
+            ->assertOk()->assertJson(['ok' => true]);
+        $this->assertTrue($order->fresh()->isPaid());
+    }
+
+    public function test_the_customer_return_page_never_shows_a_500_when_applying_fails(): void
+    {
+        [, $txn] = $this->orderAndTxn();
+        $svc = new TestableCheckout(new FakeGatewayDriver('paid'));
+        $svc->failApplyTimes = 1;
+        $this->app->instance(CheckoutService::class, $svc);
+
+        $this->get(route('tagtoa.pay.online.return', ['gateway' => 'moncash', 'reference' => $txn->reference]))
+            ->assertRedirect(route('tagtoa.pay.result'))
+            ->assertSessionHas('pay_status', 'pending');
+    }
+
+    /* ---------- aucun envoi réseau sous verrou ---------- */
+
+    public function test_notifications_wait_for_the_commit_and_vanish_on_rollback(): void
+    {
+        $spy = new SpyNotifications();
+        $page = new \stdClass();
+        $proof = new \stdClass();
+
+        DB::transaction(function () use ($spy, $page, $proof) {
+            $spy->notifyPaymentReceived($page, $proof);
+            $this->assertSame(0, $spy->sent, 'Pas d\'envoi tant que la transaction est ouverte.');
+        });
+        $this->assertSame(1, $spy->sent, 'Envoyé après le commit.');
+
+        try {
+            DB::transaction(function () use ($spy, $page, $proof) {
+                $spy->notifyPaymentReceived($page, $proof);
+                throw new \RuntimeException('annulé');
+            });
+        } catch (\RuntimeException) {
+        }
+        $this->assertSame(1, $spy->sent, 'Une transaction annulée n\'envoie rien — donc rien en double au réessai.');
+
+        $spy->notifyPaymentReceived($page, $proof); // hors transaction : immédiat, comme avant
+        $this->assertSame(2, $spy->sent);
     }
 }

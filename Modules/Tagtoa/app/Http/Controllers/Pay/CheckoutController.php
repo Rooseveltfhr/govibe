@@ -47,14 +47,19 @@ class CheckoutController extends Controller
         return redirect()->route('tagtoa.pay.result')->with('pay_status', $paid ? 'paid' : 'pending');
     }
 
-    /** Webhook/IPN passerelle (idempotent). Répond toujours 200. */
+    /**
+     * Webhook/IPN passerelle (idempotent). 200 quand c'est traité — ou sans
+     * objet (référence absente, signature invalide). 500 si le paiement n'a pas
+     * pu être APPLIQUÉ : la passerelle rejoue alors, et la transaction, revenue
+     * « en attente » (voir CheckoutService::settle()), est reprise.
+     */
     public function webhook(Request $request, string $gateway)
     {
         $ref = $this->webhookReference($request, $gateway);
         if ($ref) {
             // confirm() re-vérifie l'état auprès de la passerelle (source de vérité) :
             // un webhook falsifié ne peut donc pas marquer une commande payée.
-            app(CheckoutService::class)->confirm($ref);
+            app(CheckoutService::class)->confirmOrFail($ref);
         }
 
         return response()->json(['ok' => true]);

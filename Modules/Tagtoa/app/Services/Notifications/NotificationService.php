@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Services\Notifications;
 
+use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Loyalty\Transaction;
 use Modules\Tagtoa\App\Models\Menu\Order;
 
@@ -224,6 +225,15 @@ class NotificationService
      */
     public function notifyLoyaltyMovement($card, $transaction): void
     {
+        // Jamais d'envoi réseau (mail, WhatsApp) tant qu'une transaction de
+        // base est ouverte : il tiendrait ses verrous le temps de l'envoi, et
+        // serait DOUBLÉ si la transaction était annulée puis rejouée. Après
+        // le commit — ou tout de suite s'il n'y en a pas.
+        DB::afterCommit(fn () => $this->deliverLoyaltyMovement($card, $transaction));
+    }
+
+    protected function deliverLoyaltyMovement($card, $transaction): void
+    {
         try {
             $card->loadMissing('program');
             $program = $card->program;
@@ -308,6 +318,15 @@ class NotificationService
      * Tolérant : aucune exception ne remonte jusqu'au paiement lui-même.
      */
     public function notifyPaymentReceived($page, $proof): void
+    {
+        // Jamais d'envoi réseau (mail, WhatsApp) tant qu'une transaction de
+        // base est ouverte : il tiendrait ses verrous le temps de l'envoi, et
+        // serait DOUBLÉ si la transaction était annulée puis rejouée. Après
+        // le commit — ou tout de suite s'il n'y en a pas.
+        DB::afterCommit(fn () => $this->deliverPaymentReceived($page, $proof));
+    }
+
+    protected function deliverPaymentReceived($page, $proof): void
     {
         try {
             $messages = self::paymentReceivedMessages([

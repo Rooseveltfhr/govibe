@@ -105,6 +105,27 @@ class CheckoutService
      */
     public function confirm(string $reference): bool
     {
+        try {
+            return $this->confirmOrFail($reference);
+        } catch (\Throwable $e) {
+            // Annulé en bloc : la transaction est restée « en attente ». On le
+            // signale (supervision) sans faire échouer le retour du client.
+            // Le WEBHOOK, lui, passe par confirmOrFail() : il doit répondre 500
+            // pour que la passerelle rejoue — voir CheckoutController::webhook().
+            report($e);
+
+            return false;
+        }
+    }
+
+    /**
+     * Comme confirm(), mais l'échec d'application remonte. Pour le webhook : un
+     * 200 dirait à la passerelle « bien reçu » alors que le paiement est
+     * revenu en attente — elle ne rejouerait jamais, et si le client ne
+     * revient pas sur le site, la commande resterait impayée pour toujours.
+     */
+    public function confirmOrFail(string $reference): bool
+    {
         $txn = PayTransaction::where('reference', $reference)->first();
         if (! $txn) {
             return false;
@@ -120,18 +141,11 @@ class CheckoutService
 
         $status = $driver->verify($txn);
 
-        try {
-            if ($status === 'paid') {
-                return $this->settle($txn, PayTransaction::STATUS_PAID);
-            }
-            if ($status === 'failed') {
-                $this->settle($txn, PayTransaction::STATUS_FAILED);
-            }
-        } catch (\Throwable $e) {
-            // Annulé en bloc : la transaction est restée « en attente ». On le
-            // signale (supervision) sans faire échouer le retour du client ni
-            // le webhook, que la passerelle rejouera.
-            report($e);
+        if ($status === 'paid') {
+            return $this->settle($txn, PayTransaction::STATUS_PAID);
+        }
+        if ($status === 'failed') {
+            $this->settle($txn, PayTransaction::STATUS_FAILED);
         }
 
         return false;
