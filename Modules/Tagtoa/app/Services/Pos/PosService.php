@@ -133,7 +133,10 @@ class PosService
         $claimedText = is_scalar($claimed) ? mb_substr((string) $claimed, 0, 40) : '(illisible)';
 
         try {
-            $at = Carbon::parse((string) $claimed);
+            // Ramené au fuseau de l'application : Carbon garde le fuseau du texte
+            // (« …-04:00 ») et Eloquent écrit l'heure MURALE sans la convertir —
+            // la vente serait enregistrée avec des heures de décalage.
+            $at = Carbon::parse((string) $claimed)->setTimezone($now->getTimezone());
         } catch (\Throwable $e) {
             return [$now, ['reason' => 'invalid', 'claimed' => $claimedText]];
         }

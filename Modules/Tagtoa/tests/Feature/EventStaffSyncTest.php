@@ -31,6 +31,17 @@ use Modules\Tagtoa\App\Models\Event\Ticket;
 use Modules\Tagtoa\App\Services\Event\CheckinService;
 use Modules\Tagtoa\Tests\TestCase;
 
+/** Compte les « entrée confirmée » (WhatsApp/email), sans rien envoyer. */
+class NotifySpyCheckin extends CheckinService
+{
+    public int $notified = 0;
+
+    protected function notifyEntry(Event $event, Ticket $ticket): void
+    {
+        $this->notified++;
+    }
+}
+
 class EventStaffSyncTest extends TestCase
 {
     use RefreshDatabase;
@@ -275,6 +286,108 @@ class EventStaffSyncTest extends TestCase
         app(CheckinService::class)->processScan($e, 'TLIVE');
 
         $this->assertSame('2026-03-01 12:00:00', Checkin::first()->scanned_at->format('Y-m-d H:i:s'));
+    }
+
+
+    /* ---------- relevé à la revue : l'horloge de l'appareil ne choisit pas le jour ---------- */
+
+    public function test_a_ticket_already_admitted_today_cannot_be_admitted_again_with_a_backdated_time(): void
+    {
+        $e = $this->event(); // jours d'événement : hier, aujourd'hui, demain
+        $staff = $this->staff($e);
+        $t = $this->ticket($e, 'TREUSE');
+        app(CheckinService::class)->processScan($e, 'TREUSE'); // entrée réelle, maintenant
+
+        // Même personne, ou complice : nouvelle clé, heure d'HIER.
+        $res = $this->sync($e, $staff, [
+            $this->rec('bd1', ['code' => 'TREUSE', 'at' => now()->subHours(24)->toIso8601String()]),
+            $this->rec('bd2', ['code' => 'TREUSE', 'at' => now()->subHours(30)->toIso8601String()]),
+        ])->assertOk()->json('results');
+
+        $this->assertSame('refused', $res[0]['status']);
+        $this->assertSame('backdated_reentry', $res[0]['reason']);
+        $this->assertSame('refused', $res[1]['status']);
+        $this->assertSame(1, Checkin::where('ticket_id', $t->id)->count(), 'Une seule entrée : celle d\'aujourd\'hui.');
+        $this->assertSame(2, SyncConflict::where('kind', 'refused_scan')->count(), 'Les tentatives sont consignées.');
+    }
+
+    public function test_a_genuine_offline_scan_from_earlier_today_or_yesterday_is_still_admitted(): void
+    {
+        $e = $this->event();
+        $staff = $this->staff($e);
+        $this->ticket($e, 'TREEL');
+
+        $res = $this->sync($e, $staff, [$this->rec('g1', ['code' => 'TREEL', 'at' => now()->subHours(3)->toIso8601String()])])->assertOk()->json('results');
+
+        $this->assertSame('admitted', $res[0]['status'], 'Le correctif ne doit pas casser la reprise légitime.');
+    }
+
+    public function test_a_scan_time_on_a_day_the_event_does_not_run_is_not_trusted_and_is_flagged(): void
+    {
+        $e = $this->event('futur', ['starts_at' => now()->addDays(10)->toDateTimeString(), 'ends_at' => now()->addDays(11)->toDateTimeString()]);
+        $staff = $this->staff($e);
+        $this->ticket($e, 'TOUT');
+        $iso = now()->subHour()->toIso8601String();
+
+        $this->sync($e, $staff, [$this->rec('o1', ['code' => 'TOUT', 'at' => $iso])])->assertOk();
+
+        $this->assertLessThan(5, abs(Checkin::first()->scanned_at->timestamp - now()->timestamp), 'Heure du serveur.');
+        $c = SyncConflict::where('kind', 'time_flagged')->first();
+        $this->assertNotNull($c);
+        $this->assertSame('outside_event', $c->payload['detail']['reason']);
+    }
+
+    public function test_a_late_replay_is_recorded_but_does_not_notify_the_holder(): void
+    {
+        $e = $this->event();
+        $this->ticket($e, 'TLATE');
+        $this->ticket($e, 'TFRESH');
+        $this->ticket($e, 'TLIVE2');
+        $svc = app()->make(NotifySpyCheckin::class);
+
+        $svc->processScan($e, 'TLATE', 'in', 'qr', null, 'l1', null, now()->subHours(3));
+        $this->assertSame(0, $svc->notified, 'Scan vieux de 3 h : consigné, pas notifié.');
+
+        $svc->processScan($e, 'TFRESH', 'in', 'qr', null, 'l2', null, now()->subMinutes(2));
+        $this->assertSame(1, $svc->notified, 'Scan de moins de 15 min : notifié.');
+
+        $svc->processScan($e, 'TLIVE2');
+        $this->assertSame(2, $svc->notified, 'Scan en direct : notifié, comme avant.');
+    }
+
+    public function test_client_strings_stored_in_conflicts_are_capped_and_nested_values_dropped(): void
+    {
+        $e = $this->event();
+        $staff = $this->staff($e);
+
+        $res = $this->sync($e, $staff, [
+            $this->rec('big1', ['code' => str_repeat('A', 5000)]),
+            $this->rec('big2', ['uid' => str_repeat('B', 5000)]),
+            $this->rec('big3', ['code' => ['nested' => 'x'], 'at' => str_repeat('9', 5000)]),
+        ])->assertOk()->json('results');
+
+        $this->assertCount(3, $res);
+        foreach (SyncConflict::all() as $c) {
+            $r = $c->payload['record'];
+            $this->assertLessThanOrEqual(64, mb_strlen((string) ($r['code'] ?? '')));
+            $this->assertLessThanOrEqual(120, mb_strlen((string) ($r['uid'] ?? '')));
+            $this->assertLessThanOrEqual(40, mb_strlen((string) ($r['at'] ?? '')));
+        }
+        $this->assertLessThan(2000, strlen(json_encode(SyncConflict::all()->pluck('payload'))), 'Aucune chaîne de plusieurs Ko ne se retrouve en base.');
+    }
+
+    public function test_a_device_time_with_a_utc_offset_is_stored_as_the_same_instant(): void
+    {
+        $e = $this->event('festival2', ['starts_at' => '2026-08-14 18:00:00', 'ends_at' => '2026-08-15 23:00:00']);
+        $staff = $this->staff($e);
+        $this->ticket($e, 'TOFF');
+        Carbon::setTestNow('2026-08-15 02:00:00'); // UTC
+
+        // 22:00 à Port-au-Prince (UTC−4) le 14 = 02:00 UTC le 15 : le MÊME instant.
+        $this->sync($e, $staff, [$this->rec('z1', ['code' => 'TOFF', 'at' => '2026-08-14T22:00:00-04:00'])])->assertOk();
+
+        $this->assertSame('2026-08-15 02:00:00', Checkin::first()->scanned_at->format('Y-m-d H:i:s'), 'Pas de décalage de 4 h.');
+        $this->assertSame(0, SyncConflict::where('kind', 'time_flagged')->count());
     }
 
     /* ---------- accès et périmètre ---------- */

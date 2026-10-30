@@ -41,6 +41,8 @@ class CheckinService
     /** Fenêtre acceptée pour l'heure d'un scan rejoué hors ligne (même règle que la caisse POS). */
     public const OFFLINE_MAX_AGE_HOURS = 72;
     public const FUTURE_SKEW_MINUTES   = 5;
+    /** Au-delà, un scan rejoué est « tardif » : consigné, mais plus notifié. */
+    public const LATE_REPLAY_MINUTES   = 15;
 
     /**
      * L'heure d'un scan : celle de l'appareil (hors ligne) si elle est plausible.
@@ -54,7 +56,7 @@ class CheckinService
      *
      * @return array{0: Carbon, 1: array{reason:string, claimed:string}|null}
      */
-    public function resolveScanTime(mixed $claimed): array
+    public function resolveScanTime(mixed $claimed, ?Event $event = null): array
     {
         $now = now();
         if ($claimed === null || $claimed === '') {
@@ -63,7 +65,11 @@ class CheckinService
         $text = is_scalar($claimed) ? mb_substr((string) $claimed, 0, 40) : '(illisible)';
 
         try {
-            $at = Carbon::parse((string) $claimed);
+            // Ramené au fuseau de l'application : Carbon garde le fuseau du texte
+            // (« …-04:00 »), et Eloquent écrit l'heure MURALE sans le convertir —
+            // l'heure serait enregistrée avec des heures de décalage, et le JOUR
+            // du scan pourrait changer.
+            $at = Carbon::parse((string) $claimed)->setTimezone($now->getTimezone());
         } catch (\Throwable $e) {
             return [$now, ['reason' => 'invalid', 'claimed' => $text]];
         }
@@ -73,6 +79,18 @@ class CheckinService
         }
         if ($at->gt($now->copy()->addMinutes(self::FUTURE_SKEW_MINUTES))) {
             return [$now, ['reason' => 'future', 'claimed' => $text]];
+        }
+
+        // Un scan ne peut avoir eu lieu qu'un jour où l'événement se tient.
+        // Sans cela, l'appareil choisirait le JOUR du scan — donc le jour
+        // contre lequel on teste « déjà entré » — et un billet déjà entré
+        // aujourd'hui pourrait repasser avec une heure d'hier. Un événement
+        // sans dates n'impose rien : on ne peut pas juger.
+        if ($event !== null) {
+            $days = EventDays::list(optional($event->starts_at)->toDateString(), optional($event->ends_at)->toDateString());
+            if ($days !== [] && ! in_array($at->toDateString(), $days, true)) {
+                return [$now, ['reason' => 'outside_event', 'claimed' => $text]];
+            }
         }
 
         return [$at, null];
@@ -112,6 +130,22 @@ class CheckinService
             if ($enteredToday) {
                 return $this->r(false, 'orange', 'warning', __('Déjà entré aujourd\'hui.'), $ticket, 'duplicate_today');
             }
+
+            // Reprise hors ligne ANTIDATÉE (jour du scan antérieur à aujourd'hui) :
+            // si le billet est déjà entré aujourd'hui pour de bon, une entrée
+            // « d'hier » ne peut être qu'une seconde entrée déguisée — horloge
+            // d'appareil reculée, ou requête fabriquée. Elle est refusée et
+            // consignée ; l'entrée d'hier, si elle est réelle, reste visible dans
+            // les conflits à vérifier plutôt que d'ouvrir un contournement.
+            if ($scannedAt !== null && $today < now()->toDateString()) {
+                $enteredServerToday = Checkin::where('ticket_id', $ticket->id)
+                    ->where('direction', 'in')
+                    ->whereDate('scanned_at', now()->toDateString())
+                    ->exists();
+                if ($enteredServerToday) {
+                    return $this->r(false, 'orange', 'warning', __('Déjà entré aujourd\'hui.'), $ticket, 'backdated_reentry');
+                }
+            }
         }
         if ($direction === 'out' && ! $ticket->checked_in) {
             return $this->r(false, 'orange', 'warning', __('Pas encore entré.'), $ticket, 'not_yet_in');
@@ -139,7 +173,10 @@ class CheckinService
         });
 
         // Notifications hors transaction (tolérant) : organisateur + participant à l'entrée.
-        if ($entered) {
+        // Pas de « entrée confirmée » pour une REPRISE tardive : le message dirait
+        // l'heure du serveur, pas celle de l'entrée, et un scan antidaté ferait
+        // sonner le téléphone du porteur et la boîte de l'organisateur à chaque fois.
+        if ($entered && $at->gt(now()->subMinutes(self::LATE_REPLAY_MINUTES))) {
             $this->notifyEntry($event, $ticket);
         }
 

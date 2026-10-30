@@ -303,6 +303,21 @@ class PosSyncCorrectnessTest extends TestCase
         ];
     }
 
+    public function test_an_offline_time_with_a_utc_offset_is_stored_as_the_same_instant(): void
+    {
+        // Relevé après CS-1 : Carbon garde le fuseau du texte (« …-04:00 ») et
+        // Eloquent écrit l'heure MURALE sans la convertir : la vente était
+        // enregistrée 4 h trop tôt. (Le terminal envoie de l'UTC, donc rien de
+        // visible en production — mais un autre client, non.)
+        $t = $this->caisse();
+        $instant = now()->subHours(3)->startOfSecond();
+
+        $this->sync($t, [$this->vente('tz', ['client_created_at' => $instant->copy()->setTimezone('America/Port-au-Prince')->toIso8601String()])])->assertOk();
+
+        $this->assertSame($instant->timestamp, Sale::first()->sold_at->timestamp, 'Le même instant, pas décalé de 4 h.');
+        $this->assertSame(0, AuditLog::where('action', 'pos.sale_time_flagged')->count());
+    }
+
     public function test_the_window_edges_are_accepted(): void
     {
         $t = $this->caisse();

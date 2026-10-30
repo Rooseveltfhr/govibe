@@ -188,9 +188,8 @@ class StaffTerminalController extends Controller
         }
 
         foreach ($fresh as $r) {
-            $r = is_array($r) ? $r : [];
-            $uuid = isset($r['client_uuid']) && is_string($r['client_uuid']) && $r['client_uuid'] !== '' && strlen($r['client_uuid']) <= 64
-                ? $r['client_uuid'] : null;
+            $r = $this->cleanRecord($r);
+            $uuid = $r['client_uuid'];
             if ($uuid === null) {
                 // Sans clé, le terminal ne saurait jamais que le scan est passé.
                 $results[] = ['client_uuid' => null, 'status' => 'invalid', 'ack' => false];
@@ -199,7 +198,7 @@ class StaffTerminalController extends Controller
             }
 
             try {
-                [$scannedAt, $flag] = $svc->resolveScanTime($r['at'] ?? null);
+                [$scannedAt, $flag] = $svc->resolveScanTime($r['at'], $event);
                 [$code, $method] = $this->resolveCode($event, $r, $svc);
 
                 if (! $code) {
@@ -250,6 +249,29 @@ class StaffTerminalController extends Controller
             'conflicts'  => $conflicts,
             'results'    => $results,
         ]);
+    }
+
+    /**
+     * Un enregistrement venu du terminal, réduit à ce que la reprise lit — et
+     * BORNÉ : le client décide de la taille de ses chaînes, et chaque scan
+     * refusé ou non reconnu écrit maintenant une ligne de conflit. Valeurs non
+     * scalaires jetées, chaînes tronquées aux limites de checkin().
+     *
+     * @return array{client_uuid:?string, code:?string, uid:?string, at:?string}
+     */
+    protected function cleanRecord(mixed $r): array
+    {
+        $r = is_array($r) ? $r : [];
+        $str = fn ($v, int $max) => is_scalar($v) && (string) $v !== '' ? mb_substr((string) $v, 0, $max) : null;
+        $uuid = $str($r['client_uuid'] ?? null, 65);
+
+        return [
+            // Plus de 64 caractères : pas une clé que ce terminal a produite.
+            'client_uuid' => $uuid !== null && mb_strlen($uuid) <= 64 ? $uuid : null,
+            'code'        => $str($r['code'] ?? null, 64),
+            'uid'         => $str($r['uid'] ?? null, 120),
+            'at'          => $str($r['at'] ?? null, 40),
+        ];
     }
 
     /** Consigne un conflit à vérifier — idempotent par (événement, client_uuid, type). */
