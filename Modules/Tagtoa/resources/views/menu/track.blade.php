@@ -86,6 +86,12 @@
         @if($order->delivery_address)<div class="row"><span>{{ __('Adresse') }}</span><span>{{ $order->delivery_address }}</span></div>@endif
     </div>
 
+    @if(! empty($payUrl))
+        <a href="{{ $payUrl }}" style="display:flex;align-items:center;justify-content:center;gap:9px;background:#25D366;color:#fff;text-decoration:none;border-radius:14px;padding:15px;font:700 15px var(--fh);margin-bottom:10px">
+            <i class="fa-solid fa-credit-card"></i> {{ __('Payer maintenant') }}
+        </a>
+    @endif
+
     {{-- Le client a commandé, il n'a pas fini : il veut peut-être ajouter un
          plat ou regarder la carte. Sans ce lien, la seule issue était le
          bouton « retour » du navigateur. --}}

@@ -31,12 +31,15 @@ class Order extends Model
         'store_id', 'tenant_id', 'reference', 'subtotal', 'total', 'currency',
         'status', 'payment_status', 'channel', 'customer_name', 'customer_phone',
         'customer_address', 'note', 'client_uuid', 'placed_at',
+        'payment_claim', 'payment_claimed_at',
     ];
 
     protected $casts = [
         'subtotal'  => 'decimal:2',
         'total'     => 'decimal:2',
         'placed_at' => 'datetime',
+        'payment_claim' => 'array',
+        'payment_claimed_at' => 'datetime',
     ];
 
     public static function generateReference(): string

@@ -43,6 +43,14 @@ Route::get('/', [LandingController::class, 'index'])->name('home');
 // de Stripe, PayPal et CoinPayments y pointent aussi.
 Route::get('/pay/result', [\Modules\Tagtoa\App\Http\Controllers\Pay\CheckoutController::class, 'result'])->name('tagtoa.pay.result');
 Route::get('/pay/{alias}', [PayPublic::class, 'show'])->name('tagtoa.pay.show');
+// LA page « Payer » d'une commande (menu, boutique) : passerelles automatiques
+// configurées par le fondateur + moyens manuels du marchand. Sous /pay/order/,
+// donc jamais confondue avec un alias de page de paiement (`/pay/{alias}` n'a
+// qu'UN segment après /pay).
+Route::get('/pay/order/{type}/{reference}', [\Modules\Tagtoa\App\Http\Controllers\Pay\OrderPayController::class, 'show'])
+    ->middleware('throttle:60,1')->name('tagtoa.pay.order');
+Route::post('/pay/order/{type}/{reference}/claim', [\Modules\Tagtoa\App\Http\Controllers\Pay\OrderPayController::class, 'claim'])
+    ->middleware('throttle:10,1')->name('tagtoa.pay.order.claim');
 Route::get('/pay/{alias}/checkout/{method}', [PayPublic::class, 'checkout'])->name('tagtoa.pay.checkout');
 // Paiement par CARTE TAGTOA (closed-loop) : tap NFC/UID + PIN → débit instantané.
 Route::post('/pay/{alias}/card/charge', [PayPublic::class, 'cardCharge'])->middleware('throttle:20,1')->name('tagtoa.pay.card.charge');

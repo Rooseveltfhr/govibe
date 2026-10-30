@@ -67,20 +67,9 @@ class PublicController extends Controller
             'reference'    => $order->reference,
             'total'        => Money::format($order->total, $order->currency),
             'whatsapp_url' => $this->whatsappUrl($store, $order),
-            'pay_url'      => $store->payPage ? url('/pay/'.$store->payPage->alias) : null,
-            'checkout_url' => $this->onlineCheckoutUrl('store', $order->id, $order->currency),
+            'pay_url'      => \Modules\Tagtoa\App\Http\Controllers\Pay\OrderPayController::urlFor('store', $order),
+            'checkout_url' => null,
         ]);
-    }
-
-    /** URL de paiement en ligne (MonCash) si la passerelle est active et devise HTG. */
-    protected function onlineCheckoutUrl(string $type, int $orderId, ?string $currency): ?string
-    {
-        if (! \Modules\Tagtoa\App\Support\GatewayManager::enabled('moncash')
-            || ! \Modules\Tagtoa\App\Support\Gateways\MonCash::supportsCurrency($currency)) {
-            return null;
-        }
-
-        return route('tagtoa.pay.online.start', ['gateway' => 'moncash', 'type' => $type, 'orderId' => $orderId]);
     }
 
     /** Lien WhatsApp pré-rempli incluant la référence de commande. */
