@@ -118,11 +118,10 @@ class PublicController extends Controller
             'total'        => Money::format($order->total, $order->currency),
             'track_url'    => route('tagtoa.menu.track', $order->reference),
             'whatsapp_url' => $this->whatsappUrl($menu, $order),
-            'pay_url'      => $menu->payPage ? url('/pay/'.$menu->payPage->alias) : null,
-            'checkout_url' => (\Modules\Tagtoa\App\Support\GatewayManager::enabled('moncash')
-                && \Modules\Tagtoa\App\Support\Gateways\MonCash::supportsCurrency($order->currency))
-                ? route('tagtoa.pay.online.start', ['gateway' => 'moncash', 'type' => 'menu', 'orderId' => $order->id])
-                : null,
+            // UNE seule page « Payer » : passerelles automatiques configurées par
+            // le fondateur + moyens manuels du marchand (OrderPayController).
+            'pay_url'      => \Modules\Tagtoa\App\Http\Controllers\Pay\OrderPayController::urlFor('menu', $order),
+            'checkout_url' => null,
         ]);
     }
 
@@ -151,7 +150,11 @@ class PublicController extends Controller
     {
         $order = Order::where('reference', $reference)->with(['items', 'menu', 'courier'])->firstOrFail();
 
-        return view('tagtoa::menu.track', ['order' => $order, 'menu' => $order->menu]);
+        return view('tagtoa::menu.track', [
+            'order'  => $order,
+            'menu'   => $order->menu,
+            'payUrl' => \Modules\Tagtoa\App\Http\Controllers\Pay\OrderPayController::urlFor('menu', $order),
+        ]);
     }
 
     /** JSON léger pour le polling de la page de suivi. */

@@ -62,12 +62,21 @@ class PayLinkServableTest extends TestCase
         $this->order($menu, $item)->assertOk()->assertJsonPath('pay_url', null);
     }
 
-    /** Garde de non-régression : une vraie page de paiement reste proposée. */
-    public function test_an_order_still_offers_a_real_payment_page(): void
+    /**
+     * Garde de non-régression : un commerce qui a ses moyens de paiement obtient
+     * un lien « Payer » — la page unifiée /pay/order, plus une page /pay/{alias}.
+     */
+    public function test_an_order_offers_the_unified_pay_page_when_the_merchant_has_a_method(): void
     {
-        [$menu, $item] = $this->menuWithItem($this->realPage());
+        $lib = $this->library();
+        \Modules\Tagtoa\App\Models\Pay\PaymentMethod::create([
+            'payment_page_id' => $lib->id, 'tenant_id' => 't-1', 'type' => 'moncash',
+            'account_number' => '3700 0000', 'is_active' => true,
+        ]);
+        [$menu, $item] = $this->menuWithItem($lib);
 
-        $this->order($menu, $item)->assertOk()->assertJsonPath('pay_url', url('/pay/ma-page'));
+        $res = $this->order($menu, $item)->assertOk();
+        $this->assertStringContainsString('/pay/order/menu/CMD-', $res->json('pay_url'));
     }
 
     public function test_the_menu_form_does_not_list_the_library_page(): void

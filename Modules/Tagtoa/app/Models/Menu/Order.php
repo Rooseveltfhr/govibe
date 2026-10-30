@@ -80,6 +80,7 @@ class Order extends Model
         'table_label', 'delivery_address', 'delivery_zone_label', 'note', 'client_uuid', 'placed_at',
         'tax_total', 'tax_base', 'tax_inclusive', 'tax_label', 'tax_breakdown', 'delivery_fee',
         'courier_id', 'courier_assigned_at', 'picked_up_at',
+        'payment_claim', 'payment_claimed_at',
     ];
 
     protected $casts = [
@@ -88,6 +89,8 @@ class Order extends Model
         'tip'           => 'decimal:2',
         'delivery_fee'  => 'decimal:2',
         'placed_at'     => 'datetime',
+        'payment_claim' => 'array',
+        'payment_claimed_at' => 'datetime',
         'paid_at'       => 'datetime',
         // Copiés sur la commande : changer le réglage du commerce ne doit
         // jamais retourner le sens d'une commande déjà passée.

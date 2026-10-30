@@ -33,7 +33,12 @@
                     </select>
                 </form>
             </td>
-            <td>{!! $o->isPaid() ? '<span class="pill g">'.__('Payée').'</span>' : '<span class="pill a">'.__('Non payée').'</span>' !!}</td>
+            <td>{!! $o->isPaid() ? '<span class="pill g">'.__('Payée').'</span>' : '<span class="pill a">'.__('Non payée').'</span>' !!}
+                @if(! $o->isPaid() && $o->payment_claimed_at && $o->payment_claim)
+                    {{-- Déclaré par le client : à vérifier avant « Encaisser ». --}}
+                    <div style="font-size:12px;color:#7a5200;margin-top:4px"><i class="fa-solid fa-hand-holding-dollar"></i> {{ __('Le client dit avoir payé') }} · {{ $o->payment_claim['method'] ?? '' }}@if(! empty($o->payment_claim['reference'])) · {{ __('Réf.') }} {{ $o->payment_claim['reference'] }}@endif @if(! empty($o->payment_claim['payer_phone'])) · {{ $o->payment_claim['payer_phone'] }}@endif</div>
+                @endif
+            </td>
             <td style="color:var(--muted)">{{ $o->created_at->format('d/m/y H:i') }}</td>
             <td>@unless($o->isPaid())<form method="POST" action="{{ route('tagtoa.store.dashboard.orders.paid',$o->id) }}">@csrf<button class="btn btn-p btn-sm"><i class="fa-solid fa-check"></i> {{ __('Encaisser') }}</button></form>@endunless</td>
         </tr>

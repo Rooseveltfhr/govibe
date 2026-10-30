@@ -49,6 +49,21 @@
             </table>
             @if($o->note)<p style="color:var(--muted);font-size:13px;margin-top:8px"><i class="fa-solid fa-note-sticky"></i> {{ $o->note }}</p>@endif
 
+            @if(! $o->isPaid() && $o->payment_claimed_at && $o->payment_claim)
+                {{-- Le client dit avoir payé par un moyen manuel : à VÉRIFIER, pas
+                     à croire. Rien n'est marqué payé tant que le caissier n'a pas
+                     confirmé avec « Encaisser ». --}}
+                <div style="margin-top:12px;background:#fff5e6;color:#7a5200;border-radius:12px;padding:10px 12px;font-size:13.5px">
+                    <b><i class="fa-solid fa-hand-holding-dollar"></i> {{ __('Le client dit avoir payé') }}</b>
+                    · {{ $o->payment_claim['method'] ?? '' }}
+                    @if(! empty($o->payment_claim['reference'])) · {{ __('Réf.') }} {{ $o->payment_claim['reference'] }}@endif
+                    @if(! empty($o->payment_claim['payer_name'])) · {{ $o->payment_claim['payer_name'] }}@endif
+                    @if(! empty($o->payment_claim['payer_phone'])) · {{ $o->payment_claim['payer_phone'] }}@endif
+                    · {{ $o->payment_claimed_at->format('d/m H:i') }}
+                    <div style="margin-top:4px;font-size:12.5px">{{ __('Vérifiez sur votre téléphone, puis choisissez le moyen et « Encaisser ».') }}</div>
+                </div>
+            @endif
+
             <div class="row" style="margin-top:14px;gap:8px;align-items:flex-end">
                 <form method="POST" action="{{ route('tagtoa.menu.dashboard.orders.status',$o->id) }}" style="display:flex;gap:8px;align-items:center;flex:1">
                     @csrf
