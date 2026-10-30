@@ -87,7 +87,7 @@
         @foreach($conflicts as $c)
         <tr>
             <td>{{ $c->created_at->format('d/m H:i') }}</td>
-            <td>{{ $c->kind === 'duplicate_checkin' ? __('Double check-in') : $c->kind }}</td>
+            <td>{{ ['duplicate_checkin' => __('Double check-in'), 'refused_scan' => __('Scan refusé'), 'unresolved_scan' => __('Code ou carte non reconnu'), 'time_flagged' => __('Heure du scan hors fenêtre')][$c->kind] ?? $c->kind }}@if(! empty($c->payload['detail']['reason'])) <span style="color:var(--muted)">· {{ $c->payload['detail']['reason'] }}</span>@endif</td>
             <td>{{ optional($c->ticket)->code ?: '—' }} <span style="color:var(--muted)">{{ optional($c->ticket)->holder_name }}</span></td>
             <td>{{ optional($c->staff)->name ?: '—' }}</td>
             <td>{!! $c->resolved ? '<span class="pill g">'.__('Résolu').'</span>' : '<span class="pill a">'.__('À vérifier').'</span>' !!}</td>

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Actions\Event\Wallet\EncodeParticipantCard;
@@ -29,6 +31,9 @@ use Modules\Tagtoa\App\Services\Pay\MerchantMethods;
  */
 class StaffTerminalController extends Controller
 {
+    /** Scans traités par requête de reprise. */
+    private const SYNC_BATCH_MAX = 200;
+
     /* ---------------- Écran principal (login OU panneau selon session) ---------------- */
 
     public function terminal(string $alias): View
@@ -124,12 +129,35 @@ class StaffTerminalController extends Controller
             'valid'   => $res['valid'],
             'color'   => $res['color'],
             'message' => $res['message'],
-            'name'    => optional($res['ticket'] ?? null)->holder_name,
+            // `ticket` est un TABLEAU (voir CheckinService::r()) : optional()->prop
+            // sur un tableau rendait toujours null et l'écran n'affichait jamais le nom.
+            'name'    => $res['ticket']['holder'] ?? null,
         ]);
     }
 
     /* ---------------- Sync offline par lot (IndexedDB → serveur) ---------------- */
 
+    /**
+     * Reprise des scans faits HORS LIGNE (IndexedDB → serveur).
+     *
+     * Le contrat avec le terminal : une entrée de `results` par scan reçu, et il
+     * ne retire de sa file QUE ceux marqués `ack:true` — c'est-à-dire ceux dont
+     * le serveur a gardé une trace durable :
+     *   - admitted         : entrée enregistrée (ligne de check-in) ;
+     *   - duplicate_replay : ce `client_uuid` était déjà connu (rejeu) ;
+     *   - refused          : scan lu et refusé (billet annulé, porte, double
+     *                        entrée…) — consigné dans les conflits à vérifier ;
+     *   - unresolved       : code ou carte NFC non reconnu — consigné aussi, il
+     *                        ne se perd donc plus sans trace.
+     * Seul `error` (échec inattendu) reste `ack:false` : le scan reste sur
+     * l'appareil et sera rejoué. Aucun texte d'exception ne sort : il est
+     * journalisé sous un numéro de suivi (`ref`).
+     *
+     * Avant, cette méthode lisait `->checked_in` sur un TABLEAU : l'avertissement
+     * PHP devenait une exception, donc un HTTP 500 pour tout le lot dès qu'un
+     * scan était un doublon — et le terminal rejouait ce même lot toutes les
+     * 30 s. Et l'heure du scan envoyée par l'appareil était ignorée.
+     */
     public function sync(Request $request, string $alias, CheckinService $svc): JsonResponse
     {
         $event = $this->eventByAlias($alias);
@@ -138,47 +166,121 @@ class StaffTerminalController extends Controller
             return $staff;
         }
 
-        $records = (array) $request->input('records', []);
-        $records = array_slice($records, 0, 200); // borne de sécurité par lot
+        $all = (array) $request->input('records', []);
+        $overCap = count($all) > self::SYNC_BATCH_MAX;
+        $records = array_slice($all, 0, self::SYNC_BATCH_MAX); // borne de sécurité par lot
 
         // Dédup idempotente : uuids déjà connus du serveur + intra-lot (logique pure).
-        $uuids = array_values(array_filter(array_map(fn ($r) => $r['client_uuid'] ?? null, $records)));
+        $uuids = array_values(array_filter(array_map(fn ($r) => is_array($r) ? ($r['client_uuid'] ?? null) : null, $records), 'is_string'));
         $seen = Checkin::where('event_id', $event->id)->whereIn('client_uuid', $uuids)->pluck('client_uuid')->all();
         $parts = SyncReconciler::partition($records, $seen);
 
+        $results = [];
         $ok = 0;
         $conflicts = 0;
-        foreach ($parts['fresh'] as $r) {
-            [$code, $method] = $this->resolveCode($event, (array) $r, $svc);
-            if (! $code) {
+
+        $fresh = $parts['fresh'];
+        $dupCount = count($parts['duplicates']);
+        // Les doublons (déjà connus) sont acquittés d'emblée : rien à refaire.
+        foreach ($parts['duplicates'] as $d) {
+            $u = is_array($d) ? ($d['client_uuid'] ?? null) : null;
+            $results[] = ['client_uuid' => $u, 'status' => 'duplicate_replay', 'ack' => true];
+        }
+
+        foreach ($fresh as $r) {
+            $r = $this->cleanRecord($r);
+            $uuid = $r['client_uuid'];
+            if ($uuid === null) {
+                // Sans clé, le terminal ne saurait jamais que le scan est passé.
+                $results[] = ['client_uuid' => null, 'status' => 'invalid', 'ack' => false];
+
                 continue;
             }
 
-            $res = $svc->processScan($event, $code, 'in', $method, 'staff-terminal', $r['client_uuid'] ?? null, $staff->id);
+            try {
+                [$scannedAt, $flag] = $svc->resolveScanTime($r['at'], $event);
+                [$code, $method] = $this->resolveCode($event, $r, $svc);
 
-            if ($res['valid']) {
-                $ok++;
+                if (! $code) {
+                    $this->conflict($event, $staff, 'unresolved_scan', $uuid, null, $r, ['reason' => 'unresolved']);
+                    $conflicts++;
+                    $results[] = ['client_uuid' => $uuid, 'status' => 'unresolved', 'ack' => true];
 
-                continue;
-            }
+                    continue;
+                }
 
-            // Double entrée offline (2 appareils) : premier gagne, second journalisé.
-            $ticket = $res['ticket'] ?? null;
-            if ($ticket && SyncReconciler::isDuplicateEntry((bool) $ticket->checked_in, 'in')) {
-                SyncConflict::firstOrCreate(
-                    ['event_id' => $event->id, 'client_uuid' => $r['client_uuid'] ?? null, 'kind' => 'duplicate_checkin'],
-                    ['ticket_id' => $ticket->id, 'staff_id' => $staff->id, 'payload' => $r]
-                );
+                $res = $svc->processScan($event, $code, 'in', $method, 'staff-terminal', $uuid, $staff->id, $scannedAt);
+
+                if ($flag !== null) {
+                    $this->conflict($event, $staff, 'time_flagged', $uuid, $res['ticket_id'] ?? null, $r, $flag);
+                    $conflicts++;
+                }
+
+                if ($res['valid']) {
+                    $ok++;
+                    $results[] = ['client_uuid' => $uuid, 'status' => 'admitted', 'ack' => true];
+
+                    continue;
+                }
+
+                // Double entrée offline (2 appareils) : premier gagne, second journalisé.
+                $kind = ($res['reason'] ?? null) === 'duplicate_today' ? 'duplicate_checkin' : 'refused_scan';
+                $this->conflict($event, $staff, $kind, $uuid, $res['ticket_id'] ?? null, $r, ['reason' => $res['reason'] ?? 'refused', 'message' => $res['message']]);
                 $conflicts++;
+                $results[] = ['client_uuid' => $uuid, 'status' => 'refused', 'ack' => true, 'reason' => $res['reason'] ?? null, 'message' => $res['message']];
+            } catch (\Throwable $e) {
+                // JAMAIS getMessage() : une QueryException contient le SQL.
+                $ref = Str::upper(Str::random(8));
+                report($e);
+                Log::error('event.staff.sync.error', ['ref' => $ref, 'event' => $event->id, 'client_uuid' => $uuid, 'exception' => $e::class]);
+                $results[] = ['client_uuid' => $uuid, 'status' => 'error', 'ack' => false, 'ref' => $ref];
             }
         }
 
+        // `ok` reste vrai seulement si TOUT a été acquitté et que le lot n'a pas
+        // été tronqué : un terminal déjà installé, qui vide sa file sur `ok`, ne
+        // doit rien perdre quand le serveur n'a pas tout pris en charge.
+        $allAcked = ! in_array(false, array_column($results, 'ack'), true);
+
         return response()->json([
-            'ok'         => true,
+            'ok'         => $allAcked && ! $overCap,
             'synced'     => $ok,
-            'duplicates' => count($parts['duplicates']),
+            'duplicates' => $dupCount,
             'conflicts'  => $conflicts,
+            'results'    => $results,
         ]);
+    }
+
+    /**
+     * Un enregistrement venu du terminal, réduit à ce que la reprise lit — et
+     * BORNÉ : le client décide de la taille de ses chaînes, et chaque scan
+     * refusé ou non reconnu écrit maintenant une ligne de conflit. Valeurs non
+     * scalaires jetées, chaînes tronquées aux limites de checkin().
+     *
+     * @return array{client_uuid:?string, code:?string, uid:?string, at:?string}
+     */
+    protected function cleanRecord(mixed $r): array
+    {
+        $r = is_array($r) ? $r : [];
+        $str = fn ($v, int $max) => is_scalar($v) && (string) $v !== '' ? mb_substr((string) $v, 0, $max) : null;
+        $uuid = $str($r['client_uuid'] ?? null, 65);
+
+        return [
+            // Plus de 64 caractères : pas une clé que ce terminal a produite.
+            'client_uuid' => $uuid !== null && mb_strlen($uuid) <= 64 ? $uuid : null,
+            'code'        => $str($r['code'] ?? null, 64),
+            'uid'         => $str($r['uid'] ?? null, 120),
+            'at'          => $str($r['at'] ?? null, 40),
+        ];
+    }
+
+    /** Consigne un conflit à vérifier — idempotent par (événement, client_uuid, type). */
+    protected function conflict(Event $event, Staff $staff, string $kind, string $uuid, ?int $ticketId, array $record, array $detail): void
+    {
+        SyncConflict::firstOrCreate(
+            ['event_id' => $event->id, 'client_uuid' => $uuid, 'kind' => $kind],
+            ['ticket_id' => $ticketId, 'staff_id' => $staff->id, 'payload' => ['record' => array_intersect_key($record, array_flip(['code', 'uid', 'at', 'client_uuid'])), 'detail' => $detail]]
+        );
     }
 
     /* ---------------- Vente / activation de carte (rôle vente|admin) ---------------- */

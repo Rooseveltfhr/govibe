@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Services\Event;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Event\Checkin;
 use Modules\Tagtoa\App\Models\Event\Delivery;
@@ -37,15 +38,77 @@ class CheckinService
         return optional(Ticket::find($tag->ticket_id))->code;
     }
 
-    public function processScan(Event $event, string $code, string $direction = 'in', string $method = 'qr', ?string $gate = null, ?string $clientUuid = null, ?int $staffId = null): array
+    /** Fenêtre acceptée pour l'heure d'un scan rejoué hors ligne (même règle que la caisse POS). */
+    public const OFFLINE_MAX_AGE_HOURS = 72;
+    public const FUTURE_SKEW_MINUTES   = 5;
+    /** Au-delà, un scan rejoué est « tardif » : consigné, mais plus notifié. */
+    public const LATE_REPLAY_MINUTES   = 15;
+
+    /**
+     * L'heure d'un scan : celle de l'appareil (hors ligne) si elle est plausible.
+     *
+     * Un scan fait samedi 22 h hors ligne et reçu dimanche doit rester un scan de
+     * samedi — pour le « déjà entré aujourd'hui » d'un pass multi-jours comme
+     * pour le journal. Mais l'horloge d'un téléphone se règle à la main : hors
+     * fenêtre (plus vieille que 72 h, plus de 5 min dans le futur, ou illisible),
+     * le scan prend l'heure du SERVEUR et l'heure annoncée n'est pas perdue — elle
+     * est retournée dans `$flag` pour être journalisée avec la raison.
+     *
+     * @return array{0: Carbon, 1: array{reason:string, claimed:string}|null}
+     */
+    public function resolveScanTime(mixed $claimed, ?Event $event = null): array
     {
+        $now = now();
+        if ($claimed === null || $claimed === '') {
+            return [$now, null];
+        }
+        $text = is_scalar($claimed) ? mb_substr((string) $claimed, 0, 40) : '(illisible)';
+
+        try {
+            // Ramené au fuseau de l'application : Carbon garde le fuseau du texte
+            // (« …-04:00 »), et Eloquent écrit l'heure MURALE sans le convertir —
+            // l'heure serait enregistrée avec des heures de décalage, et le JOUR
+            // du scan pourrait changer.
+            $at = Carbon::parse((string) $claimed)->setTimezone($now->getTimezone());
+        } catch (\Throwable $e) {
+            return [$now, ['reason' => 'invalid', 'claimed' => $text]];
+        }
+
+        if ($at->lt($now->copy()->subHours(self::OFFLINE_MAX_AGE_HOURS))) {
+            return [$now, ['reason' => 'too_old', 'claimed' => $text]];
+        }
+        if ($at->gt($now->copy()->addMinutes(self::FUTURE_SKEW_MINUTES))) {
+            return [$now, ['reason' => 'future', 'claimed' => $text]];
+        }
+
+        // Un scan ne peut avoir eu lieu qu'un jour où l'événement se tient.
+        // Sans cela, l'appareil choisirait le JOUR du scan — donc le jour
+        // contre lequel on teste « déjà entré » — et un billet déjà entré
+        // aujourd'hui pourrait repasser avec une heure d'hier. Un événement
+        // sans dates n'impose rien : on ne peut pas juger.
+        if ($event !== null) {
+            $days = EventDays::list(optional($event->starts_at)->toDateString(), optional($event->ends_at)->toDateString());
+            if ($days !== [] && ! in_array($at->toDateString(), $days, true)) {
+                return [$now, ['reason' => 'outside_event', 'claimed' => $text]];
+            }
+        }
+
+        return [$at, null];
+    }
+
+    public function processScan(Event $event, string $code, string $direction = 'in', string $method = 'qr', ?string $gate = null, ?string $clientUuid = null, ?int $staffId = null, ?Carbon $scannedAt = null): array
+    {
+        // L'instant du scan : celui de l'appareil si on nous le donne (reprise hors
+        // ligne), sinon maintenant. Il décide du JOUR pour l'anti double-entrée.
+        $at = $scannedAt ?? now();
+
         $ticket = Ticket::where('event_id', $event->id)->where('code', $code)->with('ticketType')->first();
 
         if (! $ticket) {
-            return $this->r(false, 'red', 'error', __('Billet introuvable.'));
+            return $this->r(false, 'red', 'error', __('Billet introuvable.'), null, 'not_found');
         }
         if (! $ticket->isValid()) {
-            return $this->r(false, 'red', 'error', __('Billet annulé.'), $ticket);
+            return $this->r(false, 'red', 'error', __('Billet annulé.'), $ticket, 'void');
         }
         // Contrôle d'accès par porte : un type de billet peut être restreint à
         // certaines portes (ex. un Standard refusé à la porte « VIP »). Une
@@ -53,48 +116,67 @@ class CheckinService
         // restreint jamais rien — c'est le comportement d'avant cette
         // fonctionnalité, pour tout événement qui ne configure aucune porte.
         if ($direction === 'in' && ! ($ticket->ticketType?->allowsGate($gate) ?? true)) {
-            return $this->r(false, 'red', 'error', __('Ce billet n\'est pas valable à cette porte.'), $ticket);
+            return $this->r(false, 'red', 'error', __('Ce billet n\'est pas valable à cette porte.'), $ticket, 'gate');
         }
         // Anti double-entrée PAR JOUR (multi-jour) : on bloque une 2ᵉ entrée le
         // même jour, mais on autorise l'entrée un autre jour (ex. Pass 2 jours).
         // Rétro-compatible : un événement d'un seul jour ⇒ une entrée unique.
         if ($direction === 'in') {
-            $today = now()->toDateString();
+            $today = $at->toDateString();
             $enteredToday = Checkin::where('ticket_id', $ticket->id)
                 ->where('direction', 'in')
                 ->whereDate('scanned_at', $today)
                 ->exists();
             if ($enteredToday) {
-                return $this->r(false, 'orange', 'warning', __('Déjà entré aujourd\'hui.'), $ticket);
+                return $this->r(false, 'orange', 'warning', __('Déjà entré aujourd\'hui.'), $ticket, 'duplicate_today');
+            }
+
+            // Reprise hors ligne ANTIDATÉE (jour du scan antérieur à aujourd'hui) :
+            // si le billet est déjà entré aujourd'hui pour de bon, une entrée
+            // « d'hier » ne peut être qu'une seconde entrée déguisée — horloge
+            // d'appareil reculée, ou requête fabriquée. Elle est refusée et
+            // consignée ; l'entrée d'hier, si elle est réelle, reste visible dans
+            // les conflits à vérifier plutôt que d'ouvrir un contournement.
+            if ($scannedAt !== null && $today < now()->toDateString()) {
+                $enteredServerToday = Checkin::where('ticket_id', $ticket->id)
+                    ->where('direction', 'in')
+                    ->whereDate('scanned_at', now()->toDateString())
+                    ->exists();
+                if ($enteredServerToday) {
+                    return $this->r(false, 'orange', 'warning', __('Déjà entré aujourd\'hui.'), $ticket, 'backdated_reentry');
+                }
             }
         }
         if ($direction === 'out' && ! $ticket->checked_in) {
-            return $this->r(false, 'orange', 'warning', __('Pas encore entré.'), $ticket);
+            return $this->r(false, 'orange', 'warning', __('Pas encore entré.'), $ticket, 'not_yet_in');
         }
 
         $entered = false;
-        $result = DB::transaction(function () use ($event, $ticket, $direction, $method, $gate, $clientUuid, $staffId, &$entered) {
+        $result = DB::transaction(function () use ($event, $ticket, $direction, $method, $gate, $clientUuid, $staffId, $at, &$entered) {
             if ($clientUuid && Checkin::where('ticket_id', $ticket->id)->where('client_uuid', $clientUuid)->exists()) {
                 return $this->r(true, 'green', 'success', __('Déjà synchronisé.'), $ticket);
             }
 
             $ticket->checked_in = $direction === 'in';
-            $ticket->checked_in_at = $direction === 'in' ? now() : $ticket->checked_in_at;
+            $ticket->checked_in_at = $direction === 'in' ? $at : $ticket->checked_in_at;
             $ticket->save();
 
             Checkin::create([
                 'event_id' => $event->id, 'ticket_id' => $ticket->id, 'direction' => $direction,
                 'method' => $method, 'gate' => $gate, 'staff_id' => $staffId,
-                'client_uuid' => $clientUuid, 'scanned_at' => now(),
+                'client_uuid' => $clientUuid, 'scanned_at' => $at,
             ]);
 
             $entered = ($direction === 'in');
 
-            return $this->r(true, 'green', 'success', $direction === 'in' ? $this->welcomeMessage($event, $ticket) : __('Sortie enregistrée.'), $ticket->fresh('ticketType'));
+            return $this->r(true, 'green', 'success', $direction === 'in' ? $this->welcomeMessage($event, $ticket, $at) : __('Sortie enregistrée.'), $ticket->fresh('ticketType'));
         });
 
         // Notifications hors transaction (tolérant) : organisateur + participant à l'entrée.
-        if ($entered) {
+        // Pas de « entrée confirmée » pour une REPRISE tardive : le message dirait
+        // l'heure du serveur, pas celle de l'entrée, et un scan antidaté ferait
+        // sonner le téléphone du porteur et la boîte de l'organisateur à chaque fois.
+        if ($entered && $at->gt(now()->subMinutes(self::LATE_REPLAY_MINUTES))) {
             $this->notifyEntry($event, $ticket);
         }
 
@@ -107,14 +189,14 @@ class CheckinService
      * portail voit clairement que le billet reste valable les jours suivants.
      * Rétro-compatible : événement d'un seul jour ⇒ message simple inchangé.
      */
-    private function welcomeMessage(Event $event, Ticket $ticket): string
+    private function welcomeMessage(Event $event, Ticket $ticket, ?Carbon $at = null): string
     {
         $days = EventDays::list(optional($event->starts_at)->toDateString(), optional($event->ends_at)->toDateString());
 
         $message = count($days) <= 1
             ? __('Bienvenue!')
-            : (function () use ($days) {
-                $today = EventDays::resolveDay($days, now()->toDateString());
+            : (function () use ($days, $at) {
+                $today = EventDays::resolveDay($days, ($at ?? now())->toDateString());
                 $index = array_search($today, $days, true);
                 $dayNumber = $index === false ? 1 : $index + 1;
 
@@ -172,10 +254,15 @@ class CheckinService
         return $out;
     }
 
-    private function r(bool $valid, string $color, string $sound, string $message, ?Ticket $ticket = null): array
+    private function r(bool $valid, string $color, string $sound, string $message, ?Ticket $ticket = null, ?string $reason = null): array
     {
         return [
             'valid' => $valid, 'color' => $color, 'sound' => $sound, 'message' => $message,
+            // Pourquoi un scan est refusé, sous forme de code stable : l'appelant
+            // (la reprise hors ligne) en a besoin pour classer le refus sans
+            // deviner à partir d'un message traduit.
+            'reason' => $valid ? null : $reason,
+            'ticket_id' => $ticket?->id,
             'ticket' => $ticket ? [
                 'code' => $ticket->code, 'holder' => $ticket->holder_name,
                 'type' => optional($ticket->ticketType)->name, 'checked_in' => $ticket->checked_in,
