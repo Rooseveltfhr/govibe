@@ -52,6 +52,10 @@ rollback() {
 #      Échec = AVERTISSEMENT bruyant et déploiement poursuivi (comportement
 #      historique), sauf TAGTOA_BACKUP_REQUIRED=1 : le déploiement s'arrête alors,
 #      site intact. Voir DEPLOY.md (restauration).
+#      Le module doit être ACTIVÉ pour que la commande existe : après un rollback
+#      il est resté désactivé, et sans cette ligne la sauvegarde du redéploiement
+#      (celui qui répare l'échec) serait justement celle qui saute.
+php artisan module:enable Tagtoa >/dev/null 2>&1 || true
 if [ "${TAGTOA_BACKUP_SKIP:-0}" != "1" ]; then
   echo "==> Sauvegarde de la base (si migration en attente)"
   if ! php artisan tagtoa:backup-db --if-pending --keep="${TAGTOA_BACKUP_KEEP:-14}"; then

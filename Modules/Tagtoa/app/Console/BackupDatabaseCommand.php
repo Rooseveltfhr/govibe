@@ -48,6 +48,13 @@ class BackupDatabaseCommand extends Command
 
     public function handle(): int
     {
+        // « 14d » deviendrait 0 puis 1 : toutes les anciennes sauvegardes effacées.
+        if (! ctype_digit((string) $this->option('keep')) || (int) $this->option('keep') < 1) {
+            $this->error('--keep doit être un entier >= 1.');
+
+            return self::FAILURE;
+        }
+
         // Par son nom : « migrator » est le seul identifiant que le conteneur sait
         // résoudre (la classe Migrator, elle, n'est pas liée → injection en échec).
         if ($this->option('if-pending') && ! $this->hasPendingMigrations($this->laravel->make('migrator'))) {
@@ -95,7 +102,7 @@ class BackupDatabaseCommand extends Command
         }
 
         $this->info('Sauvegarde OK : '.$final.' ('.number_format((int) filesize($final)).' octets)');
-        $this->prune($dir, max(1, (int) $this->option('keep')), $final);
+        $this->prune($dir, (int) $this->option('keep'), $final);
 
         return self::SUCCESS;
     }
@@ -106,7 +113,9 @@ class BackupDatabaseCommand extends Command
         $repository = $migrator->getRepository();
         // Base vierge : tout est en attente, mais il n'y a rien à sauvegarder.
         if (! $repository->repositoryExists()) {
-            return false;
+            // Pas de table `migrations` : base vierge… OU base héritée qui contient
+            // déjà des données et que migrate va toucher. Seule la première se passe de dump.
+            return $this->databaseHasTables();
         }
 
         $files = $migrator->getMigrationFiles(array_merge($migrator->paths(), [database_path('migrations')]));
@@ -119,6 +128,15 @@ class BackupDatabaseCommand extends Command
         }
 
         return false;
+    }
+
+    protected function databaseHasTables(): bool
+    {
+        try {
+            return count(\Illuminate\Support\Facades\DB::select('SHOW TABLES')) > 0;
+        } catch (\Throwable $e) {
+            return true; // doute : mieux vaut une sauvegarde de trop
+        }
     }
 
     /** Lance le dump, compressé à la volée dans $target. Retourne l'erreur, ou null. */
@@ -227,7 +245,9 @@ class BackupDatabaseCommand extends Command
     /** Ne garde que les $keep plus récentes sauvegardes de CETTE commande. */
     protected function prune(string $dir, int $keep, string $justMade): void
     {
-        $files = glob($dir.'/'.self::PREFIX.'*'.self::SUFFIX) ?: [];
+        // Horodatage strict : un fichier nommé à la main n'est jamais ni compté ni supprimé.
+        $files = array_values(array_filter(glob($dir.'/'.self::PREFIX.'*'.self::SUFFIX) ?: [],
+            fn ($f) => preg_match('/^tagtoa-db-\d{8}-\d{6}\.sql\.gz$/', basename($f)) === 1));
         rsort($files); // le nom porte l'horodatage : l'ordre alphabétique est chronologique
         foreach (array_slice($files, $keep) as $old) {
             if ($old !== $justMade && @unlink($old)) {

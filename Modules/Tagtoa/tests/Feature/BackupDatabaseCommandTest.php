@@ -215,6 +215,31 @@ class BackupDatabaseCommandTest extends TestCase
         $this->assertFileExists($this->dir.'/other-app-20240101.sql.gz');
     }
 
+    public function test_an_invalid_keep_value_is_refused_not_turned_into_one(): void
+    {
+        mkdir($this->dir, 0700, true);
+        file_put_contents($this->dir.'/tagtoa-db-20250101-000001.sql.gz', 'old');
+        $this->asMysql();
+
+        $this->artisan('tagtoa:backup-db', ['--out' => $this->dir, '--keep' => '14d'])->assertExitCode(1);
+
+        $this->assertFileExists($this->dir.'/tagtoa-db-20250101-000001.sql.gz');
+        $this->assertSame(0, FakeDumpCommand::$calls);
+    }
+
+    public function test_a_hand_named_file_is_neither_counted_nor_pruned(): void
+    {
+        mkdir($this->dir, 0700, true);
+        file_put_contents($this->dir.'/tagtoa-db-pre-release.sql.gz', 'mine');
+        file_put_contents($this->dir.'/tagtoa-db-20250101-000001.sql.gz', 'old');
+        $this->asMysql();
+
+        $this->artisan('tagtoa:backup-db', ['--out' => $this->dir, '--keep' => 1])->assertExitCode(0);
+
+        $this->assertFileExists($this->dir.'/tagtoa-db-pre-release.sql.gz');
+        $this->assertFileDoesNotExist($this->dir.'/tagtoa-db-20250101-000001.sql.gz');
+    }
+
     public function test_the_deploy_script_runs_the_backup_before_maintenance_and_seeds_demo_only_on_request(): void
     {
         $sh = file_get_contents(__DIR__.'/../../deploy/remote-deploy.sh');
@@ -225,6 +250,7 @@ class BackupDatabaseCommandTest extends TestCase
         $this->assertNotFalse($backup);
         $this->assertLessThan($down, $backup, 'La sauvegarde doit précéder la maintenance.');
         $this->assertLessThan($migr, $backup);
+        $this->assertLessThan($backup, strpos($sh, 'module:enable Tagtoa'), 'Le module doit être activé avant la sauvegarde.');
         $this->assertStringContainsString('TAGTOA_BACKUP_REQUIRED', $sh);
         $this->assertStringContainsString('${TAGTOA_SEED_DEMO:-0}" = "1"', $sh, 'Le seed de démo doit être désactivé par défaut.');
     }
