@@ -10,69 +10,63 @@
     <a href="{{ url('/menu/'.$menu->alias) }}" target="_blank" class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-eye"></i> {{ __('Voir') }}</a>
 </div>
 
-@if($orders->isEmpty())
-    <div class="card"><div class="empty"><i class="fa-solid fa-receipt"></i>{{ __('Aucune commande.') }}</div></div>
-@else
-    @foreach($orders as $o)
-        @php $sm = $o->status_meta; @endphp
-        <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
-                <div>
-                    <b style="font-family:var(--fh);font-size:15px">{{ $o->reference }}</b>
-                    <span class="pill {{ $sm['pill'] }}">{{ __($sm['label']) }}</span>
-                    <span class="pill {{ $o->isPaid() ? 'g' : 'n' }}">{{ $o->isPaid() ? __('Payé') : __('En attente') }}</span>
-                    <span class="pill n">{{ $o->order_type_label }}</span>
-                    <div style="color:var(--muted);font-size:13px;margin-top:4px">
-                        {{ optional($o->placed_at)->format('d/m/Y H:i') }}
-                        @if($o->customer_name) · {{ $o->customer_name }}@endif
-                        @if($o->customer_phone) · {{ $o->customer_phone }}@endif
-                        @if($o->table_label) · {{ __('N° table (optionnel)') }} {{ $o->table_label }}@endif
-                        @if($o->delivery_address) · {{ __('Adresse') }} : {{ $o->delivery_address }}@endif
-                        @if($o->order_type === 'delivery' && $o->courier) · {{ __('Livreur') }} : {{ $o->courier->name }}@endif
-                    </div>
-                </div>
-                <div style="text-align:right">
-                    <b style="font-family:var(--fh);font-size:17px;color:var(--blue)">{{ Money::format($o->total, $o->currency) }}</b>
-                    @if($o->tip > 0)<div style="color:var(--muted);font-size:12px">{{ __('dont pourboire') }} {{ Money::format($o->tip, $o->currency) }}</div>@endif
-                </div>
-            </div>
+<div id="orders-list">
+    @include('tagtoa::menu._orders-list', ['orders' => $orders])
+</div>
 
-            <table style="margin-top:12px">
-                <tbody>
-                @foreach($o->items as $it)
-                    <tr>
-                        <td style="border:0;padding:4px 0">
-                            {{ $it->qty }}× {{ $it->name }}
-                            @if(!empty($it->selected_options))
-                                <div style="color:var(--muted);font-size:12px">{{ collect($it->selected_options)->pluck('label')->implode(', ') }}</div>
-                            @endif
-                        </td>
-                        <td style="border:0;padding:4px 0;text-align:right;color:var(--muted)">{{ Money::format($it->line_total, $o->currency) }}</td>
-                    </tr>
-                @endforeach
-                </tbody>
-            </table>
-            @if($o->note)<p style="color:var(--muted);font-size:13px;margin-top:8px"><i class="fa-solid fa-note-sticky"></i> {{ $o->note }}</p>@endif
+{{-- Alerte « nouvelle commande » : l'écran se met à jour tout seul (aucun
+     clic), et une commande qui arrive sonne 15 secondes — le temps qu'un
+     patron occupé à la plonge ou en cuisine l'entende. --}}
+<div id="neworder" role="alert" style="display:none;position:fixed;left:12px;right:12px;bottom:14px;z-index:90;background:var(--blue);color:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.3);align-items:center;gap:12px;font-weight:700">
+    <i class="fa-solid fa-bell fa-shake"></i>
+    <span style="flex:1">{{ __('Nouvelle commande !') }}</span>
+    <button type="button" onclick="stopAlerte()" class="btn btn-o btn-sm" style="flex:0;background:#fff;color:#000">{{ __('Arrêter le son') }}</button>
+</div>
+<div id="soundhint" style="display:none;color:var(--muted);font-size:12.5px;margin-top:10px"><i class="fa-solid fa-volume-xmark"></i> {{ __('Touchez la page une fois pour activer le son des nouvelles commandes.') }}</div>
 
-            <div class="row" style="margin-top:14px;gap:8px;align-items:flex-end">
-                <form method="POST" action="{{ route('tagtoa.menu.dashboard.orders.status',$o->id) }}" style="display:flex;gap:8px;align-items:center;flex:1">
-                    @csrf
-                    <select class="sel" name="status" style="max-width:200px">
-                        @foreach(\Modules\Tagtoa\App\Models\Menu\Order::STATUS_META as $k=>$m)
-                            <option value="{{ $k }}" @selected($o->status===$k)>{{ __($m['label']) }}</option>
-                        @endforeach
-                    </select>
-                    <button class="btn btn-o btn-sm" style="flex:0"><i class="fa-solid fa-rotate"></i> {{ __('Confirmer') }}</button>
-                </form>
-                @unless($o->isPaid())
-                    <form method="POST" action="{{ route('tagtoa.menu.dashboard.orders.paid',$o->id) }}" style="flex:0">
-                        @csrf
-                        <button class="btn btn-p btn-sm"><i class="fa-solid fa-check"></i> {{ __('Encaisser') }}</button>
-                    </form>
-                @endunless
-            </div>
-        </div>
-    @endforeach
-    <div style="margin-top:16px">{{ $orders->links() }}</div>
-@endif
+<script src="{{ route('tagtoa.asset', 'tagtoa-sound.js') }}"></script>
+<script>
+    (function(){
+        var FEED = @json(route('tagtoa.menu.dashboard.orders.feed', $menu->id));
+        var dernier = @json((int) ($menu->orders()->max('id') ?? 0));
+        var signature = @json($orders->map(fn ($o) => $o->id.':'.$o->status.':'.$o->payment_status)->implode('|'));
+        var liste = document.getElementById('orders-list');
+        var bandeau = document.getElementById('neworder');
+        var ALERTE_SECONDES = 15; // entre 10 et 20 : assez long pour s'entendre, pas assez pour harceler
+
+        window.stopAlerte = function(){
+            if (window.TagtoaSound) TagtoaSound.alerteStop();
+            bandeau.style.display = 'none';
+        };
+
+        function actif(){
+            // Ne jamais remplacer la liste sous les doigts du caissier : un
+            // moyen de paiement à moitié choisi disparaîtrait.
+            var a = document.activeElement;
+            return a && liste.contains(a) && (a.tagName === 'SELECT' || a.tagName === 'INPUT');
+        }
+
+        function rafraichir(){
+            fetch(FEED, {headers: {'Accept': 'application/json'}, credentials: 'same-origin'})
+                .then(function(r){ return r.ok ? r.json() : null; })
+                .then(function(j){
+                    if (!j) return;
+                    if (j.latest_id > dernier){
+                        dernier = j.latest_id;
+                        bandeau.style.display = 'flex';
+                        if (window.TagtoaSound){
+                            TagtoaSound.alerte(ALERTE_SECONDES);
+                            if (!TagtoaSound.pret()) document.getElementById('soundhint').style.display = '';
+                        }
+                    }
+                    if (j.signature !== signature && !actif()){
+                        signature = j.signature;
+                        liste.innerHTML = j.html;
+                    }
+                })
+                .catch(function(){ /* hors ligne : on réessaiera */ });
+        }
+        setInterval(rafraichir, 8000);
+    })();
+</script>
 @endsection

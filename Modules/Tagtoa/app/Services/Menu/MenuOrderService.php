@@ -382,16 +382,42 @@ class MenuOrderService
         }
     }
 
-    /** Marque payée + commission plateforme (hors pourboire) + points fidélité (idempotent). */
-    public function markPaid(Order $order): Order
+    /**
+     * Marque payée + commission plateforme (hors pourboire) + points fidélité.
+     *
+     * IDEMPOTENT ET SANS COURSE : le test « déjà payée ? » se fait sous verrou,
+     * sur la ligne réelle. Deux clics rapprochés sur « Encaisser » (ou un clic
+     * et le retour de la passerelle au même instant) lisaient tous deux
+     * « pas encore payée » sur leur copie périmée, et chacun enregistrait la
+     * commission et les points : revenu et fidélité comptés deux fois.
+     *
+     * `$method` : comment ça a été payé (« cash », « moncash »…), `$by` : qui a
+     * encaissé — null pour une passerelle, qui n'est personne.
+     */
+    public function markPaid(Order $order, ?string $method = null, ?string $by = null): Order
     {
-        if (! $order->isPaid()) {
-            $order->update(['payment_status' => 'paid']);
+        $fresh = DB::transaction(function () use ($order, $method, $by) {
+            $locked = Order::whereKey($order->getKey())->lockForUpdate()->first();
+            if (! $locked || $locked->isPaid()) {
+                return null; // déjà payée : rien à refaire
+            }
+            $locked->update([
+                'payment_status' => 'paid',
+                'payment_method' => $method,
+                'paid_at'        => now(),
+                'paid_by'        => $by !== null ? mb_substr($by, 0, 120) : null,
+            ]);
+
+            return $locked;
+        });
+
+        if ($fresh) {
             // La colonne vertébrale suit le module, qui reste maître de l'état
             // réel de la commande.
-            app(OrderSpine::class)->touch('menu_order', $order->id, null, OrderStatus::PAID);
-            $this->revenue->record('menu_order', $order->id, 'menu', (float) $order->subtotal, $order->tenant_id, $order->currency);
-            $this->awardLoyaltyPoints($order);
+            app(OrderSpine::class)->touch('menu_order', $fresh->id, null, OrderStatus::PAID);
+            $this->revenue->record('menu_order', $fresh->id, 'menu', (float) $fresh->subtotal, $fresh->tenant_id, $fresh->currency);
+            $this->awardLoyaltyPoints($fresh);
+            $order->refresh();
         }
 
         return $order;

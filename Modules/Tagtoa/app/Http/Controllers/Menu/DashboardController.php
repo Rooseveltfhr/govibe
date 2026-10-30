@@ -526,7 +526,7 @@ class DashboardController extends Controller
             // la garde anti-doublon ne verrait alors plus jamais ce
             // changement-ci.
             $this->notifyCustomerOfStatus($order);
-            app(MenuOrderService::class)->markPaid($order);
+            app(MenuOrderService::class)->markPaid($order, 'cash', $this->actorName());
             app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)->touch('menu_order', $order->id, 'completed');
         }
 
@@ -643,7 +643,7 @@ class DashboardController extends Controller
             // AVANT markPaid(), même raison qu'au comptoir : markPaid() écrit
             // payment_status et effacerait wasChanged('status') d'ici.
             $this->notifyCustomerOfStatus($order);
-            app(MenuOrderService::class)->markPaid($order);
+            app(MenuOrderService::class)->markPaid($order, 'cash', $this->actorName());
             app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)->touch('menu_order', $order->id, 'completed');
         }
 
@@ -689,13 +689,52 @@ class DashboardController extends Controller
         }
     }
 
-    public function markPaid(int $orderId): RedirectResponse
+    /**
+     * « Encaisser » : c'est la personne à la caisse qui confirme, ET qui dit
+     * comment — espèces, MonCash, carte… Jamais un clic aveugle : le choix n'a
+     * pas de valeur par défaut, et un moyen hors liste est refusé.
+     */
+    public function markPaid(Request $request, int $orderId): RedirectResponse
     {
         $order = $this->ownOrder($orderId);
-        app(MenuOrderService::class)->markPaid($order);
-        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)->log('order.paid', $order, $order->reference);
+        $data = $request->validate([
+            'payment_method' => ['required', Rule::in(array_keys(Order::MANUAL_PAYMENT_METHODS))],
+        ]);
+
+        app(MenuOrderService::class)->markPaid($order, $data['payment_method'], $this->actorName());
+        app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)->log('order.paid', $order, $order->reference.' · '.$data['payment_method']);
 
         return back()->with('success', __('Paiement effectué.'));
+    }
+
+    /**
+     * Le fil des commandes du tableau de bord : la page l'interroge toutes les
+     * quelques secondes, pour que le marchand voie arriver une commande sans
+     * toucher à rien — et l'entende. Même périmètre que orders() (le menu du
+     * marchand connecté, jamais un autre).
+     */
+    public function ordersFeed(int $id): JsonResponse
+    {
+        $menu = $this->own($id);
+        // Les liens de pagination pointent vers la page, pas vers ce fil.
+        $orders = $menu->orders()->with(['items', 'courier'])->paginate(20)
+            ->withPath(route('tagtoa.menu.dashboard.orders', $menu->id));
+
+        return response()->json([
+            'latest_id' => (int) ($menu->orders()->max('id') ?? 0),
+            'pending'   => $menu->orders()->where('status', 'pending')->count(),
+            'unpaid'    => $menu->orders()->where('payment_status', '!=', 'paid')->where('status', '!=', 'cancelled')->count(),
+            'signature' => $orders->map(fn ($o) => $o->id.':'.$o->status.':'.$o->payment_status)->implode('|'),
+            'html'      => view('tagtoa::menu._orders-list', ['orders' => $orders])->render(),
+        ]);
+    }
+
+    /** Qui agit — pour dire qui a encaissé. Null si inconnu : jamais un faux nom. */
+    protected function actorName(): ?string
+    {
+        $name = optional(auth()->user())->name;
+
+        return $name ? (string) $name : null;
     }
 
     protected function ownOrder(int $id): Order
@@ -1189,6 +1228,6 @@ class DashboardController extends Controller
 
     protected function payPages()
     {
-        return PaymentPage::where('tenant_id', Tenant::id())->get(['id', 'title', 'alias']);
+        return PaymentPage::where('tenant_id', Tenant::id())->servable()->get(['id', 'title', 'alias']);
     }
 }

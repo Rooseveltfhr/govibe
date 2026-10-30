@@ -93,7 +93,7 @@ $data = $this->validateSite($request);
             'site'     => $site,
             'vcards'   => $this->vcards(),
             'menus'    => Menu::where('tenant_id', $tid)->get(['id', 'name']),
-            'payPages' => PaymentPage::where('tenant_id', $tid)->get(['id', 'title', 'alias']),
+            'payPages' => PaymentPage::where('tenant_id', $tid)->servable()->get(['id', 'title', 'alias']),
             'linkPages'=> LinkPage::where('tenant_id', $tid)->get(['id', 'title', 'alias']),
             'platforms'=> array_keys(Link::PLATFORM_ICONS),
         ];
@@ -117,7 +117,7 @@ $data = $this->validateSite($request);
             'address'      => ['nullable', 'string', 'max:200'],
             'map_url'      => ['nullable', 'string', 'max:500'],
             'menu_id'      => ['nullable', 'integer', Rule::in(Menu::where('tenant_id', $tid)->pluck('id')->all())],
-            'pay_page_id'  => ['nullable', 'integer', Rule::in(PaymentPage::where('tenant_id', $tid)->pluck('id')->all())],
+            'pay_page_id'  => ['nullable', 'integer', Rule::in(PaymentPage::where('tenant_id', $tid)->servable()->pluck('id')->all())],
             'link_page_id' => ['nullable', 'integer', Rule::in(LinkPage::where('tenant_id', $tid)->pluck('id')->all())],
             'services'     => ['nullable', 'array'],
             'hours'        => ['nullable', 'array'],
