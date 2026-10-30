@@ -98,6 +98,18 @@ class PayOrderPageTest extends TestCase
         $this->assertStringNotContainsString('Payer avec MonCash', $html, 'MonCash ne traite que la gourde.');
     }
 
+    public function test_a_gateway_whose_key_contradicts_its_environment_is_not_offered(): void
+    {
+        $this->enableGateways();
+        GatewaySetting::create(['gateway' => 'card', 'is_enabled' => true, 'driver' => 'stripe']);
+        // Clé de TEST alors que l'environnement annoncé est « Production » : le
+        // driver refuse d'opérer — pas de bouton qui échouerait après le clic.
+        config(['tagtoa.gateways.stripe.mode' => 'live', 'tagtoa.gateways.stripe.credentials.secret' => 'sk_test_x']);
+        GatewayManager::flush();
+
+        $this->page($this->menuOrder('USD'))->assertOk()->assertDontSee('Payer avec Carte bancaire');
+    }
+
     public function test_a_gateway_without_credentials_is_not_offered(): void
     {
         config(['tagtoa.gateways.moncash.credentials' => ['client_id' => 'cid', 'secret' => null]]);

@@ -44,6 +44,12 @@ class OnlineOptions
             if (! GatewayManager::enabled($driver) || ! self::supports($driver, $currency)) {
                 continue;
             }
+            // Identifiants présents mais contradictoires (clé de test avec
+            // l'environnement « Production », ou l'inverse) : le driver refuse
+            // d'opérer, donc le bouton mènerait à un échec APRÈS le clic.
+            if (GatewayManager::warning($driver) !== null) {
+                continue;
+            }
             $out[$driver] = ['driver' => $driver] + self::DRIVERS[$driver];
         }
 
