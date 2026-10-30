@@ -205,7 +205,13 @@
         var ap=el('adPend');if(ap){ap.textContent=n;}});}
 
     function syncNow(){qAll().then(function(all){if(!all.length)return;
-        post(URL_SYNC,{records:all}).then(function(j){if(j&&j.ok){qDel(all.map(function(r){return r.client_uuid;}));}}).catch(function(){});});}
+        post(URL_SYNC,{records:all}).then(function(j){
+            /* On ne retire de la file QUE les scans que le serveur a acquittés
+               (`ack:true`) : enregistrés, rejoués, ou consignés dans les
+               conflits. Un scan en échec (`ack:false`) reste sur l'appareil et
+               sera rejoué. Avant, `j.ok` vidait toute la file d'un coup. */
+            if(j&&Array.isArray(j.results)){qDel(j.results.filter(function(r){return r&&r.ack===true&&typeof r.client_uuid==='string';}).map(function(r){return r.client_uuid;}));}
+        }).catch(function(){});});}
     window.addEventListener('online',syncNow);
     setInterval(syncNow,30000);
     updatePend();syncNow();
