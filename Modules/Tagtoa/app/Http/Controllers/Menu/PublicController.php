@@ -90,6 +90,8 @@ class PublicController extends Controller
             // qui l'impose sur `table_label` et rejette un code invalide.
             'table_code'         => ['nullable', 'string', 'max:20'],
             'delivery_address'   => ['nullable', 'string', 'max:200'],
+            // Repère (« en face du bâtiment », « à côté de l'église ») : facultatif.
+            'delivery_reference' => ['nullable', 'string', 'max:200'],
             // Appartenance à CE menu revérifiée dans MenuOrderService — un
             // identifiant d'un autre commerce n'y sera simplement pas trouvé.
             'delivery_zone_id'   => ['nullable', 'integer'],
@@ -106,6 +108,7 @@ class PublicController extends Controller
                 'closed'                  => __('Ce commerce est fermé pour le moment. Revenez pendant les heures d\'ouverture.'),
                 'invalid_table'           => __('Ce QR de table n\'est plus valide. Rechargez la page en le rescannant.'),
                 'missing_customer_info'   => __('Indiquez votre nom et votre téléphone pour commander.'),
+                'missing_delivery_info'   => __('Pour une livraison, indiquez votre numéro de téléphone et votre adresse.'),
                 default                   => __('Votre commande est vide.'),
             };
 

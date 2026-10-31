@@ -22,6 +22,7 @@
                         @if($o->customer_phone) · {{ $o->customer_phone }}@endif
                         @if($o->table_label) · {{ __('N° table (optionnel)') }} {{ $o->table_label }}@endif
                         @if($o->delivery_address) · {{ __('Adresse') }} : {{ $o->delivery_address }}@endif
+                        @if($o->delivery_reference) · {{ __('Repère') }} : {{ $o->delivery_reference }}@endif
                         @if($o->order_type === 'delivery' && $o->courier) · {{ __('Livreur') }} : {{ $o->courier->name }}@endif
                         @if($o->isPaid() && ($o->paid_by || $o->paid_at)) · {{ __('Encaissé') }}@if($o->paid_by) {{ __('par') }} {{ $o->paid_by }}@endif @if($o->paid_at) {{ $o->paid_at->format('d/m H:i') }}@endif @endif
                     </div>

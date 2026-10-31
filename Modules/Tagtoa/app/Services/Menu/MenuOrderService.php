@@ -187,6 +187,18 @@ class MenuOrderService
             $orderType = $table
                 ? 'dine_in'
                 : (in_array($requestedType, $modesOfferts, true) ? $requestedType : $modesOfferts[0]);
+
+            // LIVRAISON : sans téléphone ni adresse, personne ne peut joindre le
+            // client ni trouver la porte. Règle du serveur (le formulaire n'est
+            // qu'un confort) : un appel direct, ou une commande rejouée depuis
+            // la file hors ligne, ne la contourne pas. Le repère reste facultatif.
+            if ($orderType === 'delivery') {
+                $chiffres = preg_replace('/\D+/', '', (string) ($payload['customer_phone'] ?? '')) ?? '';
+                $adresse  = trim((string) ($payload['delivery_address'] ?? ''));
+                if (strlen($chiffres) < 8 || mb_strlen($adresse) < 3) {
+                    throw new OrderRuleException('missing_delivery_info');
+                }
+            }
             $requestedChannel = $payload['channel'] ?? 'menu';
             $channel = in_array($requestedChannel, ['menu', 'whatsapp'], true) ? $requestedChannel : 'menu';
 
@@ -230,7 +242,8 @@ class MenuOrderService
                 'customer_name'    => $payload['customer_name'] ?? null,
                 'customer_phone'   => $payload['customer_phone'] ?? null,
                 'table_label'      => $orderType === 'dine_in' ? $tableLabel : null,
-                'delivery_address' => $orderType === 'delivery' ? ($payload['delivery_address'] ?? null) : null,
+                'delivery_address' => $orderType === 'delivery' ? trim((string) ($payload['delivery_address'] ?? '')) : null,
+                'delivery_reference' => $orderType === 'delivery' ? (trim((string) ($payload['delivery_reference'] ?? '')) ?: null) : null,
                 'delivery_zone_label' => $orderType === 'delivery' ? optional($zone)->name : null,
                 'note'             => $payload['note'] ?? null,
                 'client_uuid'      => $uuid,

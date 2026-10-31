@@ -101,6 +101,9 @@
                 + (o.delivery_zone_label ? esc(o.delivery_zone_label) + ' — ' : '')
                 + esc(o.delivery_address || '') + '</div>';
         }
+        if (o.delivery_reference){
+            html += '<div class="dv-adresse"><i class="fa-solid fa-signs-post"></i> ' + esc(o.delivery_reference) + '</div>';
+        }
 
         (o.items || []).forEach(function(it){
             html += '<div class="dv-item"><span>' + it.qty + '× ' + esc(it.name) + '</span></div>';

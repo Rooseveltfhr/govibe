@@ -574,6 +574,7 @@ class DashboardController extends Controller
                 'customer_name'       => $o->customer_name,
                 'customer_phone'      => $o->customer_phone,
                 'delivery_address'    => $o->delivery_address,
+                'delivery_reference'  => $o->delivery_reference,
                 'delivery_zone_label' => $o->delivery_zone_label,
                 'total'               => (string) $o->total,
                 'currency'            => $o->currency,
