@@ -49,7 +49,7 @@ class PosReturnTest extends TestCase
         ], $attrs));
     }
 
-    /** Une vente de 2 Prestige à 150, taxe 10 % incluse dans la ligne. */
+    /** Une vente de 2 Prestige à 150, prix HT : taxe 30 ajoutée au total (330). */
     private function vente(float $qty = 2, float $prix = 150, float $taxe = 30): Sale
     {
         $p = $this->article();
@@ -60,7 +60,7 @@ class PosReturnTest extends TestCase
             'subtotal'    => $prix * $qty, 'discount' => 0,
             'tax_base'    => $prix * $qty, 'tax_total' => $taxe,
             'total'       => $prix * $qty + $taxe,
-            'currency'    => 'HTG',
+            'currency'    => 'HTG', 'tax_inclusive' => false,   // prix HT : la taxe s'AJOUTE (total = sous-total + taxe)
             'payments'    => [['method' => 'cash', 'amount' => $prix * $qty + $taxe]],
             'status'      => 1,
             'sold_at'     => now(),

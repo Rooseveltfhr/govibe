@@ -37,6 +37,9 @@ use Modules\Tagtoa\App\Support\Pos\CatalogRef;
  *    un doigt qui insiste, une connexion qui repart — et sans clé
  *    d'idempotence, la caisse paie deux fois.
  *
+ * 5. ON REND CE QUI A ÉTÉ PAYÉ, PAS « PRIX × QUANTITÉ + TAXE ». Voir payeLigne() : prix TTC
+ *    (taxe déjà dedans), remise de la vente, retours partiels cumulés au centime près.
+ *
  * 4. LA VENTE NE BOUGE PAS. Le retour est un document séparé. Réécrire la vente
  *    changerait le rapport Z d'une journée close et rendrait faux le ticket
  *    déjà remis au client.
@@ -131,6 +134,11 @@ class ReturnService
             // Verrou sur les lignes de vente concernées : deux caissiers qui
             // rendent le même article au même instant liraient tous deux
             // « il reste 1 » et rendraient chacun 1.
+            // La VENTE se verrouille d'abord : deux retours simultanés sur des lignes différentes de
+            // la même vente ne verrouillent pas les mêmes lignes, et chacun ignorerait ce que l'autre
+            // vient de rembourser (plafond de la vente, statut « remboursée »).
+            Sale::whereKey($sale->id)->lockForUpdate()->first();
+
             $items = SaleItem::whereIn('id', array_keys($demande))
                 ->where('sale_id', $sale->id)
                 ->lockForUpdate()->get()->keyBy('id');
@@ -163,17 +171,29 @@ class ReturnService
                 'returned_at'     => now(),
             ]);
 
+            // Ce que la vente a RÉELLEMENT encaissé, ligne par ligne (voir payeLigne).
+            $dejaRembourse = (float) SaleReturn::where('sale_id', $sale->id)->sum('total');
+
+            $crees = [];
             foreach ($demande as $id => $qty) {
                 $ligne = $items[$id];
 
-                // Les montants viennent de la LIGNE DE VENTE, pas du catalogue
-                // ni du navigateur. La taxe est proratisée sur ce qui est rendu :
-                // rendre la moitié d'une ligne rend la moitié de sa taxe.
-                $part      = (float) $ligne->qty > 0 ? $qty / (float) $ligne->qty : 0.0;
-                $montant   = round((float) $ligne->price * $qty, 2);
-                $taxeLigne = round((float) $ligne->tax_amount * $part, 2);
+                // Le remboursement d'une ligne = ce qui a été payé pour elle × la fraction rendue —
+                // jamais « prix × quantité + taxe ». Sur une vente TTC (usage haïtien) la taxe est
+                // DÉJÀ dans le prix : l'ajouter rendait trop ; sur une vente remisée, le prix est
+                // celui d'avant remise : on rendait la remise en plus.
+                //
+                // Calcul CUMULATIF (part rendue après − part déjà rendue) : trois retours d'un tiers
+                // retombent exactement sur le total de la ligne, sans centime perdu ni créé.
+                $dejaRendu = (float) SaleReturnItem::where('sale_item_id', $ligne->id)->sum('qty');
+                $q = (float) $ligne->qty;
+                [$paye, $taxeLigneTotale] = $this->payeLigne($sale, $ligne);
 
-                SaleReturnItem::create([
+                $montant   = round(round($paye * ($dejaRendu + $qty) / $q, 2) - round($paye * $dejaRendu / $q, 2), 2);
+                $taxeLigne = round(round($taxeLigneTotale * ($dejaRendu + $qty) / $q, 2) - round($taxeLigneTotale * $dejaRendu / $q, 2), 2);
+                $base      = round($montant - $taxeLigne, 2);
+
+                $crees[] = SaleReturnItem::create([
                     'return_id'    => $retour->id,
                     'sale_item_id' => $ligne->id,
                     'product_id'   => $ligne->product_id,
@@ -181,11 +201,11 @@ class ReturnService
                     'name'         => $ligne->name,
                     'price'        => $ligne->price,
                     'qty'          => $qty,
-                    'line_total'   => $montant,
+                    'line_total'   => $base,        // hors taxe ; base + taxe = montant rendu
                     'tax_amount'   => $taxeLigne,
                 ]);
 
-                $sousTotal += $montant;
+                $sousTotal += $base;
                 $taxe      += $taxeLigne;
 
                 if ($retour->restocked) {
@@ -193,10 +213,46 @@ class ReturnService
                 }
             }
 
+            $total = round($sousTotal + $taxe, 2);
+            $reste = max(0.0, round((float) $sale->total - $dejaRembourse, 2));
+
+            // DERNIER retour (il vide tout ce qui restait à rendre) : il solde la vente au centime près.
+            // Les parts de ligne arrondies peuvent différer du total encaissé d'un ou deux centimes (une
+            // remise de 0,50 sur trois lignes de 1,00 donne 3 × 0,83 = 2,49 pour 2,50 encaissés) : sans
+            // cela le client reste en dessous et la commande n'est jamais « remboursée ». Au-delà de
+            // quelques centimes, ce n'est plus de l'arrondi (historique incohérent) : on ne force rien.
+            $restantApres = $this->rendable($sale->load('items'));
+            foreach ($demande as $id => $qty) {
+                $restantApres[$id] = max(0.0, round(($restantApres[$id] ?? 0) - $qty, 3));
+            }
+            $solde = array_sum($restantApres) <= 0.0001;
+
+            $cible = min($total, $reste);                       // plafond : jamais plus que l'encaissé
+            if ($solde && abs($reste - $total) <= 0.10) {
+                $cible = $reste;
+            }
+
+            // L'écart s'applique à la dernière ligne ET à sa ligne de détail : base + taxe = montant rendu,
+            // partout (une ligne ne doit pas dire un centime de plus que le document).
+            $ecart = round($cible - $total, 2);
+            if ($ecart !== 0.0 && $crees !== []) {
+                $derniere = end($crees);
+                $base = round((float) $derniere->line_total + $ecart, 2);
+                $taxeD = (float) $derniere->tax_amount;
+                if ($base < 0) {
+                    $taxeD = max(0.0, round($taxeD + $base, 2));
+                    $base = 0.0;
+                }
+                $derniere->forceFill(['line_total' => $base, 'tax_amount' => $taxeD])->save();
+                $sousTotal = round(array_sum(array_map(fn ($i) => (float) $i->line_total, $crees)), 2);
+                $taxe      = round(array_sum(array_map(fn ($i) => (float) $i->tax_amount, $crees)), 2);
+                $total     = round($sousTotal + $taxe, 2);
+            }
+
             $retour->forceFill([
                 'subtotal'  => round($sousTotal, 2),
                 'tax_total' => round($taxe, 2),
-                'total'     => round($sousTotal + $taxe, 2),
+                'total'     => $total,
             ])->save();
 
             $this->refleterSurLaColonneVertebrale($sale, $retour);
@@ -238,6 +294,27 @@ class ReturnService
             'staff'       => $contexte['staff'] ?? null,
             'reason'      => $retour->kind_label,
         ]);
+    }
+
+    /**
+     * Ce que la vente a encaissé pour UNE ligne entière, et la part de taxe qu'il contient.
+     *
+     * La remise de la vente s'impute au prorata sur toutes les lignes (comme PosService :
+     * `line_total × (sous-total − remise) / sous-total`). Puis :
+     *   - prix TTC  : ce montant EST le payé, la taxe en est extraite (déjà dedans) ;
+     *   - prix HT   : la taxe s'ajoute, le client a payé montant + taxe.
+     *
+     * @return array{0:float,1:float}  [payé pour la ligne entière, dont taxe]
+     */
+    private function payeLigne(Sale $sale, SaleItem $ligne): array
+    {
+        $sousTotal = (float) $sale->subtotal;
+        $facteur   = $sousTotal > 0 ? max(0.0, $sousTotal - (float) $sale->discount) / $sousTotal : 0.0;
+        $net       = round((float) $ligne->line_total * $facteur, 2);
+        $taxe      = (float) ($ligne->tax_amount ?? 0);
+        $inclusive = (bool) ($sale->tax_inclusive ?? true);
+
+        return [$inclusive ? $net : round($net + $taxe, 2), $taxe];
     }
 
     /** L'article du catalogue derrière une ligne de vente, ou null. */

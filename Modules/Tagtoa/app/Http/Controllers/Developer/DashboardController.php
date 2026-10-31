@@ -35,7 +35,7 @@ class DashboardController extends Controller
     {
         $data = $request->validate([
             'name'        => ['nullable', 'string', 'max:120'],
-            'webhook_url' => ['nullable', 'url', 'max:500'],
+            'webhook_url' => ['nullable', 'url', 'max:500', new \Modules\Tagtoa\App\Support\Net\SafeCallbackUrl()],
         ]);
 
         $generated = ApiToken::generate();

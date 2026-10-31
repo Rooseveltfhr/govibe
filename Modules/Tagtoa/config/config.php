@@ -257,6 +257,16 @@ return [
     | Jeton VIDE par défaut = route désactivée (échec fermé) : définir
     | TAGTOA_OPCACHE_RESET_TOKEN sur le VPS pour l'activer.
     */
+    /*
+    | API développeur — callbacks de paiement (callback_url / webhook_url).
+    | https UNIQUEMENT par défaut, et jamais vers une adresse privée/locale (voir Support/Net/SafeUrl).
+    | TAGTOA_API_ALLOW_HTTP_CALLBACKS=true autorise http:// (sandbox d'un intégrateur) ; la règle
+    | des adresses privées reste, elle, TOUJOURS appliquée.
+    */
+    'api' => [
+        'allow_http_callbacks' => (bool) env('TAGTOA_API_ALLOW_HTTP_CALLBACKS', false),
+    ],
+
     'ops' => [
         'opcache_reset_token' => env('TAGTOA_OPCACHE_RESET_TOKEN'),
     ],
