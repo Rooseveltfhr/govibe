@@ -137,6 +137,34 @@ if [ -n "${PH:-}" ] && [ -d "$PH" ]; then
   fi
 fi
 
+# 4.78) DIAGNOSTIC DES IMAGES (jamais bloquant, n'affiche ni secret ni contenu).
+#       « Les images téléversées ne s'affichent pas » a trois causes possibles, que ce bloc départage dans
+#       le journal de déploiement : (1) le disque « public » de l'application hôte n'écrit pas où l'on croit
+#       (racine ou URL différentes) ; (2) le dossier physique est vide ou non inscriptible ; (3) le lien
+#       public_html/storage manque, est mort, ou le serveur web refuse de le suivre (code HTTP ≠ 200).
+echo "==> Diagnostic des images (non bloquant)"
+DISK_INFO="$(php artisan tinker --execute="echo config('filesystems.disks.public.root').' | '.config('filesystems.disks.public.url');" 2>/dev/null | tail -1)"
+echo "   disque public (racine | url) : ${DISK_INFO:-inconnu}"
+PUBDIR="$APP/storage/app/public"
+echo "   dossier physique : $PUBDIR — $(ls "$PUBDIR" 2>/dev/null | wc -l) entrée(s), droits $(stat -c '%a %U:%G' "$PUBDIR" 2>/dev/null || echo '?'), PHP-FPM écrit en tant que : $(ps -eo user,comm 2>/dev/null | awk '/php-fpm|lsphp|php[0-9.]*$/ {print $1}' | sort -u | tr '\n' ' ')"
+if [ -n "${PH:-}" ]; then
+  echo "   lien docroot : $(ls -ld "$PH/storage" 2>/dev/null | awk '{print $1, $3":"$4, $(NF-2), $(NF-1), $NF}') $( [ -e "$PH/storage" ] && echo '(cible lisible)' || echo '(ABSENT ou MORT)')"
+fi
+echo "   dossiers « menu-items » trouvés (là où les photos de plats atterrissent vraiment) :"
+find "$APP/storage" "$APP/public" ${PH:+"$PH"} -maxdepth 8 -type d -name 'menu-items' 2>/dev/null | head -5 | sed 's/^/     /'
+NEWEST="$(find "$PUBDIR/tagtoa" -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)"
+if [ -n "$NEWEST" ]; then
+  REL="${NEWEST#"$PUBDIR"/}"
+  DIAG_URL="$(grep -m1 '^APP_URL=' .env 2>/dev/null | cut -d= -f2-)"
+  echo "   dernière image : $REL (droits $(stat -c '%a %U' "$NEWEST"))"
+  if [ -n "$DIAG_URL" ]; then
+    DIAG_CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${DIAG_URL%/}/storage/$REL" 2>/dev/null)"
+    echo "   GET ${DIAG_URL%/}/storage/$REL -> HTTP ${DIAG_CODE:-000}"
+  fi
+else
+  echo "   AUCUNE image sous $PUBDIR/tagtoa — rien n'a été écrit là (voir « disque public » ci-dessus)."
+fi
+
 # 4.8) Perf HTTP pour connexions faibles (Haïti) : compression gzip + cache
 #      navigateur. Ajout IDEMPOTENT (marqueur TAGTOA-PERF-BLOCK) en fin du
 #      .htaccess existant du docroot — jamais d'écrasement, jamais de doublon.

@@ -96,8 +96,13 @@ class PayPalDriver implements GatewayDriver
                 $status = $cap->json('status', $status);
             }
 
-            if (PayPal::mapStatus($status) === 'paid' && ! $this->amountMatches($res, $txn)) {
-                return 'failed';
+            // « payé » exige un montant ET une devise lus dans la réponse de la passerelle (D8) : leur
+            // absence laisse la transaction en attente, elle n'est plus acceptée par défaut.
+            if (PayPal::mapStatus($status) === 'paid') {
+                $verdict = $this->amountVerdict($res, $txn);
+                if ($verdict !== 'ok') {
+                    return $verdict;
+                }
             }
 
             return PayPal::mapStatus($status);
@@ -110,15 +115,23 @@ class PayPalDriver implements GatewayDriver
         return 'pending';
     }
 
-    /** Anti-fraude : le montant PayPal doit couvrir le montant attendu. */
-    protected function amountMatches($res, PayTransaction $txn): bool
+    /**
+     * Anti-fraude : le montant PayPal doit couvrir le montant attendu, dans la même devise.
+     *
+     * @return string 'ok' | 'pending' (montant ou devise absents) | 'failed' (insuffisant ou autre devise)
+     */
+    protected function amountVerdict($res, PayTransaction $txn): string
     {
-        $value = $res->json('purchase_units.0.amount.value');
-        if ($value === null) {
-            return true; // pas d'info → on ne bloque pas (la capture a réussi)
+        $value    = $res->json('purchase_units.0.amount.value');
+        $currency = $res->json('purchase_units.0.amount.currency_code');
+        if ($value === null || $currency === null || $currency === '') {
+            return 'pending';
+        }
+        if (strtoupper((string) $currency) !== strtoupper((string) $txn->currency)) {
+            return 'failed';
         }
 
-        return (float) $value + 0.001 >= (float) $txn->amount;
+        return (float) $value + 0.001 >= (float) $txn->amount ? 'ok' : 'failed';
     }
 
     /** Jeton OAuth (client_credentials, Basic auth). Null si indisponible. */

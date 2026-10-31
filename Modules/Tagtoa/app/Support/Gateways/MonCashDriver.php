@@ -79,12 +79,7 @@ class MonCashDriver implements GatewayDriver
             $payment = (array) $res->json('payment', []);
             if ($res->successful() && $payment) {
                 // Sécurité : le montant confirmé doit correspondre (anti-fraude).
-                $paidCost = MonCash::amount($payment['cost'] ?? 0);
-                if ($paidCost < MonCash::amount($txn->amount)) {
-                    return 'failed';
-                }
-
-                return MonCash::mapStatus($payment['message'] ?? null);
+                return self::judge($payment, $txn);
             }
         } catch (\Throwable $e) {
             if (function_exists('report')) {
@@ -93,6 +88,24 @@ class MonCashDriver implements GatewayDriver
         }
 
         return 'pending';
+    }
+
+    /**
+     * Verdict sur la réponse de la passerelle. PUR (testable sans réseau).
+     * « payé » exige un montant DIT par la passerelle (sinon rien ne le prouve : en attente) qui couvre
+     * la transaction (sinon échec). Un paiement non abouti n'est jamais jugé sur son montant.
+     */
+    public static function judge(array $payment, PayTransaction $txn): string
+    {
+        $status = MonCash::mapStatus($payment['message'] ?? null);
+        if ($status !== 'paid') {
+            return $status;
+        }
+        if (! isset($payment['cost']) || ! is_numeric($payment['cost'])) {
+            return 'pending';
+        }
+
+        return MonCash::amount($payment['cost']) < MonCash::amount($txn->amount) ? 'failed' : 'paid';
     }
 
     /** Jeton OAuth (client_credentials, Basic auth). Null si indisponible. */

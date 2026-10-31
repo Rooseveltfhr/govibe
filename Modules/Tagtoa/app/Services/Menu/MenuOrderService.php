@@ -40,7 +40,9 @@ class MenuOrderService
     public function placeOrder(Menu $menu, array $payload): Order
     {
         $uuid = $payload['client_uuid'] ?? null;
-        if ($uuid && $existing = Order::where('client_uuid', $uuid)->first()) {
+        // Cherché DANS ce menu seulement. La recherche était globale : le client_uuid d'une commande d'un
+        // AUTRE commerce (référence, total, lien de suivi) revenait à quiconque le rejouait.
+        if ($uuid && $existing = Order::where('menu_id', $menu->id)->where('client_uuid', $uuid)->first()) {
             return $existing;
         }
 
@@ -71,11 +73,20 @@ class MenuOrderService
             // contrainte unique sur client_uuid. Sans ce filet, la seconde
             // remontait une erreur 500 au client au lieu de lui rendre sa
             // commande déjà enregistrée par la première.
-            if ($uuid && $this->isDuplicateClientUuid($e)) {
-                $existing = Order::where('client_uuid', $uuid)->first();
+            if ($uuid && \Modules\Tagtoa\App\Support\Order\UniqueViolation::onClientUuid($e)) {
+                $existing = Order::where('menu_id', $menu->id)->where('client_uuid', $uuid)->first();
                 if ($existing) {
                     return $existing;
                 }
+
+                // Collision avec une commande d'un AUTRE menu (l'ancien index unique global n'est pas encore
+                // remplacé, ou identifiant rejoué d'ailleurs) : on ne rend JAMAIS la commande d'autrui ; on
+                // enregistre celle-ci sans clé d'idempotence plutôt que de la perdre ou de répondre 500.
+                $order = $this->insertOrder($menu, $payload, null);
+                $this->notifyMerchant($menu, $order);
+                $this->notifyCustomer($menu, $order);
+
+                return $order;
             }
 
             throw $e;
@@ -294,16 +305,6 @@ class MenuOrderService
         });
     }
 
-    /** Vrai si l'exception vient de la contrainte unique sur client_uuid, pas d'autre chose. */
-    private function isDuplicateClientUuid(QueryException $e): bool
-    {
-        $message = $e->getMessage();
-
-        return str_contains($message, 'client_uuid') && (
-            str_contains($message, 'Integrity constraint violation')
-            || str_contains($message, 'UNIQUE constraint failed')
-        );
-    }
 
     /**
      * Valide + calcule le supplément de prix des options choisies pour un item,

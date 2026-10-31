@@ -178,7 +178,7 @@
     el('closeCart').onclick=function(){el('sheet').classList.remove('show');};
     el('sheet').onclick=function(e){if(e.target===el('sheet'))el('sheet').classList.remove('show');};
 
-    function uuid(){return 'stk-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9);}
+    function uuid(){try{if(window.crypto&&crypto.randomUUID){return 'stk-'+crypto.randomUUID().replace(/-/g,'');}}catch(e){}return 'stk-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9)+Math.random().toString(36).slice(2,9);}
     el('confirm').onclick=function(){
         var name=el('cName').value.trim(),phone=el('cPhone').value.trim();
         var errB=el('cErr');errB.classList.remove('show');

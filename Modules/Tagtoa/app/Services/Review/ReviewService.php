@@ -52,7 +52,8 @@ class ReviewService
     public function submit(string $type, int $subjectId, ?string $tenantId, ?string $alias, array $payload): Review
     {
         $uuid = $payload['client_uuid'] ?? null;
-        if ($uuid && $existing = Review::where('client_uuid', $uuid)->first()) {
+        // Pour CE sujet seulement (même défaut de portée que les commandes).
+        if ($uuid && $existing = Review::where('subject_type', $type)->where('subject_id', $subjectId)->where('client_uuid', $uuid)->first()) {
             return $existing;
         }
 

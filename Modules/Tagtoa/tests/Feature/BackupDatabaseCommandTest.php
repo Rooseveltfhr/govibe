@@ -254,4 +254,19 @@ class BackupDatabaseCommandTest extends TestCase
         $this->assertStringContainsString('TAGTOA_BACKUP_REQUIRED', $sh);
         $this->assertStringContainsString('${TAGTOA_SEED_DEMO:-0}" = "1"', $sh, 'Le seed de démo doit être désactivé par défaut.');
     }
+
+    public function test_the_deploy_log_diagnoses_uploaded_images_without_ever_blocking_the_deploy(): void
+    {
+        $sh = file_get_contents(__DIR__.'/../../deploy/remote-deploy.sh');
+        $start = strpos($sh, '# 4.78) DIAGNOSTIC DES IMAGES');
+        $end = strpos($sh, '# 4.8) Perf HTTP');
+        $this->assertNotFalse($start);
+        $block = substr($sh, $start, $end - $start);
+
+        foreach (['disque public', 'dossier physique', 'lien docroot', 'menu-items', 'dernière image', '/storage/'] as $needle) {
+            $this->assertStringContainsString($needle, $block);
+        }
+        $this->assertStringNotContainsString('exit ', $block, 'Un diagnostic ne doit jamais arrêter le déploiement.');
+        $this->assertStringNotContainsString('rollback', $block);
+    }
 }

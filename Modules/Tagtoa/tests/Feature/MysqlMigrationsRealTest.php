@@ -63,13 +63,28 @@ class MysqlMigrationsRealTest extends TestCase
         return ['--path' => realpath(__DIR__.'/../../Database/migrations'), '--realpath' => true, '--force' => true];
     }
 
-    public function test_every_migration_runs_on_an_empty_database_and_the_last_two_roll_back_and_replay(): void
+    private function indexNames(string $table): array
+    {
+        return collect(DB::select("SHOW INDEX FROM `$table`"))->pluck('Key_name')->unique()->values()->all();
+    }
+
+    public function test_every_migration_runs_on_an_empty_database_and_the_last_three_roll_back_and_replay(): void
     {
         $code = Artisan::call('migrate', $this->params());
         $this->assertSame(0, $code, Artisan::output());
 
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 2] + $this->params()), Artisan::output());
+        // CS-7 : l'unicité des commandes est par menu / par boutique, plus globale.
+        $this->assertContains('tagtoa_mo_menu_uuid_unique', $this->indexNames('tagtoa_menu_orders'));
+        $this->assertNotContains('tagtoa_menu_orders_client_uuid_unique', $this->indexNames('tagtoa_menu_orders'));
+        $this->assertContains('tagtoa_so_store_uuid_unique', $this->indexNames('tagtoa_store_orders'));
+        $this->assertNotContains('tagtoa_store_orders_client_uuid_unique', $this->indexNames('tagtoa_store_orders'));
+
+        // 000180 + 000179 + 000178 : défaire, puis refaire.
+        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 3] + $this->params()), Artisan::output());
+        $this->assertContains('tagtoa_menu_orders_client_uuid_unique', $this->indexNames('tagtoa_menu_orders'));
+        $this->assertNotContains('tagtoa_mo_menu_uuid_unique', $this->indexNames('tagtoa_menu_orders'));
         $this->assertSame(0, Artisan::call('migrate', $this->params()), Artisan::output());
+        $this->assertContains('tagtoa_mo_menu_uuid_unique', $this->indexNames('tagtoa_menu_orders'));
     }
 
     public function test_the_ledger_repair_adds_the_missing_indexes_and_is_idempotent(): void

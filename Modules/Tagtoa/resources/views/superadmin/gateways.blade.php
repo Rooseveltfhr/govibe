@@ -99,6 +99,9 @@
                 @if($d['warning'])
                     <p class="gw-note gw-note-warn"><i class="fa-solid fa-triangle-exclamation"></i> {{ $d['warning'] }}</p>
                 @endif
+                @if($d['advisory'] ?? null)
+                    <p class="gw-note"><i class="fa-solid fa-circle-info"></i> {{ $d['advisory'] }}</p>
+                @endif
             </div>
 
             <div class="gw-card-foot">
