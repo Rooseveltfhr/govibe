@@ -383,7 +383,11 @@
                     @else
                         <input id="cTable" class="cin" placeholder="{{ __('N° table (optionnel)') }}" maxlength="40">
                     @endif
-                    <input id="cAddress" class="cin" placeholder="{{ __('Adresse de livraison') }}" maxlength="200" style="display:none">
+                    <input id="cAddress" class="cin" placeholder="{{ __('Adresse de livraison (obligatoire)') }}" maxlength="200" autocomplete="street-address" style="display:none">
+                    {{-- Repère : beaucoup de maisons n'ont ni numéro ni rue connue ;
+                         ce qui retrouve la porte, c'est « en face du bâtiment »,
+                         « à côté de l'église ». Facultatif, mais fortement conseillé. --}}
+                    <input id="cRef" class="cin" placeholder="{{ __('Repère (ex. en face du bâtiment, à côté de l\'église)') }}" maxlength="200" style="display:none">
                     @if($menu->activeDeliveryZones->isNotEmpty())
                         {{-- Zone D'ABORD dans le flux visuel du frais : c'est elle
                              qui fixe le prix, l'adresse ci-dessus ne sert qu'à
@@ -471,7 +475,7 @@
         var HAS_ZONES = @json($menu->activeDeliveryZones->isNotEmpty());
         var REQUIRE_CUSTOMER_INFO = @json($menu->require_customer_info ?? false);
         var CSRF = document.querySelector('meta[name=csrf-token]').getAttribute('content');
-        var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')), customerInfo:@json(__('Indiquez votre nom et votre téléphone pour commander.')),
+        var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')), customerInfo:@json(__('Indiquez votre nom et votre téléphone pour commander.')), deliveryInfo:@json(__('Pour une livraison, indiquez votre numéro de téléphone et votre adresse.')), phone:@json(__('Téléphone (WhatsApp)')), phoneRequired:@json(__('Téléphone (obligatoire pour la livraison)')),
             refusedTitle:@json(__('Commande refusée :')), notSentTitle:@json(__('Commande non envoyée :')), refused:@json(__('Le commerce n\'a pas pu accepter votre commande.')), retry:@json(__('Réessayer')), dismiss:@json(__('Fermer')),
             giveUp:@json(__('Impossible d\'envoyer votre commande pour le moment.')), storageFull:@json(__('Impossible de garder votre commande hors ligne (stockage du navigateur plein ou bloqué). Reconnectez-vous puis réessayez.')) };
         var cart = {};
@@ -664,6 +668,8 @@ var MenuQ=(function(){
             if (cTableFixe) { cTableFixe.style.display = (t==='dine_in') ? '' : 'none'; }
             else { document.getElementById('cTable').style.display = (t==='dine_in') ? '' : 'none'; }
             document.getElementById('cAddress').style.display = (t==='delivery') ? '' : 'none';
+            document.getElementById('cRef').style.display = (t==='delivery') ? '' : 'none';
+            document.getElementById('cPhone').placeholder = (t==='delivery') ? T.phoneRequired : T.phone;
             var zoneSel = document.getElementById('cZone');
             if (zoneSel) { zoneSel.style.display = (t==='delivery') ? '' : 'none'; }
             render();
@@ -772,10 +778,15 @@ var MenuQ=(function(){
                 alert(T.customerInfo);
                 return;
             }
+            // Livraison : numéro et adresse obligatoires (le serveur le revérifie).
+            if (orderType === 'delivery' && (val('cPhone').replace(/\D+/g,'').length < 8 || val('cAddress').trim().length < 3)){
+                alert(T.deliveryInfo);
+                return;
+            }
             var items=[]; for(var k in cart){ items.push({id:cart[k].id, qty:cart[k].qty, options:cart[k].options}); }
             var payload = {items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
                 customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),
-                table_code:@json($table->code ?? null),delivery_address:val('cAddress'),
+                table_code:@json($table->code ?? null),delivery_address:val('cAddress'),delivery_reference:val('cRef'),
                 delivery_zone_id:(HAS_ZONES ? val('cZone') : null)};
             var btn=document.getElementById('confirmBtn'); btn.disabled=true; var old=btn.innerHTML; btn.textContent=T.wait;
             envoyerCommande(payload).then(function(j){

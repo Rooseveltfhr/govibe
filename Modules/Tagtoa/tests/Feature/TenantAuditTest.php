@@ -104,11 +104,12 @@ class TenantAuditTest extends TestCase
     }
 
     /**
-     * ÉCART CONNU (à trancher en CS-11b) : un utilisateur connecté SANS tenant_id
-     * obtient Tenant::id() === null, donc aucune portée : il voit TOUS les commerces.
-     * Ce test décrit l'état actuel pour que le corriger soit un changement visible.
+     * La portée elle-même reste ouverte sans commerce (voulu : public, webhooks,
+     * console). CS-11b ferme le trou À L'ENTRÉE du back-office (RequireTenant,
+     * voir RequireTenantTest) plutôt qu'ici, pour ne pas casser les pages publiques
+     * vues par un compte connecté sans commerce. Ce test épingle ce choix.
      */
-    public function test_KNOWN_GAP_authenticated_user_without_tenant_is_unfiltered(): void
+    public function test_scope_stays_open_without_a_business_the_dashboard_guard_closes_the_gap(): void
     {
         $this->be(new GenericUser(['id' => 9, 'tenant_id' => null]));
         Tenant::flush();

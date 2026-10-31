@@ -144,7 +144,9 @@ Route::prefix('event/staff/{alias}')->name('tagtoa.event.staff.')->middleware('t
 // Middleware aligné sur le back-office Biztap (confirmé dans routes/web.php) :
 // auth + valid.user + role:admin + multi_tenant (initialise le tenant courant
 // pour getLogInTenantId()). Retirer/adapter si votre groupe diffère.
-Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant'])->prefix('tagtoa')->group(function () {
+// RequireTenant (CS-11b) : sans commerce, le tableau de bord reste fermé — sinon
+// la portée automatique, ouverte quand Tenant::id() est null, montrerait TOUT.
+Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant', \Modules\Tagtoa\App\Http\Middleware\RequireTenant::class])->prefix('tagtoa')->group(function () {
 
     // Accueil sur /tagtoa/home (le segment unique /tagtoa entre en conflit avec
     // la route vcard {alias} de Biztap). /tagtoa redirige vers /tagtoa/home.
@@ -215,6 +217,8 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         // connaître son id. Déclarées AVANT /{id}/… pour la même raison que
         // là-bas : ne jamais laisser prendre un mot pour un numéro.
         Route::get('/orders', [MenuDashboard::class, 'currentOrders'])->name('orders.current');
+        // Pastille + son sur TOUTES les pages du tableau de bord (voir partials/order-alert).
+        Route::get('/orders/alerts', [MenuDashboard::class, 'alerts'])->name('orders.alerts');
         Route::get('/kitchen', [MenuDashboard::class, 'currentKitchen'])->name('kitchen.current');
         Route::get('/delivery', [MenuDashboard::class, 'currentDelivery'])->name('delivery.current');
         Route::get('/tables', [MenuDashboard::class, 'currentTables'])->name('tables.current');

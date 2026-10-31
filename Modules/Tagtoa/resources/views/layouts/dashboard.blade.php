@@ -468,6 +468,7 @@
         }
     })();
     </script>
+    @include('tagtoa::partials.order-alert')
     @stack('scripts')
 </body>
 </html>

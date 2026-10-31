@@ -53,6 +53,7 @@ class MenuDeliveryFeeTest extends TestCase
 
         $order = app(MenuOrderService::class)->placeOrder($menu, [
             'items' => [['id' => $item->id, 'qty' => 1]], 'order_type' => 'delivery',
+            'customer_phone' => '50933333333', 'delivery_address' => 'Delmas 33',
         ]);
 
         $this->assertSame('50.00', $order->delivery_fee);
@@ -86,6 +87,7 @@ class MenuDeliveryFeeTest extends TestCase
 
         $order = app(MenuOrderService::class)->placeOrder($menu, [
             'items' => [['id' => $item->id, 'qty' => 1]], 'order_type' => 'delivery',
+            'customer_phone' => '50933333333', 'delivery_address' => 'Delmas 33',
         ]);
 
         $this->assertSame('0.00', $order->delivery_fee);
@@ -103,6 +105,7 @@ class MenuDeliveryFeeTest extends TestCase
 
         $order = app(MenuOrderService::class)->placeOrder($menu, [
             'items' => [['id' => $item->id, 'qty' => 1]], 'order_type' => 'delivery',
+            'customer_phone' => '50933333333', 'delivery_address' => 'Delmas 33',
         ]);
 
         // 100 HT + 10 (taxe, jamais sur les 50 de livraison) + 50 (livraison) = 160.
@@ -117,6 +120,7 @@ class MenuDeliveryFeeTest extends TestCase
 
         $order = app(MenuOrderService::class)->placeOrder($menu, [
             'items' => [['id' => $item->id, 'qty' => 1]], 'order_type' => 'delivery',
+            'customer_phone' => '50933333333', 'delivery_address' => 'Delmas 33',
         ]);
 
         $menu->update(['delivery_fee' => 200]);

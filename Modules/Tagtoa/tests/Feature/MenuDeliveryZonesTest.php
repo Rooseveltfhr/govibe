@@ -102,6 +102,7 @@ class MenuDeliveryZonesTest extends TestCase
 
         $order = app(MenuOrderService::class)->placeOrder($menu, [
             'items' => [['id' => $item->id, 'qty' => 1]], 'order_type' => 'delivery',
+            'customer_phone' => '50933333333', 'delivery_address' => 'Delmas 33',
             'delivery_zone_id' => $zone->id,
         ]);
 
@@ -119,6 +120,7 @@ class MenuDeliveryZonesTest extends TestCase
 
         $order = app(MenuOrderService::class)->placeOrder($menu, [
             'items' => [['id' => $item->id, 'qty' => 1]], 'order_type' => 'delivery',
+            'customer_phone' => '50933333333', 'delivery_address' => 'Delmas 33',
             'delivery_zone_id' => $zoneEtrangere->id,
         ]);
 
@@ -136,6 +138,7 @@ class MenuDeliveryZonesTest extends TestCase
 
         $order = app(MenuOrderService::class)->placeOrder($menu, [
             'items' => [['id' => $item->id, 'qty' => 1]], 'order_type' => 'delivery',
+            'customer_phone' => '50933333333', 'delivery_address' => 'Delmas 33',
         ]);
 
         $this->assertSame('50.00', $order->delivery_fee);
