@@ -313,4 +313,67 @@ class EventDoorSaleTest extends TestCase
 
         $this->cardSale()->assertOk()->assertJson(['ok' => true]);
     }
+
+    /* ---------- seconde revue : la reprise d'un débit sans billet est sérialisée ---------- */
+
+    /** Débit existant sans billet (coupure entre le débit et l'émission). Retourne la carte. */
+    private function debitWithoutTicket(): CardAccount
+    {
+        $card = $this->card(2000);
+        $this->cardSale()->assertOk();
+        CardTxn::where('type', 'charge')->first()->update(['meta' => []]);
+        Ticket::where('event_id', $this->event->id)->delete();
+
+        return $card;
+    }
+
+    /** Appelle $fn juste avant la $n-ième lecture du grand livre des cartes faite DANS une transaction. */
+    private function beforeNthLedgerReadInTransaction(int $n, callable $fn): void
+    {
+        $seen = 0;
+        DB::beforeExecuting(function (string $query) use (&$seen, $n, $fn) {
+            if (DB::transactionLevel() > 0 && preg_match('/^select .* from [`"]tagtoa_card_txns[`"]/i', $query) && ++$seen === $n) {
+                $fn();
+            }
+        });
+    }
+
+    private function otherRequestIssuesTheTicket(): callable
+    {
+        return function () {
+            $txn = CardTxn::where('type', 'charge')->first();
+            $t = Ticket::create(['event_id' => $this->event->id, 'ticket_type_id' => $this->type->id, 'code' => 'FIRST-REQ',
+                'holder_name' => 'Marie', 'holder_phone' => '+50937000000', 'status' => Ticket::STATUS_VALID]);
+            DB::table('tagtoa_card_txns')->where('id', $txn->id)->update(['meta' => json_encode(['ticket_id' => $t->id])]);
+        };
+    }
+
+    public function test_two_requests_resuming_the_same_debit_issue_only_one_ticket(): void
+    {
+        $card = $this->debitWithoutTicket();
+        // La première requête émet son billet PENDANT l'attente du verrou de la seconde.
+        $this->beforeNthLedgerReadInTransaction(1, $this->otherRequestIssuesTheTicket());
+
+        $res = $this->cardSale()->assertOk();
+
+        $this->assertSame('FIRST-REQ', $res->json('code'), 'La seconde répond avec le billet de la première.');
+        $this->assertSame(1, Ticket::where('event_id', $this->event->id)->count(), 'Un seul billet pour un seul débit.');
+        $this->assertSame(1500, $card->fresh()->balance_minor);
+        $this->assertSame(0, CardTxn::where('type', 'refund')->count());
+    }
+
+    public function test_a_failure_while_another_request_issues_the_ticket_never_refunds_a_valid_ticket(): void
+    {
+        $card = $this->debitWithoutTicket();
+        $this->type->update(['quantity' => 1, 'sold' => 1]);   // NOTRE émission échoue (quota)
+        // Lecture 1 = verrou d'émission (échoue juste après) ; lecture 2 = verrou du remboursement :
+        // l'autre requête a émis son billet entre les deux.
+        $this->beforeNthLedgerReadInTransaction(2, $this->otherRequestIssuesTheTicket());
+
+        $res = $this->cardSale()->assertOk();
+
+        $this->assertSame('FIRST-REQ', $res->json('code'));
+        $this->assertSame(0, CardTxn::where('type', 'refund')->count(), 'Un billet valable ne se rembourse pas.');
+        $this->assertSame(1500, $card->fresh()->balance_minor);
+    }
 }
