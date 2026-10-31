@@ -326,16 +326,41 @@ class StaffTerminalController extends Controller
             }
         }
 
-        // Prix du billet (imposé côté serveur depuis le type sélectionné).
+        // Billet PRÉ-IMPRIMÉ (hors système, ex. stock physique d'un festival) : on
+        // ACTIVE le billet déjà enregistré, jamais on n'en crée un nouveau — le
+        // code scanné doit exister et ne pas avoir déjà été vendu (anti-fraude).
+        // Vérifié AVANT tout débit : refuser la vente APRÈS avoir débité la carte
+        // laissait le client payé sans billet.
+        $printedCode = trim((string) ($data['printed_code'] ?? ''));
+        $printed = null;
+        if ($printedCode !== '') {
+            $printed = Ticket::where('event_id', $event->id)
+                ->where(function ($q) use ($printedCode) {
+                    $q->where('code', $printedCode)->orWhere('serial', $printedCode);
+                })->first();
+
+            if (! $printed) {
+                return response()->json(['ok' => false, 'message' => __('Billet introuvable — non enregistré dans le système.')], 422);
+            }
+            if (! $printed->isUnsold()) {
+                return response()->json(['ok' => false, 'message' => __('Ce billet a déjà été vendu ou n\'est plus disponible.')], 422);
+            }
+        }
+
+        // Prix du billet : imposé côté serveur depuis le type EFFECTIF — celui choisi, sinon
+        // celui du billet pré-imprimé. Sans cela, un type absent ou d'un autre événement
+        // donnait un prix de 0 : le billet pré-imprimé sortait sans débit ni commission.
+        $effectiveTypeId = $data['ticket_type_id'] ?? $printed?->ticket_type_id;
         $ticketPrice = 0.0;
-        if (! empty($data['ticket_type_id'])) {
-            $tt = $event->ticketTypes()->whereKey($data['ticket_type_id'])->first();
+        if (! empty($effectiveTypeId)) {
+            $tt = $event->ticketTypes()->whereKey($effectiveTypeId)->first();
             $ticketPrice = $tt ? (float) $tt->price : 0.0;
         }
 
         // Paiement par CARTE TAGTOA : on débite AVANT d'émettre le billet — un
-        // débit refusé annule la vente (pas de billet fantôme).
-        $cardTxnRef = null;
+        // débit refusé annule la vente (pas de billet fantôme). Si l'émission
+        // échoue ENSUITE, le débit est annulé (voir refundSale).
+        $charged = null;
         if ($method === 'Carte TAGTOA' && $ticketPrice > 0) {
             $svc = app(\Modules\Tagtoa\App\Services\Card\CardWalletService::class);
             $card = ! empty($data['pay_card_uid'])
@@ -344,46 +369,109 @@ class StaffTerminalController extends Controller
             if (! $card) {
                 return response()->json(['ok' => false, 'message' => __('Carte TAGTOA introuvable.')], 422);
             }
-            $ref = ! empty($data['client_uuid']) ? 'evsale-'.$data['client_uuid'] : \Modules\Tagtoa\App\Support\Card\CardWallet::reference();
-            $res = $svc->charge($card, $ticketPrice, $data['pay_card_pin'] ?? null, [
-                'tenant_id'       => $event->tenant_id,
-                'context_type'    => 'event',
-                'context_id'      => $event->id,
-                'module'          => 'event',
-                'reference'       => $ref,
-                'skip_commission' => true, // la commission est prise sur le billet (event_ticket)
-            ]);
-            if (! $res['ok']) {
-                return response()->json(['ok' => false, 'message' => $res['message']], 422);
+            // Référence liée à (événement, carte, type, billet pré-imprimé, client_uuid) et
+            // bornée (colonne de 40 caractères). Liée : rejouer un client_uuid avec un autre
+            // billet, une autre carte ou un autre événement ne retombe PAS sur « déjà appliqué »
+            // (ce qui émettait un billet sans débit).
+            $key = ! empty($data['client_uuid'])
+                ? substr(sha1(implode('|', [$event->id, $card->id, $effectiveTypeId, $printedCode, $data['client_uuid']])), 0, 24)
+                : null;
+            $ref = $key ? 'evsale-'.$key : \Modules\Tagtoa\App\Support\Card\CardWallet::reference();
+
+            $existing = $key ? \Modules\Tagtoa\App\Models\Card\CardTxn::where('reference', $ref)->first() : null;
+            if ($existing) {
+                // REJEU d'une vente déjà débitée. Jamais un second billet pour un seul paiement.
+                if (\Modules\Tagtoa\App\Models\Card\CardTxn::where('reference', 'evrefund-'.$key)->exists()) {
+                    return response()->json(['ok' => false, 'message' => __('Cette vente a été annulée et la carte remboursée. Recommencez la vente.')], 422);
+                }
+                $issued = ! empty($existing->meta['ticket_id'])
+                    ? Ticket::where('event_id', $event->id)->find($existing->meta['ticket_id']) : null;
+                if ($issued) {
+                    // Déjà vendue : on répond comme la première fois, sans rien refaire.
+                    return response()->json(['ok' => true, 'code' => $issued->code, 'name' => $issued->holder_name]);
+                }
+                // Débitée mais jamais émise (coupure entre les deux) : on émet, SANS re-débiter.
+                $charged = ['card' => $card, 'amount' => (float) \Modules\Tagtoa\App\Support\Money::fromMinor((int) $existing->amount_minor, $existing->currency), 'ref' => (string) $existing->reference, 'key' => $key];
+            } else {
+                // Verrou anti-devinette du PIN par carte (le débit n'avait aucune limite par carte).
+                $pinKey = 'ev-card-pin:'.$card->id;
+                if (RateLimiter::tooManyAttempts($pinKey, 5)) {
+                    return response()->json(['ok' => false, 'message' => __('Trop d\'essais de PIN sur cette carte. Réessayez dans quelques minutes.')], 429);
+                }
+                // La tentative est comptée AVANT la vérification (une rafale parallèle ne passe plus
+                // toutes sous le seuil) et remise à zéro au succès (des fautes de frappe cumulées
+                // ne verrouillent pas durablement un porteur honnête).
+                RateLimiter::hit($pinKey, 900);
+                $res = $svc->charge($card, $ticketPrice, $data['pay_card_pin'] ?? null, [
+                    'tenant_id'       => $event->tenant_id,
+                    'context_type'    => 'event',
+                    'context_id'      => $event->id,
+                    'module'          => 'event',
+                    'reference'       => $ref,
+                    'skip_commission' => true, // la commission est prise sur le billet (event_ticket)
+                ]);
+                if (! $res['ok']) {
+                    return response()->json(['ok' => false, 'message' => $res['message']], 422);
+                }
+                RateLimiter::clear($pinKey);
+                $charged = ['card' => $card, 'amount' => $ticketPrice, 'ref' => (string) ($res['txn']?->reference ?? $ref), 'key' => $key];
             }
-            $cardTxnRef = $res['txn']?->reference;
         }
 
-        // Billet PRÉ-IMPRIMÉ (hors système, ex. stock physique d'un festival) : on
-        // ACTIVE le billet déjà enregistré, jamais on n'en crée un nouveau — le
-        // code scanné doit exister et ne pas avoir déjà été vendu (anti-fraude).
-        $printedCode = trim((string) ($data['printed_code'] ?? ''));
-        if ($printedCode !== '') {
-            $ticket = Ticket::where('event_id', $event->id)
-                ->where(function ($q) use ($printedCode) {
-                    $q->where('code', $printedCode)->orWhere('serial', $printedCode);
-                })->first();
+        // Émission du billet : UNE transaction. Le quota (vendu +1) se prend sous le
+        // verrou du type, la réclamation d'un billet pré-imprimé est atomique
+        // (UPDATE … WHERE statut = invendu, lignes touchées vérifiées) : deux
+        // vendeurs qui scannent le même billet ne peuvent plus le vendre tous deux.
+        try {
+            $ticket = \Illuminate\Support\Facades\DB::transaction(function () use ($event, $staff, $data, $method, $printed, $charged) {
+                // Le débit se verrouille D'ABORD. Deux requêtes qui reprennent la même vente (double
+                // appui, nouvelle tentative pendant que la première émet) se sérialisent ici ; la
+                // seconde voit le billet déjà lié et ne réémet pas — un seul billet par débit.
+                $linkTxn = null;
+                if ($charged) {
+                    $linkTxn = \Modules\Tagtoa\App\Models\Card\CardTxn::where('reference', $charged['ref'])->lockForUpdate()->first();
+                    if ($linkTxn && ! empty($linkTxn->meta['ticket_id'])) {
+                        return ['replayed' => (int) $linkTxn->meta['ticket_id']];
+                    }
+                }
 
-            if (! $ticket) {
-                return response()->json(['ok' => false, 'message' => __('Billet introuvable — non enregistré dans le système.')], 422);
-            }
-            if (! $ticket->isUnsold()) {
-                return response()->json(['ok' => false, 'message' => __('Ce billet a déjà été vendu ou n\'est plus disponible.')], 422);
-            }
+                $typeId = $data['ticket_type_id'] ?? $printed?->ticket_type_id;
+                if (! empty($typeId)) {
+                    $type = \Modules\Tagtoa\App\Models\Event\TicketType::where('event_id', $event->id)->lockForUpdate()->find($typeId);
+                    if ($type) {
+                        if ($type->remaining !== null && $type->remaining < 1) {
+                            throw new \Modules\Tagtoa\App\Exceptions\TicketRuleException(__('Plus de place disponible pour « :n ».', ['n' => $type->name]));
+                        }
+                        $type->sold += 1;
+                        $type->save();
+                    }
+                }
 
-            $ticket->update([
-                'ticket_type_id' => $data['ticket_type_id'] ?? $ticket->ticket_type_id,
-                'holder_name'    => $data['name'],
-                'holder_phone'   => $data['phone'],
-                'status'         => Ticket::STATUS_VALID,
-            ]);
-        } else {
-            try {
+                $sale = [
+                    'payment_method'   => $method !== '' ? $method : null,
+                    'sold_by_staff_id' => $staff->id,
+                    'sold_at'          => now(),
+                ];
+
+                if ($printed) {
+                    $claimed = Ticket::whereKey($printed->id)->where('event_id', $event->id)
+                        ->where('status', Ticket::STATUS_UNSOLD)
+                        ->update($sale + [
+                            'ticket_type_id' => $data['ticket_type_id'] ?? $printed->ticket_type_id,
+                            'holder_name'    => $data['name'],
+                            'holder_phone'   => $data['phone'],
+                            'status'         => Ticket::STATUS_VALID,
+                        ]);
+                    if ($claimed !== 1) {
+                        throw new \Modules\Tagtoa\App\Exceptions\TicketRuleException(__('Ce billet a déjà été vendu ou n\'est plus disponible.'));
+                    }
+
+                    $ticket = Ticket::findOrFail($printed->id);
+                    $linkTxn?->update(['meta' => array_merge((array) $linkTxn->meta, ['ticket_id' => $ticket->id])]);
+
+                    return $ticket;
+                }
+
                 if (! empty($data['uid'])) {
                     // Carte NFC physique : billet + tag liés (entrée par tap).
                     $res = app(EncodeParticipantCard::class)->handle($event, $data);
@@ -411,26 +499,107 @@ class StaffTerminalController extends Controller
                         'status'         => Ticket::STATUS_VALID,
                     ]);
                 }
-            } catch (\Throwable $e) {
-                return response()->json(['ok' => false, 'message' => __('Réessayez.')], 422);
+
+                // Moyen de paiement + vendeur/date (historique de vente) dans TAGTOA.
+                $ticket->update($sale);
+
+                // Le débit connaît désormais son billet : un rejeu du même identifiant répond
+                // « déjà vendu » au lieu d'émettre un second billet (ou de rembourser à tort).
+                $linkTxn?->update(['meta' => array_merge((array) $linkTxn->meta, ['ticket_id' => $ticket->id])]);
+
+                return $ticket;
+            });
+        } catch (\Throwable $e) {
+            $refunded = $this->refundSale($event, $staff, $charged, $e);
+            if ($refunded === 'issued') {
+                // Pendant l'échec, une autre requête a émis le billet de ce débit : PAS de remboursement.
+                $txn = \Modules\Tagtoa\App\Models\Card\CardTxn::where('reference', $charged['ref'])->first();
+                $issued = ! empty($txn?->meta['ticket_id']) ? Ticket::where('event_id', $event->id)->find($txn->meta['ticket_id']) : null;
+                if ($issued) {
+                    return response()->json(['ok' => true, 'code' => $issued->code, 'name' => $issued->holder_name]);
+                }
             }
+            $known = $e instanceof \Modules\Tagtoa\App\Exceptions\TicketRuleException;
+            if (! $known) {
+                report($e);
+            }
+            $message = $known ? $e->getMessage() : __('Réessayez.');
+            if ($charged && $refunded === true) {
+                $message .= ' '.__('La carte a été remboursée.');
+            } elseif ($charged) {
+                $message .= ' '.__('ATTENTION : la carte a été débitée et le remboursement automatique a échoué — voir l\'organisateur.');
+            }
+
+            return response()->json(['ok' => false, 'message' => $message], 422);
         }
 
-        // Enregistre le moyen de paiement + le vendeur/date (historique de vente) dans TAGTOA.
-        $ticket->update([
-            'payment_method'   => $method !== '' ? $method : null,
-            'sold_by_staff_id' => $staff->id,
-            'sold_at'          => now(),
-        ]);
-        if (! empty($data['ticket_type_id'])) {
-            $tt = $event->ticketTypes()->whereKey($data['ticket_type_id'])->first();
-            if ($tt && (float) $tt->price > 0) {
+        if (is_array($ticket)) {
+            // Une autre requête a déjà émis le billet de CE débit : même réponse, rien à refaire.
+            $issued = Ticket::where('event_id', $event->id)->find($ticket['replayed']);
+
+            return $issued
+                ? response()->json(['ok' => true, 'code' => $issued->code, 'name' => $issued->holder_name])
+                : response()->json(['ok' => false, 'message' => __('Réessayez.')], 422);
+        }
+
+        // Commission : APRÈS la validation de la vente — un échec ici ne doit ni annuler le
+        // billet ni renvoyer une erreur (le client rejouerait une vente déjà faite).
+        try {
+            if ($ticketPrice > 0) {
                 app(\Modules\Tagtoa\App\Services\Billing\RevenueService::class)
-                    ->record('event_ticket', $ticket->id, 'event', (float) $tt->price, $event->tenant_id, $event->currency);
+                    ->record('event_ticket', $ticket->id, 'event', $ticketPrice, $event->tenant_id, $event->currency);
             }
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         return response()->json(['ok' => true, 'code' => $ticket->code, 'name' => $ticket->holder_name]);
+    }
+
+    /**
+     * Annule le débit d'une vente au guichet dont le billet n'a pas pu être émis
+     * (D2 : remboursement automatique, avec trace d'audit). Idempotent : la
+     * référence du remboursement est dérivée de celle du débit. Ne lève jamais.
+     */
+    private function refundSale(Event $event, Staff $staff, ?array $charged, \Throwable $cause): bool|string
+    {
+        if (! $charged) {
+            return false;
+        }
+
+        $audit = app(\Modules\Tagtoa\App\Services\Audit\AuditService::class);
+        try {
+            $result = \Illuminate\Support\Facades\DB::transaction(function () use ($event, $charged) {
+                // Sous verrou du débit : si une autre requête a ENTRE-TEMPS émis le billet de ce
+                // débit, le rembourser rendrait l'argent ET garderait le billet.
+                $txn = \Modules\Tagtoa\App\Models\Card\CardTxn::where('reference', $charged['ref'])->lockForUpdate()->first();
+                if ($txn && ! empty($txn->meta['ticket_id'])) {
+                    return 'issued';
+                }
+
+                return app(\Modules\Tagtoa\App\Services\Card\CardWalletService::class)->refund($charged['card'], (float) $charged['amount'], [
+                    'tenant_id'    => $event->tenant_id,
+                    'context_type' => 'event',
+                    'context_id'   => $event->id,
+                    // Dérivée du débit (même clé) : un second passage ne rembourse pas deux fois.
+                    'reference'    => 'evrefund-'.($charged['key'] ?? substr(sha1($charged['ref']), 0, 24)),
+                    'meta'         => ['reason' => 'door_sale_failed', 'charge_ref' => $charged['ref']],
+                ]) !== null;
+            });
+        } catch (\Throwable $e) {
+            report($e);
+            $result = false;
+        }
+
+        if ($result === 'issued') {
+            return 'issued';
+        }
+
+        $audit->log($result ? 'event_door_sale_refunded' : 'event_door_sale_refund_failed', $event,
+            'Vente au guichet échouée ('.class_basename($cause).') — carte '.($charged['card']->code ?? '#'.$charged['card']->id)
+            .', '.$charged['amount'].' '.$event->currency.', débit '.$charged['ref'].', vendeur #'.$staff->id);
+
+        return (bool) $result;
     }
 
     /* ---------------- Retrait carte NFC (billet acheté en ligne → UID) ---------------- */
