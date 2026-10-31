@@ -212,4 +212,105 @@ class EventDoorSaleTest extends TestCase
         $this->assertSame(2000, $card->fresh()->balance_minor);
         $this->assertSame(0, Ticket::where('event_id', $this->event->id)->count());
     }
+
+    /* ---------- revue indépendante : le même identifiant ne doit jamais payer deux fois ---------- */
+
+    public function test_retrying_after_a_refunded_failure_with_the_same_identifier_does_not_hand_out_a_free_ticket(): void
+    {
+        $card = $this->card(2000);
+        $this->type->update(['quantity' => 1, 'sold' => 1]);       // l'émission échoue
+        $this->cardSale()->assertStatus(422);
+        $this->assertSame(2000, $card->fresh()->balance_minor, 'Remboursée.');
+
+        $this->type->update(['quantity' => 10, 'sold' => 0]);      // la place revient
+        $retry = $this->cardSale()->assertStatus(422);              // MÊME client_uuid
+
+        $this->assertStringContainsString('Recommencez', $retry->json('message'));
+        $this->assertSame(0, Ticket::where('event_id', $this->event->id)->count(), 'Pas de billet gratuit.');
+        $this->assertSame(2000, $card->fresh()->balance_minor);
+    }
+
+    public function test_replaying_a_completed_sale_answers_the_same_ticket_without_a_second_debit_or_refund(): void
+    {
+        $card = $this->card(2000);
+        $first = $this->cardSale()->assertOk()->json();
+
+        $second = $this->cardSale()->assertOk()->json();
+
+        $this->assertSame($first['code'], $second['code']);
+        $this->assertSame(1, Ticket::where('event_id', $this->event->id)->count());
+        $this->assertSame(1500, $card->fresh()->balance_minor, 'Débitée une seule fois.');
+        $this->assertSame(0, CardTxn::where('type', 'refund')->count());
+    }
+
+    public function test_a_failing_replay_never_refunds_a_sale_whose_ticket_is_valid(): void
+    {
+        $card = $this->card(2000);
+        $this->cardSale()->assertOk();
+        $this->type->update(['quantity' => 1, 'sold' => 1]);
+
+        $this->cardSale()->assertOk();   // rejeu : « déjà vendu », rien n'est retenté
+
+        $this->assertSame(0, CardTxn::where('type', 'refund')->count(), 'Aucun remboursement d\'un billet valable.');
+        $this->assertSame(1500, $card->fresh()->balance_minor);
+    }
+
+    public function test_reusing_an_identifier_for_another_ticket_is_a_new_real_debit(): void
+    {
+        $card = $this->card(2000);
+        $this->printed('A');
+        $this->printed('B');
+        $this->cardSale(['printed_code' => 'A'])->assertOk();
+        $this->cardSale(['printed_code' => 'B'])->assertOk();   // même client_uuid, autre billet
+
+        $this->assertSame(1000, $card->fresh()->balance_minor, 'Deux billets = deux débits.');
+    }
+
+    public function test_a_debit_without_a_ticket_is_completed_on_retry_without_debiting_again(): void
+    {
+        $card = $this->card(2000);
+        // Coupure entre le débit et l'émission : le débit existe, sans billet ni remboursement.
+        $first = $this->cardSale();
+        $first->assertOk();
+        $t = Ticket::where('event_id', $this->event->id)->first();
+        $txn = CardTxn::where('type', 'charge')->first();
+        $txn->update(['meta' => []]);
+        $t->delete();
+
+        $this->cardSale()->assertOk();
+
+        $this->assertSame(1, Ticket::where('event_id', $this->event->id)->count());
+        $this->assertSame(1500, $card->fresh()->balance_minor, 'Pas de second débit.');
+    }
+
+    public function test_a_printed_ticket_sold_without_a_type_in_the_request_is_still_charged_at_its_own_price(): void
+    {
+        $card = $this->card(2000);
+        $this->printed('PRN-9');
+
+        $this->cardSale(['ticket_type_id' => null, 'printed_code' => 'PRN-9'])->assertOk();
+
+        $this->assertSame(1500, $card->fresh()->balance_minor, 'Le prix vient du type du billet pré-imprimé.');
+    }
+
+    public function test_pin_guessing_on_a_card_is_locked_out(): void
+    {
+        $card = $this->card(2000);
+        for ($i = 0; $i < 5; $i++) {
+            $this->cardSale(['pay_card_pin' => '000'.$i, 'client_uuid' => 'ck-'.$i])->assertStatus(422);
+        }
+
+        $locked = $this->cardSale(['pay_card_pin' => '4321', 'client_uuid' => 'ck-ok'])->assertStatus(429);
+
+        $this->assertSame(2000, $card->fresh()->balance_minor, 'Même le bon PIN est refusé pendant le verrouillage.');
+        \Illuminate\Support\Facades\RateLimiter::clear('ev-card-pin:'.$card->id);
+    }
+
+    public function test_a_commission_failure_after_the_sale_does_not_turn_it_into_an_error(): void
+    {
+        $this->card(2000);
+        $this->app->bind(\Modules\Tagtoa\App\Services\Billing\RevenueService::class, fn () => throw new \RuntimeException('commission en panne'));
+
+        $this->cardSale()->assertOk()->assertJson(['ok' => true]);
+    }
 }
