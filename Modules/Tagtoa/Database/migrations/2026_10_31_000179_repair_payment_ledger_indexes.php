@@ -32,14 +32,27 @@ return new class extends Migration
             if (! in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true) || ! Schema::hasTable(self::TABLE)) {
                 return;
             }
-            foreach (self::INDEXES as $name => $columns) {
-                $exists = DB::select('SHOW INDEX FROM `'.self::TABLE.'` WHERE Key_name = ?', [$name]);
-                if (empty($exists)) {
-                    DB::statement('ALTER TABLE `'.self::TABLE.'` ADD INDEX `'.$name.'` '.$columns);
-                }
-            }
+            $table = DB::connection()->getTablePrefix().self::TABLE;
+            // Un ALTER attend tout verrou de métadonnées ouvert, et le délai par défaut
+            // est d'un AN : le déploiement resterait en maintenance. 10 s, puis on
+            // renonce (les index manquants sont l'état d'avant).
+            DB::statement('SET SESSION lock_wait_timeout = 10');
         } catch (\Throwable $e) {
             report($e);
+
+            return;
+        }
+
+        // Un index à la fois : l'échec du premier ne doit pas empêcher le second.
+        foreach (self::INDEXES as $name => $columns) {
+            try {
+                $exists = DB::select('SHOW INDEX FROM `'.$table.'` WHERE Key_name = ?', [$name]);
+                if (empty($exists)) {
+                    DB::statement('ALTER TABLE `'.$table.'` ADD INDEX `'.$name.'` '.$columns);
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
     }
 

@@ -63,12 +63,12 @@ class MysqlMigrationsRealTest extends TestCase
         return ['--path' => realpath(__DIR__.'/../../Database/migrations'), '--realpath' => true, '--force' => true];
     }
 
-    public function test_every_migration_runs_on_an_empty_database_and_the_last_one_rolls_back_and_replays(): void
+    public function test_every_migration_runs_on_an_empty_database_and_the_last_two_roll_back_and_replay(): void
     {
         $code = Artisan::call('migrate', $this->params());
         $this->assertSame(0, $code, Artisan::output());
 
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 1] + $this->params()), Artisan::output());
+        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 2] + $this->params()), Artisan::output());
         $this->assertSame(0, Artisan::call('migrate', $this->params()), Artisan::output());
     }
 

@@ -74,6 +74,7 @@ jobs:
   tagtoa-mysql:
     name: TAGTOA module — migrations + sauvegarde (MySQL 8 réel)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       mysql:
         image: mysql:8.0
