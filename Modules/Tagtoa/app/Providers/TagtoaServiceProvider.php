@@ -48,10 +48,9 @@ class TagtoaServiceProvider extends ServiceProvider
             if (! config('tagtoa.pay.reconcile', true)) {
                 return;
             }
-            $this->app->make(\Illuminate\Console\Scheduling\Schedule::class)
-                ->command('tagtoa:pay:reconcile')
-                ->everyTenMinutes()
-                ->withoutOverlapping(15);
+            \Modules\Tagtoa\App\Console\ReconcilePaymentsCommand::schedule(
+                $this->app->make(\Illuminate\Console\Scheduling\Schedule::class)
+            );
         });
     }
 

@@ -284,8 +284,8 @@ echo "==> Paiements en attente (réconciliation)"
 if crontab -l 2>/dev/null | grep -q 'schedule:run'; then
   echo "   planificateur : cron schedule:run présent — la réconciliation tourne toutes les 10 min"
 else
-  echo "   planificateur : AUCUN cron schedule:run détecté pour cet utilisateur — la réconciliation ne tourne qu'à chaque déploiement."
-  echo "   Pour l'activer, ajoutez au cron : * * * * * cd $(pwd) && php artisan schedule:run >> /dev/null 2>&1"
+  echo "   planificateur : aucun cron schedule:run détecté dans le crontab de cet utilisateur (crontab absent, ou cron géré par le panneau d'hébergement)."
+  echo "   Sans lui, la réconciliation ne tourne qu'à chaque déploiement. Ajoutez au cron : * * * * * cd '$(pwd)' && php artisan schedule:run >> /dev/null 2>&1"
 fi
 timeout 90 php artisan tagtoa:pay:reconcile --limit=20 2>&1 | sed 's/^/   /' || echo "   (réconciliation indisponible — ignorée)"
 
