@@ -471,7 +471,9 @@
         var HAS_ZONES = @json($menu->activeDeliveryZones->isNotEmpty());
         var REQUIRE_CUSTOMER_INFO = @json($menu->require_customer_info ?? false);
         var CSRF = document.querySelector('meta[name=csrf-token]').getAttribute('content');
-        var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')), customerInfo:@json(__('Indiquez votre nom et votre téléphone pour commander.')) };
+        var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')), customerInfo:@json(__('Indiquez votre nom et votre téléphone pour commander.')),
+            refusedTitle:@json(__('Commande refusée :')), refused:@json(__('Le commerce n\'a pas pu accepter votre commande.')), retry:@json(__('Réessayer')), dismiss:@json(__('Fermer')),
+            giveUp:@json(__('Impossible d\'envoyer votre commande pour le moment.')), storageFull:@json(__('Impossible de garder votre commande hors ligne (stockage du navigateur plein ou bloqué). Reconnectez-vous puis réessayez.')) };
         var cart = {};
         // Même défaut que le bouton .otbtn.on rendu côté serveur — un menu
         // livraison-seule ne doit pas démarrer sur un mode qu'il n'offre pas.
@@ -489,10 +491,73 @@
            donc jamais en double (voir MenuOrderService::placeOrder()).
            ------------------------------------------------------------------ */
         var QUEUE_KEY = 'tagtoa_menu_queue_' + @json($menu->alias);
-        function lireFile(){ try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch(e){ return []; } }
-        function ecrireFile(f){ try { localStorage.setItem(QUEUE_KEY, JSON.stringify(f)); } catch(e){} }
+        var REJECTED_KEY = QUEUE_KEY + '_rejected';
+        var CART_KEY = 'tagtoa_menu_cart_' + @json($menu->alias);
 
-        /** Envoie une commande. Rejette avec `.horsLigne = true` si c'est le
+/*MENUQ-START*/
+var MenuQ=(function(){
+  var MAX_TRIES=8;
+  /** Que dit la réponse ? ok | rejected (refus définitif du serveur) | csrf | retry (réseau/serveur : on réessaiera). */
+  function classify(status, body){
+    if(status===200||status===201){ return (body&&body.ok!==false)?'ok':'rejected'; }
+    if(status===419){ return 'csrf'; }
+    if(status===400||status===403||status===404||status===409||status===410||status===422||status===423){ return 'rejected'; }
+    return 'retry';
+  }
+  function make(o){
+    var busy=false, tried=false;
+    var now=o.now||function(){ return Date.now(); };
+    function rd(k){ try{ var v=JSON.parse(o.storage.getItem(k)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+    function wr(k,v){ try{ var s=JSON.stringify(v); o.storage.setItem(k,s); return o.storage.getItem(k)===s; }catch(e){ return false; } }
+    function changed(){ if(o.onChange){ try{ o.onChange(); }catch(e){} } }
+    function clean(p){ var c={}; for(var k in p){ if(k.charAt(0)!=='_'){ c[k]=p[k]; } } return c; }
+    function addRej(p,message){
+      var r=rd(o.rejKey); r.push({payload:clean(p),message:message,at:now()}); if(r.length>20){ r=r.slice(-20); } wr(o.rejKey,r);
+    }
+    function send(p){
+      return o.fetchFn(o.url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':o.csrf()},body:JSON.stringify(clean(p))})
+        .then(function(r){ return r.json().then(function(j){ return {status:r.status,body:j}; },function(){ return {status:r.status,body:null}; }); });
+    }
+    function flush(){
+      if(busy){ return Promise.resolve('busy'); }
+      busy=true; tried=false;
+      function step(){
+        var q=rd(o.key);
+        if(!q.length){ return 'empty'; }
+        var h=q[0];
+        if(h._next&&h._next>now()){ return 'wait'; }
+        return send(h).then(function(res){
+          var c=classify(res.status,res.body);
+          if(c==='ok'){ q.shift(); wr(o.key,q); changed(); return step(); }
+          if(c==='rejected'){
+            // Refus DÉFINITIF (rupture, commerce fermé, table invalide…) : on le montre au client et on
+            // ne bloque PAS les commandes suivantes.
+            q.shift(); wr(o.key,q); addRej(h,(res.body&&res.body.message)||o.rejectedDefault); changed(); return step();
+          }
+          if(c==='csrf'&&!tried&&o.refreshCsrf){ tried=true; return o.refreshCsrf().then(step,step); }
+          h._tries=(h._tries||0)+1;
+          if(h._tries>=MAX_TRIES){ q.shift(); wr(o.key,q); addRej(h,o.giveUp); changed(); return step(); }
+          h._next=now()+Math.min(300000,20000*Math.pow(2,h._tries-1)); q[0]=h; wr(o.key,q); changed();
+          return 'retry';
+        },function(){ return 'offline'; });
+      }
+      return Promise.resolve().then(step).then(function(r){ busy=false; return r; },function(e){ busy=false; throw e; });
+    }
+    return {
+      /** false = la commande N'A PAS pu être mise de côté (stockage plein/interdit) : à dire au client. */
+      push:function(p){ var q=rd(o.key); q.push(p); var ok=wr(o.key,q); changed(); return ok; },
+      flush:flush,
+      pending:function(){ return rd(o.key); },
+      rejected:function(){ return rd(o.rejKey); },
+      retryRejected:function(i){ var r=rd(o.rejKey); var e=r.splice(i,1)[0]; wr(o.rejKey,r); if(e){ var q=rd(o.key); q.push(e.payload); wr(o.key,q); } changed(); },
+      dismiss:function(i){ var r=rd(o.rejKey); r.splice(i,1); wr(o.rejKey,r); changed(); }
+    };
+  }
+  return {make:make,classify:classify};
+})();
+/*MENUQ-END*/
+
+        /** Envoie UNE commande tout de suite. Rejette avec `.horsLigne = true` si c'est le
             réseau qui a manqué — jamais pour un refus du serveur. */
         function envoyerCommande(payload){
             return fetch(ORDER_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF},
@@ -505,17 +570,37 @@
                 });
         }
 
-        /** Rejoue la file dans l'ORDRE (une addition avant une autre reste
-            servie avant une autre), s'arrête au premier échec pour ne pas
-            envoyer une commande plus récente avant une plus ancienne. */
+        /** La file : rejoue dans l'ORDRE, mais un refus définitif ne bloque plus les suivantes et le
+            client en est INFORMÉ ; réseau coupé = on attend ; erreur serveur = reprise espacée puis abandon visible. */
+        var QUEUE = MenuQ.make({storage:window.localStorage,key:QUEUE_KEY,rejKey:REJECTED_KEY,fetchFn:function(u,o){return window.fetch(u,o);},
+            url:ORDER_URL,csrf:function(){return CSRF;},rejectedDefault:T.refused,giveUp:T.giveUp,
+            refreshCsrf:function(){
+                // Page ouverte depuis longtemps : le jeton a expiré. On en relit un frais plutôt que de boucler en 419.
+                return window.fetch(window.location.href,{credentials:'same-origin',headers:{'Accept':'text/html'}}).then(function(r){return r.text();}).then(function(h){
+                    var m=h.match(/<meta[^>]+name=["']csrf-token["'][^>]+content=["']([^"']+)["']/); if(m){ CSRF=m[1]; }
+                });
+            },
+            onChange:function(){ renderRejected(); }});
         function retenterFile(){
-            var file = lireFile();
-            if (!file.length) return;
-            envoyerCommande(file[0]).then(function(j){
-                file.shift(); ecrireFile(file);
-                son('ok');
-                retenterFile();
-            }).catch(function(){ /* toujours hors ligne : on réessaiera plus tard */ });
+            QUEUE.flush().then(function(r){ if(r==='empty'||r==='retry'||r==='wait'||r==='offline'||r==='busy'){ renderRejected(); } }).catch(function(){});
+        }
+        function renderRejected(){
+            var list=QUEUE.rejected(), box=document.getElementById('queueNotice');
+            if(!list.length){ if(box){ box.parentNode.removeChild(box); } return; }
+            if(!box){
+                box=document.createElement('div'); box.id='queueNotice';
+                box.style.cssText='position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;background:#fde8e8;color:#7a1212;border:1px solid #e9a3a3;border-radius:14px;padding:12px 14px;font:14px/1.45 sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.18)';
+                document.body.appendChild(box);
+            }
+            box.innerHTML='';
+            list.forEach(function(e,i){
+                var row=document.createElement('div'); row.style.cssText='margin:4px 0';
+                var t=document.createElement('b'); t.textContent=T.refusedTitle+' '; row.appendChild(t);
+                row.appendChild(document.createTextNode(e.message||T.refused));
+                var r=document.createElement('button'); r.type='button'; r.textContent=T.retry; r.style.cssText='margin-left:8px'; r.onclick=function(){ QUEUE.retryRejected(i); retenterFile(); };
+                var d=document.createElement('button'); d.type='button'; d.textContent=T.dismiss; d.style.cssText='margin-left:6px'; d.onclick=function(){ QUEUE.dismiss(i); };
+                row.appendChild(r); row.appendChild(d); box.appendChild(row);
+            });
         }
         window.addEventListener('online', retenterFile);
         setInterval(retenterFile, 20000); // filet : certains navigateurs ne déclenchent pas 'online' de façon fiable
@@ -579,6 +664,23 @@
             document.querySelectorAll('#tipbtns .tipbtn').forEach(function(b){ b.classList.toggle('on', Number(b.getAttribute('data-pct'))===p); });
             render();
         }
+        /** Le panier survit à un rechargement de page (6 h) : un client qui perd le réseau puis recharge
+            ne retrouve plus un panier vide. Le serveur re-calcule TOUS les prix à l'envoi. */
+        function saveCart(){
+            try { if (Object.keys(cart).length) { localStorage.setItem(CART_KEY, JSON.stringify({t:Date.now(),cart:cart})); } else { localStorage.removeItem(CART_KEY); } } catch(e){}
+        }
+        function restoreCart(){
+            try {
+                var raw = JSON.parse(localStorage.getItem(CART_KEY) || 'null');
+                if (!raw || !raw.cart || (Date.now() - raw.t) > 6*3600*1000) { return; }
+                for (var k in raw.cart) {
+                    var c = raw.cart[k];
+                    if (c && Number(c.id) > 0 && Number(c.qty) > 0 && isFinite(Number(c.price)) && typeof c.name === 'string') {
+                        cart[k] = {id:Number(c.id), name:c.name, price:Number(c.price), qty:Math.floor(Number(c.qty)), options:Array.isArray(c.options)?c.options:[], optionLabel:c.optionLabel||''};
+                    }
+                }
+            } catch(e){}
+        }
         function render(){
             var s = totals();
             var tip = tipAmount(s.t);
@@ -599,6 +701,7 @@
                         '<div class="qty"><button onclick="chg(\''+k+'\',-1)">−</button><span>'+c.qty+'</span><button onclick="chg(\''+k+'\',1)">+</button></div></div>';
             }}
             list.innerHTML = html;
+            saveCart();
         }
         function openMod(id, name, price, opts){
             modItem = {id:id, name:name, price:price, opts:opts}; modChosen = {};
@@ -660,7 +763,12 @@
                 if (e && e.horsLigne){
                     // Pas de réseau : la commande part dans la file plutôt
                     // que de se perdre, et sera envoyée automatiquement.
-                    var file = lireFile(); file.push(payload); ecrireFile(file);
+                    if (!QUEUE.push(payload)) {
+                        // Le navigateur refuse de garder la commande : dire la vérité plutôt que « en attente ».
+                        btn.disabled=false; btn.innerHTML=old; alert(T.storageFull);
+                        return;
+                    }
+                    clearCart();
                     showQueued();
                     return;
                 }
@@ -679,6 +787,7 @@
             document.getElementById('orderDone').style.display='';
         }
         function showConfirmed(j){
+            try { localStorage.removeItem(CART_KEY); } catch(e){}
             document.getElementById('okQueuedNote').style.display='none';
             document.getElementById('okRef').textContent = j.reference;
             document.getElementById('okTotal').textContent = j.total;
@@ -782,6 +891,7 @@
                 .catch(function(){ aiEnCours = false; aiBulle(T.err, 'bot'); });
         }
 
+        restoreCart();
         render();
     </script>
 @endif
