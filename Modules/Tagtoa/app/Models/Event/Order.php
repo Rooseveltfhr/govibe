@@ -26,9 +26,24 @@ class Order extends Model
     protected $fillable = [
         'event_id', 'reference', 'buyer_name', 'buyer_phone', 'buyer_email',
         'total', 'currency', 'payment_method', 'status', 'paid_at', 'source',
+        'payment_claim', 'payment_claimed_at',
     ];
 
-    protected $casts = ['total' => 'decimal:2', 'status' => 'integer', 'paid_at' => 'datetime'];
+    protected $casts = ['total' => 'decimal:2', 'status' => 'integer', 'paid_at' => 'datetime',
+        'payment_claim' => 'array', 'payment_claimed_at' => 'datetime'];
+
+    /**
+     * Le commerce de la commande = celui de son événement. La table n'a PAS de
+     * colonne tenant_id : sans cet accesseur, `$order->tenant_id` valait null, donc
+     * la transaction de paiement, la commission et les moyens de paiement du
+     * marchand étaient cherchés pour « aucun commerce ».
+     */
+    public function getTenantIdAttribute(): ?string
+    {
+        $t = $this->event?->tenant_id;
+
+        return $t === null ? null : (string) $t;
+    }
 
     public function event(): BelongsTo
     {
@@ -46,6 +61,11 @@ class Order extends Model
             $ref = 'TGE-'.strtoupper(Str::random(6));
         } while (static::where('reference', $ref)->exists());
         return $ref;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === self::STATUS_CANCELLED;
     }
 
     public function isPaid(): bool

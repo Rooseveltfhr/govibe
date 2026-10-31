@@ -55,6 +55,10 @@ class CheckoutService
         if (! $order || $order->isPaid() || ! GatewayManager::enabled($gateway)) {
             return null;
         }
+        // Commande de billetterie annulée : on ne démarre pas un paiement qui la réactiverait.
+        if ($order instanceof \Modules\Tagtoa\App\Models\Event\Order && $order->isCancelled()) {
+            return null;
+        }
         $driver = $this->driver($gateway);
         if (! $driver) {
             return null;

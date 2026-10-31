@@ -17,6 +17,14 @@ use Modules\Tagtoa\App\Models\Pay\PaymentLedgerEntry;
 class PaymentLedger
 {
     /**
+     * Commerce des transactions de la PLATEFORME (carte TAGTOA officielle, sans
+     * émetteur). La colonne tenant_id est NOT NULL : écrire null faisait échouer
+     * l'écriture du grand livre, donc tout le règlement — le client avait payé à la
+     * passerelle, la carte n'était pas créditée et la passerelle réessayait en vain.
+     */
+    public const PLATFORM = '';
+
+    /**
      * $payable est un PayTransaction OU un ApiPayment — les deux portent
      * tenant_id/amount/currency/reference ; `gateway` n'existe que sur
      * PayTransaction, d'où le `?->`.
@@ -24,7 +32,7 @@ class PaymentLedger
     public function record(Model $payable, ?string $fromStatus, string $toStatus, array $meta = []): PaymentLedgerEntry
     {
         return PaymentLedgerEntry::create([
-            'tenant_id'   => $payable->tenant_id,
+            'tenant_id'   => $payable->tenant_id ?? self::PLATFORM,
             'payable_type'=> $payable::class,
             'payable_id'  => $payable->getKey(),
             'from_status' => $fromStatus,
