@@ -4,11 +4,13 @@ namespace Modules\Tagtoa\App\Services\Api;
 
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Modules\Tagtoa\App\Models\Api\ApiKey;
 use Modules\Tagtoa\App\Models\Api\ApiPayment;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
 use Modules\Tagtoa\App\Services\Pay\MerchantMethods;
 use Modules\Tagtoa\App\Services\Pay\PaymentLedger;
+use Modules\Tagtoa\App\Support\Net\SafeUrl;
 use Modules\Tagtoa\App\Support\Pay\GatewayCatalog;
 
 /**
@@ -129,6 +131,12 @@ class ApiPaymentService
     /**
      * Marque un paiement payé (idempotent) et notifie le site tiers.
      * Appelé quand le marchand approuve la preuve, ou par une passerelle.
+     *
+     * ATOMIQUE : le paiement est verrouillé, relu, puis passé « payé » avec sa trace au grand livre,
+     * dans UNE transaction. Avant, `isPaid()` se lisait sur une copie périmée, hors verrou : deux
+     * approbations simultanées (ou approbation + passerelle) passaient toutes deux, écrivaient deux
+     * fois au grand livre et envoyaient DEUX callbacks au site tiers — qui livrait deux fois.
+     * Le callback part APRÈS validation de la transaction, une seule fois : par la requête qui a gagné.
      */
     public function markPaid(ApiPayment $payment): ApiPayment
     {
@@ -136,10 +144,25 @@ class ApiPaymentService
             return $payment;
         }
 
-        $avant = $payment->status;
-        $payment->update(['status' => ApiPayment::STATUS_PAID, 'paid_at' => now()]);
-        $this->ledger->record($payment, $avant, ApiPayment::STATUS_PAID);
-        $this->notifyCallback($payment);
+        $won = DB::transaction(function () use ($payment) {
+            $locked = ApiPayment::whereKey($payment->getKey())->lockForUpdate()->first();
+            if (! $locked || $locked->isPaid()) {
+                return false; // une autre requête a gagné : elle a tout fait
+            }
+
+            $avant = $locked->status;
+            $locked->update(['status' => ApiPayment::STATUS_PAID, 'paid_at' => now()]);
+            $this->ledger->record($locked, $avant, ApiPayment::STATUS_PAID);
+
+            return true;
+        });
+
+        $payment->refresh();
+
+        if ($won) {
+            // Après le commit (et après celui d'une éventuelle transaction englobante).
+            DB::afterCommit(fn () => $this->notifyCallback($payment));
+        }
 
         return $payment;
     }
@@ -148,24 +171,45 @@ class ApiPaymentService
      * Notification serveur → serveur, signée en HMAC-SHA256 pour que le site
      * tiers puisse vérifier que l'appel vient bien de TAGTOA. Tolérante : une
      * URL injoignable ne doit jamais casser l'encaissement côté marchand.
+     *
+     * L'URL est RE-contrôlée ici (le DNS a pu changer depuis la création) : https, adresse
+     * publique, appel épinglé sur l'adresse vérifiée, aucune redirection suivie — voir SafeUrl.
      */
     public function notifyCallback(ApiPayment $payment): bool
     {
-        $url = $payment->callback_url;
-        if (! $url || ! filter_var($url, FILTER_VALIDATE_URL)) {
+        $check = SafeUrl::check($payment->callback_url);
+        if (! $check['ok']) {
+            if ($payment->callback_url && function_exists('report')) {
+                report(new \RuntimeException('callback refusé ('.$check['reason'].') pour le paiement '.$payment->reference));
+            }
+
             return false;
         }
 
         try {
             $payload = $payment->toApiArray();
             $body    = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            $secret  = (string) ($payment->apiKey->webhook_secret ?? '');
 
-            \Illuminate\Support\Facades\Http::withHeaders([
+            // Jamais de signature vide : un callback non signé est falsifiable par n'importe qui. Une clé
+            // héritée sans secret en reçoit un maintenant (les clés créées par le tableau de bord en ont toujours un).
+            $key    = $payment->apiKey;
+            $secret = (string) ($key->webhook_secret ?? '');
+            if ($secret === '' && $key) {
+                $secret = Str::random(48);
+                $key->forceFill(['webhook_secret' => $secret])->save();
+            }
+
+            $options = ['allow_redirects' => false];
+            if (defined('CURLOPT_RESOLVE')) {
+                $ip = str_contains($check['ip'], ':') ? '['.$check['ip'].']' : $check['ip'];
+                $options['curl'] = [CURLOPT_RESOLVE => [$check['host'].':'.$check['port'].':'.$ip]];
+            }
+
+            $this->post($payment->callback_url, (string) $body, [
                 'Content-Type'          => 'application/json',
-                'X-Tagtoa-Signature'    => $secret !== '' ? hash_hmac('sha256', (string) $body, $secret) : '',
+                'X-Tagtoa-Signature'    => hash_hmac('sha256', (string) $body, $secret),
                 'X-Tagtoa-Event'        => 'payment.'.$payment->status,
-            ])->connectTimeout(5)->timeout(10)->withBody((string) $body, 'application/json')->post($url);
+            ], $options);
 
             return true;
         } catch (\Throwable $e) {
@@ -175,6 +219,13 @@ class ApiPaymentService
 
             return false;
         }
+    }
+
+    /** L'envoi HTTP lui-même (point d'injection des tests : le client HTTP réel n'est pas requis pour les exercer). */
+    protected function post(string $url, string $body, array $headers, array $options): void
+    {
+        \Illuminate\Support\Facades\Http::withOptions($options)->withHeaders($headers)
+            ->connectTimeout(5)->timeout(10)->withBody($body, 'application/json')->post($url);
     }
 
     /**
