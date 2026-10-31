@@ -137,32 +137,58 @@ if [ -n "${PH:-}" ] && [ -d "$PH" ]; then
   fi
 fi
 
-# 4.78) DIAGNOSTIC DES IMAGES (jamais bloquant, n'affiche ni secret ni contenu).
-#       « Les images téléversées ne s'affichent pas » a trois causes possibles, que ce bloc départage dans
-#       le journal de déploiement : (1) le disque « public » de l'application hôte n'écrit pas où l'on croit
-#       (racine ou URL différentes) ; (2) le dossier physique est vide ou non inscriptible ; (3) le lien
-#       public_html/storage manque, est mort, ou le serveur web refuse de le suivre (code HTTP ≠ 200).
-echo "==> Diagnostic des images (non bloquant)"
-DISK_INFO="$(php artisan tinker --execute="echo config('filesystems.disks.public.root').' | '.config('filesystems.disks.public.url');" 2>/dev/null | tail -1)"
-echo "   disque public (racine | url) : ${DISK_INFO:-inconnu}"
-PUBDIR="$APP/storage/app/public"
-echo "   dossier physique : $PUBDIR — $(ls "$PUBDIR" 2>/dev/null | wc -l) entrée(s), droits $(stat -c '%a %U:%G' "$PUBDIR" 2>/dev/null || echo '?'), PHP-FPM écrit en tant que : $(ps -eo user,comm 2>/dev/null | awk '/php-fpm|lsphp|php[0-9.]*$/ {print $1}' | sort -u | tr '\n' ' ')"
-if [ -n "${PH:-}" ]; then
-  echo "   lien docroot : $(ls -ld "$PH/storage" 2>/dev/null | awk '{print $1, $3":"$4, $(NF-2), $(NF-1), $NF}') $( [ -e "$PH/storage" ] && echo '(cible lisible)' || echo '(ABSENT ou MORT)')"
+# 4.76) LES IMAGES TÉLÉVERSÉES DOIVENT ÊTRE ATTEIGNABLES PAR LE WEB.
+#       Constaté en production (diagnostic 4.78) : le disque « public » de l'application hôte écrit dans
+#       <app>/public/uploads (URL https://…/uploads), mais le serveur web sert public_html/. Les photos étaient
+#       donc bien enregistrées… et introuvables : https://…/uploads/tagtoa/menu-items/x.jpg répondait 404, parce
+#       que public_html/uploads/ est un AUTRE dossier.
+#       On relie, dans public_html/uploads/tagtoa/, chaque sous-dossier d'images de TAGTOA vers le dossier réel.
+#       LISTE BLANCHE, jamais « tagtoa » en bloc : les justificatifs de paiement (tagtoa/pay-proofs) peuvent se
+#       trouver sous le même disque et ne doivent JAMAIS devenir publics. Idempotent ; ne touche à aucun vrai
+#       dossier ou fichier déjà présent ; un lien mort est refait.
+TAGTOA_PUBLIC_DIRS="booking-covers booking-logos business-logos event-covers event-logos link-avatars loyalty-logos menu-covers menu-items menu-logos pay-logos pay-qr pos-products shop site-covers site-gallery site-logos store-covers store-logos store-products"
+DISK_LINE="$(php artisan tinker --execute="echo config('filesystems.disks.public.root').'|'.config('filesystems.disks.public.url');" 2>/dev/null | tail -1)"
+DISK_ROOT="${DISK_LINE%%|*}"
+DISK_URLPATH="$(printf '%s' "${DISK_LINE#*|}" | sed -E 's#^https?://[^/]+##; s#/+$##')"
+if [ -n "${PH:-}" ] && [ -d "$PH" ] && [ -n "$DISK_ROOT" ] && [ -n "$DISK_URLPATH" ] && [ -d "$DISK_ROOT" ] \
+   && [ "$(readlink -f "$DISK_ROOT")" != "$(readlink -f "$PH$DISK_URLPATH" 2>/dev/null)" ]; then
+  echo "==> Images téléversées : $PH$DISK_URLPATH/tagtoa/* -> $DISK_ROOT/tagtoa/*"
+  mkdir -p "$PH$DISK_URLPATH/tagtoa" 2>/dev/null || echo "WARN: impossible de créer $PH$DISK_URLPATH/tagtoa"
+  for d in $TAGTOA_PUBLIC_DIRS; do
+    mkdir -p "$DISK_ROOT/tagtoa/$d" 2>/dev/null
+    LNK="$PH$DISK_URLPATH/tagtoa/$d"
+    if [ -L "$LNK" ] && [ ! -e "$LNK" ]; then rm -f "$LNK"; fi                  # lien mort : refait
+    if [ ! -e "$LNK" ] && [ ! -L "$LNK" ]; then
+      ln -s "$DISK_ROOT/tagtoa/$d" "$LNK" 2>/dev/null && echo "   lié : tagtoa/$d" || echo "WARN: lien non créé : tagtoa/$d (droits ?)"
+    fi
+  done
+else
+  echo "Images téléversées : rien à relier (disque public déjà servi par le docroot, ou introuvable)."
 fi
-echo "   dossiers « menu-items » trouvés (là où les photos de plats atterrissent vraiment) :"
-find "$APP/storage" "$APP/public" ${PH:+"$PH"} -maxdepth 8 -type d -name 'menu-items' 2>/dev/null | head -5 | sed 's/^/     /'
+
+# 4.78) DIAGNOSTIC DES IMAGES (jamais bloquant, n'affiche ni secret ni contenu).
+#       Départage dans le journal de déploiement : (1) où le disque « public » de l'hôte écrit vraiment
+#       (racine | URL) ; (2) ce que contient ce dossier ; (3) si l'URL publique de la dernière image répond 200.
+echo "==> Diagnostic des images (non bloquant)"
+echo "   disque public (racine | url) : ${DISK_LINE:-inconnu}"
+PUBDIR="${DISK_ROOT:-$APP/storage/app/public}"
+echo "   dossier physique : $PUBDIR — $(ls "$PUBDIR" 2>/dev/null | wc -l) entrée(s), droits $(stat -c '%a %U:%G' "$PUBDIR" 2>/dev/null || echo '?'), PHP-FPM écrit en tant que : $(ps -eo user,comm 2>/dev/null | awk '/php-fpm|lsphp|php[0-9.]*$/ {print $1}' | sort -u | tr '\n' ' ')"
+echo "   dossiers « menu-items » trouvés :"
+find "$APP/storage" "$APP/public" ${PH:+"$PH"} -maxdepth 8 -name 'menu-items' 2>/dev/null | head -6 | sed 's/^/     /'
 NEWEST="$(find "$PUBDIR/tagtoa" -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)"
 if [ -n "$NEWEST" ]; then
   REL="${NEWEST#"$PUBDIR"/}"
   DIAG_URL="$(grep -m1 '^APP_URL=' .env 2>/dev/null | cut -d= -f2-)"
   echo "   dernière image : $REL (droits $(stat -c '%a %U' "$NEWEST"))"
   if [ -n "$DIAG_URL" ]; then
-    DIAG_CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${DIAG_URL%/}/storage/$REL" 2>/dev/null)"
-    echo "   GET ${DIAG_URL%/}/storage/$REL -> HTTP ${DIAG_CODE:-000}"
+    DIAG_CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${DIAG_URL%/}${DISK_URLPATH:-/storage}/$REL" 2>/dev/null)"
+    echo "   GET ${DIAG_URL%/}${DISK_URLPATH:-/storage}/$REL -> HTTP ${DIAG_CODE:-000}"
   fi
 else
-  echo "   AUCUNE image sous $PUBDIR/tagtoa — rien n'a été écrit là (voir « disque public » ci-dessus)."
+  echo "   aucune image sous $PUBDIR/tagtoa pour l'instant."
+fi
+if [ -n "${DISK_ROOT:-}" ] && [ -e "$DISK_ROOT/tagtoa/pay-proofs" ]; then
+  echo "   NOTE : $DISK_ROOT/tagtoa/pay-proofs existe sous le disque public — NON relié au web (liste blanche)."
 fi
 
 # 4.8) Perf HTTP pour connexions faibles (Haïti) : compression gzip + cache

@@ -258,12 +258,12 @@ class BackupDatabaseCommandTest extends TestCase
     public function test_the_deploy_log_diagnoses_uploaded_images_without_ever_blocking_the_deploy(): void
     {
         $sh = file_get_contents(__DIR__.'/../../deploy/remote-deploy.sh');
-        $start = strpos($sh, '# 4.78) DIAGNOSTIC DES IMAGES');
+        $start = strpos($sh, '# 4.78) DIAGNOSTIC DES IMAGES');   // le bloc de LIAISON (4.76) qui le précède est testé par DeployUploadsLinkTest
         $end = strpos($sh, '# 4.8) Perf HTTP');
         $this->assertNotFalse($start);
         $block = substr($sh, $start, $end - $start);
 
-        foreach (['disque public', 'dossier physique', 'lien docroot', 'menu-items', 'dernière image', '/storage/'] as $needle) {
+        foreach (['disque public', 'dossier physique', 'menu-items', 'dernière image', 'HTTP'] as $needle) {
             $this->assertStringContainsString($needle, $block);
         }
         $this->assertStringNotContainsString('exit ', $block, 'Un diagnostic ne doit jamais arrêter le déploiement.');
