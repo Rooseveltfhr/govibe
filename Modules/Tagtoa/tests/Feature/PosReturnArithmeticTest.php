@@ -174,4 +174,54 @@ class PosReturnArithmeticTest extends TestCase
 
         $this->assertEquals((float) $sale->total, (float) $r->total);
     }
+
+    public function test_the_last_return_settles_the_sale_to_the_cent_when_line_rounding_falls_short(): void
+    {
+        // Remise de 0,50 sur trois lignes de 1,00 : 3 × round(0,8333) = 2,49 pour 2,50 encaissés.
+        $this->commerce(inclusive: true, rate: 10);
+        $a = $this->article('A', 1.00);
+        $b = $this->article('B', 1.00);
+        $c = $this->article('C', 1.00);
+        $sale = $this->vendre([[$a, 1], [$b, 1], [$c, 1]], remise: 0.50);
+        $this->assertEquals(2.50, (float) $sale->total);
+
+        $r = $this->rendre($sale, [0 => 1, 1 => 1, 2 => 1]);
+
+        $this->assertEquals(2.50, (float) $r->total, 'Le client récupère les 2,50 encaissés (pas 2,49).');
+        $this->assertEqualsWithDelta((float) $r->total, (float) $r->items->sum(fn ($i) => (float) $i->line_total + (float) $i->tax_amount), 0.0001, 'Le détail dit la même chose que le document.');
+    }
+
+    public function test_the_last_return_never_refunds_more_than_collected_and_the_detail_stays_consistent(): void
+    {
+        // Trois lignes de 10,00 avec une remise de 0,01 : 3 × 10,00 pour 29,99 encaissés.
+        $this->commerce(inclusive: true, rate: 10);
+        $a = $this->article('A', 10);
+        $b = $this->article('B', 10);
+        $c = $this->article('C', 10);
+        $sale = $this->vendre([[$a, 1], [$b, 1], [$c, 1]], remise: 0.01);
+        $this->assertEquals(29.99, (float) $sale->total);
+
+        $r = $this->rendre($sale, [0 => 1, 1 => 1, 2 => 1]);
+
+        $this->assertEquals(29.99, (float) $r->total);
+        $this->assertEqualsWithDelta((float) $r->total, (float) $r->items->sum(fn ($i) => (float) $i->line_total + (float) $i->tax_amount), 0.0001);
+        $this->assertEqualsWithDelta((float) $r->total, (float) $r->subtotal + (float) $r->tax_total, 0.0001);
+    }
+
+    public function test_a_partial_return_is_never_swept_only_the_final_one(): void
+    {
+        $this->commerce(inclusive: true, rate: 10);
+        $a = $this->article('A', 1.00);
+        $b = $this->article('B', 1.00);
+        $c = $this->article('C', 1.00);
+        $sale = $this->vendre([[$a, 1], [$b, 1], [$c, 1]], remise: 0.50);
+
+        $one = $this->rendre($sale, [0 => 1], 'p1');
+        $two = $this->rendre($sale, [1 => 1], 'p2');
+        $last = $this->rendre($sale, [2 => 1], 'p3');
+
+        $this->assertEquals(0.83, (float) $one->total);
+        $this->assertEquals(0.83, (float) $two->total);
+        $this->assertEquals(0.84, (float) $last->total, 'Le dernier retour solde : 2,50 − 0,83 − 0,83.');
+    }
 }

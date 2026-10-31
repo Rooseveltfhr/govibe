@@ -134,6 +134,11 @@ class ReturnService
             // Verrou sur les lignes de vente concernées : deux caissiers qui
             // rendent le même article au même instant liraient tous deux
             // « il reste 1 » et rendraient chacun 1.
+            // La VENTE se verrouille d'abord : deux retours simultanés sur des lignes différentes de
+            // la même vente ne verrouillent pas les mêmes lignes, et chacun ignorerait ce que l'autre
+            // vient de rembourser (plafond de la vente, statut « remboursée »).
+            Sale::whereKey($sale->id)->lockForUpdate()->first();
+
             $items = SaleItem::whereIn('id', array_keys($demande))
                 ->where('sale_id', $sale->id)
                 ->lockForUpdate()->get()->keyBy('id');
@@ -169,6 +174,7 @@ class ReturnService
             // Ce que la vente a RÉELLEMENT encaissé, ligne par ligne (voir payeLigne).
             $dejaRembourse = (float) SaleReturn::where('sale_id', $sale->id)->sum('total');
 
+            $crees = [];
             foreach ($demande as $id => $qty) {
                 $ligne = $items[$id];
 
@@ -187,7 +193,7 @@ class ReturnService
                 $taxeLigne = round(round($taxeLigneTotale * ($dejaRendu + $qty) / $q, 2) - round($taxeLigneTotale * $dejaRendu / $q, 2), 2);
                 $base      = round($montant - $taxeLigne, 2);
 
-                SaleReturnItem::create([
+                $crees[] = SaleReturnItem::create([
                     'return_id'    => $retour->id,
                     'sale_item_id' => $ligne->id,
                     'product_id'   => $ligne->product_id,
@@ -208,13 +214,39 @@ class ReturnService
             }
 
             $total = round($sousTotal + $taxe, 2);
-
-            // Plafond de sécurité : jamais plus que ce que la vente a encaissé, tous retours confondus
-            // (des arrondis ou une vente aux totaux incohérents ne doivent pas faire sortir un centime de trop).
             $reste = max(0.0, round((float) $sale->total - $dejaRembourse, 2));
-            if ($total > $reste) {
-                $sousTotal = max(0.0, round($sousTotal - ($total - $reste), 2));
-                $total     = $reste;
+
+            // DERNIER retour (il vide tout ce qui restait à rendre) : il solde la vente au centime près.
+            // Les parts de ligne arrondies peuvent différer du total encaissé d'un ou deux centimes (une
+            // remise de 0,50 sur trois lignes de 1,00 donne 3 × 0,83 = 2,49 pour 2,50 encaissés) : sans
+            // cela le client reste en dessous et la commande n'est jamais « remboursée ». Au-delà de
+            // quelques centimes, ce n'est plus de l'arrondi (historique incohérent) : on ne force rien.
+            $restantApres = $this->rendable($sale->load('items'));
+            foreach ($demande as $id => $qty) {
+                $restantApres[$id] = max(0.0, round(($restantApres[$id] ?? 0) - $qty, 3));
+            }
+            $solde = array_sum($restantApres) <= 0.0001;
+
+            $cible = min($total, $reste);                       // plafond : jamais plus que l'encaissé
+            if ($solde && abs($reste - $total) <= 0.10) {
+                $cible = $reste;
+            }
+
+            // L'écart s'applique à la dernière ligne ET à sa ligne de détail : base + taxe = montant rendu,
+            // partout (une ligne ne doit pas dire un centime de plus que le document).
+            $ecart = round($cible - $total, 2);
+            if ($ecart !== 0.0 && $crees !== []) {
+                $derniere = end($crees);
+                $base = round((float) $derniere->line_total + $ecart, 2);
+                $taxeD = (float) $derniere->tax_amount;
+                if ($base < 0) {
+                    $taxeD = max(0.0, round($taxeD + $base, 2));
+                    $base = 0.0;
+                }
+                $derniere->forceFill(['line_total' => $base, 'tax_amount' => $taxeD])->save();
+                $sousTotal = round(array_sum(array_map(fn ($i) => (float) $i->line_total, $crees)), 2);
+                $taxe      = round(array_sum(array_map(fn ($i) => (float) $i->tax_amount, $crees)), 2);
+                $total     = round($sousTotal + $taxe, 2);
             }
 
             $retour->forceFill([

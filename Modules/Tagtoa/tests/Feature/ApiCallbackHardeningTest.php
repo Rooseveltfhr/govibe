@@ -120,6 +120,14 @@ class ApiCallbackHardeningTest extends TestCase
             'bad port'         => ['https://shop.example.com:99999/hook', 'invalid'],
             'empty'            => ['', 'invalid'],
             'garbage'          => ['not a url', 'invalid'],
+            'trailing dot'     => ['https://localhost./hook', 'private_host'],
+            'backslash host'   => ['https://127.0.0.1\\.evil.example.net/hook', 'invalid'],
+            'idn'              => ['https://bücher.example.org/hook', 'invalid'],
+            'compat v4 v6'     => ['https://[::7f00:1]/hook', 'private_address'],
+            'nat64 local'      => ['https://[64:ff9b:1::7f00:1]/hook', 'private_address'],
+            'teredo'           => ['https://[2001:0:4136:e378:8000:63bf:3fff:fdd2]/hook', 'private_address'],
+            'discard'          => ['https://[100::1]/hook', 'private_address'],
+            'site-local'       => ['https://[fec0::1]/hook', 'private_address'],
             'control chars'    => ["https://shop.example.com/a\r\nHost: x", 'invalid'],
         ];
     }
@@ -169,6 +177,7 @@ class ApiCallbackHardeningTest extends TestCase
         $this->assertSame('https://shop.example.com/hook', $sent['url']);
         $this->assertSame(hash_hmac('sha256', $sent['body'], 'sekret-de-test'), $sent['headers']['X-Tagtoa-Signature']);
         $this->assertFalse($sent['options']['allow_redirects'], 'Aucune redirection suivie.');
+        $this->assertSame('', $sent['options']['proxy'], 'Jamais via un proxy : il ignorerait l\'épinglage et atteindrait le réseau interne.');
         if (defined('CURLOPT_RESOLVE')) {
             $this->assertSame(['shop.example.com:443:93.184.216.34'], $sent['options']['curl'][CURLOPT_RESOLVE], 'Appel épinglé sur l\'adresse vérifiée.');
         }
@@ -239,5 +248,19 @@ class ApiCallbackHardeningTest extends TestCase
         $svc->markPaid($p);
 
         $this->assertSame([], $svc->sent);
+    }
+
+    public function test_two_concurrent_callbacks_for_a_legacy_key_share_one_generated_secret(): void
+    {
+        $this->key->forceFill(['webhook_secret' => null])->save();
+        $svc = new CapturingApiPayments();
+
+        $svc->notifyCallback($this->payment());
+        $first = (string) $this->key->fresh()->webhook_secret;
+        $svc->notifyCallback($this->payment());
+
+        $this->assertNotSame('', $first);
+        $this->assertSame($first, (string) $this->key->fresh()->webhook_secret, 'Le secret déjà généré n\'est jamais écrasé.');
+        $this->assertSame($svc->sent[0]['headers']['X-Tagtoa-Signature'] === hash_hmac('sha256', $svc->sent[0]['body'], $first), true);
     }
 }

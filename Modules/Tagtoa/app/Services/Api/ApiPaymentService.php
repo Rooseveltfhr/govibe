@@ -191,19 +191,22 @@ class ApiPaymentService
             $body    = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
             // Jamais de signature vide : un callback non signé est falsifiable par n'importe qui. Une clé
-            // héritée sans secret en reçoit un maintenant (les clés créées par le tableau de bord en ont toujours un).
-            $key    = $payment->apiKey;
-            $secret = (string) ($key->webhook_secret ?? '');
-            if ($secret === '' && $key) {
-                $secret = Str::random(48);
-                $key->forceFill(['webhook_secret' => $secret])->save();
-            }
+            // héritée sans secret en reçoit un maintenant (les clés créées par le tableau de bord en ont
+            // toujours un), sous verrou : deux callbacks simultanés ne s'écrasent pas leur secret.
+            $secret = $this->secretFor($payment->apiKey);
 
-            $options = ['allow_redirects' => false];
-            if (defined('CURLOPT_RESOLVE')) {
-                $ip = str_contains($check['ip'], ':') ? '['.$check['ip'].']' : $check['ip'];
-                $options['curl'] = [CURLOPT_RESOLVE => [$check['host'].':'.$check['port'].':'.$ip]];
+            // Aucune redirection ; passer par un PROXY (variable d'environnement HTTPS_PROXY) ferait
+            // résoudre le nom par le proxy, qui ignorerait l'épinglage — et atteindrait lui-même le
+            // réseau interne. Pas de proxy, et sans cURL pas d'envoi : l'épinglage est alors impossible.
+            if (! extension_loaded('curl')) {
+                throw new \RuntimeException('callback non envoyé : extension cURL absente (épinglage d\'adresse impossible)');
             }
+            $ip = str_contains($check['ip'], ':') ? '['.$check['ip'].']' : $check['ip'];
+            $options = [
+                'allow_redirects' => false,
+                'proxy'           => '',
+                'curl'            => [CURLOPT_RESOLVE => [$check['host'].':'.$check['port'].':'.$ip]],
+            ];
 
             $this->post($payment->callback_url, (string) $body, [
                 'Content-Type'          => 'application/json',
@@ -219,6 +222,27 @@ class ApiPaymentService
 
             return false;
         }
+    }
+
+    /** Le secret de signature d'une clé ; en génère un, sous verrou, si une clé héritée n'en a pas. */
+    protected function secretFor(?ApiKey $key): string
+    {
+        $secret = (string) ($key->webhook_secret ?? '');
+        if ($secret !== '' || ! $key) {
+            return $secret;
+        }
+
+        return DB::transaction(function () use ($key) {
+            $locked = ApiKey::whereKey($key->getKey())->lockForUpdate()->first();
+            if (! $locked) {
+                return '';
+            }
+            if ((string) $locked->webhook_secret === '') {
+                $locked->forceFill(['webhook_secret' => Str::random(48)])->save();
+            }
+
+            return (string) $locked->webhook_secret;
+        });
     }
 
     /** L'envoi HTTP lui-même (point d'injection des tests : le client HTTP réel n'est pas requis pour les exercer). */

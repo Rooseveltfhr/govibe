@@ -54,7 +54,10 @@ class SafeUrl
             return $no('credentials');
         }
 
-        $host = strtolower(trim($p['host'], '[]'));
+        $host = rtrim(strtolower(trim($p['host'], '[]')), '.');   // « localhost. » = « localhost »
+        if ($host === '' || (! filter_var($host, FILTER_VALIDATE_IP) && ! preg_match('/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/', $host))) {
+            return $no('invalid');                                 // seuls les noms ASCII usuels : ni « \ », ni IDN, ni caractères exotiques
+        }
         $port = (int) ($p['port'] ?? ($scheme === 'https' ? 443 : 80));
         if ($port < 1 || $port > 65535) {
             return $no('port');
@@ -122,6 +125,21 @@ class SafeUrl
         }
         if (strncmp($bin, hex2bin('0064ff9b'), 4) === 0 || strncmp($bin, hex2bin('2002'), 2) === 0) {
             return false;                                  // 64:ff9b::/96 NAT64, 2002::/16 6to4
+        }
+        if (strncmp($bin, str_repeat("\0", 12), 12) === 0) {
+            return false;                                  // ::/96 compatible IPv4 (::7f00:1 = 127.0.0.1 sur certaines piles)
+        }
+        if (strncmp($bin, hex2bin('0064ff9b0001'), 6) === 0) {
+            return false;                                  // 64:ff9b:1::/48 NAT64 local
+        }
+        if (strncmp($bin, hex2bin('0100000000000000'), 8) === 0) {
+            return false;                                  // 100::/64 discard
+        }
+        if (ord($bin[0]) === 0x20 && ord($bin[1]) === 0x01 && ord($bin[2]) < 0x02) {
+            return false;                                  // 2001::/23 : Teredo, ORCHID, protocoles IETF
+        }
+        if (ord($bin[0]) === 0xfe && (ord($bin[1]) & 0xc0) === 0xc0) {
+            return false;                                  // fec0::/10 site-local (déprécié)
         }
 
         return true;
