@@ -30,6 +30,10 @@
         <div style="background:#fde8e8;color:#a01919;border-radius:14px;padding:12px 14px;margin:14px 0;font-size:14px"><i class="fa-solid fa-circle-exclamation"></i> {{ session('error') }}</div>
     @endif
     @if(! $order->isPaid())
+        <div style="background:#fff7e6;border:1px solid #f0c36d;border-radius:14px;padding:12px 14px;margin:14px 0;font-size:14px;line-height:1.5">
+            <i class="fa-solid fa-hourglass-half" style="color:#b45309"></i>
+            {{ __('Vos billets seront valables dès que le paiement sera confirmé. Si vous avez payé par transfert ou mobile money, l\'organisateur doit valider votre paiement : gardez votre référence.') }}
+        </div>
         @if($event->payPage)
             <a class="pay" href="{{ url('/pay/'.$event->payPage->alias) }}"><i class="fa-solid fa-credit-card"></i> {{ __('Payer') }} {{ number_format($order->total,2) }} {{ $order->currency }}</a>
         @endif

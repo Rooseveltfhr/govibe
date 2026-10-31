@@ -122,4 +122,19 @@ class EventUnpaidTicketTest extends TestCase
         $this->get(route('tagtoa.event.ticket', 'ABCD1234'))->assertOk()
             ->assertDontSee('En attente de paiement');
     }
+
+    public function test_the_pending_order_page_tells_the_buyer_the_tickets_are_valid_only_once_payment_is_confirmed(): void
+    {
+        $e = $this->event();
+        $t = $this->ticketOfOrder($e, Order::STATUS_PENDING);
+        $ref = Order::whereKey($t->order_id)->value('reference');
+
+        $this->get(route('tagtoa.event.order', $ref))->assertOk()
+            ->assertSee('seront valables dès que le paiement sera confirmé', false);
+
+        Order::whereKey($t->order_id)->update(['status' => Order::STATUS_PAID]);
+
+        $this->get(route('tagtoa.event.order', $ref))->assertOk()
+            ->assertDontSee('seront valables dès que le paiement sera confirmé', false);
+    }
 }
