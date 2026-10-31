@@ -91,7 +91,7 @@ class OrderPayController extends Controller
      */
     public static function urlFor(string $type, MenuOrder|StoreOrder|EventOrder $order): ?string
     {
-        if ($order->isPaid()) {
+        if ($order->isPaid() || ($order instanceof EventOrder && $order->isCancelled())) {
             return null;
         }
         if (empty(OnlineOptions::for($order->currency))
@@ -107,7 +107,12 @@ class OrderPayController extends Controller
         $model = self::TYPES[$type] ?? null;
         abort_unless($model, 404);
 
-        return $model::where('reference', $reference)->firstOrFail();
+        $order = $model::where('reference', $reference)->firstOrFail();
+        // Une commande ANNULÉE ne se paie plus : payer la réactiverait (markPaid) et
+        // rendrait ses billets, sans tenir compte du stock libéré entre-temps.
+        abort_if($order instanceof EventOrder && $order->isCancelled(), 404);
+
+        return $order;
     }
 
     protected function merchantName(string $type, MenuOrder|StoreOrder|EventOrder $order): string

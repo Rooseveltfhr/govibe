@@ -216,4 +216,17 @@ class EventPayOrderTest extends TestCase
         $this->assertSame(PayTransaction::STATUS_PAID, $txn->fresh()->status);
         $this->assertGreaterThan(0, $card->fresh()->balance_minor, 'La carte doit être créditée.');
     }
+
+    public function test_a_cancelled_event_order_can_no_longer_be_paid_or_claimed(): void
+    {
+        $this->enableMonCash();
+        $o = $this->order($this->paidEvent());
+        $m = $this->method('t-1');
+        Order::whereKey($o->id)->update(['status' => Order::STATUS_CANCELLED]);
+
+        $this->get(route('tagtoa.pay.order', ['event', $o->reference]))->assertNotFound();
+        $this->post(route('tagtoa.pay.order.claim', ['event', $o->reference]), ['payment_method_id' => $m->id])->assertNotFound();
+        $this->assertNull((new CheckoutService())->start('event', $o->id, 'moncash'));
+        $this->assertSame(0, PayTransaction::where('order_id', $o->id)->count());
+    }
 }

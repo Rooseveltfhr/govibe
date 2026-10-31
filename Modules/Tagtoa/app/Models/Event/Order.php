@@ -63,6 +63,11 @@ class Order extends Model
         return $ref;
     }
 
+    public function isCancelled(): bool
+    {
+        return $this->status === self::STATUS_CANCELLED;
+    }
+
     public function isPaid(): bool
     {
         return $this->status === self::STATUS_PAID;
