@@ -34,7 +34,15 @@
             <i class="fa-solid fa-hourglass-half" style="color:#b45309"></i>
             {{ __('Vos billets seront valables dès que le paiement sera confirmé. Si vous avez payé par transfert ou mobile money, l\'organisateur doit valider votre paiement : gardez votre référence.') }}
         </div>
-        @if($event->payPage)
+        @php $payUrl = \Modules\Tagtoa\App\Http\Controllers\Pay\OrderPayController::urlFor('event', $order); @endphp
+        @if($payUrl)
+            {{-- La page « Payer » unifiée : passerelles automatiques (la commande passe
+                 « payée » toute seule) + moyens manuels de l'organisateur. --}}
+            <a class="pay" href="{{ $payUrl }}"><i class="fa-solid fa-credit-card"></i> {{ __('Payer') }} {{ number_format($order->total,2) }} {{ $order->currency }}</a>
+            @if($order->payment_claimed_at)
+                <p style="text-align:center;color:#555;font-size:14px;margin:8px 0"><i class="fa-solid fa-circle-check" style="color:var(--green)"></i> {{ __('Votre déclaration de paiement a été envoyée à l\'organisateur.') }}</p>
+            @endif
+        @elseif($event->payPage)
             <a class="pay" href="{{ url('/pay/'.$event->payPage->alias) }}"><i class="fa-solid fa-credit-card"></i> {{ __('Payer') }} {{ number_format($order->total,2) }} {{ $order->currency }}</a>
         @endif
         <form method="POST" action="{{ route('tagtoa.event.order.card', $order->reference) }}" style="background:rgba(44,184,9,.06);border-radius:14px;padding:16px;margin:12px 0">

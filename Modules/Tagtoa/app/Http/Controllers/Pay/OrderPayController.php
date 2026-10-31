@@ -7,13 +7,14 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Modules\Tagtoa\App\Models\Event\Order as EventOrder;
 use Modules\Tagtoa\App\Models\Menu\Order as MenuOrder;
 use Modules\Tagtoa\App\Models\Store\Order as StoreOrder;
 use Modules\Tagtoa\App\Services\Pay\MerchantMethods;
 use Modules\Tagtoa\App\Support\Pay\OnlineOptions;
 
 /**
- * TAGTOA Pay — LA page « Payer » d'une commande (menu, boutique).
+ * TAGTOA Pay — LA page « Payer » d'une commande (menu, boutique, billetterie).
  *
  * Une seule page, deux familles de moyens :
  *   - AUTOMATIQUE : les passerelles configurées par le fondateur (MonCash,
@@ -30,7 +31,7 @@ use Modules\Tagtoa\App\Support\Pay\OnlineOptions;
  */
 class OrderPayController extends Controller
 {
-    private const TYPES = ['menu' => MenuOrder::class, 'store' => StoreOrder::class];
+    private const TYPES = ['menu' => MenuOrder::class, 'store' => StoreOrder::class, 'event' => EventOrder::class];
 
     public function show(string $type, string $reference): View
     {
@@ -42,7 +43,11 @@ class OrderPayController extends Controller
             'type'     => $type,
             'merchant' => $this->merchantName($type, $order),
             'backUrl'  => $this->backUrl($type, $order),
-            'trackUrl' => $type === 'menu' ? route('tagtoa.menu.track', $order->reference) : null,
+            'trackUrl' => match ($type) {
+                'menu'  => route('tagtoa.menu.track', $order->reference),
+                'event' => route('tagtoa.event.order', $order->reference),
+                default => null,
+            },
             'online'   => $order->isPaid() ? [] : OnlineOptions::for($order->currency),
             'methods'  => $order->isPaid() ? collect() : $methods,
         ]);
@@ -84,7 +89,7 @@ class OrderPayController extends Controller
      * RIEN à proposer (aucune passerelle utilisable, aucun moyen du marchand) :
      * un bouton « Payer » qui ouvre une page vide est pire que pas de bouton.
      */
-    public static function urlFor(string $type, MenuOrder|StoreOrder $order): ?string
+    public static function urlFor(string $type, MenuOrder|StoreOrder|EventOrder $order): ?string
     {
         if ($order->isPaid()) {
             return null;
@@ -97,7 +102,7 @@ class OrderPayController extends Controller
         return route('tagtoa.pay.order', [$type, $order->reference]);
     }
 
-    protected function order(string $type, string $reference): MenuOrder|StoreOrder
+    protected function order(string $type, string $reference): MenuOrder|StoreOrder|EventOrder
     {
         $model = self::TYPES[$type] ?? null;
         abort_unless($model, 404);
@@ -105,12 +110,16 @@ class OrderPayController extends Controller
         return $model::where('reference', $reference)->firstOrFail();
     }
 
-    protected function merchantName(string $type, MenuOrder|StoreOrder $order): string
+    protected function merchantName(string $type, MenuOrder|StoreOrder|EventOrder $order): string
     {
-        return (string) ($type === 'menu' ? optional($order->menu)->name : optional($order->store)->name);
+        return (string) match ($type) {
+            'menu'  => optional($order->menu)->name,
+            'event' => optional($order->event)->title,
+            default => optional($order->store)->name,
+        };
     }
 
-    protected function backUrl(string $type, MenuOrder|StoreOrder $order): ?string
+    protected function backUrl(string $type, MenuOrder|StoreOrder|EventOrder $order): ?string
     {
         if ($type === 'menu' && $order->menu) {
             return route('tagtoa.menu.show', $order->menu->alias);

@@ -65,6 +65,56 @@ jobs:
         working-directory: Modules/Tagtoa
         run: vendor/bin/phpunit --testdox tests/Feature
 
+  # ── MySQL RÉEL ────────────────────────────────────────────────────────────
+  # Les deux jobs TAGTOA ci-dessus tournent sur SQLite, qui accepte tout : la
+  # migration 000171 échouait sur MySQL (nom d'index de 69 caractères, limite 64)
+  # depuis son ajout, sans que rien ne le signale. Ce job migre une base MySQL 8
+  # VIDE de bout en bout, vérifie la sauvegarde (vrai mysqldump + restauration)
+  # et la réparation du grand livre.
+  tagtoa-mysql:
+    name: TAGTOA module — migrations + sauvegarde (MySQL 8 réel)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+          tools: composer:v2
+          extensions: sqlite3, pdo_sqlite, pdo_mysql
+
+      - name: Install module deps
+        working-directory: Modules/Tagtoa
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Bases de test
+        run: |
+          mysql -h127.0.0.1 -uroot -proot -e "CREATE DATABASE tg_src; CREATE DATABASE tg_restore; CREATE DATABASE tg_migrate;"
+
+      - name: Migrations + sauvegarde sur MySQL 8
+        working-directory: Modules/Tagtoa
+        env:
+          TAGTOA_TEST_MYSQL_HOST: 127.0.0.1
+          TAGTOA_TEST_MYSQL_PORT: "3306"
+          TAGTOA_TEST_MYSQL_USER: root
+          TAGTOA_TEST_MYSQL_PASS: root
+          TAGTOA_TEST_MYSQL_DB: tg_src
+          TAGTOA_TEST_MYSQL_DB_RESTORE: tg_restore
+          TAGTOA_TEST_MYSQL_DB_MIGRATE: tg_migrate
+        run: vendor/bin/phpunit --testdox tests/Feature/MysqlMigrationsRealTest.php tests/Feature/BackupDatabaseRealMysqlTest.php
+
   # ── GOVIBE ────────────────────────────────────────────────────────────────
   # Jusqu'ici, « CI » ne contenait que les deux travaux TAGTOA : la suite de
   # l'application GOVIBE — vitrine, ERP, portail, paiements, abonnements — n'a

@@ -26,7 +26,11 @@
             <thead><tr><th>{{ __('Réf') }}</th><th>{{ __('Acheteur') }}</th><th>{{ __('Total') }}</th><th>{{ __('Billets') }}</th><th>{{ __('Statut') }}</th><th>{{ __('Date') }}</th></tr></thead>
             <tbody>
             @foreach($orders as $o)
-                <tr><td><b>{{ $o->reference }}</b></td><td>{{ $o->buyer_name }}<div style="color:var(--muted);font-size:12px">{{ $o->buyer_phone }}</div></td>
+                <tr><td><b>{{ $o->reference }}</b>
+                    @if($o->status === 0 && $o->payment_claimed_at && $o->payment_claim)
+                        <div style="margin-top:4px;font-size:12px;background:#fff7e6;border:1px solid #f0c36d;border-radius:8px;padding:4px 7px;color:#7a4a00"><i class="fa-solid fa-hand-holding-dollar"></i> {{ __('Dit avoir payé') }} · {{ $o->payment_claim['method'] ?? '' }}@if(! empty($o->payment_claim['reference'])) · {{ __('Réf.') }} {{ $o->payment_claim['reference'] }}@endif @if(! empty($o->payment_claim['payer_name'])) · {{ $o->payment_claim['payer_name'] }}@endif @if(! empty($o->payment_claim['payer_phone'])) · {{ $o->payment_claim['payer_phone'] }}@endif · {{ $o->payment_claimed_at->format('d/m H:i') }}</div>
+                    @endif
+                </td><td>{{ $o->buyer_name }}<div style="color:var(--muted);font-size:12px">{{ $o->buyer_phone }}</div></td>
                     <td>{{ number_format($o->total,2) }}</td><td>{{ $o->tickets_count }}</td>
                     <td><span class="pill {{ $o->status===1?'g':($o->status===0?'a':'n') }}">{{ [0=>__('En attente'),1=>__('Payé'),2=>__('Annulé')][$o->status] ?? '' }}</span></td>
                     <td style="color:var(--muted)">{{ $o->created_at->format('d/m/y H:i') }}

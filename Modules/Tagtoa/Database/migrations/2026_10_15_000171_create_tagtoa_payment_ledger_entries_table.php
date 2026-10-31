@@ -69,8 +69,11 @@ return new class extends Migration
             // jamais après coup, donc aucun updated_at à lui donner.
             $table->timestamp('created_at')->useCurrent();
 
-            $table->index(['tenant_id', 'payable_type', 'payable_id']);
-            $table->index(['payable_type', 'payable_id', 'to_status']);
+            // Noms EXPLICITES : le nom généré (tagtoa_payment_ledger_entries_tenant_id_
+            // payable_type_payable_id_index, 69 caractères) dépasse la limite de 64 de MySQL.
+            // Sur une base neuve la migration échouait APRÈS avoir créé la table.
+            $table->index(['tenant_id', 'payable_type', 'payable_id'], 'tagtoa_ple_tenant_payable_idx');
+            $table->index(['payable_type', 'payable_id', 'to_status'], 'tagtoa_ple_payable_status_idx');
         });
     }
 
