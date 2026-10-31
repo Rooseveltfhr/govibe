@@ -40,7 +40,9 @@ class MenuOrderService
     public function placeOrder(Menu $menu, array $payload): Order
     {
         $uuid = $payload['client_uuid'] ?? null;
-        if ($uuid && $existing = Order::where('client_uuid', $uuid)->first()) {
+        // Cherché DANS ce menu seulement. La recherche était globale : le client_uuid d'une commande d'un
+        // AUTRE commerce (référence, total, lien de suivi) revenait à quiconque le rejouait.
+        if ($uuid && $existing = Order::where('menu_id', $menu->id)->where('client_uuid', $uuid)->first()) {
             return $existing;
         }
 
@@ -72,10 +74,19 @@ class MenuOrderService
             // remontait une erreur 500 au client au lieu de lui rendre sa
             // commande déjà enregistrée par la première.
             if ($uuid && $this->isDuplicateClientUuid($e)) {
-                $existing = Order::where('client_uuid', $uuid)->first();
+                $existing = Order::where('menu_id', $menu->id)->where('client_uuid', $uuid)->first();
                 if ($existing) {
                     return $existing;
                 }
+
+                // Collision avec une commande d'un AUTRE menu (l'ancien index unique global n'est pas encore
+                // remplacé, ou identifiant rejoué d'ailleurs) : on ne rend JAMAIS la commande d'autrui ; on
+                // enregistre celle-ci sans clé d'idempotence plutôt que de la perdre ou de répondre 500.
+                $order = $this->insertOrder($menu, $payload, null);
+                $this->notifyMerchant($menu, $order);
+                $this->notifyCustomer($menu, $order);
+
+                return $order;
             }
 
             throw $e;

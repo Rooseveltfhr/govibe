@@ -113,6 +113,24 @@ class GatewayManager
         return null;
     }
 
+    /**
+     * Un rappel qui N'EMPÊCHE PAS d'opérer (à ne pas confondre avec warning(), qui désactive le driver) :
+     * Stripe fonctionne sans secret de webhook — le paiement est re-vérifié auprès de Stripe, c'est la vraie
+     * protection — mais la signature des webhooks, qui écarte le bruit et les rejeux, est alors IGNORÉE
+     * en silence. Le super-admin doit le savoir.
+     */
+    public static function advisory(string $driver): ?string
+    {
+        if ($driver !== 'stripe' || ! self::enabled('stripe')) {
+            return null;
+        }
+        if ((string) config('tagtoa.gateways.stripe.webhook_secret', '') !== '') {
+            return null;
+        }
+
+        return __('Aucun secret de webhook Stripe n\'est défini (TAGTOA_STRIPE_WEBHOOK_SECRET) : la signature des webhooks n\'est pas vérifiée. Les paiements restent sûrs (chaque paiement est re-vérifié auprès de Stripe), mais les appels non signés ne sont pas écartés.');
+    }
+
     /** Liste des drivers actuellement activés (pour diagnostic/dashboard). */
     public static function enabledDrivers(): array
     {

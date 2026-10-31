@@ -91,9 +91,14 @@ class StripeDriver implements GatewayDriver
 
             $status = Stripe::mapStatus($res->json('payment_status'), $res->json('status'));
 
-            // Anti-fraude : le montant encaissé doit couvrir le montant attendu.
-            if ($status === 'paid' && ! $this->amountMatches($res, $txn)) {
-                return 'failed';
+            // Anti-fraude : un « payé » n'est cru que si la passerelle DIT le montant et la devise, et
+            // qu'ils couvrent la transaction. Une réponse « payée » sans montant n'est PAS une preuve :
+            // elle reste en attente (la prochaine vérification la tranchera) au lieu d'être acceptée.
+            if ($status === 'paid') {
+                $verdict = $this->amountVerdict($res, $txn);
+                if ($verdict !== 'ok') {
+                    return $verdict;
+                }
             }
 
             return $status;
@@ -106,14 +111,22 @@ class StripeDriver implements GatewayDriver
         return 'pending';
     }
 
-    /** Anti-fraude : amount_total Stripe (unité mineure) ≥ montant attendu. */
-    protected function amountMatches($res, PayTransaction $txn): bool
+    /**
+     * Anti-fraude : amount_total Stripe (unité mineure) ≥ montant attendu, dans la MÊME devise.
+     *
+     * @return string 'ok' | 'pending' (montant ou devise absents : rien ne prouve le paiement) | 'failed' (insuffisant ou autre devise)
+     */
+    protected function amountVerdict($res, PayTransaction $txn): string
     {
-        $total = $res->json('amount_total');
-        if ($total === null) {
-            return true; // pas d'info → on ne bloque pas
+        $total    = $res->json('amount_total');
+        $currency = $res->json('currency');
+        if ($total === null || $currency === null || $currency === '') {
+            return 'pending';
+        }
+        if (strtoupper((string) $currency) !== strtoupper((string) $txn->currency)) {
+            return 'failed';
         }
 
-        return (int) $total + 1 >= Stripe::amount($txn->amount, $txn->currency);
+        return (int) $total + 1 >= Stripe::amount($txn->amount, $txn->currency) ? 'ok' : 'failed';
     }
 }

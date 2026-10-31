@@ -45,6 +45,7 @@ class MenuQueueCorrectnessTest extends TestCase
         $this->assertStringNotContainsString('lireFile', $html, 'L\'ancienne file (qui avalait toutes les erreurs) a disparu.');
         $this->assertStringContainsString('if (!QUEUE.push(payload))', $html, 'Un échec d\'écriture du stockage doit être dit au client.');
         $this->assertStringContainsString('restoreCart();', $html);
+        $this->assertStringContainsString('crypto.randomUUID', $html, 'L\'identifiant de commande est aléatoire cryptographique quand le navigateur le permet.');
         $this->assertStringContainsString('uuid:ORDER_UUID', $html, 'L\'identifiant de commande suit le panier restauré (pas de doublon après rechargement).');
         $this->assertStringContainsString('showQueued(shown)', $html, 'Le total affiché hors ligne est calculé AVANT de vider le panier.');
     }

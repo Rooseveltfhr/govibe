@@ -31,10 +31,33 @@ class StoreOrderService
     public function placeOrder(Store $store, array $payload): Order
     {
         $uuid = $payload['client_uuid'] ?? null;
-        if ($uuid && $existing = Order::where('client_uuid', $uuid)->first()) {
+        // Dans CETTE boutique seulement (voir MenuOrderService::placeOrder : la recherche globale rendait la commande d'autrui).
+        if ($uuid && $existing = Order::where('store_id', $store->id)->where('client_uuid', $uuid)->first()) {
             return $existing;
         }
 
+        try {
+            $order = $this->insert($store, $payload, $uuid);
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Double envoi rapproché : la contrainte unique a refusé le second. On rend la commande déjà
+            // enregistrée (au lieu d'une erreur 500) ; une collision avec une autre boutique n'est jamais rendue.
+            if ($uuid && str_contains($e->getMessage(), 'client_uuid')) {
+                $existing = Order::where('store_id', $store->id)->where('client_uuid', $uuid)->first();
+                if ($existing) {
+                    return $existing;
+                }
+                $order = $this->insert($store, $payload, null);
+            } else {
+                throw $e;
+            }
+        }
+
+        return $order;
+    }
+
+    /** Crée la commande (une transaction). */
+    protected function insert(Store $store, array $payload, ?string $uuid): Order
+    {
         $order = DB::transaction(function () use ($store, $payload, $uuid) {
             // Catalogue autorisé : produits disponibles de CETTE boutique.
             $products = $store->products()->where('is_available', true)->get()->keyBy('id');
@@ -66,7 +89,7 @@ class StoreOrderService
                 'currency'         => $store->currency ?: 'HTG',
                 'status'           => 'pending',
                 'payment_status'   => 'unpaid',
-                'channel'          => in_array(($payload['channel'] ?? 'store'), ['store', 'whatsapp'], true) ? $payload['channel'] : 'store',
+                'channel'          => in_array(($payload['channel'] ?? 'store'), ['store', 'whatsapp'], true) ? ($payload['channel'] ?? 'store') : 'store',
                 'customer_name'    => $payload['customer_name'] ?? null,
                 'customer_phone'   => $payload['customer_phone'] ?? null,
                 'customer_address' => $payload['customer_address'] ?? null,

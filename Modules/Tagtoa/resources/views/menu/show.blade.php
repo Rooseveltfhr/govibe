@@ -480,7 +480,14 @@
         var orderType = @json($modesOfferts[0] ?? 'dine_in');
         var tipPct = 0;
         var modItem = null, modChosen = {};
-        var ORDER_UUID = 'mo-' + Date.now().toString(36) + Math.random().toString(36).slice(2,10);
+        /** Identifiant d'une commande : aléatoire cryptographique quand le navigateur le permet (le repli
+            par l'horloge + Math.random ne suffit pas à rendre une collision impossible). 'mo-' + 32 hex. */
+        function newOrderUuid(){
+            try { if (window.crypto && crypto.randomUUID) { return 'mo-' + crypto.randomUUID().replace(/-/g, ''); } } catch(e){}
+            try { if (window.crypto && crypto.getRandomValues) { var a = new Uint8Array(16); crypto.getRandomValues(a); return 'mo-' + Array.prototype.map.call(a, function(b){ return ('0'+b.toString(16)).slice(-2); }).join(''); } } catch(e){}
+            return 'mo-' + Date.now().toString(36) + Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10);
+        }
+        var ORDER_UUID = newOrderUuid();
 
         /* ------------------------------------------------------------------
            HORS LIGNE — une connexion coupée ne doit jamais perdre une
@@ -816,7 +823,7 @@ var MenuQ=(function(){
             document.getElementById('orderDone').style.display='';
         }
         function newOrder(){
-            cart={}; ORDER_UUID='mo-'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+            cart={}; ORDER_UUID=newOrderUuid();
             document.getElementById('orderDone').style.display='none';
             document.getElementById('orderForm').style.display='';
             var b=document.getElementById('confirmBtn'); b.disabled=false; b.innerHTML='<i class="fa-solid fa-bag-shopping"></i> '+T.confirm;
