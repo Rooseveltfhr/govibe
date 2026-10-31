@@ -118,58 +118,80 @@ class CheckinService
         if ($direction === 'in' && ! ($ticket->ticketType?->allowsGate($gate) ?? true)) {
             return $this->r(false, 'red', 'error', __('Ce billet n\'est pas valable à cette porte.'), $ticket, 'gate');
         }
-        // Anti double-entrée PAR JOUR (multi-jour) : on bloque une 2ᵉ entrée le
-        // même jour, mais on autorise l'entrée un autre jour (ex. Pass 2 jours).
-        // Rétro-compatible : un événement d'un seul jour ⇒ une entrée unique.
-        if ($direction === 'in') {
-            $today = $at->toDateString();
-            $enteredToday = Checkin::where('ticket_id', $ticket->id)
-                ->where('direction', 'in')
-                ->whereDate('scanned_at', $today)
-                ->exists();
-            if ($enteredToday) {
-                return $this->r(false, 'orange', 'warning', __('Déjà entré aujourd\'hui.'), $ticket, 'duplicate_today');
-            }
-
-            // Reprise hors ligne ANTIDATÉE (jour du scan antérieur à aujourd'hui) :
-            // si le billet est déjà entré aujourd'hui pour de bon, une entrée
-            // « d'hier » ne peut être qu'une seconde entrée déguisée — horloge
-            // d'appareil reculée, ou requête fabriquée. Elle est refusée et
-            // consignée ; l'entrée d'hier, si elle est réelle, reste visible dans
-            // les conflits à vérifier plutôt que d'ouvrir un contournement.
-            if ($scannedAt !== null && $today < now()->toDateString()) {
-                $enteredServerToday = Checkin::where('ticket_id', $ticket->id)
-                    ->where('direction', 'in')
-                    ->whereDate('scanned_at', now()->toDateString())
-                    ->exists();
-                if ($enteredServerToday) {
-                    return $this->r(false, 'orange', 'warning', __('Déjà entré aujourd\'hui.'), $ticket, 'backdated_reentry');
-                }
-            }
-        }
         if ($direction === 'out' && ! $ticket->checked_in) {
             return $this->r(false, 'orange', 'warning', __('Pas encore entré.'), $ticket, 'not_yet_in');
         }
 
+        // Tout ce qui DÉCIDE d'admettre se fait ICI, sous verrou de ligne sur le
+        // billet. Avant, « déjà entré aujourd'hui ? » était lu AVANT la
+        // transaction : deux portes scannant le même billet à la même seconde
+        // lisaient toutes deux « non », puis écrivaient chacune une entrée —
+        // deux personnes pour un billet. Le verrou fait attendre la seconde
+        // requête ; relue après, elle voit l'entrée de la première.
         $entered = false;
-        $result = DB::transaction(function () use ($event, $ticket, $direction, $method, $gate, $clientUuid, $staffId, $at, &$entered) {
-            if ($clientUuid && Checkin::where('ticket_id', $ticket->id)->where('client_uuid', $clientUuid)->exists()) {
-                return $this->r(true, 'green', 'success', __('Déjà synchronisé.'), $ticket);
+        $result = DB::transaction(function () use ($event, $ticket, $direction, $method, $gate, $clientUuid, $staffId, $at, $scannedAt, &$entered) {
+            /** @var Ticket $locked */
+            $this->beforeTicketLock($ticket);
+            $locked = Ticket::whereKey($ticket->id)->lockForUpdate()->with('ticketType')->first();
+
+            // Un billet annulé pendant l'attente du verrou ne passe pas.
+            if (! $locked->isValid()) {
+                return $this->r(false, 'red', 'error', __('Billet annulé.'), $locked, 'void');
             }
 
-            $ticket->checked_in = $direction === 'in';
-            $ticket->checked_in_at = $direction === 'in' ? $at : $ticket->checked_in_at;
-            $ticket->save();
+            // La reprise d'un scan déjà enregistré passe AVANT le contrôle de
+            // doublon : sinon le rejeu d'un scan réussi répondrait « déjà entré »
+            // à l'appareil, qui le prendrait pour un refus.
+            if ($clientUuid && Checkin::where('ticket_id', $locked->id)->where('client_uuid', $clientUuid)->exists()) {
+                return $this->r(true, 'green', 'success', __('Déjà synchronisé.'), $locked);
+            }
+
+            if ($direction === 'out' && ! $locked->checked_in) {
+                return $this->r(false, 'orange', 'warning', __('Pas encore entré.'), $locked, 'not_yet_in');
+            }
+
+            // Anti double-entrée PAR JOUR (multi-jour) : on bloque une 2ᵉ entrée le
+            // même jour, mais on autorise l'entrée un autre jour (ex. Pass 2 jours).
+            if ($direction === 'in') {
+                $today = $at->toDateString();
+                $enteredToday = Checkin::where('ticket_id', $locked->id)
+                    ->where('direction', 'in')
+                    ->whereDate('scanned_at', $today)
+                    ->exists();
+                if ($enteredToday) {
+                    return $this->r(false, 'orange', 'warning', __('Déjà entré aujourd\'hui.'), $locked, 'duplicate_today');
+                }
+
+                // Reprise hors ligne ANTIDATÉE (jour du scan antérieur à aujourd'hui) :
+                // si le billet est déjà entré aujourd'hui pour de bon, une entrée
+                // « d'hier » ne peut être qu'une seconde entrée déguisée — horloge
+                // d'appareil reculée, ou requête fabriquée. Elle est refusée et
+                // consignée ; l'entrée d'hier, si elle est réelle, reste visible dans
+                // les conflits à vérifier plutôt que d'ouvrir un contournement.
+                if ($scannedAt !== null && $today < now()->toDateString()) {
+                    $enteredServerToday = Checkin::where('ticket_id', $locked->id)
+                        ->where('direction', 'in')
+                        ->whereDate('scanned_at', now()->toDateString())
+                        ->exists();
+                    if ($enteredServerToday) {
+                        return $this->r(false, 'orange', 'warning', __('Déjà entré aujourd\'hui.'), $locked, 'backdated_reentry');
+                    }
+                }
+            }
+
+            $locked->checked_in = $direction === 'in';
+            $locked->checked_in_at = $direction === 'in' ? $at : $locked->checked_in_at;
+            $locked->save();
 
             Checkin::create([
-                'event_id' => $event->id, 'ticket_id' => $ticket->id, 'direction' => $direction,
+                'event_id' => $event->id, 'ticket_id' => $locked->id, 'direction' => $direction,
                 'method' => $method, 'gate' => $gate, 'staff_id' => $staffId,
                 'client_uuid' => $clientUuid, 'scanned_at' => $at,
             ]);
 
             $entered = ($direction === 'in');
 
-            return $this->r(true, 'green', 'success', $direction === 'in' ? $this->welcomeMessage($event, $ticket, $at) : __('Sortie enregistrée.'), $ticket->fresh('ticketType'));
+            return $this->r(true, 'green', 'success', $direction === 'in' ? $this->welcomeMessage($event, $locked, $at) : __('Sortie enregistrée.'), $locked->fresh('ticketType'));
         });
 
         // Notifications hors transaction (tolérant) : organisateur + participant à l'entrée.
@@ -181,6 +203,16 @@ class CheckinService
         }
 
         return $result;
+    }
+
+    /**
+     * Point d'accroche : appelé juste AVANT la lecture verrouillante du billet.
+     * Vide en production ; les tests y simulent ce qu'une autre porte valide
+     * pendant l'attente du verrou (la lecture verrouillante, elle, renvoie l'état
+     * d'APRÈS cette attente).
+     */
+    protected function beforeTicketLock(Ticket $ticket): void
+    {
     }
 
     /**
