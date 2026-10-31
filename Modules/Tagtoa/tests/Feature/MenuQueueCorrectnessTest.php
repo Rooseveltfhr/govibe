@@ -45,6 +45,8 @@ class MenuQueueCorrectnessTest extends TestCase
         $this->assertStringNotContainsString('lireFile', $html, 'L\'ancienne file (qui avalait toutes les erreurs) a disparu.');
         $this->assertStringContainsString('if (!QUEUE.push(payload))', $html, 'Un échec d\'écriture du stockage doit être dit au client.');
         $this->assertStringContainsString('restoreCart();', $html);
+        $this->assertStringContainsString('uuid:ORDER_UUID', $html, 'L\'identifiant de commande suit le panier restauré (pas de doublon après rechargement).');
+        $this->assertStringContainsString('showQueued(shown)', $html, 'Le total affiché hors ligne est calculé AVANT de vider le panier.');
     }
 
     public function test_the_queue_logic_behaves_under_node(): void
@@ -99,7 +101,7 @@ const order = (id)=>({ items:[{id:1,qty:1}], client_uuid:id });
     assert.strictEqual(await q.flush(), 'wait', 'pas de nouvel essai avant le délai'); assert.strictEqual(n,1);
     for (let i=0;i<20 && q.pending().length;i++){ q.advance(10*60*1000); await q.flush(); }
     assert.strictEqual(q.pending().length,0,'abandon après les essais'); assert.strictEqual(n,8);
-    assert.strictEqual(q.rejected().length,1); assert.strictEqual(q.rejected()[0].message,'abandon'); }
+    assert.strictEqual(q.rejected().length,1); assert.strictEqual(q.rejected()[0].message,'abandon'); assert.strictEqual(q.rejected()[0].gaveUp,true,'abandon distinct d\'un refus'); }
 
   // 5) jeton CSRF expiré : un jeton frais est relu, puis la commande part
   { const st=store(); let tok='old', refreshed=0; const seen=[];
@@ -139,9 +141,29 @@ const order = (id)=>({ items:[{id:1,qty:1}], client_uuid:id });
 
   // 10) classification
   { const C=MenuQ.classify;
-    assert.strictEqual(C(200,{ok:true}),'ok'); assert.strictEqual(C(200,{ok:false}),'rejected'); assert.strictEqual(C(200,null),'rejected');
+    assert.strictEqual(C(200,{ok:true}),'ok'); assert.strictEqual(C(200,{ok:false}),'rejected'); assert.strictEqual(C(200,null),'retry','page de portail captif / proxy : on réessaie, on ne rejette pas');
     assert.strictEqual(C(422,{}),'rejected'); assert.strictEqual(C(409,{}),'rejected'); assert.strictEqual(C(419,{}),'csrf');
     assert.strictEqual(C(500,null),'retry'); assert.strictEqual(C(429,{}),'retry'); assert.strictEqual(C(502,null),'retry'); assert.strictEqual(C(0,null),'retry'); }
+
+  // 11) une commande ajoutée PENDANT l'envoi n'est jamais écrasée par une copie périmée de la file (relevé à la revue, sévérité 6)
+  { const st=store(); let release; const gate=new Promise(r=>release=r); const sent=[];
+    const q=mk(st,(u,o)=>{ const id=JSON.parse(o.body).client_uuid; sent.push(id); return id==='first' ? gate.then(()=>resp(200,{ok:true})) : resp(200,{ok:true}); });
+    q.push(order('first')); const p1=q.flush();
+    while(!sent.length){ await new Promise(r=>setImmediate(r)); }   // l'envoi est RÉELLEMENT en vol
+    q.push(order('second'));                       // le client commande pendant que le premier envoi est en vol
+    release(); await p1;
+    assert.deepStrictEqual(sent,['first','second'],'la commande ajoutée pendant l\'envoi est ENVOYÉE, pas perdue');
+    assert.strictEqual(q.pending().length,0); }
+  { const st=store(); let release, inflight=false; const gate=new Promise(r=>release=r);
+    const q=mk(st,()=>{ inflight=true; return gate.then(()=>resp(500,undefined)); });       // échec : l'écriture du compteur d'essais ne doit pas non plus écraser
+    q.push(order('first')); const p1=q.flush();
+    while(!inflight){ await new Promise(r=>setImmediate(r)); }
+    q.push(order('second')); release(); await p1;
+    assert.deepStrictEqual(q.pending().map(o=>o.client_uuid),['first','second']); assert.strictEqual(q.pending()[0]._tries,1); }
+
+  // 12) un délai maximal est posé sur chaque envoi (signal d'annulation) quand le navigateur le permet
+  { const st=store(); let sig=null; const q=mk(st,(u,o)=>{ sig=o.signal; return resp(200,{ok:true}); }); q.push(order('a')); await q.flush();
+    assert.ok(sig && typeof sig.aborted==='boolean','AbortSignal fourni'); }
 
   console.log('MenuQ: all scenarios passed');
 })().catch(e=>{ console.error(e); process.exit(1); });

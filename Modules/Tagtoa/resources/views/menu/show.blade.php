@@ -472,7 +472,7 @@
         var REQUIRE_CUSTOMER_INFO = @json($menu->require_customer_info ?? false);
         var CSRF = document.querySelector('meta[name=csrf-token]').getAttribute('content');
         var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')), customerInfo:@json(__('Indiquez votre nom et votre téléphone pour commander.')),
-            refusedTitle:@json(__('Commande refusée :')), refused:@json(__('Le commerce n\'a pas pu accepter votre commande.')), retry:@json(__('Réessayer')), dismiss:@json(__('Fermer')),
+            refusedTitle:@json(__('Commande refusée :')), notSentTitle:@json(__('Commande non envoyée :')), refused:@json(__('Le commerce n\'a pas pu accepter votre commande.')), retry:@json(__('Réessayer')), dismiss:@json(__('Fermer')),
             giveUp:@json(__('Impossible d\'envoyer votre commande pour le moment.')), storageFull:@json(__('Impossible de garder votre commande hors ligne (stockage du navigateur plein ou bloqué). Reconnectez-vous puis réessayez.')) };
         var cart = {};
         // Même défaut que le bouton .otbtn.on rendu côté serveur — un menu
@@ -499,7 +499,7 @@ var MenuQ=(function(){
   var MAX_TRIES=8;
   /** Que dit la réponse ? ok | rejected (refus définitif du serveur) | csrf | retry (réseau/serveur : on réessaiera). */
   function classify(status, body){
-    if(status===200||status===201){ return (body&&body.ok!==false)?'ok':'rejected'; }
+    if(status===200||status===201){ if(!body){ return 'retry'; } return body.ok!==false?'ok':'rejected'; }
     if(status===419){ return 'csrf'; }
     if(status===400||status===403||status===404||status===409||status===410||status===422||status===423){ return 'rejected'; }
     return 'retry';
@@ -511,16 +511,27 @@ var MenuQ=(function(){
     function wr(k,v){ try{ var s=JSON.stringify(v); o.storage.setItem(k,s); return o.storage.getItem(k)===s; }catch(e){ return false; } }
     function changed(){ if(o.onChange){ try{ o.onChange(); }catch(e){} } }
     function clean(p){ var c={}; for(var k in p){ if(k.charAt(0)!=='_'){ c[k]=p[k]; } } return c; }
-    function addRej(p,message){
-      var r=rd(o.rejKey); r.push({payload:clean(p),message:message,at:now()}); if(r.length>20){ r=r.slice(-20); } wr(o.rejKey,r);
+    function addRej(p,message,gaveUp){
+      var r=rd(o.rejKey); r.push({payload:clean(p),message:message,at:now(),gaveUp:!!gaveUp}); if(r.length>20){ r=r.slice(-20); } wr(o.rejKey,r);
     }
     function send(p){
-      return o.fetchFn(o.url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':o.csrf()},body:JSON.stringify(clean(p))})
+      // Délai maximal : une requête qui ne répond jamais ne doit pas garder la file « occupée » jusqu'au rechargement.
+      var init={method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':o.csrf()},body:JSON.stringify(clean(p))};
+      var timer=null;
+      if(typeof AbortController!=='undefined'){ var ac=new AbortController(); init.signal=ac.signal; timer=setTimeout(function(){ ac.abort(); },o.timeoutMs||30000); }
+      function done(v){ if(timer){ clearTimeout(timer); } return v; }
+      return o.fetchFn(o.url,init)
+        .then(function(r){ return done(r); },function(e){ done(); throw e; })
         .then(function(r){ return r.json().then(function(j){ return {status:r.status,body:j}; },function(){ return {status:r.status,body:null}; }); });
     }
     function flush(){
       if(busy){ return Promise.resolve('busy'); }
       busy=true; tried=false;
+      function same(a,b){ return a&&b&&(a.client_uuid?a.client_uuid===b.client_uuid:JSON.stringify(clean(a))===JSON.stringify(clean(b))); }
+      /** Retire la commande de la file en relisant le stockage : une commande ajoutée PENDANT l'envoi
+          (ou par un autre onglet) ne doit jamais être écrasée par une copie périmée de la file. */
+      function drop(h){ var cur=rd(o.key), out=[]; for(var i=0;i<cur.length;i++){ if(!same(cur[i],h)){ out.push(cur[i]); } } wr(o.key,out); }
+      function update(h){ var cur=rd(o.key); for(var i=0;i<cur.length;i++){ if(same(cur[i],h)){ cur[i]=h; } } wr(o.key,cur); }
       function step(){
         var q=rd(o.key);
         if(!q.length){ return 'empty'; }
@@ -528,16 +539,16 @@ var MenuQ=(function(){
         if(h._next&&h._next>now()){ return 'wait'; }
         return send(h).then(function(res){
           var c=classify(res.status,res.body);
-          if(c==='ok'){ q.shift(); wr(o.key,q); changed(); return step(); }
+          if(c==='ok'){ drop(h); changed(); return step(); }
           if(c==='rejected'){
             // Refus DÉFINITIF (rupture, commerce fermé, table invalide…) : on le montre au client et on
             // ne bloque PAS les commandes suivantes.
-            q.shift(); wr(o.key,q); addRej(h,(res.body&&res.body.message)||o.rejectedDefault); changed(); return step();
+            drop(h); addRej(h,(res.body&&res.body.message)||o.rejectedDefault,false); changed(); return step();
           }
           if(c==='csrf'&&!tried&&o.refreshCsrf){ tried=true; return o.refreshCsrf().then(step,step); }
           h._tries=(h._tries||0)+1;
-          if(h._tries>=MAX_TRIES){ q.shift(); wr(o.key,q); addRej(h,o.giveUp); changed(); return step(); }
-          h._next=now()+Math.min(300000,20000*Math.pow(2,h._tries-1)); q[0]=h; wr(o.key,q); changed();
+          if(h._tries>=MAX_TRIES){ drop(h); addRej(h,o.giveUp,true); changed(); return step(); }
+          h._next=now()+Math.min(300000,20000*Math.pow(2,h._tries-1)); update(h); changed();
           return 'retry';
         },function(){ return 'offline'; });
       }
@@ -595,7 +606,7 @@ var MenuQ=(function(){
             box.innerHTML='';
             list.forEach(function(e,i){
                 var row=document.createElement('div'); row.style.cssText='margin:4px 0';
-                var t=document.createElement('b'); t.textContent=T.refusedTitle+' '; row.appendChild(t);
+                var t=document.createElement('b'); t.textContent=(e.gaveUp?T.notSentTitle:T.refusedTitle)+' '; row.appendChild(t);
                 row.appendChild(document.createTextNode(e.message||T.refused));
                 var r=document.createElement('button'); r.type='button'; r.textContent=T.retry; r.style.cssText='margin-left:8px'; r.onclick=function(){ QUEUE.retryRejected(i); retenterFile(); };
                 var d=document.createElement('button'); d.type='button'; d.textContent=T.dismiss; d.style.cssText='margin-left:6px'; d.onclick=function(){ QUEUE.dismiss(i); };
@@ -667,15 +678,18 @@ var MenuQ=(function(){
         /** Le panier survit à un rechargement de page (6 h) : un client qui perd le réseau puis recharge
             ne retrouve plus un panier vide. Le serveur re-calcule TOUS les prix à l'envoi. */
         function saveCart(){
-            try { if (Object.keys(cart).length) { localStorage.setItem(CART_KEY, JSON.stringify({t:Date.now(),cart:cart})); } else { localStorage.removeItem(CART_KEY); } } catch(e){}
+            try { if (Object.keys(cart).length) { localStorage.setItem(CART_KEY, JSON.stringify({t:Date.now(),uuid:ORDER_UUID,cart:cart})); } else { localStorage.removeItem(CART_KEY); } } catch(e){}
         }
         function restoreCart(){
             try {
                 var raw = JSON.parse(localStorage.getItem(CART_KEY) || 'null');
                 if (!raw || !raw.cart || (Date.now() - raw.t) > 6*3600*1000) { return; }
+                // Même identifiant de commande qu'avant le rechargement : si la première requête est
+                // déjà passée côté serveur, renvoyer le panier restauré NE crée PAS un doublon.
+                if (typeof raw.uuid === 'string' && /^mo-[a-z0-9]{6,40}$/.test(raw.uuid)) { ORDER_UUID = raw.uuid; }
                 for (var k in raw.cart) {
                     var c = raw.cart[k];
-                    if (c && Number(c.id) > 0 && Number(c.qty) > 0 && isFinite(Number(c.price)) && typeof c.name === 'string') {
+                    if (/^\d+(\|[\d,]+)?$/.test(k) && c && Number(c.id) > 0 && Number(c.qty) > 0 && isFinite(Number(c.price)) && typeof c.name === 'string') {
                         cart[k] = {id:Number(c.id), name:c.name, price:Number(c.price), qty:Math.floor(Number(c.qty)), options:Array.isArray(c.options)?c.options:[], optionLabel:c.optionLabel||''};
                     }
                 }
@@ -768,16 +782,17 @@ var MenuQ=(function(){
                         btn.disabled=false; btn.innerHTML=old; alert(T.storageFull);
                         return;
                     }
+                    var shown = fmt(totals().t + tipAmount(totals().t));   // AVANT de vider le panier
                     clearCart();
-                    showQueued();
+                    showQueued(shown);
                     return;
                 }
                 btn.disabled=false; btn.innerHTML=old; alert((e && e.message) || T.err);
             });
         }
-        function showQueued(){
+        function showQueued(shownTotal){
             document.getElementById('okRef').textContent = @json(__('en attente de connexion'));
-            document.getElementById('okTotal').textContent = fmt(totals().t + tipAmount(totals().t));
+            document.getElementById('okTotal').textContent = shownTotal || fmt(totals().t + tipAmount(totals().t));
             document.getElementById('okTrack').style.display='none';
             document.getElementById('okWa').style.display='none';
             document.getElementById('okPay').style.display='none';
