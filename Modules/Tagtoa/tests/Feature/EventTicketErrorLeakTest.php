@@ -32,7 +32,7 @@ class EventTicketErrorLeakTest extends TestCase
     private function event(): Event
     {
         return Event::create([
-            'tenant_id' => null, 'title' => 'Gala', 'alias' => 'gala-leak',
+            'tenant_id' => 't-1', 'title' => 'Gala', 'alias' => 'gala-leak',
             'currency' => 'HTG', 'is_published' => true,
         ]);
     }
@@ -83,7 +83,7 @@ class EventTicketErrorLeakTest extends TestCase
         $type = $event->ticketTypes()->create([
             'name' => 'VIP', 'price' => 0, 'is_active' => true, 'is_vip' => true, 'quantity' => 5,
         ]);
-        $this->be(new GenericUser(['id' => 1, 'tenant_id' => null]));
+        $this->be(new GenericUser(['id' => 1, 'tenant_id' => 't-1']));
 
         $svc = \Mockery::mock(TicketService::class);
         $svc->shouldReceive('inviteGuest')->andThrow(new QueryException(

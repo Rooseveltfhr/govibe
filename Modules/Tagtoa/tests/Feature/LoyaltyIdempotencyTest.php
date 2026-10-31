@@ -31,7 +31,7 @@ class LoyaltyIdempotencyTest extends TestCase
     private function program(): Program
     {
         return Program::create([
-            'name' => 'Fidélité', 'alias' => 'fidelite-idem-'.uniqid(),
+            'tenant_id' => 't-1', 'name' => 'Fidélité', 'alias' => 'fidelite-idem-'.uniqid(),
             'points_per_dollar' => 1, 'dollar_per_point' => 0.01, 'currency' => 'HTG',
         ]);
     }
@@ -102,7 +102,7 @@ class LoyaltyIdempotencyTest extends TestCase
     {
         $card = app(LoyaltyCardService::class)
             ->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
-        $this->be(new GenericUser(['id' => 1, 'tenant_id' => null]));
+        $this->be(new GenericUser(['id' => 1, 'tenant_id' => 't-1']));
 
         $svc = \Mockery::mock(LoyaltyCardService::class);
         $svc->shouldReceive('topUp')->andThrow(new QueryException(
@@ -127,7 +127,7 @@ class LoyaltyIdempotencyTest extends TestCase
         $card = app(LoyaltyCardService::class)
             ->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
         $card->update(['status' => Card::STATUS_SUSPENDED]);
-        $this->be(new GenericUser(['id' => 1, 'tenant_id' => null]));
+        $this->be(new GenericUser(['id' => 1, 'tenant_id' => 't-1']));
 
         $this->post(route('tagtoa.loyalty.dashboard.cards.topup', $card->id), ['amount' => 100])
             ->assertSessionHasErrors('amount');
@@ -179,7 +179,7 @@ class LoyaltyIdempotencyTest extends TestCase
         // la garde du service répond à la place du formulaire.
         $card = app(LoyaltyCardService::class)
             ->issueCard($this->program(), ['cardholder_name' => 'Jean'])['card'];
-        $this->be(new GenericUser(['id' => 1, 'tenant_id' => null]));
+        $this->be(new GenericUser(['id' => 1, 'tenant_id' => 't-1']));
 
         $this->post(route('tagtoa.loyalty.dashboard.cards.topup', $card->id), ['amount' => 99999999.5])
             ->assertSessionHasErrors('amount');
