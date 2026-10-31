@@ -172,4 +172,31 @@ class OrderIdempotencyScopeTest extends TestCase
         $names = collect(DB::select('PRAGMA index_list("tagtoa_menu_orders")'))->pluck('name')->all();
         $this->assertContains('tagtoa_mo_menu_uuid_unique', $names);
     }
+
+    /* ---------- seconde revue : le filet ne rattrape QUE l'unicité de client_uuid ---------- */
+
+    public function test_the_unique_violation_matcher_recognises_only_client_uuid_duplicates(): void
+    {
+        $mk = fn (string $msg, int $code = 1062) => new \Illuminate\Database\QueryException('testbench', 'insert into x (client_uuid) values (?)', [], new class($msg, $code) extends \PDOException {
+            public function __construct(string $m, int $c)
+            {
+                parent::__construct($m);
+                $this->errorInfo = ['23000', $c, $m];
+            }
+        });
+        $U = \Modules\Tagtoa\App\Support\Order\UniqueViolation::class;
+
+        // Les vrais doublons d'identifiant (SQLite composite, SQLite ancien index, MySQL composite, MySQL ancien index).
+        $this->assertTrue($U::onClientUuid($mk('UNIQUE constraint failed: tagtoa_menu_orders.menu_id, tagtoa_menu_orders.client_uuid', 19)));
+        $this->assertTrue($U::onClientUuid($mk('UNIQUE constraint failed: tagtoa_menu_orders.client_uuid', 19)));
+        $this->assertTrue($U::onClientUuid($mk("SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry '5-mo-x' for key 'tagtoa_mo_menu_uuid_unique'")));
+        $this->assertTrue($U::onClientUuid($mk("SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'mo-x' for key 'tagtoa_menu_orders_client_uuid_unique'")));
+
+        // Le reste ne doit JAMAIS déclencher un second enregistrement sans clé : doublon de référence,
+        // clé étrangère, verrou mort, panne — bien que le texte de l'INSERT contienne « client_uuid ».
+        $this->assertFalse($U::onClientUuid($mk("SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'R-1' for key 'tagtoa_menu_orders_reference_unique'")));
+        $this->assertFalse($U::onClientUuid($mk('UNIQUE constraint failed: tagtoa_menu_orders.reference', 19)));
+        $this->assertFalse($U::onClientUuid($mk('SQLSTATE[23000]: Integrity constraint violation: 1452 Cannot add or update a child row: a foreign key constraint fails', 1452)));
+        $this->assertFalse($U::onClientUuid($mk('SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock', 1213)));
+    }
 }

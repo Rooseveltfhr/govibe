@@ -156,9 +156,9 @@ class MenuOrderTaxTest extends TestCase
             $insert->invoke($service, $menu, $payload, 'course-1');
             $this->fail('Une deuxième écriture avec le même client_uuid aurait dû être refusée par la base.');
         } catch (QueryException $e) {
-            $reconnue = new \ReflectionMethod($service, 'isDuplicateClientUuid');
-            $reconnue->setAccessible(true);
-            $this->assertTrue($reconnue->invoke($service, $e));
+            // Le filet est désormais partagé (Support/Order/UniqueViolation) et plus précis : il ne rattrape QUE
+            // l'unicité de client_uuid, jamais une autre erreur d'insertion.
+            $this->assertTrue(\Modules\Tagtoa\App\Support\Order\UniqueViolation::onClientUuid($e));
         }
 
         // Le chemin PUBLIC, lui, ne doit jamais laisser passer une erreur

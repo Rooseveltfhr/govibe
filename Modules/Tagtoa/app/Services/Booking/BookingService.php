@@ -26,7 +26,8 @@ class BookingService
     public function placeBooking(BookingPage $page, array $payload): Booking
     {
         $uuid = $payload['client_uuid'] ?? null;
-        if ($uuid && $existing = Booking::where('client_uuid', $uuid)->first()) {
+        // Dans CETTE page de réservation seulement : la recherche globale rendait la réservation d'un autre commerce.
+        if ($uuid && $existing = Booking::where('booking_page_id', $page->id)->where('client_uuid', $uuid)->first()) {
             return $existing; // idempotent : déjà notifié à la création
         }
 

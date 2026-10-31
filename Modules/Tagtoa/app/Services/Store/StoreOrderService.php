@@ -41,7 +41,7 @@ class StoreOrderService
         } catch (\Illuminate\Database\QueryException $e) {
             // Double envoi rapproché : la contrainte unique a refusé le second. On rend la commande déjà
             // enregistrée (au lieu d'une erreur 500) ; une collision avec une autre boutique n'est jamais rendue.
-            if ($uuid && str_contains($e->getMessage(), 'client_uuid')) {
+            if ($uuid && \Modules\Tagtoa\App\Support\Order\UniqueViolation::onClientUuid($e)) {
                 $existing = Order::where('store_id', $store->id)->where('client_uuid', $uuid)->first();
                 if ($existing) {
                     return $existing;

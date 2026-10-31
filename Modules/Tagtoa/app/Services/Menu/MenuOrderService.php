@@ -73,7 +73,7 @@ class MenuOrderService
             // contrainte unique sur client_uuid. Sans ce filet, la seconde
             // remontait une erreur 500 au client au lieu de lui rendre sa
             // commande déjà enregistrée par la première.
-            if ($uuid && $this->isDuplicateClientUuid($e)) {
+            if ($uuid && \Modules\Tagtoa\App\Support\Order\UniqueViolation::onClientUuid($e)) {
                 $existing = Order::where('menu_id', $menu->id)->where('client_uuid', $uuid)->first();
                 if ($existing) {
                     return $existing;
@@ -305,16 +305,6 @@ class MenuOrderService
         });
     }
 
-    /** Vrai si l'exception vient de la contrainte unique sur client_uuid, pas d'autre chose. */
-    private function isDuplicateClientUuid(QueryException $e): bool
-    {
-        $message = $e->getMessage();
-
-        return str_contains($message, 'client_uuid') && (
-            str_contains($message, 'Integrity constraint violation')
-            || str_contains($message, 'UNIQUE constraint failed')
-        );
-    }
 
     /**
      * Valide + calcule le supplément de prix des options choisies pour un item,
