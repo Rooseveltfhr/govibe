@@ -35,6 +35,9 @@ class Order extends Model
         'cancelled'  => ['label' => 'Annulée',     'pill' => 'r'],
     ];
 
+    /** Commandes TRAITÉES : plus rien à faire dessus (liste compacte du tableau de bord). */
+    public const DONE_STATUSES = ['completed', 'cancelled'];
+
     /** Statuts qu'une cuisine doit encore traiter — avant « Prête ». */
     public const KITCHEN_STATUSES = ['pending', 'confirmed', 'preparing'];
 

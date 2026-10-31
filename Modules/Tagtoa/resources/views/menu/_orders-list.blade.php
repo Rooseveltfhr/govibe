@@ -1,8 +1,12 @@
 {{-- TAGTOA MENU — la liste des commandes du tableau de bord (page + fil de mise à jour). Variable : $orders --}}
 @php use Modules\Tagtoa\App\Support\Money; @endphp
-@if($orders->isEmpty())
+@php $done = $done ?? collect(); @endphp
+@if($orders->isEmpty() && $done->isEmpty())
     <div class="card"><div class="empty"><i class="fa-solid fa-receipt"></i>{{ __('Aucune commande.') }}</div></div>
 @else
+    @if($orders->isEmpty())
+        <div class="card"><div class="empty"><i class="fa-solid fa-circle-check"></i>{{ __('Aucune commande en cours.') }}</div></div>
+    @endif
     @foreach($orders as $o)
         @php $sm = $o->status_meta; @endphp
         <div class="card">
@@ -95,4 +99,49 @@
         </div>
     @endforeach
     <div style="margin-top:16px">{{ $orders->links() }}</div>
+
+    @if($done->isNotEmpty())
+        {{-- Commandes TRAITÉES (terminées / annulées) : UNE ligne chacune. Elles ne
+             prennent plus la place des commandes à faire. « Retour » les remet en
+             cours (terminée → confirmée, annulée → en attente). --}}
+        <h3 style="margin:22px 0 8px;font-family:var(--fh);font-size:15px">{{ __('Commandes traitées') }} <span class="pill n">{{ $done->total() }}</span></h3>
+        <div class="card" style="padding:0;overflow-x:auto">
+            <table class="done-orders" style="width:100%;border-collapse:collapse;font-size:12.5px;white-space:nowrap">
+                <thead>
+                    <tr style="color:var(--muted);text-align:left">
+                        <th style="padding:7px 6px 7px 10px;width:1%"></th>
+                        <th style="padding:7px 8px">{{ __('Date') }}</th>
+                        <th style="padding:7px 8px">{{ __('Client') }}</th>
+                        <th style="padding:7px 8px">{{ __('Numéro') }}</th>
+                        <th style="padding:7px 8px;text-align:right">{{ __('Total') }}</th>
+                        <th style="padding:7px 10px 7px 8px">{{ __('Statut') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach($done as $o)
+                    @php $sm = $o->status_meta; @endphp
+                    <tr title="{{ $o->reference }} · {{ $o->order_type_label }} — {{ $o->items->map(fn ($i) => $i->qty.'× '.$i->name)->implode(', ') }}" style="border-top:1px solid var(--bd,#eee)">
+                        {{-- « Retour » en PREMIÈRE colonne : toujours visible, même sur un petit écran. --}}
+                        <td style="padding:4px 6px 4px 10px">
+                            <form method="POST" action="{{ route('tagtoa.menu.dashboard.orders.status',$o->id) }}" style="margin:0">
+                                @csrf
+                                <input type="hidden" name="status" value="{{ $o->status === 'cancelled' ? 'pending' : 'confirmed' }}">
+                                <button class="btn btn-o btn-sm" style="flex:0;padding:5px 9px" title="{{ __('Retour') }} — {{ __('Remettre dans les commandes en cours') }}" aria-label="{{ __('Retour') }}"><i class="fa-solid fa-rotate-left"></i></button>
+                            </form>
+                        </td>
+                        <td style="padding:5px 8px;color:var(--muted)">{{ optional($o->placed_at)->format('d/m H:i') }}</td>
+                        <td style="padding:5px 8px;font-weight:600">{{ $o->customer_name ?: '—' }}</td>
+                        <td style="padding:5px 8px">{{ $o->customer_phone ?: '—' }}</td>
+                        <td style="padding:5px 8px;text-align:right;font-weight:700">{{ Money::format($o->total, $o->currency) }}</td>
+                        <td style="padding:5px 10px 5px 8px">
+                            <span class="pill {{ $sm['pill'] }}">{{ __($sm['label']) }}</span>
+                            @if($o->isPaid())<span class="pill g">{{ __('Payé') }}</span>@elseif($o->status !== 'cancelled')<span class="pill r">{{ __('Non payé') }}</span>@endif
+                        </td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top:12px">{{ $done->links() }}</div>
+    @endif
 @endif

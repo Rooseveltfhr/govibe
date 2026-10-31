@@ -283,10 +283,10 @@ class DashboardController extends Controller
     public function orders(int $id): View
     {
         $menu = $this->own($id);
-        $orders = $menu->orders()->with(['items', 'courier'])->paginate(20);
+        [$orders, $done] = $this->splitOrders($menu);
         $pending = $menu->orders()->where('status', 'pending')->count();
 
-        return view('tagtoa::menu.orders', compact('menu', 'orders', 'pending'));
+        return view('tagtoa::menu.orders', compact('menu', 'orders', 'done', 'pending'));
     }
 
     /* =====================================================================
@@ -668,9 +668,16 @@ class DashboardController extends Controller
         // Le module reste maître de l'état réel ; la colonne vertébrale suit,
         // pour que le rapport commun ne montre pas une commande déjà livrée
         // comme encore à préparer.
-        app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)
-            ->touch('menu_order', $order->id, $data['status']);
-        $this->notifyCustomerOfStatus($order);
+        // Le changement de statut est DÉJÀ enregistré : la colonne vertébrale et
+        // l'avis au client sont des suites, jamais une raison d'afficher une
+        // erreur au marchand pour une commande bel et bien mise à jour.
+        try {
+            app(\Modules\Tagtoa\App\Services\Order\OrderSpine::class)
+                ->touch('menu_order', $order->id, $data['status']);
+            $this->notifyCustomerOfStatus($order);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return back()->with('success', __('Commande mise à jour.'));
     }
@@ -718,15 +725,48 @@ class DashboardController extends Controller
     {
         $menu = $this->own($id);
         // Les liens de pagination pointent vers la page, pas vers ce fil.
-        $orders = $menu->orders()->with(['items', 'courier'])->paginate(20)
-            ->withPath(route('tagtoa.menu.dashboard.orders', $menu->id));
+        [$orders, $done] = $this->splitOrders($menu);
+        $orders->withPath(route('tagtoa.menu.dashboard.orders', $menu->id));
+        $done->withPath(route('tagtoa.menu.dashboard.orders', $menu->id));
 
         return response()->json([
             'latest_id' => (int) ($menu->orders()->max('id') ?? 0),
             'pending'   => $menu->orders()->where('status', 'pending')->count(),
             'unpaid'    => $menu->orders()->where('payment_status', '!=', 'paid')->where('status', '!=', 'cancelled')->count(),
-            'signature' => $orders->map(fn ($o) => $o->id.':'.$o->status.':'.$o->payment_status)->implode('|'),
-            'html'      => view('tagtoa::menu._orders-list', ['orders' => $orders])->render(),
+            'signature' => $orders->concat($done)->map(fn ($o) => $o->id.':'.$o->status.':'.$o->payment_status)->implode('|'),
+            'html'      => view('tagtoa::menu._orders-list', ['orders' => $orders, 'done' => $done])->render(),
+        ]);
+    }
+
+    /**
+     * Commandes EN COURS (cartes, tout ce qui demande encore une action) et
+     * commandes TRAITÉES (terminées ou annulées : une ligne chacune, sans prendre
+     * la place). Le marchand ne cherche plus les commandes à faire parmi celles
+     * d'hier.
+     *
+     * @return array{0:\Illuminate\Pagination\LengthAwarePaginator,1:\Illuminate\Pagination\LengthAwarePaginator}
+     */
+    private function splitOrders(Menu $menu): array
+    {
+        $traitees = Order::DONE_STATUSES;
+
+        $actives = $menu->orders()->whereNotIn('status', $traitees)->with(['items', 'courier'])->paginate(20);
+        $done    = $menu->orders()->whereIn('status', $traitees)->with('items')->paginate(15, ['*'], 'done_page');
+
+        return [$actives, $done];
+    }
+
+    /**
+     * Léger et valable sur TOUTES les pages du tableau de bord : le marchand est
+     * averti (pastille + son) d'une nouvelle commande sans ouvrir l'écran des
+     * commandes. Périmètre : les commandes de SON commerce (portée automatique,
+     * le groupe est derrière RequireTenant).
+     */
+    public function alerts(): JsonResponse
+    {
+        return response()->json([
+            'latest_id' => (int) (Order::max('id') ?? 0),
+            'pending'   => Order::where('status', 'pending')->count(),
         ]);
     }
 

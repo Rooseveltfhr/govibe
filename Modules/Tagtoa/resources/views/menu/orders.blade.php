@@ -11,7 +11,7 @@
 </div>
 
 <div id="orders-list">
-    @include('tagtoa::menu._orders-list', ['orders' => $orders])
+    @include('tagtoa::menu._orders-list', ['orders' => $orders, 'done' => $done])
 </div>
 
 {{-- Alerte « nouvelle commande » : l'écran se met à jour tout seul (aucun
@@ -26,10 +26,12 @@
 
 <script src="{{ route('tagtoa.asset', 'tagtoa-sound.js') }}"></script>
 <script>
+    window.TAGTOA_ORDERS_PAGE = true; // l'alerte globale (partials/order-alert) ne double pas ce son
     (function(){
         var FEED = @json(route('tagtoa.menu.dashboard.orders.feed', $menu->id));
         var dernier = @json((int) ($menu->orders()->max('id') ?? 0));
-        var signature = @json($orders->map(fn ($o) => $o->id.':'.$o->status.':'.$o->payment_status)->implode('|'));
+        var signature = @json($orders->concat($done)->map(fn ($o) => $o->id.':'.$o->status.':'.$o->payment_status)->implode('|'));
+        try { localStorage.setItem('tagtoa_seen_order', String(dernier)); } catch (e) {}  // vu : l'alerte globale ne re-sonne pas
         var liste = document.getElementById('orders-list');
         var bandeau = document.getElementById('neworder');
         var ALERTE_SECONDES = 15; // entre 10 et 20 : assez long pour s'entendre, pas assez pour harceler
@@ -53,6 +55,7 @@
                     if (!j) return;
                     if (j.latest_id > dernier){
                         dernier = j.latest_id;
+                        try { localStorage.setItem('tagtoa_seen_order', String(dernier)); } catch (e) {}
                         bandeau.style.display = 'flex';
                         if (window.TagtoaSound){
                             TagtoaSound.alerte(ALERTE_SECONDES);

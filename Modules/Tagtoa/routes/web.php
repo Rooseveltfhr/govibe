@@ -217,6 +217,8 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         // connaître son id. Déclarées AVANT /{id}/… pour la même raison que
         // là-bas : ne jamais laisser prendre un mot pour un numéro.
         Route::get('/orders', [MenuDashboard::class, 'currentOrders'])->name('orders.current');
+        // Pastille + son sur TOUTES les pages du tableau de bord (voir partials/order-alert).
+        Route::get('/orders/alerts', [MenuDashboard::class, 'alerts'])->name('orders.alerts');
         Route::get('/kitchen', [MenuDashboard::class, 'currentKitchen'])->name('kitchen.current');
         Route::get('/delivery', [MenuDashboard::class, 'currentDelivery'])->name('delivery.current');
         Route::get('/tables', [MenuDashboard::class, 'currentTables'])->name('tables.current');
