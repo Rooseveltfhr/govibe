@@ -81,7 +81,7 @@ class PaymentApiController
             'customer_phone' => ['nullable', 'string', 'max:40'],
             'customer_email' => ['nullable', 'email', 'max:190'],
             'return_url'     => ['nullable', 'url', 'max:500'],
-            'callback_url'   => ['nullable', 'url', 'max:500'],
+            'callback_url'   => ['nullable', 'url', 'max:500', new \Modules\Tagtoa\App\Support\Net\SafeCallbackUrl()],
             'meta'           => ['nullable', 'array'],
         ]);
 
