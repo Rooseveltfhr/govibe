@@ -155,6 +155,14 @@ class CheckinService
                 return $this->r(false, 'orange', 'warning', __('Pas encore entré.'), $locked, 'not_yet_in');
             }
 
+            // Commande NON payée : le billet existe (créé à la commande, QR affiché)
+            // mais n'a pas été réglé. Relu ici, sous verrou, car le paiement peut
+            // arriver pendant l'attente. Les billets sans commande (guichet, import,
+            // carte encodée) ne sont pas concernés.
+            if ($direction === 'in' && $locked->awaitingPayment()) {
+                return $this->r(false, 'red', 'error', __('Commande non payée — billet non valable.'), $locked, 'unpaid');
+            }
+
             // Anti double-entrée PAR JOUR (multi-jour) : on bloque une 2ᵉ entrée le
             // même jour, mais on autorise l'entrée un autre jour (ex. Pass 2 jours).
             if ($direction === 'in') {

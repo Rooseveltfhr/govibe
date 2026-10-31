@@ -25,10 +25,18 @@
         @if($event->logo_url)<img src="{{ $event->logo_url }}" alt="" style="height:36px;max-width:60%;object-fit:contain;margin-bottom:8px">@endif
         <div class="b"><i class="fa-solid fa-wifi"></i> TAGTOA EVENT · NFC / QR</div><h1>{{ $event->title }}</h1>
     </div>
+    @if($ticket->awaitingPayment())
+    <div class="qr" style="padding:26px 22px">
+        <i class="fa-solid fa-hourglass-half" style="font-size:34px;color:#b45309"></i>
+        <p style="font-weight:700;margin:10px 0 4px">{{ __('En attente de paiement') }}</p>
+        <p style="color:#666;font-size:14px">{{ __('Ce billet sera valable dès que la commande sera payée.') }}</p>
+    </div>
+    @else
     <div class="qr">
         @php try { $qr = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')->size(220)->margin(0)->generate($ticket->code); } catch (\Throwable $e) { $qr = null; } @endphp
         @if($qr){!! $qr !!}@else<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{ urlencode($ticket->code) }}" alt="QR">@endif
     </div>
+    @endif
     <hr class="dash">
     <div class="info">
         <div class="kv"><span>{{ __('Titulaire') }}</span><b>{{ $ticket->holder_name }}</b></div>

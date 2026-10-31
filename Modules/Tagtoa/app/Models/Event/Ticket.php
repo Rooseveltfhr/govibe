@@ -33,6 +33,26 @@ class Ticket extends Model
         return $this->belongsTo(Event::class, 'event_id');
     }
 
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class, 'order_id');
+    }
+
+    /**
+     * Le billet appartient-il à une commande NON payée (en attente ou annulée) ?
+     * Un billet sans commande (vente au guichet, import, carte encodée) n'est
+     * jamais « impayé » : il a été encaissé ou offert au moment de sa création.
+     */
+    public function awaitingPayment(): bool
+    {
+        if (! $this->order_id) {
+            return false;
+        }
+        $status = Order::whereKey($this->order_id)->value('status');
+
+        return $status !== null && (int) $status !== Order::STATUS_PAID;
+    }
+
     public function ticketType(): BelongsTo
     {
         return $this->belongsTo(TicketType::class, 'ticket_type_id');
