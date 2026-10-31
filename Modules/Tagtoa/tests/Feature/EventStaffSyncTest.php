@@ -300,8 +300,9 @@ class EventStaffSyncTest extends TestCase
 
         // Même personne, ou complice : nouvelle clé, heure d'HIER.
         $res = $this->sync($e, $staff, [
-            $this->rec('bd1', ['code' => 'TREUSE', 'at' => now()->subHours(24)->toIso8601String()]),
-            $this->rec('bd2', ['code' => 'TREUSE', 'at' => now()->subHours(30)->toIso8601String()]),
+            $this->rec('bd1', ['code' => 'TREUSE', 'at' => now()->subDay()->toIso8601String()]),
+            // Toujours HIER, à toute heure du jour (subHours(30) tombait avant-hier, hors des jours de l'événement, avant 6 h).
+            $this->rec('bd2', ['code' => 'TREUSE', 'at' => now()->subDay()->startOfDay()->addMinutes(30)->toIso8601String()]),
         ])->assertOk()->json('results');
 
         $this->assertSame('refused', $res[0]['status']);
