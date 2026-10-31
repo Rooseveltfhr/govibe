@@ -37,6 +37,7 @@ class TagtoaServiceProvider extends ServiceProvider
             \Modules\Tagtoa\App\Console\BackfillOrdersCommand::class,
             \Modules\Tagtoa\App\Console\MintStandsCommand::class,
             \Modules\Tagtoa\App\Console\BackupDatabaseCommand::class,
+            \Modules\Tagtoa\App\Console\TenantAuditCommand::class,
         ]);
     }
 

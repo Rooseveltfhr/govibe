@@ -191,6 +191,12 @@ if [ -n "${DISK_ROOT:-}" ] && [ -e "$DISK_ROOT/tagtoa/pay-proofs" ]; then
   echo "   NOTE : $DISK_ROOT/tagtoa/pay-proofs existe sous le disque public — NON relié au web (liste blanche)."
 fi
 
+# 4.79) ISOLATION PAR COMMERCE — inventaire LECTURE SEULE (CS-11a), jamais bloquant.
+#       Affiche : modèles sans isolation, lignes sans commerce, comptes sans
+#       tenant_id. Ne modifie rien ; sert à décider CS-11b sur des chiffres réels.
+echo "==> Isolation par commerce (lecture seule)"
+timeout 60 php artisan tagtoa:tenant-audit 2>&1 | sed 's/^/   /' || echo "   (inventaire indisponible — ignoré)"
+
 # 4.8) Perf HTTP pour connexions faibles (Haïti) : compression gzip + cache
 #      navigateur. Ajout IDEMPOTENT (marqueur TAGTOA-PERF-BLOCK) en fin du
 #      .htaccess existant du docroot — jamais d'écrasement, jamais de doublon.

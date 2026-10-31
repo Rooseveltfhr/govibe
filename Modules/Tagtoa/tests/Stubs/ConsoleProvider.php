@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use Modules\Tagtoa\App\Console\BackfillOrdersCommand;
 use Modules\Tagtoa\App\Console\BackupDatabaseCommand;
 use Modules\Tagtoa\App\Console\MintStandsCommand;
+use Modules\Tagtoa\App\Console\TenantAuditCommand;
 
 /**
  * Enregistre les commandes de console du module pour les tests.
@@ -23,6 +24,7 @@ class ConsoleProvider extends ServiceProvider
         BackfillOrdersCommand::class,
         MintStandsCommand::class,
         BackupDatabaseCommand::class,
+        TenantAuditCommand::class,
     ];
 
     public function boot(): void
