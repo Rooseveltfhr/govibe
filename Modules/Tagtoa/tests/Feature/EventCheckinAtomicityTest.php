@@ -132,6 +132,19 @@ class EventCheckinAtomicityTest extends TestCase
         $this->assertSame(0, Checkin::where('ticket_id', $t->id)->count());
     }
 
+    public function test_a_ticket_deleted_while_waiting_for_the_lock_is_not_found_not_a_crash(): void
+    {
+        $e = $this->event();
+        $t = $this->ticket($e);
+        $svc = new RacingCheckin(app(\Modules\Tagtoa\App\Services\Notifications\NotificationService::class), app(\Modules\Tagtoa\App\Services\Event\EventNotifier::class));
+        $svc->whileWaitingForLock = fn () => Ticket::whereKey($t->id)->delete();
+
+        $r = $svc->processScan($e, 'T1');
+
+        $this->assertFalse($r['valid']);
+        $this->assertSame('not_found', $r['reason']);
+    }
+
     public function test_a_multi_day_pass_is_still_admitted_on_day_two(): void
     {
         $e = $this->event(['starts_at' => now()->toDateString().' 08:00:00', 'ends_at' => now()->addDay()->toDateString().' 23:00:00']);

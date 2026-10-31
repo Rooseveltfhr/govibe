@@ -134,6 +134,11 @@ class CheckinService
             $this->beforeTicketLock($ticket);
             $locked = Ticket::whereKey($ticket->id)->lockForUpdate()->with('ticketType')->first();
 
+            // Billet supprimé entre la recherche et le verrou : introuvable, pas une erreur 500.
+            if (! $locked) {
+                return $this->r(false, 'red', 'error', __('Billet introuvable.'), null, 'not_found');
+            }
+
             // Un billet annulé pendant l'attente du verrou ne passe pas.
             if (! $locked->isValid()) {
                 return $this->r(false, 'red', 'error', __('Billet annulé.'), $locked, 'void');
