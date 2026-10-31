@@ -267,6 +267,14 @@ return [
         'allow_http_callbacks' => (bool) env('TAGTOA_API_ALLOW_HTTP_CALLBACKS', false),
     ],
 
+    /*
+    | PAY — filet des paiements restés « en attente » (tagtoa:pay:reconcile, toutes les 10 min
+    | par le planificateur de l'hôte — il faut un cron `schedule:run`). TAGTOA_PAY_RECONCILE=false la coupe.
+    */
+    'pay' => [
+        'reconcile' => (bool) env('TAGTOA_PAY_RECONCILE', true),
+    ],
+
     'ops' => [
         'opcache_reset_token' => env('TAGTOA_OPCACHE_RESET_TOKEN'),
     ],
