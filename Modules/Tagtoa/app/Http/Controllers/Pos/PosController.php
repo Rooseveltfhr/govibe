@@ -114,7 +114,7 @@ class PosController extends Controller
     private function saleRules(): array
     {
         return [
-            'items'              => ['required', 'array', 'min:1'],
+            'items'              => ['required', 'array', 'min:1', 'max:100'],
             'items.*.name'       => ['required', 'string', 'max:120'],
             'items.*.price'      => ['required', 'numeric', 'min:0'],
             // DÉCIMAL : le riz se vend à la mamit, la viande à la livre. Un
@@ -190,8 +190,15 @@ class PosController extends Controller
             }
 
             try {
-                $sale = $this->service->recordSale($terminal, $validator->validated(), $staff);
-                $results[] = ['client_uuid' => $uuid, 'ok' => true, 'reference' => $sale->reference];
+                // Reprise HORS LIGNE : marchandise remise, argent pris → la vente est
+                // enregistrée même si le stock a manqué ailleurs (voir PosService::
+                // recordSaleWithReport, politique D4). Le manque est signalé.
+                $r = $this->service->recordSaleWithReport($terminal, $validator->validated(), $staff, true);
+                $res = ['client_uuid' => $uuid, 'ok' => true, 'reference' => $r['sale']->reference];
+                if ($r['shortfalls']) {
+                    $res['warnings'] = [['code' => 'stock_shortfall', 'items' => array_values(array_unique(array_column($r['shortfalls'], 'name')))]];
+                }
+                $results[] = $res;
             } catch (InsufficientStockException $e) {
                 // Vente faite hors ligne pendant que le stock s'épuisait
                 // ailleurs : elle ne peut pas être rejouée telle quelle. Le

@@ -67,7 +67,7 @@ class StockReport
             'cost'      => $cout,
             // Valeur d'achat de ce qui dort en réserve. Null quand le prix
             // d'achat n'est pas renseigné : on ne l'invente pas.
-            'value'     => $cout === null ? null : round($cout * (float) $article->stock, 2),
+            'value'     => $cout === null ? null : round($cout * max(0.0, (float) $article->stock), 2),
         ];
     }
 

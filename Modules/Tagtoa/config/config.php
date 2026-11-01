@@ -275,6 +275,14 @@ return [
         'reconcile' => (bool) env('TAGTOA_PAY_RECONCILE', true),
     ],
 
+    /*
+    | POS — stock insuffisant à la REPRISE hors ligne (D4) : la vente déjà encaissée est enregistrée et
+    | le stock peut passer sous zéro, jusqu'à ce découvert maximal (unités). Au-delà : refus (anomalie/abus).
+    */
+    'pos' => [
+        'max_negative_stock' => (float) env('TAGTOA_POS_MAX_NEGATIVE_STOCK', 100),
+    ],
+
     'ops' => [
         'opcache_reset_token' => env('TAGTOA_OPCACHE_RESET_TOKEN'),
     ],

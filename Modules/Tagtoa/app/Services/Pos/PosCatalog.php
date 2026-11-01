@@ -263,6 +263,13 @@ class PosCatalog
             return;
         }
 
+        // Le formulaire pré-remplit le stock ACTUEL : l'enregistrer sans y toucher n'est pas un
+        // comptage. Sans cette garde, un stock négatif (ventes hors ligne à vérifier) était
+        // remis à zéro par n'importe quelle modification du catalogue, et l'alerte disparaissait.
+        if ($product->stock !== null && ! $nouveau && abs((float) $product->stock - (float) $stockDemande) < 0.0005) {
+            return;
+        }
+
         app(StockLedger::class)->count($product, (float) $stockDemande, [
             'reason' => $nouveau ? __('Stock initial') : __('Saisie au catalogue'),
         ]);

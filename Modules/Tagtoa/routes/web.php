@@ -554,7 +554,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
             ->middleware('throttle:10,1')->name('staff.login');
         Route::post('/{id}/staff/logout', [PosController::class, 'staffLogout'])->name('staff.logout');
         Route::post('/{id}/sale', [PosController::class, 'sale'])->name('sale');
-        Route::post('/{id}/sync', [PosController::class, 'sync'])->name('sync');
+        Route::post('/{id}/sync', [PosController::class, 'sync'])->middleware('throttle:30,1')->name('sync');
         Route::get('/{id}/report', [PosController::class, 'report'])->name('report');
         Route::get('/{id}/products', [PosController::class, 'products'])->whereNumber('id')->name('products.terminal');
         Route::post('/{id}/products', [PosController::class, 'saveProducts'])->name('products.save');
