@@ -89,7 +89,15 @@
             <h2 class="cat">{{ $cat }}</h2>
             <div class="grid">
                 @foreach($items as $p)
-                    @php $out = $p->stock !== null && $p->stock <= 0; @endphp
+                    @php
+                        $out = $p->stock !== null && $p->stock <= 0;
+                        // CUR-3 : prix converti dans la devise de la boutique (le serveur recalcule à la commande).
+                        $CurS = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class;
+                        $pDevise = strtoupper((string) $p->currency);
+                        $pEtranger = $pDevise !== '' && $pDevise !== strtoupper($store->currency ?: 'HTG');
+                        $pBase = $CurS::convert((float) $p->price, $p->currency, $store->currency ?: 'HTG', $taux ?? []);
+                        $sansTaux = $pBase === null;
+                    @endphp
                     <div class="card">
                         <div class="img feat" @if($p->image_url) style="background-image:url('{{ $p->image_url }}')" @endif>
                             @if($p->is_featured)<span class="badge-feat">★ {{ __('Vedette') }}</span>@endif
@@ -100,13 +108,18 @@
                             <div class="nm">{{ $p->name }}</div>
                             @if($p->description)<div class="ds">{{ \Illuminate\Support\Str::limit($p->description,90) }}</div>@endif
                             <div class="pr">
-                                <b>{{ number_format((float)$p->price,2) }} {{ $store->currency }}</b>
+                                @if($pEtranger)
+                                    <b>{{ $CurS::format((float) $p->price, $pDevise, $store->currency ?: 'HTG', $taux ?? []) }}</b>
+                                    @if($pBase !== null)<small style="color:#555">≈ {{ number_format($pBase, 2) }} {{ $store->currency }}</small>@endif
+                                @else
+                                    <b>{{ number_format((float)$p->price,2) }} {{ $store->currency }}</b>
+                                @endif
                                 @if($p->compare_price && $p->compare_price > $p->price)<s>{{ number_format((float)$p->compare_price,2) }}</s>@endif
                             </div>
-                            @if($out)
-                                <button class="add" disabled><i class="fa-solid fa-ban"></i> {{ __('Épuisé') }}</button>
+                            @if($out || $sansTaux)
+                                <button class="add" disabled><i class="fa-solid fa-ban"></i> {{ $out ? __('Épuisé') : __('Indisponible') }}</button>
                             @else
-                                <button class="add" data-id="{{ $p->id }}" data-name="{{ $p->name }}" data-price="{{ (float)$p->price }}"><i class="fa-solid fa-cart-plus"></i> {{ __('Ajouter') }}</button>
+                                <button class="add" data-id="{{ $p->id }}" data-name="{{ $p->name }}" data-price="{{ (float) $pBase }}"><i class="fa-solid fa-cart-plus"></i> {{ __('Ajouter') }}</button>
                             @endif
                         </div>
                     </div>

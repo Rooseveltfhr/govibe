@@ -34,7 +34,7 @@ class DashboardController extends Controller
 
     public function create(): View
     {
-        return view('tagtoa::store.form', ['store' => new Store, 'payPages' => $this->payPages()]);
+        return view('tagtoa::store.form', ['store' => new Store, 'payPages' => $this->payPages(), 'currencyChoices' => []]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -59,7 +59,11 @@ class DashboardController extends Controller
     {
         $store = $this->own($id, ['products']);
 
-        return view('tagtoa::store.form', ['store' => $store, 'payPages' => $this->payPages()]);
+        return view('tagtoa::store.form', [
+            'store' => $store, 'payPages' => $this->payPages(),
+            // CUR-3 : devise de la boutique + devises du commerce ayant un taux ACTIF.
+            'currencyChoices' => app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->choices($store->tenant_id, $store->currency ?: 'HTG'),
+        ]);
     }
 
     public function update(Request $request, int $id): RedirectResponse
@@ -195,7 +199,19 @@ class DashboardController extends Controller
         $products = $request->input('products', []);
         $keep = [];
 
-        DB::transaction(function () use ($store, $request, $products, &$keep) {
+        // CUR-3 : devises permises = celle de la boutique, ou une devise du commerce avec un taux ACTIF.
+        $permises = array_keys(app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->choices($store->tenant_id, $store->currency ?: 'HTG'));
+        $base = strtoupper($store->currency ?: 'HTG');
+        foreach (array_values($products) as $p) {
+            $c = isset($p['currency']) && is_string($p['currency']) ? strtoupper(trim($p['currency'])) : '';
+            if ($c !== '' && ! in_array($c, $permises, true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'products' => __('Devise « :c » inconnue ou sans taux actif. Ajoutez-la dans « Devises et taux ».', ['c' => e($c)]),
+                ]);
+            }
+        }
+
+        DB::transaction(function () use ($store, $request, $products, &$keep, $base) {
             foreach (array_values($products) as $i => $p) {
                 if (empty($p['name'])) {
                     continue;
@@ -210,6 +226,11 @@ class DashboardController extends Controller
                     'is_featured'   => ! empty($p['is_featured']),
                     'sort'          => $i,
                 ];
+                // Champ absent (ancien formulaire, appel tiers) : on ne touche pas à la devise du produit.
+                if (array_key_exists('currency', $p)) {
+                    $c = strtoupper(trim((string) $p['currency']));
+                    $attrs['currency'] = ($c === '' || $c === $base) ? null : $c;
+                }
 
                 $product = ! empty($p['id']) ? $store->products()->whereKey($p['id'])->first() : null;
                 $nouveau = $product === null;

@@ -33,6 +33,8 @@ class PublicController extends Controller
         return view('tagtoa::store.show', [
             'store'  => $store,
             'groups' => $groups,
+            // CUR-3 : taux actifs du commerce vers la devise de la boutique (affichage ; le serveur recalcule).
+            'taux'   => app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->activeFor($store->tenant_id, $store->currency ?: 'HTG'),
         ]);
     }
 
@@ -55,9 +57,11 @@ class PublicController extends Controller
         try {
             $order = app(StoreOrderService::class)->placeOrder($store, $data);
         } catch (OrderRuleException $e) {
-            $message = $e->getMessage() === 'out_of_stock'
-                ? __('Un produit est en rupture de stock. Ajustez votre panier.')
-                : __('Votre panier est vide.');
+            $message = match ($e->getMessage()) {
+                'out_of_stock'          => __('Un produit est en rupture de stock. Ajustez votre panier.'),
+                'currency_rate_missing' => __('Le prix d\'un produit n\'est plus disponible dans la devise de la boutique. Rechargez la page.'),
+                default                 => __('Votre panier est vide.'),
+            };
 
             return response()->json(['ok' => false, 'message' => $message], 422);
         }

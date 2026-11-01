@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Store\Order;
 use Modules\Tagtoa\App\Models\Store\Store;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
+use Modules\Tagtoa\App\Services\Currency\CurrencyRateService;
 use Modules\Tagtoa\App\Services\Inventory\StockLedger;
 use Modules\Tagtoa\App\Services\Order\OrderSpine;
 use Modules\Tagtoa\App\Support\Order\Channel;
@@ -61,9 +62,35 @@ class StoreOrderService
         $order = DB::transaction(function () use ($store, $payload, $uuid) {
             // Catalogue autorisé : produits disponibles de CETTE boutique.
             $products = $store->products()->where('is_available', true)->get()->keyBy('id');
+
+            // CUR-3 : un produit en USD / $HT est converti dans la devise de la boutique avec le taux ACTIF
+            // du commerce, côté serveur. Sans taux actif, la commande est refusée (jamais 5 G pour 5 $).
+            $base = strtoupper($store->currency ?: 'HTG');
+            $taux = app(CurrencyRateService::class)->activeFor($store->tenant_id, $base);
             $catalog = [];
+            $origines = [];
+            $sansTaux = [];
             foreach ($products as $p) {
-                $catalog[$p->id] = ['price' => (float) $p->price, 'name' => $p->name];
+                $prix = CurrencyRateService::convert((float) $p->price, $p->currency, $base, $taux);
+                if ($prix === null) {
+                    $sansTaux[$p->id] = true;
+
+                    continue;
+                }
+                $catalog[$p->id] = ['price' => $prix, 'name' => $p->name];
+                $devise = strtoupper((string) $p->currency);
+                if ($devise !== '' && $devise !== $base) {
+                    $origines[$p->id] = [
+                        'currency_original'   => $devise,
+                        'unit_price_original' => round((float) $p->price, 2),
+                        'rate_used'           => CurrencyRateService::rateOf($devise, $base, $taux),
+                    ];
+                }
+            }
+            foreach ((array) ($payload['items'] ?? []) as $it) {
+                if (isset($sansTaux[(int) ($it['id'] ?? 0)])) {
+                    throw new OrderRuleException('currency_rate_missing');
+                }
             }
 
             $cart = Cart::build($catalog, (array) ($payload['items'] ?? []));
@@ -105,7 +132,7 @@ class StoreOrderService
                     'price'      => $l['price'],
                     'qty'        => $l['qty'],
                     'line_total' => $l['line_total'],
-                ]);
+                ] + ($origines[$l['id']] ?? []));
                 // Le stock de la boutique passe par le journal comme celui de
                 // la caisse : le marchand doit pouvoir dire quelle commande a
                 // fait baisser quel article.
