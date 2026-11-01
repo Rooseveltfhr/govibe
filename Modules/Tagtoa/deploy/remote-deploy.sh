@@ -294,7 +294,10 @@ timeout 30 php -r '
 HOST_ONLY="$(grep -m1 '^APP_URL=' .env 2>/dev/null | cut -d= -f2- | sed -E 's#^https?://##; s#/.*$##')"
 if [ -n "$HOST_ONLY" ]; then
   # Les routes de connexion déclarées par l'application (POST …login), plus les classiques.
-  LPS="$(timeout 30 php artisan route:list --method=POST 2>/dev/null | grep -oE '[a-z0-9_/{}-]*login\b' | grep -v '{' | sed 's#^#/#; s#^//#/#' | sort -u | head -5)"
+  # Toutes les routes GET dont l'adresse contient « login » (le site peut avoir sa connexion ailleurs
+  # que /login : sur tagtoa.com, /login et /admin/login répondaient 404).
+  LPS="$(timeout 40 php artisan route:list --json 2>/dev/null | grep -oE '"uri":"[^"]*login[^"]*"' | sed -E 's/"uri":"//; s/"$//; s#\\/#/#g' | grep -v '[{]' | sed 's#^#/#; s#^//#/#' | sort -u | head -8)"
+  echo "   routes de connexion déclarées : $(printf '%s ' $LPS)"
   for LP in $(printf '%s\n' /login /admin/login $LPS | sort -u); do
     JAR="$(mktemp)"
     RES=(--resolve "$HOST_ONLY:443:127.0.0.1" --resolve "www.$HOST_ONLY:443:127.0.0.1")
