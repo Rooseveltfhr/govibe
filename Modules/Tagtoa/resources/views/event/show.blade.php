@@ -65,7 +65,7 @@
                     $ttDevise = strtoupper((string) $tt->currency);
                     $ttEtranger = $ttDevise !== '' && $ttDevise !== strtoupper($event->currency ?: 'HTG');
                     $ttBase = $CurS::convert((float) $tt->price, $tt->currency, $event->currency ?: 'HTG', $taux ?? []);
-                    $ttSansTaux = (float) $tt->price > 0 && ($ttBase === null || $ttBase <= 0);
+                    $ttSansTaux = ! $event->is_free && (float) $tt->price > 0 && ($ttBase === null || $ttBase <= 0);
                     $ttBase = $ttBase ?? 0;
                     if ($tt->price <= 0) { $priceLabel = __('Gratuit'); }
                     elseif ($ttEtranger) { $priceLabel = $CurS::format((float) $tt->price, $ttDevise, $event->currency ?: 'HTG', $taux ?? []).($ttSansTaux ? '' : ' ≈ '.number_format($ttBase, 2).' '.$event->currency); }
@@ -97,6 +97,7 @@
 <script>
 function ev(d,id){var i=document.getElementById('q'+id),v=Math.max(0,parseInt(i.value||0)+d),mx=parseInt(i.max||50);i.value=Math.min(v,mx);tot();}
 function tot(){var s=0;document.querySelectorAll('[id^=q]').forEach(function(i){s+=parseInt(i.value||0)*parseFloat(i.dataset.price||0);});document.getElementById('tot').textContent=s.toFixed(2);document.getElementById('expTot').value=(Math.round(s*100)/100).toFixed(2);}
+document.addEventListener('DOMContentLoaded',tot);window.addEventListener('pageshow',tot);
 </script>
 </body>
 </html>

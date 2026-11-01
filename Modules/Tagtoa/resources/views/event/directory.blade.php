@@ -39,12 +39,18 @@
         @forelse($events as $e)
             @php
                 $CurS = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class;
-                $tauxEv = app(\Modules\Tagtoa\App\Services\Event\TicketService::class)->ratesFor($e);
+                $tauxMemo = $tauxMemo ?? [];
+                $kEv = $e->tenant_id.'|'.strtoupper($e->currency ?: 'HTG');
+                $tauxMemo[$kEv] = $tauxMemo[$kEv] ?? app(\Modules\Tagtoa\App\Services\Event\TicketService::class)->ratesFor($e);
+                $tauxEv = $tauxMemo[$kEv];
                 $minPrice = $e->activeTicketTypes
                     ->map(fn ($t) => $CurS::convert((float) $t->price, $t->currency, $e->currency ?: 'HTG', $tauxEv))
                     ->filter(fn ($v) => $v !== null)->min();
-                if ($e->is_free || $minPrice === null || (float) $minPrice <= 0) {
+                $aDesPrix = $e->activeTicketTypes->contains(fn ($t) => (float) $t->price > 0);
+                if ($e->is_free || (float) $minPrice <= 0 && $minPrice !== null || ($minPrice === null && ! $aDesPrix)) {
                     $priceLabel = __('Gratuit');
+                } elseif ($minPrice === null) {
+                    $priceLabel = __('Prix indisponible');
                 } else {
                     $priceLabel = __('À partir de').' '.number_format((float) $minPrice, 2).' '.$e->currency;
                 }

@@ -78,6 +78,9 @@ class TicketService
                     throw new TicketRuleException(__('Stock insuffisant pour « :n ».', ['n' => $type->name]));
                 }
                 $prix = $this->pricing($type, $event, $taux);
+                if ($prix === null && $event->is_free) {
+                    $prix = ['price' => 0.0, 'origin' => []];   // événement gratuit : aucun taux nécessaire
+                }
                 if ($prix === null) {
                     throw new TicketRuleException(__('Le prix de « :n » n\'est plus disponible dans la devise de l\'événement. Rechargez la page.', ['n' => $type->name]));
                 }

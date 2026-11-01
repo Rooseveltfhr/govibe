@@ -269,6 +269,93 @@ class CurrencyEventTest extends TestCase
         $this->assertSame(0, Ticket::where('event_id', $e->id)->count());
     }
 
+    public function test_a_printed_ticket_sold_in_a_foreign_type_freezes_the_origin(): void
+    {
+        $e = $this->evenement();
+        $this->taux('USD', 132);
+        $t = $this->type($e);
+        $card = $this->carte(2000);
+        $p = Ticket::create(['event_id' => $e->id, 'ticket_type_id' => $t->id, 'code' => 'PRN-1', 'serial' => 'S-PRN-1', 'status' => Ticket::STATUS_UNSOLD]);
+
+        $this->guichet($e, $t, ['printed_code' => 'PRN-1'])->assertOk();
+
+        $this->assertSame(1340, $card->fresh()->balance_minor);
+        $p->refresh();
+        $this->assertSame('USD', $p->currency_original);
+        $this->assertEquals(132, $p->rate_used);
+    }
+
+    public function test_a_retry_after_the_rate_changed_keeps_the_original_debit_as_the_truth(): void
+    {
+        $e = $this->evenement();
+        $this->taux('USD', 132);
+        $t = $this->type($e);
+        $card = $this->carte(2000);
+        $this->guichet($e, $t)->assertOk();
+        $code = Ticket::where('event_id', $e->id)->sole()->code;
+        // Coupure simulée : le débit existe mais le billet n'a jamais été lié.
+        $txn = \Modules\Tagtoa\App\Models\Card\CardTxn::where('reference', 'like', 'evsale-%')->sole();
+        $txn->update(['meta' => []]);
+        Ticket::where('event_id', $e->id)->delete();
+        $t->update(['sold' => 0]);
+
+        $this->taux('USD', 160);
+        $this->guichet($e, $t)->assertOk();
+
+        $this->assertSame(1340, $card->fresh()->balance_minor, 'Pas de second débit.');
+        $tk = Ticket::where('event_id', $e->id)->sole();
+        $this->assertEquals(132, $tk->rate_used, 'Taux déduit du montant réellement débité.');
+    }
+
+    public function test_a_retry_after_the_rate_was_removed_still_completes_the_paid_sale(): void
+    {
+        $e = $this->evenement();
+        $this->taux('USD', 132);
+        $t = $this->type($e);
+        $card = $this->carte(2000);
+        $this->guichet($e, $t)->assertOk();
+        \Modules\Tagtoa\App\Models\Card\CardTxn::where('reference', 'like', 'evsale-%')->sole()->update(['meta' => []]);
+        Ticket::where('event_id', $e->id)->delete();
+        $t->update(['sold' => 0]);
+
+        app(CurrencyRateService::class)->toggle(CurrencyRate::allTenants()->sole());
+        $this->guichet($e, $t)->assertOk()->assertJson(['ok' => true]);
+
+        $this->assertSame(1340, $card->fresh()->balance_minor);
+        $this->assertSame(1, Ticket::where('event_id', $e->id)->count());
+    }
+
+    public function test_a_free_event_needs_no_rate_even_for_a_foreign_type(): void
+    {
+        $e = $this->evenement();
+        $e->update(['is_free' => true]);
+        $t = $this->type($e);
+
+        $this->assertEquals(0, $this->acheter($e, $t)->total);
+        $html = $this->get(route('tagtoa.event.show', $e->alias))->getContent();
+        $this->assertStringNotContainsString('Indisponible', $html);
+    }
+
+    public function test_the_directory_never_calls_a_priced_event_free_when_the_rate_is_missing(): void
+    {
+        $e = $this->evenement();
+        $this->type($e);
+
+        $html = $this->get(route('tagtoa.events.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('Prix indisponible', $html);
+        $this->assertStringNotContainsString('Gratuit', $html);
+    }
+
+    public function test_the_page_recomputes_the_expected_total_on_load_and_restore(): void
+    {
+        $e = $this->evenement();
+        $this->taux('USD', 132);
+        $this->type($e);
+
+        $html = $this->get(route('tagtoa.event.show', $e->alias))->getContent();
+        $this->assertStringContainsString("addEventListener('pageshow',tot)", $html);
+    }
+
     /* ---------- pages publiques ---------- */
 
     public function test_the_public_page_shows_the_original_price_and_a_total_in_the_event_currency(): void
