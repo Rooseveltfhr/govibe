@@ -358,6 +358,24 @@ if [ -n "$HOST_ONLY" ]; then
     esac
   done
   done
+  # VARIANTES D'ADRESSE (chemin public) : un visiteur qui arrive par www.tagtoa.com ou par http:// reçoit
+  # son cookie de session pour CET hôte ; si le formulaire poste vers un AUTRE hôte (l'adresse de
+  # APP_URL), le cookie ne suit pas et le serveur répond « Page expirée » (419).
+  for V in "https://www.$HOST_ONLY" "http://$HOST_ONLY" "http://www.$HOST_ONLY"; do
+    JAR="$(mktemp)"
+    page="$(curl -sk -m 20 -L --max-redirs 5 -c "$JAR" -b "$JAR" -w '\n__FINAL__ %{http_code} %{url_effective}' "$V/login" 2>/dev/null)"
+    fin="$(printf '%s' "$page" | sed -n 's/^__FINAL__ //p' | tail -1)"; finurl="${fin#* }"
+    tok="$(printf '%s' "$page" | grep -o 'name="_token" value="[^"]*"' | head -1 | sed 's/.*value="//; s/"$//')"
+    action="$(printf '%s' "$page" | tr '\n' ' ' | grep -oE '<form[^>]*method="(post|POST)"[^>]*>' | head -1 | grep -oE 'action="[^"]*"' | sed 's/action="//; s/"$//; s/&amp;/\&/g')"
+    case "$action" in http*) ;; /*) action="${finurl%%/login*}$action" ;; *) action="$finurl" ;; esac
+    if [ -z "$tok" ]; then echo "   [variante] $V/login → $fin : pas de formulaire"; rm -f "$JAR"; continue; fi
+    code="$(curl -sk -m 15 -o /dev/null -w '%{http_code}' -c "$JAR" -b "$JAR" -H "Referer: $finurl" --data-urlencode "_token=$tok" \
+            --data-urlencode "email=diag-419@invalid.invalid" --data-urlencode "password=diag-not-a-password" "$action" 2>/dev/null)"
+    rm -f "$JAR"
+    hf="$(printf '%s' "$finurl" | sed -E 's#^https?://##; s#/.*$##')"; ha="$(printf '%s' "$action" | sed -E 's#^https?://##; s#/.*$##')"
+    note=""; [ "$hf" != "$ha" ] && note=" ATTENTION : page sur $hf, formulaire vers $ha — le cookie de session ne suit pas."
+    echo "   [variante] $V/login → $fin ; formulaire → $action ; POST → $code$note"
+  done
 fi
 echo "   419 dans laravel.log : $(grep -c 'TokenMismatchException\|CSRF token mismatch' storage/logs/laravel.log 2>/dev/null || echo 0)"
 echo "   dernières erreurs (titres) :"

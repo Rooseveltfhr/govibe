@@ -165,6 +165,37 @@ SH;
         $this->assertStringNotContainsString('SECRETVALUE123', $out);
     }
 
+    public function test_address_variants_are_probed_and_a_cross_host_form_is_flagged(): void
+    {
+        // Le formulaire poste toujours vers https://tagtoa.test/login, quelle que soit l'adresse d'arrivée.
+        $this->fakeCurl('419', 'https://tagtoa.test/login');
+        $out = $this->run59()->getOutput();
+
+        foreach (['https://www.tagtoa.test', 'http://tagtoa.test', 'http://www.tagtoa.test'] as $v) {
+            $this->assertStringContainsString("[variante] $v/login →", $out);
+        }
+        $this->assertStringContainsString('POST → 419', $out);
+    }
+
+    public function test_a_visitor_arriving_on_www_whose_form_posts_to_the_bare_host_is_flagged(): void
+    {
+        $sh = <<<'SH'
+#!/usr/bin/env bash
+args="$*"
+if [[ "$args" == *"--data-urlencode"* ]]; then printf '419'; exit 0; fi
+if [[ "$args" == *" -D -"* ]]; then exit 0; fi
+if [[ "$args" == *"www.tagtoa.test/login"* ]]; then printf '<form method="POST" action="https://tagtoa.test/login"><input type="hidden" name="_token" value="t"></form>\n__FINAL__ 200 https://www.tagtoa.test/login'; fi
+exit 0
+SH;
+        $this->fakeCurl('302');
+        file_put_contents($this->t.'/bin/curl', $sh);
+        chmod($this->t.'/bin/curl', 0755);
+
+        $out = $this->run59()->getOutput();
+
+        $this->assertStringContainsString('[variante] https://www.tagtoa.test/login → 200 https://www.tagtoa.test/login ; formulaire → https://tagtoa.test/login ; POST → 419 ATTENTION : page sur www.tagtoa.test, formulaire vers tagtoa.test', $out);
+    }
+
     public function test_the_public_probe_passes_no_resolve_override_but_loopback_does(): void
     {
         $this->fakeCurl('302');
