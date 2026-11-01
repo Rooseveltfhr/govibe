@@ -298,6 +298,14 @@ if [ -n "$HOST_ONLY" ]; then
   # que /login : sur tagtoa.com, /login et /admin/login répondaient 404).
   LPS="$(timeout 40 php artisan route:list --json 2>/dev/null | grep -oE '"uri":"[^"]*login[^"]*"' | sed -E 's/"uri":"//; s/"$//; s#\\/#/#g' | grep -v '[{]' | sed 's#^#/#; s#^//#/#' | sort -u | head -8)"
   echo "   routes de connexion déclarées : $(printf '%s ' $LPS)"
+  if [ -z "$LPS" ]; then
+    # Aucune route « login » trouvée : montrer POURQUOI (sortie brute, 12 lignes) au lieu de deviner.
+    echo "   (aucune route contenant « login » — extrait de route:list ci-dessous)"
+    for pat in login sign-in signin auth account; do
+      echo "   --path=$pat :"
+      timeout 40 php artisan route:list --path="$pat" 2>&1 | grep -vE '^\s*$' | head -8 | cut -c1-170 | sed 's/^/     /'
+    done
+  fi
   for LP in $(printf '%s\n' /login /admin/login $LPS | sort -u); do
     JAR="$(mktemp)"
     RES=(--resolve "$HOST_ONLY:443:127.0.0.1" --resolve "www.$HOST_ONLY:443:127.0.0.1")

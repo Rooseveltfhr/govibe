@@ -125,6 +125,19 @@ SH;
         $this->assertStringContainsString('GET /account/sign-in-login →', $out);
     }
 
+    public function test_when_no_login_route_is_found_the_raw_route_list_is_shown_instead_of_guessing(): void
+    {
+        file_put_contents($this->t.'/bin/php', "#!/usr/bin/env bash\nif [[ \"\$*\" == *route:list* ]]; then echo '[]'; echo '  GET|HEAD  account/enter ..... SignInController@show'; exit 0; fi\necho '   config : driver=file'\n");
+        chmod($this->t.'/bin/php', 0755);
+        $this->fakeCurl('302');
+        $out = $this->run59()->getOutput();
+
+        $this->assertStringContainsString('aucune route contenant « login »', $out);
+        $this->assertStringContainsString('--path=sign-in :', $out);
+        $this->assertStringContainsString('GET|HEAD  account/enter', $out);
+        $this->assertStringContainsString('FIN_BLOC', $out);
+    }
+
     public function test_a_form_posting_to_another_host_is_flagged(): void
     {
         $this->fakeCurl('419', 'https://www.tagtoa.test/login');
