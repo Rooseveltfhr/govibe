@@ -38,7 +38,11 @@
     <div class="wrap">
         @forelse($events as $e)
             @php
-                $minPrice = $e->activeTicketTypes->min('price');
+                $CurS = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class;
+                $tauxEv = app(\Modules\Tagtoa\App\Services\Event\TicketService::class)->ratesFor($e);
+                $minPrice = $e->activeTicketTypes
+                    ->map(fn ($t) => $CurS::convert((float) $t->price, $t->currency, $e->currency ?: 'HTG', $tauxEv))
+                    ->filter(fn ($v) => $v !== null)->min();
                 if ($e->is_free || $minPrice === null || (float) $minPrice <= 0) {
                     $priceLabel = __('Gratuit');
                 } else {

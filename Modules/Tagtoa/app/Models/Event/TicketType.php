@@ -13,7 +13,7 @@ class TicketType extends Model
     protected $table = 'tagtoa_ev_ticket_types';
 
     protected $fillable = [
-        'event_id', 'name', 'price', 'compare_at_price', 'quantity', 'sold', 'is_active', 'sort',
+        'event_id', 'name', 'currency', 'price', 'compare_at_price', 'quantity', 'sold', 'is_active', 'sort',
         'is_vip', 'allowed_gates',
     ];
 

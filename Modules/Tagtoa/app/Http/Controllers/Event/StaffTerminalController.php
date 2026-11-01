@@ -352,9 +352,18 @@ class StaffTerminalController extends Controller
         // donnait un prix de 0 : le billet pré-imprimé sortait sans débit ni commission.
         $effectiveTypeId = $data['ticket_type_id'] ?? $printed?->ticket_type_id;
         $ticketPrice = 0.0;
+        $ticketTypePricing = null;
         if (! empty($effectiveTypeId)) {
             $tt = $event->ticketTypes()->whereKey($effectiveTypeId)->first();
-            $ticketPrice = $tt ? (float) $tt->price : 0.0;
+            if ($tt) {
+                // CUR-4 : prix converti côté serveur avec le taux actif ; sans taux, la vente est refusée.
+                $ticketTypePricing = app(\Modules\Tagtoa\App\Services\Event\TicketService::class)
+                    ->pricing($tt, $event, app(\Modules\Tagtoa\App\Services\Event\TicketService::class)->ratesFor($event));
+                if ($ticketTypePricing === null) {
+                    return response()->json(['ok' => false, 'message' => __('Le prix de ce billet n\'est pas disponible dans la devise de l\'événement (taux manquant).')], 422);
+                }
+                $ticketPrice = $ticketTypePricing['price'];
+            }
         }
 
         // Paiement par CARTE TAGTOA : on débite AVANT d'émettre le billet — un
@@ -423,7 +432,7 @@ class StaffTerminalController extends Controller
         // (UPDATE … WHERE statut = invendu, lignes touchées vérifiées) : deux
         // vendeurs qui scannent le même billet ne peuvent plus le vendre tous deux.
         try {
-            $ticket = \Illuminate\Support\Facades\DB::transaction(function () use ($event, $staff, $data, $method, $printed, $charged) {
+            $ticket = \Illuminate\Support\Facades\DB::transaction(function () use ($event, $staff, $data, $method, $printed, $charged, $ticketTypePricing) {
                 // Le débit se verrouille D'ABORD. Deux requêtes qui reprennent la même vente (double
                 // appui, nouvelle tentative pendant que la première émet) se sérialisent ici ; la
                 // seconde voit le billet déjà lié et ne réémet pas — un seul billet par débit.
@@ -502,6 +511,9 @@ class StaffTerminalController extends Controller
 
                 // Moyen de paiement + vendeur/date (historique de vente) dans TAGTOA.
                 $ticket->update($sale);
+                if (! empty($ticketTypePricing['origin'])) {
+                    $ticket->update($ticketTypePricing['origin']);
+                }
 
                 // Le débit connaît désormais son billet : un rejeu du même identifiant répond
                 // « déjà vendu » au lieu d'émettre un second billet (ou de rembourser à tort).

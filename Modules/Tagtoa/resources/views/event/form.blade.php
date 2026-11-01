@@ -82,6 +82,9 @@
     <div class="ttrow card" style="padding:14px;margin-bottom:10px">
         <div class="pf">
             <div><label>{{ __('Nom (VIP…)') }}</label><input name="ticket_types[IDX][name]" class="inp"></div>
+            @if(! empty($currencyChoices))
+            <div><label>{{ __('Devise') }}</label><select name="ticket_types[IDX][currency]" class="sel" title="{{ __('Devise du billet') }}">@foreach($currencyChoices as $code => $label)<option value="{{ $code }}">{{ $label }}</option>@endforeach</select></div>
+            @endif
             <div><label>{{ __('Prix') }}</label><input name="ticket_types[IDX][price]" type="number" step="0.01" min="0" class="inp"></div>
             <div><label>{{ __('Prix barré') }}</label><input name="ticket_types[IDX][compare_at_price]" type="number" step="0.01" min="0" class="inp"></div>
             <div><label>{{ __('Qté (∞)') }}</label><input name="ticket_types[IDX][quantity]" type="number" class="inp"></div>
@@ -98,12 +101,12 @@
 <script>
 var ttIdx=0;
 function addTT(d){var h=document.getElementById('tttpl').innerHTML.replace(/IDX/g,ttIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('ttlist').appendChild(r);
-    if(d){r.querySelector('[name$="[name]"]').value=d.name||'';r.querySelector('[name$="[price]"]').value=d.price||'';var cp=r.querySelector('[name$="[compare_at_price]"]');if(cp){cp.value=d.compare_at_price==null?'':d.compare_at_price;}r.querySelector('[name$="[quantity]"]').value=d.quantity==null?'':d.quantity;r.querySelector('[name$="[allowed_gates]"]').value=d.allowed_gates||'';r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;r.querySelector('[name$="[is_vip]"]').checked=!!d.is_vip;var i=document.createElement('input');i.type='hidden';i.name='ticket_types['+ttIdx+'][id]';i.value=d.id;r.appendChild(i);}
+    if(d){r.querySelector('[name$="[name]"]').value=d.name||'';var cs=r.querySelector('[name$="[currency]"]');if(cs&&d.currency){if(!Array.prototype.some.call(cs.options,function(o){return o.value===d.currency;})){var o=document.createElement('option');o.value=d.currency;o.textContent=d.currency+' ('+@json(__('sans taux actif'))+')';cs.appendChild(o);}cs.value=d.currency;}r.querySelector('[name$="[price]"]').value=d.price||'';var cp=r.querySelector('[name$="[compare_at_price]"]');if(cp){cp.value=d.compare_at_price==null?'':d.compare_at_price;}r.querySelector('[name$="[quantity]"]').value=d.quantity==null?'':d.quantity;r.querySelector('[name$="[allowed_gates]"]').value=d.allowed_gates||'';r.querySelector('[name$="[is_active]"]').checked=!!d.is_active;r.querySelector('[name$="[is_vip]"]').checked=!!d.is_vip;var i=document.createElement('input');i.type='hidden';i.name='ticket_types['+ttIdx+'][id]';i.value=d.id;r.appendChild(i);}
     ttIdx++;}
 @php
     $ttData = $event->relationLoaded('ticketTypes')
         ? $event->ticketTypes->map(fn ($t) => [
-            'id' => $t->id, 'name' => $t->name, 'price' => $t->price, 'compare_at_price' => $t->compare_at_price,
+            'id' => $t->id, 'name' => $t->name, 'currency' => $t->currency, 'price' => $t->price, 'compare_at_price' => $t->compare_at_price,
             'quantity' => $t->quantity, 'is_active' => $t->is_active, 'is_vip' => $t->is_vip,
             'allowed_gates' => $t->allowed_gates ? implode(',', $t->allowed_gates) : '',
         ])->values()
