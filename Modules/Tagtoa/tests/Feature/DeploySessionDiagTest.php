@@ -33,7 +33,7 @@ class DeploySessionDiagTest extends TestCase
         file_put_contents($this->t.'/app/storage/logs/laravel.log',
             "[2026-11-01 01:00:00] production.ERROR: CSRF token mismatch. {\"x\":1}\n#0 trace\n");
         // Faux php : la configuration de session telle que le vrai script l'imprime.
-        file_put_contents($this->t.'/bin/php', "#!/usr/bin/env bash\necho '   config : driver=file domain=NULL secure=true same_site=lax path=/ lifetime=120 cookie=biztap_session'\n");
+        file_put_contents($this->t.'/bin/php', "#!/usr/bin/env bash\nif [[ \"\$*\" == *route:list* ]]; then echo '[{\"method\":\"GET|HEAD\",\"uri\":\"account\\/sign-in-login\"},{\"method\":\"GET|HEAD\",\"uri\":\"login\"},{\"method\":\"GET|HEAD\",\"uri\":\"user\\/{id}\\/login\"}]'; exit 0; fi\necho '   config : driver=file domain=NULL secure=true same_site=lax path=/ lifetime=120 cookie=biztap_session'\n");
         chmod($this->t.'/bin/php', 0755);
     }
 
@@ -113,6 +113,16 @@ SH;
         $this->assertStringNotContainsString('SECRETVALUE123', $out, '…jamais sa valeur.');
         $this->assertStringContainsString('419 dans laravel.log : 1', $out);
         $this->assertStringContainsString('production.ERROR: CSRF token mismatch.', $out);
+    }
+
+    public function test_login_routes_declared_by_the_app_are_discovered_and_tested(): void
+    {
+        $this->fakeCurl('302');
+        $out = $this->run59()->getOutput();
+
+        $this->assertStringContainsString('routes de connexion déclarées : /account/sign-in-login /login', $out);
+        $this->assertStringNotContainsString('{id}', $out, 'Une route à paramètre ne se teste pas.');
+        $this->assertStringContainsString('GET /account/sign-in-login →', $out);
     }
 
     public function test_a_form_posting_to_another_host_is_flagged(): void
