@@ -293,23 +293,37 @@ timeout 30 php -r '
 # (le compte est simplement refusé). Aucun mot de passe réel n'est utilisé.
 HOST_ONLY="$(grep -m1 '^APP_URL=' .env 2>/dev/null | cut -d= -f2- | sed -E 's#^https?://##; s#/.*$##')"
 if [ -n "$HOST_ONLY" ]; then
-  for LP in /login /admin/login; do
+  # Les routes de connexion déclarées par l'application (POST …login), plus les classiques.
+  LPS="$(timeout 30 php artisan route:list --method=POST 2>/dev/null | grep -oE '[a-z0-9_/{}-]*login\b' | grep -v '{' | sed 's#^#/#; s#^//#/#' | sort -u | head -5)"
+  for LP in $(printf '%s\n' /login /admin/login $LPS | sort -u); do
     JAR="$(mktemp)"
-    page="$(curl -sk -m 15 -c "$JAR" -b "$JAR" --resolve "$HOST_ONLY:443:127.0.0.1" "https://$HOST_ONLY$LP" 2>/dev/null)"
+    RES=(--resolve "$HOST_ONLY:443:127.0.0.1" --resolve "www.$HOST_ONLY:443:127.0.0.1")
+    # GET en suivant les redirections : on garde l'URL finale (/fr/login, www.…).
+    page="$(curl -sk -m 20 -L --max-redirs 5 -c "$JAR" -b "$JAR" "${RES[@]}" -w '\n__FINAL__ %{http_code} %{url_effective}' "https://$HOST_ONLY$LP" 2>/dev/null)"
+    fin="$(printf '%s' "$page" | sed -n 's/^__FINAL__ //p' | tail -1)"
     tok="$(printf '%s' "$page" | grep -o 'name="_token" value="[^"]*"' | head -1 | sed 's/.*value="//; s/"$//')"
     [ -z "$tok" ] && tok="$(printf '%s' "$page" | grep -o 'name="csrf-token" content="[^"]*"' | head -1 | sed 's/.*content="//; s/"$//')"
-    if [ -z "$tok" ]; then echo "   $LP : pas de formulaire avec jeton CSRF (route absente ?)"; rm -f "$JAR"; continue; fi
-    # Attributs des cookies posés (noms + drapeaux, JAMAIS les valeurs).
-    flags="$(curl -sk -m 15 -o /dev/null -D - --resolve "$HOST_ONLY:443:127.0.0.1" "https://$HOST_ONLY$LP" 2>/dev/null | grep -i '^set-cookie' | sed -E 's/=[^;]*/=…/' | tr -d '\r' | head -3 | tr '\n' ' ')"
-    code="$(curl -sk -m 15 -o /dev/null -w '%{http_code}' -c "$JAR" -b "$JAR" --resolve "$HOST_ONLY:443:127.0.0.1" \
-            -H "Referer: https://$HOST_ONLY$LP" --data-urlencode "_token=$tok" \
+    if [ -z "$tok" ]; then echo "   GET $LP → $fin : pas de formulaire avec jeton CSRF"; rm -f "$JAR"; continue; fi
+    finurl="${fin#* }"
+    # Où le formulaire envoie-t-il vraiment ? (un autre hôte = cookie non envoyé = 419)
+    action="$(printf '%s' "$page" | tr '\n' ' ' | grep -oE '<form[^>]*method="(post|POST)"[^>]*>' | head -1 | grep -oE 'action="[^"]*"' | sed 's/action="//; s/"$//; s/&amp;/\&/g')"
+    [ -z "$action" ] && action="$finurl"
+    case "$action" in http*) ;; /*) action="https://$HOST_ONLY$action" ;; *) action="$finurl" ;; esac
+    hf="$(printf '%s' "$finurl" | sed -E 's#^https?://##; s#/.*$##')"; ha="$(printf '%s' "$action" | sed -E 's#^https?://##; s#/.*$##')"
+    sa="$(printf '%s' "$action" | cut -d: -f1)"
+    note=""; [ "$hf" != "$ha" ] && note=" ATTENTION : la page est servie sur $hf mais le formulaire poste vers $ha — le cookie de session n'y est pas envoyé (cause classique de 419)."
+    [ "$sa" = "http" ] && note="$note ATTENTION : le formulaire poste en http:// (cookie perdu/bloqué)."
+    flags="$(curl -sk -m 15 -o /dev/null -D - -L "${RES[@]}" "https://$HOST_ONLY$LP" 2>/dev/null | grep -i '^set-cookie' | sed -E 's/=[^;]*/=…/' | tr -d '\r' | tail -3 | tr '\n' ' ')"
+    code="$(curl -sk -m 15 -o /dev/null -w '%{http_code}' -c "$JAR" -b "$JAR" "${RES[@]}" \
+            -H "Referer: $finurl" --data-urlencode "_token=$tok" \
             --data-urlencode "email=diag-419@invalid.invalid" --data-urlencode "password=diag-not-a-password" \
-            "https://$HOST_ONLY$LP" 2>/dev/null)"
+            "$action" 2>/dev/null)"
     rm -f "$JAR"
+    echo "   GET $LP → $fin ; formulaire → $action"
     case "$code" in
-      419) echo "   $LP : POST → 419 PAGE EXPIRÉE — la session n'est pas conservée (voir lignes ci-dessus). Cookies : $flags" ;;
-      000) echo "   $LP : injoignable en local" ;;
-      *)   echo "   $LP : POST → $code — session OK (compte de test refusé, normal). Cookies : $flags" ;;
+      419) echo "     POST → 419 PAGE EXPIRÉE — la session n'est pas conservée. Cookies : $flags$note" ;;
+      000) echo "     POST → injoignable en local$note" ;;
+      *)   echo "     POST → $code — session OK (compte de test refusé, normal). Cookies : $flags$note" ;;
     esac
   done
 fi

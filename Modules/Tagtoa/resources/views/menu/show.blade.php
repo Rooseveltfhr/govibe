@@ -19,6 +19,9 @@
     // (notifyMerchant()/notifyCustomer(), no-op silencieux sans numéro).
     $canOrder = $menu->ordering_enabled;
     $cur = $menu->currency ?: 'HTG';
+    // CUR-1 : taux actifs du commerce vers la devise du menu. Le panier compte en devise du
+    // menu ; le prix d'origine (USD, $HT…) est affiché à côté. Le serveur recalcule tout.
+    $tauxDevises = app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->activeFor($menu->tenant_id, $cur);
     $ouvert = $menu->isOpenNow();
 @endphp
 <!DOCTYPE html>
@@ -254,7 +257,17 @@
                          demander la traduction cinq fois de suite pour le même
                          article gaspillerait du calcul sans rien changer au
                          résultat. --}}
-                    @php $out = ! $it->in_stock; $itNom = $it->translated('name'); $itDesc = $it->translated('description'); @endphp
+                    @php
+                        $out = ! $it->in_stock; $itNom = $it->translated('name'); $itDesc = $it->translated('description');
+                        $Cur = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class;
+                        $itDevise = strtoupper((string) $it->currency);
+                        $itEtranger = $itDevise !== '' && $itDevise !== strtoupper($cur);
+                        $itPrixBase = $Cur::convert((float) $it->price, $it->currency, $cur, $tauxDevises);
+                        $itTaux = $Cur::rateOf($it->currency, $cur, $tauxDevises);
+                        // Sans taux actif, l'article reste visible mais ne s'ajoute pas au panier.
+                        $sansTaux = $itPrixBase === null;
+                        if ($sansTaux) { $out = true; }
+                    @endphp
                     <div class="item" @if($out) style="opacity:.55" @endif>
                         {{-- La photo d'abord : c'est elle qui fait commander,
                              pas le nom. À défaut, l'icône de SA catégorie (la
@@ -270,7 +283,7 @@
                             @else<div class="ph"><i class="fa-solid {{ \Modules\Tagtoa\App\Support\Menu\CategoryIcon::resolve($c->icon, $c->name) }}"></i></div>@endif
                         @endif
                         <div class="body">
-                            <div class="nm">{{ $itNom }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ __('Épuisé') }}</span>@endif</div>
+                            <div class="nm">{{ $itNom }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ $sansTaux ? __('Indisponible') : __('Épuisé') }}</span>@endif</div>
                             @if($itDesc)<div class="ds">{{ $itDesc }}</div>@endif
                             {{-- Détails propres au métier : capacité et équipements d'une
                                  chambre, degré d'alcool d'une boisson, temps de préparation
@@ -286,7 +299,12 @@
                             <div class="ft">
                                 @if($menu->show_prices)
                                     <span class="price">
-                                        {{ \Modules\Tagtoa\App\Support\Money::format($it->price, $cur) }}
+                                        @if($itEtranger)
+                                            {{ $Cur::format((float) $it->price, $itDevise, $cur, $tauxDevises) }}
+                                            @if($itPrixBase !== null)<small class="psuf">≈ {{ \Modules\Tagtoa\App\Support\Money::format($itPrixBase, $cur) }}</small>@endif
+                                        @else
+                                            {{ \Modules\Tagtoa\App\Support\Money::format($it->price, $cur) }}
+                                        @endif
                                         @if($priceSuffix)<small class="psuf">{{ $priceSuffix }}</small>@endif
                                     </span>
                                 @else<span></span>@endif
@@ -294,10 +312,10 @@
                                     @php
                                         $opts = $it->options->map(fn ($o) => [
                                             'id' => $o->id, 'name' => $o->name, 'required' => $o->required, 'multiple' => $o->multiple,
-                                            'choices' => $o->choices->map(fn ($c) => ['id' => $c->id, 'label' => $c->label, 'price_delta' => (float) $c->price_delta])->values(),
+                                            'choices' => $o->choices->map(fn ($c) => ['id' => $c->id, 'label' => $c->label, 'price_delta' => (float) $c->price_delta * ($itTaux ?? 1)])->values(),
                                         ])->values();
                                     @endphp
-                                    <button class="add" aria-label="{{ __('Ajouter') }} — {{ $itNom }}" data-id="{{ $it->id }}" data-name="{{ $itNom }}" data-price="{{ (float) $it->price }}" data-options='@json($opts)' onclick="add(this)"><i class="fa-solid fa-plus"></i></button>
+                                    <button class="add" aria-label="{{ __('Ajouter') }} — {{ $itNom }}" data-id="{{ $it->id }}" data-name="{{ $itNom }}" data-price="{{ (float) $itPrixBase }}" data-options='@json($opts)' onclick="add(this)"><i class="fa-solid fa-plus"></i></button>
                                 @endif
                             </div>
                         </div>

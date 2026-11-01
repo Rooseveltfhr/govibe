@@ -93,6 +93,7 @@ class ItemController extends Controller
     private function save(Request $request, int $menuId, ?int $itemId = null): RedirectResponse
     {
         $menu = $this->own($menuId);
+        $existant = $itemId ? Item::where('menu_id', $menu->id)->whereKey($itemId)->first() : null;
 
         $request->validate([
             'category_id'          => ['nullable', 'integer'],
@@ -100,6 +101,8 @@ class ItemController extends Controller
             'item_name'            => ['required', 'string', 'max:160'],
             'item_description'     => ['nullable', 'string', 'max:600'],
             'item_price'           => ['required', 'numeric', 'min:0', 'max:99999999'],
+            // CUR-1 : la devise du MENU, ou une devise du commerce ayant un taux ACTIF vers elle.
+            'item_currency'        => ['nullable', 'string', 'in:'.implode(',', array_keys($this->currencyChoices($menu, $existant)))],
             'item_cost_price'      => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'item_stock'           => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'item_low_stock_threshold' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
@@ -202,6 +205,14 @@ class ItemController extends Controller
 
         $nouveauId = $item?->id ?? $menu->items()->where('id', '>', $dernierIdAvant)->value('id');
 
+        // CUR-1 : devise de l'article. NULL = devise du menu (tout l'existant).
+        // Absent de la requête (ancien écran, appel tiers) = on ne touche pas à la devise.
+        if ($nouveauId && $request->has('item_currency')) {
+            $devise = strtoupper((string) $request->input('item_currency'));
+            Item::where('menu_id', $menu->id)->whereKey($nouveauId)
+                ->update(['currency' => ($devise === '' || $devise === strtoupper((string) $menu->currency)) ? null : $devise]);
+        }
+
         $message = $itemPayload['is_published'] === '0'
             ? __(':nom enregistré comme brouillon — invisible pour vos clients tant qu\'il n\'est pas publié.', ['nom' => $itemPayload['name']])
             : __(':nom publié.', ['nom' => $itemPayload['name']]);
@@ -231,7 +242,29 @@ class ItemController extends Controller
             'units'           => Pricing::UNITS,
             'categoryPresets' => $categoryPresets,
             'suppliers'       => \Modules\Tagtoa\App\Models\Inventory\Supplier::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'currencyChoices' => $this->currencyChoices($menu, $item),
         ];
+    }
+
+    /**
+     * Devises proposées devant le prix : celle du menu (par défaut), puis celles du commerce
+     * qui ont un taux ACTIF vers elle. La devise actuelle de l'article reste affichée même si
+     * son taux a été désactivé, pour ne pas la changer en silence à l'enregistrement.
+     *
+     * @return array<string,string> code => libellé
+     */
+    private function currencyChoices(Menu $menu, ?Item $item = null): array
+    {
+        $base = strtoupper($menu->currency ?: 'HTG');
+        $out = [$base => $base.' — '.__('devise du menu')];
+        foreach (app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->activeFor($menu->tenant_id, $base) as $code => $r) {
+            $out[$code] = $code.' — 1 = '.rtrim(rtrim(number_format((float) $r->rate, 6, '.', ''), '0'), '.').' '.$base;
+        }
+        if ($item?->currency && ! isset($out[$item->currency])) {
+            $out[$item->currency] = $item->currency.' — '.__('taux désactivé : article non vendable');
+        }
+
+        return $out;
     }
 
     private function own(int $id, array $with = []): Menu

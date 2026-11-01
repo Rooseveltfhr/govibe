@@ -71,6 +71,18 @@ class ScanController extends Controller
         $source = $article instanceof Item ? CatalogRef::SOURCE_MENU : CatalogRef::SOURCE_POS;
         $devise = Tenant::currency();
 
+        // CUR-1 : un article de menu en USD / $HT est annoncé au prix converti dans la devise du
+        // commerce ; sans taux actif, il n'est pas vendable en caisse.
+        $prix = (float) $article->price;
+        $baseCaisse = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::posBase($tenantId);
+        if ($article instanceof Item && $article->currency && strtoupper($article->currency) !== $baseCaisse) {
+            $prix = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert($prix, $article->currency, $baseCaisse,
+                app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->activeFor($tenantId, $baseCaisse));
+            if ($prix === null) {
+                return response()->json(['found' => false, 'reason' => 'currency_rate_missing', 'code' => $code], 200);
+            }
+        }
+
         return response()->json([
             'found'   => true,
             'code'    => $code,
@@ -78,8 +90,8 @@ class ScanController extends Controller
                 'ref'         => CatalogRef::make($source, (int) $article->id),
                 'source'      => $source,
                 'name'        => $article->name,
-                'price'       => (float) $article->price,
-                'price_label' => Money::format((float) $article->price, $devise),
+                'price'       => $prix,
+                'price_label' => Money::format($prix, $devise),
                 'unit'        => $article->unit_key,
                 'unit_label'  => $article->unit_label,
                 'decimal'     => $article->allowsDecimalQty(),

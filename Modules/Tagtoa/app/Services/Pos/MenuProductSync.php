@@ -43,7 +43,13 @@ class MenuProductSync
         $items = Item::query()->whereHas('menu', fn ($m) => $m->whereKey($menu->id))
             ->with('category:id,name')->get();
 
+        // CUR-1 : un article en USD / $HT est converti en devise du menu avant d'aller en caisse.
+        // Sans taux actif, le produit POS est désactivé — jamais vendu 5 G pour 5 $.
+        $deviseMenu = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::posBase($tenantId);
+        $taux = app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->activeFor($menu->tenant_id, $deviseMenu);
+
         foreach ($items as $item) {
+            $prixCaisse = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert((float) $item->price, $item->currency, $deviseMenu, $taux);
             $categoryName = $item->category?->name;
             $categoryId = null;
             if ($categoryName) {
@@ -55,18 +61,23 @@ class MenuProductSync
             $champsMenu = [
                 'name'        => $item->name,
                 'description' => $item->description,
-                'price'       => $item->price,
+                // Sans taux : on ne recopie JAMAIS le prix brut d'une autre devise (5 $ → 5 G).
+                // Le produit déjà synchronisé garde son dernier prix, et il est désactivé.
+                'price'       => $prixCaisse ?? 0,
                 'image_path'  => $item->image_path,
                 'emoji'       => $item->emoji,
                 'category_id' => $categoryId,
                 // L'article masqué du menu public ne doit plus se vendre
                 // au comptoir non plus — c'est le même « disponible ou non ».
-                'is_active'   => $item->is_available,
+                'is_active'   => $item->is_available && $prixCaisse !== null,
             ];
 
             $produit = Product::where('tenant_id', $tenantId)->where('menu_item_id', $item->id)->first();
 
             if ($produit) {
+                if ($prixCaisse === null) {
+                    unset($champsMenu['price']); // garde le dernier prix converti connu
+                }
                 $produit->update($champsMenu);
                 $updated++;
             } else {

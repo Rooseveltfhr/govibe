@@ -108,6 +108,9 @@ class PosController extends Controller
             // temps, ou un code scanné deux fois de suite, tombent ici plutôt
             // que d'écrire un stock négatif en silence.
             return response()->json(['ok' => false, 'error' => $this->messageStockInsuffisant($e)], 409);
+        } catch (\Modules\Tagtoa\App\Exceptions\OrderRuleException $e) {
+            // CUR-1 : article en devise étrangère sans taux actif — jamais vendu au prix brut.
+            return response()->json(['ok' => false, 'error' => __('Le prix de cet article n\'est plus disponible : le taux de change est désactivé.')], 422);
         }
 
         // Le TOTAL vient du serveur, toujours : avec des prix hors taxe, il est

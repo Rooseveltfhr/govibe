@@ -31,14 +31,21 @@ class OnlineOptions
         'paypal'  => ['label' => 'PayPal',                       'icon' => 'fa-brands fa-paypal',       'color' => '#003087'],
     ];
 
-    /** @return array<int, array{driver:string,label:string,icon:string,color:string}> */
-    public static function for(?string $currency): array
+    /**
+     * @param  \Illuminate\Support\Collection|null  $merchantRows  TOUS les moyens enregistrés par le marchand
+     *                                                              (actifs ou non). Null = pas de filtre marchand.
+     * @return array<int, array{driver:string,label:string,icon:string,color:string}>
+     */
+    public static function for(?string $currency, ?\Illuminate\Support\Collection $merchantRows = null): array
     {
         $currency = strtoupper((string) $currency);
         $out = [];
 
         foreach (self::driversOffered() as $driver) {
             if (! isset(self::DRIVERS[$driver]) || isset($out[$driver])) {
+                continue;
+            }
+            if (! self::merchantAllows($merchantRows, $driver)) {
                 continue;
             }
             if (! GatewayManager::enabled($driver) || ! self::supports($driver, $currency)) {
@@ -54,6 +61,27 @@ class OnlineOptions
         }
 
         return array_values($out);
+    }
+
+    /**
+     * PUR (hors catalogue) — le MARCHAND accepte-t-il ce driver ?
+     *
+     * Règle : un marchand qui n'a JAMAIS réglé ce moyen (aucune ligne) garde le comportement
+     * d'avant, la passerelle du fondateur lui est offerte. Dès qu'il a enregistré ce moyen,
+     * son interrupteur décide : décoché, le client ne le voit plus et ne peut plus le lancer.
+     *
+     * @param  \Illuminate\Support\Collection|null  $rows  PaymentMethod du marchand (actifs ou non)
+     */
+    public static function merchantAllows(?\Illuminate\Support\Collection $rows, string $driver): bool
+    {
+        if ($rows === null) {
+            return true;
+        }
+        $effective = GatewayCatalog::effective();
+        $mine = $rows->filter(fn ($m) => ($effective[$m->type]['driver'] ?? null) === $driver
+            && ($effective[$m->type]['mode'] ?? null) === \Modules\Tagtoa\App\Support\PaymentGateway::MODE_AUTO);
+
+        return $mine->isEmpty() || $mine->contains(fn ($m) => (bool) $m->is_active);
     }
 
     /** PUR — la passerelle traite-t-elle cette devise ? */

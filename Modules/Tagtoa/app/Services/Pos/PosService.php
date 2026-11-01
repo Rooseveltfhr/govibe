@@ -220,6 +220,7 @@ class PosService
 
             $lines = [];
             $subtotal = 0;
+            $tauxCaisse = null; // taux de change, lus au premier article en devise étrangère
             foreach ($items as $it) {
                 // « menu:7 » ou « pos:7 ». Les caisses déjà installées envoient
                 // encore un identifiant nu, compris comme un bouton de caisse.
@@ -239,6 +240,27 @@ class PosService
                 }
 
                 $price = $article ? (float) $article->price : (float) ($it['price'] ?? 0);
+
+                // CUR-1 : un article de MENU en USD / $HT est converti dans la devise de la caisse,
+                // au taux en vigueur. Sans taux actif (désactivé depuis que la caisse a chargé son
+                // catalogue), on garde le prix que la caisse a réellement encaissé : une vente déjà
+                // faite n'est jamais refusée ni recalculée à 5 G pour 5 $.
+                $deviseArticle = $article instanceof MenuItem ? strtoupper((string) $article->currency) : '';
+                $deviseCaisse = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::posBase($terminal->tenant_id);
+                if ($deviseArticle !== '' && $deviseArticle !== $deviseCaisse) {
+                    $tauxCaisse ??= app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->activeFor($terminal->tenant_id, $deviseCaisse);
+                    $converti = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert($price, $deviseArticle, $deviseCaisse, $tauxCaisse);
+                    if ($converti === null) {
+                        // Seule une VRAIE reprise hors ligne garde le prix encaissé (la marchandise est
+                        // remise, l'argent pris). En ligne, un prix envoyé par la caisse n'est jamais cru :
+                        // sinon un article du catalogue se vendrait 0,01 sous son vrai nom, avec son stock.
+                        if (! $negatifPermis) {
+                            throw new \Modules\Tagtoa\App\Exceptions\OrderRuleException('currency_rate_missing');
+                        }
+                        $converti = (float) ($it['price'] ?? 0);
+                    }
+                    $price = $converti;
+                }
                 $name  = $article ? $article->name : (string) ($it['name'] ?? 'Article');
 
                 // Coût du JOUR de la vente, figé sur la ligne : sans lui, le
@@ -247,6 +269,9 @@ class PosService
                 $cost = $article && $article->cost_price !== null
                     ? (float) $article->cost_price
                     : null;
+                if ($cost !== null && $deviseArticle !== '' && $deviseArticle !== $deviseCaisse) {
+                    $cost = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert($cost, $deviseArticle, $deviseCaisse, $tauxCaisse);
+                }
 
                 $ligneTotal = Pricing::lineTotal($unit, $price, $qty);
                 $subtotal += $ligneTotal;

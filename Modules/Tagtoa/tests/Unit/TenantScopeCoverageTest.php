@@ -144,6 +144,10 @@ class TenantScopeCoverageTest extends TestCase
             // Profil d'hôtel (H1) : lu/écrit pour le commerce REÇU en paramètre (déjà vérifié
             // comme appartenant au compte connecté), toujours filtré sur son identifiant.
             'Services/Hotel/HotelProfileService.php',
+            // Taux de change (CUR-1) : lus pour le commerce du MENU / de la CAISSE reçu en
+            // paramètre (aussi depuis la page publique, sans commerce courant), toujours
+            // filtrés sur ce tenant_id explicite.
+            'Services/Currency/CurrencyRateService.php',
             'Services/Pay/CheckoutService.php',         // reconcile() : relit la transaction par sa référence
             'Support/BelongsToTenant.php',              // définition
         ];

@@ -50,7 +50,8 @@ Route::get('/pay/{alias}', [PayPublic::class, 'show'])->name('tagtoa.pay.show');
 Route::get('/pay/order/{type}/{reference}', [\Modules\Tagtoa\App\Http\Controllers\Pay\OrderPayController::class, 'show'])
     ->middleware('throttle:60,1')->name('tagtoa.pay.order');
 Route::post('/pay/order/{type}/{reference}/claim', [\Modules\Tagtoa\App\Http\Controllers\Pay\OrderPayController::class, 'claim'])
-    ->middleware('throttle:10,1')->name('tagtoa.pay.order.claim');
+    // 30/min : derrière un réseau mobile partagé, plusieurs clients ont la même adresse IP.
+    ->middleware('throttle:30,1')->name('tagtoa.pay.order.claim');
 Route::get('/pay/{alias}/checkout/{method}', [PayPublic::class, 'checkout'])->name('tagtoa.pay.checkout');
 // Paiement par CARTE TAGTOA (closed-loop) : tap NFC/UID + PIN → débit instantané.
 Route::post('/pay/{alias}/card/charge', [PayPublic::class, 'cardCharge'])->middleware('throttle:20,1')->name('tagtoa.pay.card.charge');
@@ -384,6 +385,11 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::put('/services/{id}', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'update'])->whereNumber('id')->name('services.update');
         Route::post('/services/{id}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'toggle'])->whereNumber('id')->name('services.toggle');
     });
+
+    // DEVISES (CUR-1) — devises du commerce et taux vers la devise principale.
+    Route::get('/currencies', [\Modules\Tagtoa\App\Http\Controllers\Currency\CurrencyController::class, 'index'])->name('tagtoa.currencies.index');
+    Route::post('/currencies', [\Modules\Tagtoa\App\Http\Controllers\Currency\CurrencyController::class, 'store'])->name('tagtoa.currencies.store');
+    Route::post('/currencies/{id}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Currency\CurrencyController::class, 'toggle'])->whereNumber('id')->name('tagtoa.currencies.toggle');
 
     Route::prefix('business')->name('tagtoa.business.')->group(function () {
         Route::get('/', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'index'])->name('index');

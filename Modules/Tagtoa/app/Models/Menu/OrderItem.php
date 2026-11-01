@@ -12,13 +12,15 @@ class OrderItem extends Model
 {
     protected $table = 'tagtoa_menu_order_items';
 
-    protected $fillable = ['order_id', 'item_id', 'name', 'price', 'qty', 'line_total', 'selected_options', 'tax_rate', 'tax_amount'];
+    protected $fillable = ['order_id', 'item_id', 'name', 'price', 'qty', 'line_total', 'selected_options', 'tax_rate', 'tax_amount', 'currency_original', 'unit_price_original', 'rate_used'];
 
     protected $casts = [
         'price'            => 'decimal:2',
         'qty'              => 'integer',
         'line_total'       => 'decimal:2',
         'selected_options' => 'array',
+        'unit_price_original' => 'decimal:2',
+        'rate_used'        => 'decimal:6',
         'tax_rate'         => 'float',
         'tax_amount'       => 'decimal:2',
     ];
