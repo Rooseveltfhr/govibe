@@ -63,12 +63,22 @@ class MysqlMigrationsRealTest extends TestCase
         return ['--path' => realpath(__DIR__.'/../../Database/migrations'), '--realpath' => true, '--force' => true];
     }
 
+    /** Nombre de migrations dont le nom est >= $prefixe (jusqu'à la dernière). */
+    private function stepsFrom(string $prefixe): int
+    {
+        $noms = collect(glob(__DIR__.'/../../Database/migrations/*.php'))->map(fn ($f) => basename($f, '.php'))->sort()->values();
+        $debut = $noms->search(fn ($n) => str_starts_with($n, $prefixe));
+        $this->assertNotFalse($debut, "Migration $prefixe introuvable.");
+
+        return $noms->count() - $debut;
+    }
+
     private function indexNames(string $table): array
     {
         return collect(DB::select("SHOW INDEX FROM `$table`"))->pluck('Key_name')->unique()->values()->all();
     }
 
-    public function test_every_migration_runs_on_an_empty_database_and_the_last_three_roll_back_and_replay(): void
+    public function test_every_migration_runs_on_an_empty_database_and_everything_since_000178_rolls_back_and_replays(): void
     {
         $code = Artisan::call('migrate', $this->params());
         $this->assertSame(0, $code, Artisan::output());
@@ -79,8 +89,11 @@ class MysqlMigrationsRealTest extends TestCase
         $this->assertContains('tagtoa_so_store_uuid_unique', $this->indexNames('tagtoa_store_orders'));
         $this->assertNotContains('tagtoa_store_orders_client_uuid_unique', $this->indexNames('tagtoa_store_orders'));
 
-        // 000180 + 000179 + 000178 : défaire, puis refaire.
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 3] + $this->params()), Artisan::output());
+        // Défaire TOUT ce qui est postérieur à 000178 inclus (000178 → dernière), puis refaire.
+        // Le nombre d'étapes est CALCULÉ : « les trois dernières » cessait de couvrir 000180 dès
+        // qu'une migration plus récente s'ajoutait (H1, H2…), et ce test échouait pour une
+        // raison étrangère à la migration qu'il protège.
+        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => $this->stepsFrom('2026_10_31_000178')] + $this->params()), Artisan::output());
         $this->assertContains('tagtoa_menu_orders_client_uuid_unique', $this->indexNames('tagtoa_menu_orders'));
         $this->assertNotContains('tagtoa_mo_menu_uuid_unique', $this->indexNames('tagtoa_menu_orders'));
         $this->assertSame(0, Artisan::call('migrate', $this->params()), Artisan::output());
