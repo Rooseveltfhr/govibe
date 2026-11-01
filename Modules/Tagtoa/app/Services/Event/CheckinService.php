@@ -287,15 +287,61 @@ class CheckinService
         }
     }
 
+    /** Scans traités par appel : au-delà, ils restent sur l'appareil (`deferred`). */
+    public const SYNC_BATCH_MAX = 100;
+
+    /**
+     * Reprise des scans faits HORS LIGNE par l'écran de scan du tableau de bord.
+     *
+     * Contrat avec l'écran : une entrée par scan reçu, avec `ack`. L'écran ne
+     * retire de sa file QUE les scans `ack:true` ; tout le reste (échec inattendu,
+     * lot trop long, scan sans clé) reste sur l'appareil et sera rejoué. Avant,
+     * l'écran vidait TOUTE sa file dès qu'une réponse JSON arrivait : un scan en
+     * échec disparaissait sans trace, et une entrée jamais enregistrée n'était
+     * jamais rejouée.
+     *
+     * `ack:true` = le serveur a statué (admis OU refusé pour une raison ferme —
+     * doublon, billet inconnu, autre évènement) : rejouer ne changerait rien.
+     * L'idempotence par `client_uuid` (processScan) rend un rejeu inoffensif.
+     * Aucun texte d'exception ne sort : numéro de suivi `ref`, journalisé.
+     *
+     * @return array<int, array{client_uuid:?string, ack:bool, status:string, result?:array, ref?:string}>
+     */
     public function sync(Event $event, array $scans): array
     {
         $out = [];
+        $n = 0;
         foreach ($scans as $s) {
-            $out[] = [
-                'client_uuid' => $s['client_uuid'] ?? null,
-                'result' => $this->processScan($event, $s['code'] ?? '', $s['direction'] ?? 'in', $s['method'] ?? 'qr', $s['gate'] ?? null, $s['client_uuid'] ?? null),
-            ];
+            if (! is_array($s)) {
+                $out[] = ['client_uuid' => null, 'ack' => false, 'status' => 'invalid'];
+
+                continue;
+            }
+            $uuid = isset($s['client_uuid']) && is_string($s['client_uuid']) && $s['client_uuid'] !== '' ? $s['client_uuid'] : null;
+
+            if (++$n > self::SYNC_BATCH_MAX) {
+                $out[] = ['client_uuid' => $uuid, 'ack' => false, 'status' => 'deferred'];
+
+                continue;
+            }
+            // Sans clé, l'écran ne saurait jamais que le scan est passé.
+            if ($uuid === null) {
+                $out[] = ['client_uuid' => null, 'ack' => false, 'status' => 'invalid'];
+
+                continue;
+            }
+
+            try {
+                $res = $this->processScan($event, (string) ($s['code'] ?? ''), $s['direction'] ?? 'in', $s['method'] ?? 'qr', $s['gate'] ?? null, $uuid);
+                $out[] = ['client_uuid' => $uuid, 'ack' => true, 'status' => ($res['valid'] ?? false) ? 'admitted' : 'refused', 'result' => $res];
+            } catch (\Throwable $e) {
+                $ref = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::random(8));
+                report($e);
+                \Illuminate\Support\Facades\Log::error('event.scan.sync.error', ['ref' => $ref, 'event' => $event->id, 'client_uuid' => $uuid, 'exception' => $e::class]);
+                $out[] = ['client_uuid' => $uuid, 'ack' => false, 'status' => 'error', 'ref' => $ref];
+            }
         }
+
         return $out;
     }
 

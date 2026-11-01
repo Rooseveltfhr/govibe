@@ -55,7 +55,20 @@ function q(){return JSON.parse(localStorage.getItem(QKEY)||'[]');}
 function setQ(a){localStorage.setItem(QKEY,JSON.stringify(a));var n=a.length;document.getElementById('s-pending').textContent=n;document.getElementById('pending-txt').textContent=n?(n+' {{ __('en attente') }}'):'';}
 function handle(code){var now=Date.now();if(now-lastScan<1200)return;lastScan=now;var p={code:code,direction:DIR,method:'qr',gate:gate(),client_uuid:uuid()};if(navigator.onLine){fetch(SCAN_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(showR).catch(function(){enq(p);showR({valid:true,color:'orange',sound:'warning',message:'{{ __('Hors-ligne — en file') }}'});});}else{enq(p);showR({valid:true,color:'orange',sound:'warning',message:'{{ __('Hors-ligne — en file') }}'});}}
 function enq(p){var a=q();a.push(p);setQ(a);}
-function flush(){var a=q();if(!a.length)return;fetch(SYNC_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify({scans:a})}).then(function(r){return r.json();}).then(function(){setQ([]);}).catch(function(){});}
+/*EVQ-START*/
+/* Ce qui RESTE dans la file après une reprise : seulement les scans que le serveur n'a PAS
+   acquittés (`ack:true`). Avant, toute réponse JSON vidait toute la file : un scan en échec,
+   différé ou sans clé disparaissait sans trace. */
+function evqRemaining(queue,results){var acked={};if(Array.isArray(results)){results.forEach(function(r){if(r&&r.ack===true&&typeof r.client_uuid==='string'){acked[r.client_uuid]=true;}});}
+return (Array.isArray(queue)?queue:[]).filter(function(p){return !(p&&typeof p.client_uuid==='string'&&acked[p.client_uuid]);});}
+/*EVQ-END*/
+var flushing=false;
+function flush(){if(flushing)return;var a=q();if(!a.length)return;flushing=true;
+fetch(SYNC_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify({scans:a})})
+.then(function(r){if(!r.ok){throw new Error('http');}return r.json();})
+.then(function(j){setQ(evqRemaining(q(),j&&j.results));})   /* q() relu : un scan fait pendant l'envoi reste */
+.catch(function(){})
+.then(function(){flushing=false;});}
 function manual(){var c=document.getElementById('m-code').value.trim();if(c){handle(c);document.getElementById('m-code').value='';}}
 var SCAN_NFC_URL="{{ route('tagtoa.event.dashboard.scan.nfc', $event->id) }}";
 function handleNfc(uid){var now=Date.now();if(now-lastScan<1200)return;lastScan=now;var p={uid:uid,direction:DIR,gate:gate(),client_uuid:uuid()};if(navigator.onLine){fetch(SCAN_NFC_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF},body:JSON.stringify(p)}).then(function(r){return r.json();}).then(showR).catch(function(){showR({valid:false,color:'red',sound:'error',message:'{{ __('Réessayez.') }}'});});}else{showR({valid:false,color:'orange',sound:'warning',message:'{{ __('NFC nécessite une connexion.') }}'});}}

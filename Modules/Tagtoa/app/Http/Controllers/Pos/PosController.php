@@ -82,8 +82,18 @@ class PosController extends Controller
         $terminal = $this->own($id);
         $data = $request->validate($this->saleRules());
 
+        // DROITS DE LA PERSONNE AU POSTE (POS-8). Sans employé connecté (le patron, ou
+        // un commerce qui n'a créé personne) rien ne change. Un employé sans le droit
+        // « encaisser » ne vend pas ; sans le droit « remise », il ne peut en accorder
+        // aucune — le montant de la remise ne vient jamais de lui seul.
+        $staffAuPoste = $this->currentStaff($terminal);
+        $this->denyUnless($staffAuPoste, 'sell');
+        if ((float) ($data['discount'] ?? 0) > 0) {
+            $this->denyUnless($staffAuPoste, 'discount');
+        }
+
         try {
-            $sale = $this->service->recordSale($terminal, $data, $this->currentStaff($terminal));
+            $sale = $this->service->recordSale($terminal, $data, $staffAuPoste);
         } catch (InsufficientStockException $e) {
             // 409 (conflit), pas 422 : la requête elle-même était valide, c'est
             // l'état du stock — lu SOUS VERROU dans StockLedger — qui l'a
@@ -185,6 +195,21 @@ class PosController extends Controller
             ]));
             if ($validator->fails()) {
                 $results[] = ['client_uuid' => $uuid, 'ok' => false, 'code' => 'invalid', 'errors' => $validator->errors()->keys()];
+
+                continue;
+            }
+
+            // Mêmes droits qu'en ligne, évalués pour la personne AU POSTE à la reprise.
+            // Refus ferme : la vente reste sur la caisse, dans « à traiter », avec la
+            // raison ; un gérant se connecte et la reprend. Rien n'est enregistré.
+            $remise = (float) ($validator->validated()['discount'] ?? 0);
+            if ($staff && ! $staff->can('sell')) {
+                $results[] = ['client_uuid' => $uuid, 'ok' => false, 'code' => 'forbidden', 'message' => __('Votre rôle ne permet pas d\'encaisser. Connectez-vous avec un autre compte pour reprendre cette vente.')];
+
+                continue;
+            }
+            if ($remise > 0 && $staff && ! $staff->can('discount')) {
+                $results[] = ['client_uuid' => $uuid, 'ok' => false, 'code' => 'forbidden', 'message' => __('Votre rôle ne permet pas de faire une remise. Demandez à un gérant de reprendre cette vente.')];
 
                 continue;
             }
