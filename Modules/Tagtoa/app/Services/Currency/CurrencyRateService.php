@@ -152,6 +152,43 @@ class CurrencyRateService
         return round($amount * (float) $r->rate, 2);
     }
 
+    /**
+     * Les taux qui ont été ACTIFS à un moment de la fenêtre [$from, $to], d'après l'historique
+     * (ajout seul). Sert à juger un prix encaissé hors ligne : la caisse a chargé son catalogue
+     * avant la vente, avec le taux d'alors — pas forcément celui d'aujourd'hui.
+     *
+     * @return array<int,float>
+     */
+    public function ratesActiveBetween(string $tenantId, string $code, string $base, \Carbon\CarbonInterface $from, \Carbon\CarbonInterface $to): array
+    {
+        $rows = \Modules\Tagtoa\App\Models\Currency\CurrencyRateHistory::allTenants()
+            ->where('tenant_id', $tenantId)->where('code', self::normalizeCode($code))
+            ->where('base_currency', self::normalizeCode($base))
+            ->orderBy('created_at')->orderBy('id')->get();
+
+        $segments = [];   // [début, taux, actif]
+        $rate = null;
+        $active = false;
+        foreach ($rows as $h) {
+            $rate = $h->new_rate !== null ? (float) $h->new_rate : $rate;
+            $active = match ($h->event) {
+                'deactivated' => false,
+                default       => true,      // created / rate / activated
+            };
+            $segments[] = [$h->created_at, $rate, $active];
+        }
+
+        $out = [];
+        foreach ($segments as $i => [$start, $r, $on]) {
+            $end = $segments[$i + 1][0] ?? null;     // null = jusqu'à maintenant
+            if ($on && $r !== null && $start->lte($to) && ($end === null || $end->gte($from))) {
+                $out[] = $r;
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
     /** Taux utilisé pour `code` (1 pour la devise principale), NULL si absent. */
     public static function rateOf(?string $code, string $base, array $rates): ?float
     {

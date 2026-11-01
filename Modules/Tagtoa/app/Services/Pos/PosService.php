@@ -247,19 +247,49 @@ class PosService
                 // faite n'est jamais refusée ni recalculée à 5 G pour 5 $.
                 $deviseArticle = $article instanceof MenuItem ? strtoupper((string) $article->currency) : '';
                 $deviseCaisse = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::posBase($terminal->tenant_id);
+                $origine = ['currency_original' => null, 'unit_price_original' => null, 'rate_used' => null, 'price_check' => null];
                 if ($deviseArticle !== '' && $deviseArticle !== $deviseCaisse) {
-                    $tauxCaisse ??= app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->activeFor($terminal->tenant_id, $deviseCaisse);
-                    $converti = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert($price, $deviseArticle, $deviseCaisse, $tauxCaisse);
-                    if ($converti === null) {
-                        // Seule une VRAIE reprise hors ligne garde le prix encaissé (la marchandise est
-                        // remise, l'argent pris). En ligne, un prix envoyé par la caisse n'est jamais cru :
-                        // sinon un article du catalogue se vendrait 0,01 sous son vrai nom, avec son stock.
-                        if (! $negatifPermis) {
-                            throw new \Modules\Tagtoa\App\Exceptions\OrderRuleException('currency_rate_missing');
+                    $service = app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class);
+                    $tauxCaisse ??= $service->activeFor($terminal->tenant_id, $deviseCaisse);
+                    $prixOrigine = $price;
+                    $converti = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert($prixOrigine, $deviseArticle, $deviseCaisse, $tauxCaisse);
+                    $tauxActuel = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::rateOf($deviseArticle, $deviseCaisse, $tauxCaisse);
+                    $verif = null;
+                    $tauxRetenu = $tauxActuel;
+
+                    if ($negatifPermis) {
+                        // Reprise HORS LIGNE : la marchandise est remise et l'argent pris AU PRIX DE LA CAISSE,
+                        // calculé avec le taux de son catalogue — pas forcément celui d'aujourd'hui. On garde ce
+                        // prix s'il correspond à un taux valable dans les 24 h avant la vente ; sinon on
+                        // recalcule au taux du jour ET on le signale. Jamais de rejet, jamais de réécriture
+                        // silencieuse.
+                        $prixCaisse = round((float) ($it['price'] ?? 0), 2);
+                        $valables = $service->ratesActiveBetween($terminal->tenant_id, $deviseArticle, $deviseCaisse, $soldAt->copy()->subHours(24), $soldAt);
+                        $tauxCorrespondant = null;
+                        foreach ($valables as $r) {
+                            if (abs(round($prixOrigine * $r, 2) - $prixCaisse) <= 0.01) {
+                                $tauxCorrespondant = $r;
+                                break;
+                            }
                         }
-                        $converti = (float) ($it['price'] ?? 0);
+                        if ($tauxCorrespondant !== null) {
+                            $converti = $prixCaisse;
+                            $tauxRetenu = $tauxCorrespondant;
+                            $verif = 'till_rate';
+                        } elseif ($converti === null) {
+                            $converti = $prixCaisse;     // plus de taux actif : prix réellement encaissé
+                            $tauxRetenu = null;
+                            $verif = 'no_rate';
+                        } else {
+                            $verif = 'repriced';
+                        }
+                    } elseif ($converti === null) {
+                        // En ligne, un prix envoyé par la caisse n'est jamais cru : sinon un article du
+                        // catalogue se vendrait 0,01 sous son vrai nom, avec son stock.
+                        throw new \Modules\Tagtoa\App\Exceptions\OrderRuleException('currency_rate_missing');
                     }
                     $price = $converti;
+                    $origine = ['currency_original' => $deviseArticle, 'unit_price_original' => $prixOrigine, 'rate_used' => $tauxRetenu, 'price_check' => $verif];
                 }
                 $name  = $article ? $article->name : (string) ($it['name'] ?? 'Article');
 
@@ -281,7 +311,7 @@ class PosService
                 // pas se recalculer tout seuls : ce sont des pièces comptables.
                 $tauxLigne = $taxe->rateFor($article);
 
-                $lines[] = [$article, $name, $price, $cost, $qty, $ligneTotal, $tauxLigne];
+                $lines[] = [$article, $name, $price, $cost, $qty, $ligneTotal, $tauxLigne, $origine];
             }
             $total = max(0, $subtotal - $discount);
 
@@ -324,7 +354,7 @@ class PosService
 
             $facteurRemise = $subtotal > 0 ? max(0, $subtotal - $discount) / $subtotal : 0.0;
 
-            foreach ($lines as [$article, $name, $price, $cost, $qty, $ligneTotal, $tauxLigne]) {
+            foreach ($lines as [$article, $name, $price, $cost, $qty, $ligneTotal, $tauxLigne, $origine]) {
                 // Même prorata que le récapitulatif : la part de taxe d'une
                 // ligne doit pouvoir se ré-additionner pour retomber sur le
                 // total de la vente.
@@ -343,7 +373,7 @@ class PosService
                     'line_total' => $ligneTotal,
                     'tax_rate'   => $taxe->enabled ? $tauxLigne : null,
                     'tax_amount' => $taxe->enabled ? $partLigne['tax'] : null,
-                ]);
+                ] + $origine);
 
                 // UN SEUL STOCK : vendre un plat au comptoir retire du même
                 // stock qu'une commande passée par QR. Et il passe par le

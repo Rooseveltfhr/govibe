@@ -305,7 +305,12 @@ class PosController extends Controller
             (clone $visibles)->whereDate('sold_at', $date)->where('status', 1)
         );
 
-        return view('tagtoa::pos.report', compact('terminal', 'sales', 'z', 'staff', 'byCashier', 'tax'));
+        // CUR-2 : lignes reprises hors ligne dont le prix n'a pas pu être confirmé (taux). Le patron les
+        // voit ; un employé qui ne voit que ses ventes ne voit que les siennes (les ventes ci-dessus).
+        $aVerifier = \Modules\Tagtoa\App\Models\Pos\SaleItem::whereIn('sale_id', $sales->pluck('id'))
+            ->whereIn('price_check', ['repriced', 'no_rate'])->with('sale:id,reference')->get();
+
+        return view('tagtoa::pos.report', compact('terminal', 'sales', 'z', 'staff', 'byCashier', 'tax', 'aVerifier'));
     }
 
     public function products(int $id): View
