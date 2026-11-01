@@ -98,6 +98,7 @@ SH;
         $this->assertStringContainsString('GET /login → 200 https://tagtoa.test/fr/login ; formulaire → https://tagtoa.test/login', $out);
         $this->assertStringContainsString('POST → 302 — session OK', $out);
         $this->assertStringContainsString('GET /admin/login → 404 https://tagtoa.test/admin/login : pas de formulaire', $out);
+        $this->assertStringContainsString('corps : non', $out, 'Extrait de la page 404 : qui répond, le serveur web ou Laravel ?');
         $this->assertStringNotContainsString('ATTENTION', $out);
         $this->assertStringContainsString('_token=tok123', (string) file_get_contents($this->t.'/posted'), 'Le jeton lu est bien renvoyé.');
         $this->assertStringContainsString('cookie=biztap_session', $out);
@@ -123,6 +124,8 @@ SH;
         $this->assertStringContainsString('routes de connexion déclarées : /account/sign-in-login /login', $out);
         $this->assertStringNotContainsString('{id}', $out, 'Une route à paramètre ne se teste pas.');
         $this->assertStringContainsString('GET /account/sign-in-login →', $out);
+        $this->assertStringContainsString('référence GET / →', $out);
+        $this->assertStringContainsString('référence GET /pay/result →', $out);
     }
 
     public function test_when_no_login_route_is_found_the_raw_route_list_is_shown_instead_of_guessing(): void

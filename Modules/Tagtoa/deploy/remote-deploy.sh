@@ -308,6 +308,12 @@ if [ -n "$HOST_ONLY" ]; then
     echo "   (aucune route GET contenant « login » — routes proches ci-dessous : $(printf '%s\n' "$ROUTES" | grep -c .) routes au total)"
     printf '%s\n' "$ROUTES" | grep -iE 'sign|auth|account|register|password|connexion|session' | head -15 | cut -c1-150 | sed 's/^/     /'
   fi
+  # Pages de RÉFÉRENCE : si « / » et une route publique TAGTOA répondent 200 mais que /login répond 404,
+  # le 404 vient de l'application ; sinon c'est le serveur web (mauvais hôte virtuel) qu'on interroge.
+  for REF in / /pay/result; do
+    rc="$(curl -sk -m 15 -L --max-redirs 5 -o /dev/null -w '%{http_code} %{url_effective}' --resolve "$HOST_ONLY:443:127.0.0.1" --resolve "www.$HOST_ONLY:443:127.0.0.1" "https://$HOST_ONLY$REF" 2>/dev/null)"
+    echo "   référence GET $REF → $rc"
+  done
   for LP in $(printf '%s\n' /login /admin/login $LPS | sort -u); do
     JAR="$(mktemp)"
     RES=(--resolve "$HOST_ONLY:443:127.0.0.1" --resolve "www.$HOST_ONLY:443:127.0.0.1")
@@ -316,7 +322,11 @@ if [ -n "$HOST_ONLY" ]; then
     fin="$(printf '%s' "$page" | sed -n 's/^__FINAL__ //p' | tail -1)"
     tok="$(printf '%s' "$page" | grep -o 'name="_token" value="[^"]*"' | head -1 | sed 's/.*value="//; s/"$//')"
     [ -z "$tok" ] && tok="$(printf '%s' "$page" | grep -o 'name="csrf-token" content="[^"]*"' | head -1 | sed 's/.*content="//; s/"$//')"
-    if [ -z "$tok" ]; then echo "   GET $LP → $fin : pas de formulaire avec jeton CSRF"; rm -f "$JAR"; continue; fi
+    if [ -z "$tok" ]; then
+      echo "   GET $LP → $fin : pas de formulaire avec jeton CSRF"
+      echo "     corps : $(printf '%s' "$page" | grep -v '^__FINAL__' | tr '\n' ' ' | sed 's/<[^>]*>/ /g' | tr -s ' ' | cut -c1-200)"
+      rm -f "$JAR"; continue
+    fi
     finurl="${fin#* }"
     # Où le formulaire envoie-t-il vraiment ? (un autre hôte = cookie non envoyé = 419)
     action="$(printf '%s' "$page" | tr '\n' ' ' | grep -oE '<form[^>]*method="(post|POST)"[^>]*>' | head -1 | grep -oE 'action="[^"]*"' | sed 's/action="//; s/"$//; s/&amp;/\&/g')"
