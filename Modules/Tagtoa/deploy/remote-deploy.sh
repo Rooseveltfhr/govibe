@@ -261,6 +261,63 @@ else
   echo "OPcache reset : TAGTOA_OPCACHE_RESET_TOKEN absent du .env (étape ignorée — voir docs/SECURITY.md)"
 fi
 
+# 5.9) SESSION / « Page expirée » (419) — diagnostic + réparation SÛRE, jamais bloquant.
+#      Un 419 à chaque connexion = la session écrite au GET /login n'est pas relue
+#      au POST. Causes typiques : dossier de sessions absent ou non inscriptible,
+#      disque/quota plein, cookie `Secure`/`Domain` qui ne correspond pas à l'URL.
+#      Seule réparation automatique : (re)créer les dossiers storage/framework/*
+#      (sans rien supprimer). Le reste est AFFICHÉ (aucune valeur secrète) pour
+#      décider la correction du .env.
+echo "==> Session / connexion (419)"
+for d in storage/framework/sessions storage/framework/cache/data storage/framework/views; do
+  if [ ! -d "$d" ]; then mkdir -p "$d" && echo "   CRÉÉ : $d (il manquait — sans lui, Laravel ne peut pas garder la session : 419)"; fi
+  if [ -w "$d" ]; then echo "   $d : inscriptible ($(find "$d" -maxdepth 1 -type f 2>/dev/null | wc -l) fichiers)"; else echo "   ATTENTION : $d NON inscriptible (propriétaire $(stat -c %U "$d" 2>/dev/null))"; fi
+done
+newest=$(find storage/framework/sessions -maxdepth 1 -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
+[ -n "$newest" ] && echo "   session la plus récente : il y a $(( $(date +%s) - ${newest%.*} )) s" || echo "   aucune session enregistrée"
+# Écriture réelle (un dossier « inscriptible » sur un quota plein échoue quand même).
+if printf 'x' > storage/framework/sessions/.tagtoa-write-test 2>/dev/null; then rm -f storage/framework/sessions/.tagtoa-write-test; echo "   écriture réelle : OK"; else echo "   ATTENTION : écriture IMPOSSIBLE dans storage/framework/sessions (disque ou quota plein ?)"; fi
+df -h . 2>/dev/null | tail -1 | awk '{print "   disque : "$5" utilisé, "$4" libre"}'
+(quota -s 2>/dev/null | tail -n +3 | head -3 | sed 's/^/   quota : /') || true
+timeout 30 php -r '
+  require "vendor/autoload.php"; $app = require "bootstrap/app.php";
+  $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+  $s = config("session");
+  printf("   config : driver=%s domain=%s secure=%s same_site=%s path=%s lifetime=%s cookie=%s\n",
+    $s["driver"] ?? "?", var_export($s["domain"] ?? null, true), var_export($s["secure"] ?? null, true),
+    var_export($s["same_site"] ?? null, true), $s["path"] ?? "?", $s["lifetime"] ?? "?", $s["cookie"] ?? "?");
+  printf("   app.url=%s\n", config("app.url"));
+' 2>&1 | head -4 || echo "   (config session illisible)"
+# Parcours RÉEL de connexion, sur ce serveur, sans identifiants : GET /login, jeton
+# CSRF, POST d'un compte inexistant. 419 = session cassée ; 302/422/200 = session OK
+# (le compte est simplement refusé). Aucun mot de passe réel n'est utilisé.
+HOST_ONLY="$(grep -m1 '^APP_URL=' .env 2>/dev/null | cut -d= -f2- | sed -E 's#^https?://##; s#/.*$##')"
+if [ -n "$HOST_ONLY" ]; then
+  for LP in /login /admin/login; do
+    JAR="$(mktemp)"
+    page="$(curl -sk -m 15 -c "$JAR" -b "$JAR" --resolve "$HOST_ONLY:443:127.0.0.1" "https://$HOST_ONLY$LP" 2>/dev/null)"
+    tok="$(printf '%s' "$page" | grep -o 'name="_token" value="[^"]*"' | head -1 | sed 's/.*value="//; s/"$//')"
+    [ -z "$tok" ] && tok="$(printf '%s' "$page" | grep -o 'name="csrf-token" content="[^"]*"' | head -1 | sed 's/.*content="//; s/"$//')"
+    if [ -z "$tok" ]; then echo "   $LP : pas de formulaire avec jeton CSRF (route absente ?)"; rm -f "$JAR"; continue; fi
+    # Attributs des cookies posés (noms + drapeaux, JAMAIS les valeurs).
+    flags="$(curl -sk -m 15 -o /dev/null -D - --resolve "$HOST_ONLY:443:127.0.0.1" "https://$HOST_ONLY$LP" 2>/dev/null | grep -i '^set-cookie' | sed -E 's/=[^;]*/=…/' | tr -d '\r' | head -3 | tr '\n' ' ')"
+    code="$(curl -sk -m 15 -o /dev/null -w '%{http_code}' -c "$JAR" -b "$JAR" --resolve "$HOST_ONLY:443:127.0.0.1" \
+            -H "Referer: https://$HOST_ONLY$LP" --data-urlencode "_token=$tok" \
+            --data-urlencode "email=diag-419@invalid.invalid" --data-urlencode "password=diag-not-a-password" \
+            "https://$HOST_ONLY$LP" 2>/dev/null)"
+    rm -f "$JAR"
+    case "$code" in
+      419) echo "   $LP : POST → 419 PAGE EXPIRÉE — la session n'est pas conservée (voir lignes ci-dessus). Cookies : $flags" ;;
+      000) echo "   $LP : injoignable en local" ;;
+      *)   echo "   $LP : POST → $code — session OK (compte de test refusé, normal). Cookies : $flags" ;;
+    esac
+  done
+fi
+echo "   419 dans laravel.log : $(grep -c 'TokenMismatchException\|CSRF token mismatch' storage/logs/laravel.log 2>/dev/null || echo 0)"
+echo "   dernières erreurs (titres) :"
+grep -E '^\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{8}\] [a-z]+\.(ERROR|CRITICAL|ALERT|EMERGENCY):' storage/logs/laravel.log 2>/dev/null \
+  | tail -5 | cut -c1-260 | sed 's/^/     /' || true
+
 # 6) Smoke test public (non bloquant). Activer : TAGTOA_SMOKE_BASE=https://tagtoa.com/tapbiz/public
 if [ -n "${TAGTOA_SMOKE_BASE:-}" ]; then
   echo "==> Smoke test public @ ${TAGTOA_SMOKE_BASE}"

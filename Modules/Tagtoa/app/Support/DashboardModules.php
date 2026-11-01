@@ -99,6 +99,7 @@ class DashboardModules
             'only_types' => ['hotel'],
             'children' => [
                 ['label' => 'Chambres', 'icon' => 'fa-bed', 'url' => '/tagtoa/hotel/rooms'],
+                ['label' => 'Services', 'icon' => 'fa-bell-concierge', 'url' => '/tagtoa/hotel/services'],
             ],
         ],
 

@@ -369,7 +369,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     });
 
     // MON COMMERCE — le déclarer, le modifier, passer de l'un à l'autre.
-    // HÔTEL (H2) — chambres. Réservé au commerce de type « hôtel » (RoomController::hotel()).
+    // HÔTEL (H2/H3) — chambres et services. Réservé au commerce de type « hôtel » (RoomController::hotel()).
     Route::prefix('hotel')->name('tagtoa.hotel.')->group(function () {
         Route::get('/', fn () => redirect()->route('tagtoa.hotel.rooms'));
         Route::get('/rooms', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'index'])->name('rooms');
@@ -377,6 +377,12 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/rooms/bulk', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'bulk'])->name('rooms.bulk');
         Route::put('/rooms/{id}', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'update'])->whereNumber('id')->name('rooms.update');
         Route::post('/rooms/{id}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'toggle'])->whereNumber('id')->name('rooms.toggle');
+        // H3 — catalogue des services (room service = un Menu existant du même hôtel).
+        Route::get('/services', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'index'])->name('services');
+        Route::post('/services', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'store'])->name('services.store');
+        Route::post('/services/defaults', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'defaults'])->name('services.defaults');
+        Route::put('/services/{id}', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'update'])->whereNumber('id')->name('services.update');
+        Route::post('/services/{id}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'toggle'])->whereNumber('id')->name('services.toggle');
     });
 
     Route::prefix('business')->name('tagtoa.business.')->group(function () {
