@@ -85,6 +85,7 @@ class CurrencyRateService
                 'updated_by' => $actor,
             ];
 
+            $etaitInactif = $row && ! $row->is_active;
             if ($row) {
                 $row->update($attrs);
             } else {
@@ -93,6 +94,10 @@ class CurrencyRateService
 
             if ($old === null || abs($old - $rate) > 1e-9) {
                 $this->history($row, $old, $rate, $old === null ? 'created' : 'rate', $actor);
+            } elseif ($etaitInactif) {
+                // Réenregistrer le même taux d'un moyen désactivé le RÉACTIVE : l'historique doit le dire,
+                // sinon la période serait comptée comme inactive.
+                $this->history($row, $old, $rate, 'activated', $actor);
             }
 
             return $row;

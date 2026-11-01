@@ -108,7 +108,7 @@
 @if(! empty($aVerifier) && $aVerifier->isNotEmpty())
     <div class="card" style="margin-top:16px;border-left:4px solid #e0a100">
         <div class="h-row"><h2><i class="fa-solid fa-triangle-exclamation" style="color:#e0a100"></i> {{ __('Taux à vérifier') }}</h2></div>
-        <p style="color:var(--muted);font-size:13px;margin:0 0 8px">{{ __('Ventes reprises hors ligne dont le prix ne correspondait à aucun taux valable dans les 24 h avant la vente (ou dont le taux a été désactivé).') }}</p>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 8px">{{ __('Ventes reprises hors ligne dont le prix ne correspondait à aucun taux valable dans les 24 h avant la vente, dont le taux a été désactivé, ou encaissées à un ancien taux différent du taux du jour.') }}</p>
         <table>
             <thead><tr><th>{{ __('Vente') }}</th><th>{{ __('Article') }}</th><th>{{ __('Prix d\'origine') }}</th><th>{{ __('Prix retenu') }}</th><th>{{ __('Constat') }}</th></tr></thead>
             <tbody>
@@ -116,7 +116,11 @@
                 <tr><td><b>{{ $l->sale?->reference }}</b></td><td>{{ $l->name }}</td>
                     <td>{{ \Modules\Tagtoa\App\Support\Money::format((float) $l->unit_price_original, $l->currency_original) }}</td>
                     <td>{{ number_format((float) $l->price, 2) }}</td>
-                    <td>{{ $l->price_check === 'repriced' ? __('Recalculé au taux du jour') : __('Prix encaissé gardé : plus de taux actif') }}</td></tr>
+                    <td>{{ match ($l->price_check) {
+                        'repriced' => __('Recalculé au taux du jour'),
+                        'till_old' => __('Prix de la caisse gardé au taux de la caisse (:r), différent du taux du jour', ['r' => rtrim(rtrim(number_format((float) $l->rate_used, 6, '.', ''), '0'), '.')]),
+                        default    => __('Prix encaissé gardé : plus de taux actif'),
+                    } }}</td></tr>
             @endforeach
             </tbody>
         </table>

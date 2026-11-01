@@ -257,17 +257,23 @@ class PosService
                     $verif = null;
                     $tauxRetenu = $tauxActuel;
 
-                    if ($negatifPermis) {
+                    // Confiance au prix de la caisse : reprise hors ligne ET heure annoncée ACCEPTÉE (ni trop
+                    // ancienne, ni dans le futur : alors $soldAt = maintenant) et réellement passée (> 2 min).
+                    // /sync peut être appelé en ligne : sans cela, annoncer « maintenant » suffirait.
+                    $confiancePrix = $negatifPermis && $soldAt->lt(now()->subMinutes(2));
+                    $prixCaisse = round((float) ($it['price'] ?? 0), 2);
+                    if ($confiancePrix) {
                         // Reprise HORS LIGNE : la marchandise est remise et l'argent pris AU PRIX DE LA CAISSE,
                         // calculé avec le taux de son catalogue — pas forcément celui d'aujourd'hui. On garde ce
                         // prix s'il correspond à un taux valable dans les 24 h avant la vente ; sinon on
                         // recalcule au taux du jour ET on le signale. Jamais de rejet, jamais de réécriture
                         // silencieuse.
-                        $prixCaisse = round((float) ($it['price'] ?? 0), 2);
                         $valables = $service->ratesActiveBetween($terminal->tenant_id, $deviseArticle, $deviseCaisse, $soldAt->copy()->subHours(24), $soldAt);
                         $tauxCorrespondant = null;
                         foreach ($valables as $r) {
-                            if (abs(round($prixOrigine * $r, 2) - $prixCaisse) <= 0.01) {
+                            // En CENTIMES entiers (à 1 centime près : arrondis JS/PHP), jamais en flottants :
+                            // 1,30 contre 1,31 donnait 0,0100000000000000009 > 0,01.
+                            if (abs((int) round($prixOrigine * $r * 100) - (int) round($prixCaisse * 100)) <= 1) {
                                 $tauxCorrespondant = $r;
                                 break;
                             }
@@ -275,7 +281,9 @@ class PosService
                         if ($tauxCorrespondant !== null) {
                             $converti = $prixCaisse;
                             $tauxRetenu = $tauxCorrespondant;
-                            $verif = 'till_rate';
+                            // « till_old » : taux de la caisse DIFFÉRENT du taux du jour — accepté, mais visible
+                            // dans le rapport du patron (un ancien taux plus bas = un prix plus bas).
+                            $verif = ($tauxActuel !== null && abs($tauxCorrespondant - $tauxActuel) < 1e-9) ? 'till_rate' : 'till_old';
                         } elseif ($converti === null) {
                             $converti = $prixCaisse;     // plus de taux actif : prix réellement encaissé
                             $tauxRetenu = null;
@@ -284,9 +292,22 @@ class PosService
                             $verif = 'repriced';
                         }
                     } elseif ($converti === null) {
-                        // En ligne, un prix envoyé par la caisse n'est jamais cru : sinon un article du
-                        // catalogue se vendrait 0,01 sous son vrai nom, avec son stock.
-                        throw new \Modules\Tagtoa\App\Exceptions\OrderRuleException('currency_rate_missing');
+                        if (! $negatifPermis) {
+                            // En ligne, un prix envoyé par la caisse n'est jamais cru : sinon un article du
+                            // catalogue se vendrait 0,01 sous son vrai nom, avec son stock.
+                            throw new \Modules\Tagtoa\App\Exceptions\OrderRuleException('currency_rate_missing');
+                        }
+                        // Reprise dont l'heure n'est pas fiable ET plus aucun taux actif : la marchandise est
+                        // partie, on ne coince pas la vente sur la caisse ; elle est gardée et SIGNALÉE.
+                        $converti = $prixCaisse;
+                        $tauxRetenu = null;
+                        $verif = 'no_rate';
+                    }
+                    // Les colonnes de prix de la vente sont en decimal(10,2) : au-delà, une exception SQL
+                    // laisserait la vente coincée sur la caisse alors que la marchandise est partie.
+                    if ($converti > 99999999) {
+                        $converti = 99999999.0;
+                        $verif = 'repriced';
                     }
                     $price = $converti;
                     $origine = ['currency_original' => $deviseArticle, 'unit_price_original' => $prixOrigine, 'rate_used' => $tauxRetenu, 'price_check' => $verif];
@@ -300,7 +321,9 @@ class PosService
                     ? (float) $article->cost_price
                     : null;
                 if ($cost !== null && $deviseArticle !== '' && $deviseArticle !== $deviseCaisse) {
-                    $cost = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert($cost, $deviseArticle, $deviseCaisse, $tauxCaisse);
+                    // Au taux RETENU pour le prix (celui de la caisse si conservé) : sinon la marge d'une
+                    // vente à l'ancien taux serait fausse. Sans taux retenu, le coût reste inconnu.
+                    $cost = $origine['rate_used'] !== null ? round($cost * (float) $origine['rate_used'], 2) : null;
                 }
 
                 $ligneTotal = Pricing::lineTotal($unit, $price, $qty);

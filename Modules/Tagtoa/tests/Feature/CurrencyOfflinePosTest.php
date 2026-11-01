@@ -131,7 +131,7 @@ class CurrencyOfflinePosTest extends TestCase
         $this->assertSame('USD', $l->currency_original);
         $this->assertEquals(5, (float) $l->unit_price_original);
         $this->assertEquals(130, (float) $l->rate_used, 'Le taux de la caisse est conservé.');
-        $this->assertSame('till_rate', $l->price_check);
+        $this->assertSame('till_old', $l->price_check, 'Taux de la caisse différent du taux du jour : visible dans le rapport.');
     }
 
     public function test_an_offline_price_matching_no_valid_rate_is_repriced_and_flagged_never_rejected(): void
@@ -180,8 +180,104 @@ class CurrencyOfflinePosTest extends TestCase
 
         $this->reprise('D2', 650, 30);   // la caisse avait encore le taux 130 : prix légitime
 
-        $this->assertSame('till_rate', $this->ligne()->price_check);
+        $this->assertSame('till_old', $this->ligne()->price_check);
         $this->assertEquals(650, (float) $this->ligne()->price);
+    }
+
+    public function test_a_price_at_the_current_rate_is_plain_till_rate_and_not_flagged(): void
+    {
+        $this->tauxIlYa(5, 130);
+
+        $this->reprise('J', 650);
+
+        $this->assertSame('till_rate', $this->ligne()->price_check, 'Même taux que le taux du jour : rien à signaler.');
+    }
+
+    /* ---------- corrections de la revue indépendante ---------- */
+
+    public function test_offline_trust_needs_a_claimed_time_really_in_the_past_and_accepted(): void
+    {
+        $this->tauxIlYa(5, 130);
+        $this->tauxIlYa(2, 135);
+
+        $this->reprise('K1', 650, 0);                       // « vendu maintenant » : /sync appelé en ligne
+        $this->assertEquals(675, (float) $this->ligne()->price, 'Annoncer « maintenant » ne donne pas la confiance : taux du jour.');
+        $this->assertNull($this->ligne()->price_check);
+
+        $this->reprise('K2', 650, 60 * 100);                // 100 h : refusée par resolveSoldAt (heure serveur)
+        $this->assertEquals(675, (float) $this->ligne()->price, 'Une heure trop ancienne retombe sur l\'heure serveur : pas de confiance.');
+        $this->assertNull($this->ligne()->price_check);
+    }
+
+    public function test_the_tolerance_is_one_cent_in_integer_cents_not_floating_point(): void
+    {
+        $this->tauxIlYa(5, 0.26);
+        $this->steak->update(['price' => 5]);                // 5 × 0,26 = 1,30
+
+        $this->reprise('L1', 1.31);                          // à 1 centime : accepté (avant : refusé à tort, 0,0100000000000000009)
+        $this->assertSame('till_rate', $this->ligne()->price_check);
+
+        $this->reprise('L2', 1.32);                          // à 2 centimes : refusé
+        $this->assertSame('repriced', $this->ligne()->price_check);
+        $this->assertEquals(1.3, (float) $this->ligne()->price);
+    }
+
+    public function test_resaving_the_same_rate_of_a_deactivated_currency_is_recorded_as_a_reactivation(): void
+    {
+        $this->tauxIlYa(10, 130);
+        $this->desactiverIlYa(6);
+        $this->tauxIlYa(3, 130);                             // même taux, réactive
+
+        $s = app(CurrencyRateService::class);
+        $this->assertSame([130.0], $s->ratesActiveBetween('t-1', 'USD', 'HTG', now()->subHours(2), now()->subHours(1)), 'Actif depuis la réactivation.');
+        $this->assertSame([], $s->ratesActiveBetween('t-1', 'USD', 'HTG', now()->subHours(5), now()->subHours(4)), 'Inactif entre les deux.');
+        $this->assertSame('activated', \Modules\Tagtoa\App\Models\Currency\CurrencyRateHistory::allTenants()->latest('id')->first()->event);
+    }
+
+    public function test_the_cost_is_converted_at_the_rate_retained_for_the_price(): void
+    {
+        $this->steak->update(['cost_price' => 3]);
+        $this->tauxIlYa(5, 130);
+        $this->tauxIlYa(2, 135);
+
+        $this->reprise('M', 650);                            // taux de la caisse 130 conservé
+
+        $this->assertEquals(390, (float) $this->ligne()->cost_price, '3 $ × 130 : même taux que le prix, pas 405 au taux du jour.');
+    }
+
+    public function test_a_price_above_the_column_limit_is_refused_by_validation_online_and_offline(): void
+    {
+        $this->tauxIlYa(5, 130);
+
+        $res = $this->reprise('N', 1000000000);
+        $this->assertFalse($res['ok']);
+        $this->assertSame(0, Sale::count(), 'Rien d\'écrit : pas d\'exception SQL qui coince la vente.');
+
+        $this->postJson(route('tagtoa.pos.sale', $this->caisse->id), ['items' => [
+            ['ref' => 'menu:'.$this->steak->id, 'name' => 'Steak', 'qty' => 1, 'price' => 1000000000],
+        ]])->assertStatus(422);
+    }
+
+    public function test_the_owner_report_also_lists_prices_kept_at_an_older_till_rate(): void
+    {
+        $this->tauxIlYa(5, 130);
+        $this->tauxIlYa(2, 135);
+        $this->reprise('O', 650);
+
+        $html = $this->get(route('tagtoa.pos.report', $this->caisse->id))->assertOk()->getContent();
+        $this->assertStringContainsString('Taux à vérifier', $html);
+        $this->assertStringContainsString('au taux de la caisse (130)', $html);
+    }
+
+    public function test_an_untrusted_time_with_no_active_rate_keeps_the_price_flagged_instead_of_stranding_the_sale(): void
+    {
+        $this->tauxIlYa(10, 130);
+        $this->desactiverIlYa(3);
+
+        $res = $this->reprise('P', 650, 0);                 // heure non fiable ET plus de taux
+
+        $this->assertTrue($res['ok'], 'La marchandise est partie : la vente n\'est pas coincée.');
+        $this->assertSame('no_rate', $this->ligne()->price_check);
     }
 
     public function test_an_online_sale_ignores_the_price_sent_by_the_till(): void
