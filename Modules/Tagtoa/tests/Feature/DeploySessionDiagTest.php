@@ -98,7 +98,7 @@ SH;
         $this->assertStringContainsString('GET /login → 200 https://tagtoa.test/fr/login ; formulaire → https://tagtoa.test/login', $out);
         $this->assertStringContainsString('POST → 302 — session OK', $out);
         $this->assertStringContainsString('GET /admin/login → 404 https://tagtoa.test/admin/login : pas de formulaire', $out);
-        $this->assertStringContainsString('corps : non', $out, 'Extrait de la page 404 : qui répond, le serveur web ou Laravel ?');
+        $this->assertMatchesRegularExpression('/corps :\s+non/', $out, 'Extrait de la page 404 : qui répond, le serveur web ou Laravel ?');
         $this->assertStringNotContainsString('ATTENTION', $out);
         $this->assertStringContainsString('_token=tok123', (string) file_get_contents($this->t.'/posted'), 'Le jeton lu est bien renvoyé.');
         $this->assertStringContainsString('cookie=biztap_session', $out);
