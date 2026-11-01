@@ -34,7 +34,24 @@
         .info{background:#fff5e6;color:#7a5200;border-radius:14px;padding:14px 16px;margin-bottom:14px;font-size:14px}
         .err{color:#c0392b;font-size:13px;margin-top:6px}
         .lnk{display:block;text-align:center;color:var(--mut);font-size:14px;margin-top:10px}
+        /* PAY-2 — grille de moyens : une carte = un moyen, un seul choix (radio natif, accessible au clavier) */
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+        .opt{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:14px 10px;background:var(--sf);border:2px solid var(--bd);border-radius:16px;cursor:pointer;min-height:112px;transition:border-color .15s,box-shadow .15s}
+        .opt:hover{border-color:#bbb}
+        .opt input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+        .opt:has(input:checked){border-color:var(--acc);box-shadow:0 0 0 3px rgba(44,184,9,.18)}
+        .opt:has(input:focus-visible){outline:3px solid #1a5fd0;outline-offset:2px}
+        .opt .lg{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;overflow:hidden;flex:0 0 46px}
+        .opt .lg img{width:100%;height:100%;object-fit:contain;background:#fff}
+        .opt .nm{font:700 14px var(--fh);line-height:1.2;word-break:break-word}
+        .opt .sub{font-size:11.5px;color:#555}
+        .opt .tick{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;border:2px solid #bbb;background:#fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px}
+        .opt:has(input:checked) .tick{background:var(--acc);border-color:var(--acc)}
+        .panel{margin-top:14px}
+        .panel[hidden]{display:none}
+        .go{background:var(--acc)}
     </style>
+<noscript><style>.panel[hidden]{display:block}.opt{display:none}</style></noscript>
 </head>
 <body>
 <div class="wrap">
@@ -55,53 +72,76 @@
             <div class="info"><i class="fa-solid fa-circle-info"></i> {{ __('Aucun moyen de paiement en ligne n\'est disponible. Payez directement auprès du commerce.') }}</div>
         @endif
 
-        @if(! empty($online))
-            <h2>{{ __('Payer en ligne') }}</h2>
-            @foreach($online as $o)
-                <a class="btn" style="background:{{ $o['color'] }}" href="{{ route('tagtoa.pay.online.start', ['gateway' => $o['driver'], 'type' => $type, 'orderId' => $order->id]) }}">
-                    <i class="{{ $o['icon'] }}"></i> {{ __('Payer avec') }} {{ __($o['label']) }}
-                </a>
-            @endforeach
+        @if($errors->any())
+            <div class="info" role="alert" style="background:#fdecea;color:#8a1f11">
+                @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
+            </div>
         @endif
 
-        @if($methods->isNotEmpty())
-            <h2>{{ __('Payer par un autre moyen') }}</h2>
-            @foreach($methods as $m)
-                <div class="card">
-                    <div class="mh"><i class="{{ $m->icon }}" style="color:{{ $m->brand_color }}"></i> {{ $m->display_label }}</div>
-                    @if($m->qr_url)<div class="qr"><img src="{{ $m->qr_url }}" alt=""></div>@endif
-                    @if($m->account_holder)<div class="kv"><span>{{ __('Titulaire') }}</span><b>{{ $m->account_holder }}</b></div>@endif
-                    @if($m->institution)<div class="kv"><span>{{ __('Institution') }}</span><b>{{ $m->institution }}</b></div>@endif
-                    @if($m->account_number)<div class="kv"><span>{{ __('Numéro / compte') }}</span><b>{{ $m->account_number }}</b></div>@endif
-                    <div class="kv"><span>{{ __('Montant') }}</span><b>{{ Money::format($order->total, $order->currency) }}</b></div>
-                    @if($m->instructions)<div class="instr">{{ $m->instructions }}</div>@endif
+        @if(! empty($choices))
+            @php
+                $pre = old('payment_method_id') ? 'manual-'.old('payment_method_id') : (count($choices) === 1 ? $choices[0]['key'] : null);
+            @endphp
+            <h2 id="choose">{{ __('Choisissez un moyen de paiement') }}</h2>
+            <div class="grid" role="radiogroup" aria-labelledby="choose">
+                @foreach($choices as $c)
+                    <label class="opt">
+                        <input type="radio" name="choice" value="{{ $c['key'] }}" data-panel="p-{{ $c['key'] }}" @checked($pre === $c['key'])>
+                        <span class="lg" style="background:{{ $c['color'] }}">
+                            @if($c['logo_url'])<img src="{{ $c['logo_url'] }}" alt="">@else<i class="{{ $c['icon'] }}" aria-hidden="true"></i>@endif
+                        </span>
+                        <span class="nm">{{ $c['label'] }}</span>
+                        <span class="sub">{{ __($c['badge']) }}</span>
+                        <span class="tick" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+                    </label>
+                @endforeach
+            </div>
+
+            @foreach($choices as $c)
+                <div class="panel" id="p-{{ $c['key'] }}" @if($pre !== $c['key']) hidden @endif>
+                    @if($c['kind'] === 'online')
+                        <a class="btn go" href="{{ $c['url'] }}"><i class="{{ $c['icon'] }}"></i> {{ __('Payer avec') }} {{ __($c['label']) }}</a>
+                    @else
+                        @php $m = $c['method']; @endphp
+                        <div class="card">
+                            <div class="mh"><i class="{{ $m->icon }}" style="color:{{ $c['color'] }}"></i> {{ $m->display_label }}</div>
+                            @if($m->qr_url)<div class="qr"><img src="{{ $m->qr_url }}" alt="{{ __('QR de paiement') }}"></div>@endif
+                            @if($m->account_holder)<div class="kv"><span>{{ __('Titulaire') }}</span><b>{{ $m->account_holder }}</b></div>@endif
+                            @if($m->institution)<div class="kv"><span>{{ __('Institution') }}</span><b>{{ $m->institution }}</b></div>@endif
+                            @if($m->account_number)<div class="kv"><span>{{ __('Numéro / compte') }}</span><b>{{ $m->account_number }}</b></div>@endif
+                            <div class="kv"><span>{{ __('Montant') }}</span><b>{{ Money::format($order->total, $order->currency) }}</b></div>
+                            @if($m->instructions)<div class="instr">{{ $m->instructions }}</div>@endif
+                        </div>
+                        @unless($claimed)
+                            <div class="card">
+                                <div class="mh"><i class="fa-solid fa-hand-holding-dollar" style="color:var(--acc)"></i> {{ __('J\'ai payé') }}</div>
+                                <form id="claim-{{ $m->id }}" method="POST" action="{{ route('tagtoa.pay.order.claim', [$type, $order->reference]) }}">
+                                    @csrf
+                                    <input type="hidden" name="payment_method_id" value="{{ $m->id }}">
+                                    <label class="lbl" for="pn-{{ $m->id }}">{{ __('Votre nom') }}</label>
+                                    <input class="inp" id="pn-{{ $m->id }}" name="payer_name" maxlength="120" value="{{ old('payment_method_id') == $m->id ? old('payer_name') : '' }}" autocomplete="name">
+                                    <label class="lbl" for="pp-{{ $m->id }}">{{ __('Votre téléphone') }}</label>
+                                    <input class="inp" id="pp-{{ $m->id }}" name="payer_phone" type="tel" maxlength="24" value="{{ old('payment_method_id') == $m->id ? old('payer_phone') : '' }}" autocomplete="tel">
+                                    <label class="lbl" for="pr-{{ $m->id }}">{{ __('Référence du paiement (optionnel)') }}</label>
+                                    <input class="inp" id="pr-{{ $m->id }}" name="reference" maxlength="120" value="{{ old('payment_method_id') == $m->id ? old('reference') : '' }}">
+                                    <button class="btn" style="background:var(--acc);margin:16px 0 0"><i class="fa-solid fa-check"></i> {{ __('Envoyer au commerce') }}</button>
+                                </form>
+                            </div>
+                        @endunless
+                    @endif
                 </div>
             @endforeach
 
-            @unless($claimed)
-                <div class="card">
-                    <div class="mh"><i class="fa-solid fa-hand-holding-dollar" style="color:var(--acc)"></i> {{ __('J\'ai payé') }}</div>
-                    @if($errors->any())
-                        <div class="info" role="alert" style="margin-top:8px;background:#fdecea;color:#8a1f11">
-                            @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
-                        </div>
-                    @endif
-                    <form id="claim" method="POST" action="{{ route('tagtoa.pay.order.claim', [$type, $order->reference]) }}">
-                        @csrf
-                        <label class="lbl" for="pm">{{ __('Moyen utilisé') }}</label>
-                        <select class="inp" id="pm" name="payment_method_id" required>
-                            @foreach($methods as $m)<option value="{{ $m->id }}" @selected(old('payment_method_id') == $m->id)>{{ $m->display_label }}</option>@endforeach
-                        </select>
-                        <label class="lbl" for="pn">{{ __('Votre nom') }}</label>
-                        <input class="inp" id="pn" name="payer_name" maxlength="120" value="{{ old('payer_name') }}">
-                        <label class="lbl" for="pp">{{ __('Votre téléphone') }}</label>
-                        <input class="inp" id="pp" name="payer_phone" type="tel" maxlength="20" value="{{ old('payer_phone') }}">
-                        <label class="lbl" for="pr">{{ __('Référence du paiement (optionnel)') }}</label>
-                        <input class="inp" id="pr" name="reference" maxlength="120" value="{{ old('reference') }}">
-                        <button class="btn" style="background:var(--acc);margin:16px 0 0"><i class="fa-solid fa-check"></i> {{ __('Envoyer au commerce') }}</button>
-                    </form>
-                </div>
-            @endunless
+            <script>
+                (function(){
+                    var radios = document.querySelectorAll('.opt input[type=radio]');
+                    function show(){
+                        document.querySelectorAll('.panel').forEach(function(p){ p.hidden = true; });
+                        radios.forEach(function(r){ if (r.checked) { var p = document.getElementById(r.dataset.panel); if (p) { p.hidden = false; } } });
+                    }
+                    radios.forEach(function(r){ r.addEventListener('change', show); });
+                })();
+            </script>
         @endif
     @endif
 
