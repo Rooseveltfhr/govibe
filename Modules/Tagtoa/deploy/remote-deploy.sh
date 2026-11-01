@@ -294,17 +294,19 @@ timeout 30 php -r '
 HOST_ONLY="$(grep -m1 '^APP_URL=' .env 2>/dev/null | cut -d= -f2- | sed -E 's#^https?://##; s#/.*$##')"
 if [ -n "$HOST_ONLY" ]; then
   # Les routes de connexion déclarées par l'application (POST …login), plus les classiques.
-  # Toutes les routes GET dont l'adresse contient « login » (le site peut avoir sa connexion ailleurs
-  # que /login : sur tagtoa.com, /login et /admin/login répondaient 404).
-  LPS="$(timeout 40 php artisan route:list --json 2>/dev/null | grep -oE '"uri":"[^"]*login[^"]*"' | sed -E 's/"uri":"//; s/"$//; s#\\/#/#g' | grep -v '[{]' | sed 's#^#/#; s#^//#/#' | sort -u | head -8)"
+  # Toutes les routes GET dont l'adresse contient « login ». On interroge le routeur directement
+  # (et NON `artisan route:list`, qui instancie les contrôleurs : sur tagtoa.com il plante sur
+  # GooglePlayService, dont le constructeur lit un google-service-account.json absent).
+  ROUTES="$(timeout 40 php -r '
+    require "vendor/autoload.php"; $app = require "bootstrap/app.php";
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+    foreach ($app["router"]->getRoutes() as $r) { echo implode("|", $r->methods()), " ", $r->uri(), "\n"; } /*getRoutes*/
+  ' 2>/dev/null)"
+  LPS="$(printf '%s\n' "$ROUTES" | grep -E '^GET' | awk '{print $2}' | grep -i 'login' | grep -v '[{]' | sed 's#^#/#; s#^//#/#' | sort -u | head -8)"
   echo "   routes de connexion déclarées : $(printf '%s ' $LPS)"
   if [ -z "$LPS" ]; then
-    # Aucune route « login » trouvée : montrer POURQUOI (sortie brute, 12 lignes) au lieu de deviner.
-    echo "   (aucune route contenant « login » — extrait de route:list ci-dessous)"
-    for pat in login sign-in signin auth account; do
-      echo "   --path=$pat :"
-      timeout 40 php artisan route:list --path="$pat" 2>&1 | grep -vE '^\s*$' | head -8 | cut -c1-170 | sed 's/^/     /'
-    done
+    echo "   (aucune route GET contenant « login » — routes proches ci-dessous : $(printf '%s\n' "$ROUTES" | grep -c .) routes au total)"
+    printf '%s\n' "$ROUTES" | grep -iE 'sign|auth|account|register|password|connexion|session' | head -15 | cut -c1-150 | sed 's/^/     /'
   fi
   for LP in $(printf '%s\n' /login /admin/login $LPS | sort -u); do
     JAR="$(mktemp)"

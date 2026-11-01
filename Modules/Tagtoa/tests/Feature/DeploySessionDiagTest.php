@@ -33,7 +33,7 @@ class DeploySessionDiagTest extends TestCase
         file_put_contents($this->t.'/app/storage/logs/laravel.log',
             "[2026-11-01 01:00:00] production.ERROR: CSRF token mismatch. {\"x\":1}\n#0 trace\n");
         // Faux php : la configuration de session telle que le vrai script l'imprime.
-        file_put_contents($this->t.'/bin/php', "#!/usr/bin/env bash\nif [[ \"\$*\" == *route:list* ]]; then echo '[{\"method\":\"GET|HEAD\",\"uri\":\"account\\/sign-in-login\"},{\"method\":\"GET|HEAD\",\"uri\":\"login\"},{\"method\":\"GET|HEAD\",\"uri\":\"user\\/{id}\\/login\"}]'; exit 0; fi\necho '   config : driver=file domain=NULL secure=true same_site=lax path=/ lifetime=120 cookie=biztap_session'\n");
+        file_put_contents($this->t.'/bin/php', "#!/usr/bin/env bash\nif [[ \"\$*\" == *getRoutes* ]]; then printf 'GET|HEAD account/sign-in-login\\nPOST login\\nGET|HEAD login\\nGET|HEAD user/{id}/login\\n'; exit 0; fi\necho '   config : driver=file domain=NULL secure=true same_site=lax path=/ lifetime=120 cookie=biztap_session'\n");
         chmod($this->t.'/bin/php', 0755);
     }
 
@@ -127,14 +127,16 @@ SH;
 
     public function test_when_no_login_route_is_found_the_raw_route_list_is_shown_instead_of_guessing(): void
     {
-        file_put_contents($this->t.'/bin/php', "#!/usr/bin/env bash\nif [[ \"\$*\" == *route:list* ]]; then echo '[]'; echo '  GET|HEAD  account/enter ..... SignInController@show'; exit 0; fi\necho '   config : driver=file'\n");
+        file_put_contents($this->t.'/bin/php', "#!/usr/bin/env bash\nif [[ \"\$*\" == *getRoutes* ]]; then printf 'GET|HEAD account/enter\\nGET|HEAD sign-in-here\\nGET|HEAD dashboard\\n'; exit 0; fi\necho '   config : driver=file'\n");
         chmod($this->t.'/bin/php', 0755);
         $this->fakeCurl('302');
         $out = $this->run59()->getOutput();
 
-        $this->assertStringContainsString('aucune route contenant « login »', $out);
-        $this->assertStringContainsString('--path=sign-in :', $out);
-        $this->assertStringContainsString('GET|HEAD  account/enter', $out);
+        $this->assertStringContainsString('aucune route GET contenant « login »', $out);
+        $this->assertStringContainsString('3 routes au total', $out);
+        $this->assertStringContainsString('GET|HEAD account/enter', $out);
+        $this->assertStringContainsString('GET|HEAD sign-in-here', $out);
+        $this->assertStringNotContainsString('dashboard', $out, 'Seules les routes proches sont montrées.');
         $this->assertStringContainsString('FIN_BLOC', $out);
     }
 
