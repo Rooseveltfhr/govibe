@@ -49,6 +49,7 @@ class DeploySessionDiagTest extends TestCase
         $sh = <<<SH
 #!/usr/bin/env bash
 args="\$*"
+echo "\$args" >> "\$(dirname "\$0")/../curl.log"
 if [[ "\$args" == *"--data-urlencode"* ]]; then echo "\$args" > "\$(dirname "\$0")/../posted"; printf '%s' '$postCode'; exit 0; fi
 if [[ "\$args" == *" -D -"* ]]; then printf 'HTTP/1.1 200 OK\r\nSet-Cookie: biztap_session=SECRETVALUE123; path=/; secure; httponly; samesite=lax\r\n\r\n'; exit 0; fi
 if [[ "\$args" == *"/admin/login"* ]]; then printf '<p>non</p>\n__FINAL__ 404 https://tagtoa.test/admin/login'; exit 0; fi
@@ -141,6 +142,27 @@ SH;
         $this->assertStringContainsString('GET|HEAD sign-in-here', $out);
         $this->assertStringNotContainsString('dashboard', $out, 'Seules les routes proches sont montrées.');
         $this->assertStringContainsString('FIN_BLOC', $out);
+    }
+
+    public function test_the_login_path_is_tested_both_as_a_visitor_and_through_loopback(): void
+    {
+        $this->fakeCurl('302');
+        $out = $this->run59()->getOutput();
+
+        foreach (['public', 'loopback'] as $mode) {
+            $this->assertStringContainsString("[$mode] référence GET / →", $out);
+            $this->assertStringContainsString("[$mode] GET /login → 200", $out);
+            $this->assertStringContainsString("[$mode] POST → 302 — session OK", $out);
+        }
+    }
+
+    public function test_the_public_probe_passes_no_resolve_override_but_loopback_does(): void
+    {
+        $this->fakeCurl('302');
+        $this->run59();
+        $log = (string) @file_get_contents($this->t.'/curl.log');
+        $this->assertStringContainsString('--resolve', $log, 'Le chemin loopback force 127.0.0.1.');
+        $this->assertMatchesRegularExpression('/^(?!.*--resolve).*\/login/m', $log, 'Le chemin public n\'impose aucune adresse.');
     }
 
     public function test_a_form_posting_to_another_host_is_flagged(): void

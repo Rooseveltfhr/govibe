@@ -308,22 +308,26 @@ if [ -n "$HOST_ONLY" ]; then
     echo "   (aucune route GET contenant « login » — routes proches ci-dessous : $(printf '%s\n' "$ROUTES" | grep -c .) routes au total)"
     printf '%s\n' "$ROUTES" | grep -iE 'sign|auth|account|register|password|connexion|session' | head -15 | cut -c1-150 | sed 's/^/     /'
   fi
+  # DEUX chemins : « public » = comme un visiteur (DNS → adresse publique → proxy/CDN → application) ;
+  # « loopback » = 127.0.0.1 avec l'en-tête d'hôte, qui peut tomber sur un AUTRE hôte virtuel que
+  # celui du site (sur tagtoa.com : page 404 d'Apache pour /pay/result alors que « / » répond 200).
+  for MODE in public loopback; do
+    if [ "$MODE" = loopback ]; then RES=(--resolve "$HOST_ONLY:443:127.0.0.1" --resolve "www.$HOST_ONLY:443:127.0.0.1"); else RES=(); fi
   # Pages de RÉFÉRENCE : si « / » et une route publique TAGTOA répondent 200 mais que /login répond 404,
   # le 404 vient de l'application ; sinon c'est le serveur web (mauvais hôte virtuel) qu'on interroge.
   for REF in / /pay/result; do
-    rc="$(curl -sk -m 15 -L --max-redirs 5 -o /dev/null -w '%{http_code} %{url_effective}' --resolve "$HOST_ONLY:443:127.0.0.1" --resolve "www.$HOST_ONLY:443:127.0.0.1" "https://$HOST_ONLY$REF" 2>/dev/null)"
-    echo "   référence GET $REF → $rc"
+    rc="$(curl -sk -m 15 -L --max-redirs 5 -o /dev/null -w '%{http_code} %{url_effective}' ${RES[@]+"${RES[@]}"} "https://$HOST_ONLY$REF" 2>/dev/null)"
+    echo "   [$MODE] référence GET $REF → $rc"
   done
   for LP in $(printf '%s\n' /login /admin/login $LPS | sort -u); do
     JAR="$(mktemp)"
-    RES=(--resolve "$HOST_ONLY:443:127.0.0.1" --resolve "www.$HOST_ONLY:443:127.0.0.1")
     # GET en suivant les redirections : on garde l'URL finale (/fr/login, www.…).
-    page="$(curl -sk -m 20 -L --max-redirs 5 -c "$JAR" -b "$JAR" "${RES[@]}" -w '\n__FINAL__ %{http_code} %{url_effective}' "https://$HOST_ONLY$LP" 2>/dev/null)"
+    page="$(curl -sk -m 20 -L --max-redirs 5 -c "$JAR" -b "$JAR" ${RES[@]+"${RES[@]}"} -w '\n__FINAL__ %{http_code} %{url_effective}' "https://$HOST_ONLY$LP" 2>/dev/null)"
     fin="$(printf '%s' "$page" | sed -n 's/^__FINAL__ //p' | tail -1)"
     tok="$(printf '%s' "$page" | grep -o 'name="_token" value="[^"]*"' | head -1 | sed 's/.*value="//; s/"$//')"
     [ -z "$tok" ] && tok="$(printf '%s' "$page" | grep -o 'name="csrf-token" content="[^"]*"' | head -1 | sed 's/.*content="//; s/"$//')"
     if [ -z "$tok" ]; then
-      echo "   GET $LP → $fin : pas de formulaire avec jeton CSRF"
+      echo "   [$MODE] GET $LP → $fin : pas de formulaire avec jeton CSRF"
       echo "     corps : $(printf '%s' "$page" | grep -v '^__FINAL__' | tr '\n' ' ' | sed 's/<[^>]*>/ /g' | tr -s ' ' | cut -c1-200)"
       rm -f "$JAR"; continue
     fi
@@ -336,18 +340,19 @@ if [ -n "$HOST_ONLY" ]; then
     sa="$(printf '%s' "$action" | cut -d: -f1)"
     note=""; [ "$hf" != "$ha" ] && note=" ATTENTION : la page est servie sur $hf mais le formulaire poste vers $ha — le cookie de session n'y est pas envoyé (cause classique de 419)."
     [ "$sa" = "http" ] && note="$note ATTENTION : le formulaire poste en http:// (cookie perdu/bloqué)."
-    flags="$(curl -sk -m 15 -o /dev/null -D - -L "${RES[@]}" "https://$HOST_ONLY$LP" 2>/dev/null | grep -i '^set-cookie' | sed -E 's/=[^;]*/=…/' | tr -d '\r' | tail -3 | tr '\n' ' ')"
-    code="$(curl -sk -m 15 -o /dev/null -w '%{http_code}' -c "$JAR" -b "$JAR" "${RES[@]}" \
+    flags="$(curl -sk -m 15 -o /dev/null -D - -L ${RES[@]+"${RES[@]}"} "https://$HOST_ONLY$LP" 2>/dev/null | grep -i '^set-cookie' | sed -E 's/=[^;]*/=…/' | tr -d '\r' | tail -3 | tr '\n' ' ')"
+    code="$(curl -sk -m 15 -o /dev/null -w '%{http_code}' -c "$JAR" -b "$JAR" ${RES[@]+"${RES[@]}"} \
             -H "Referer: $finurl" --data-urlencode "_token=$tok" \
             --data-urlencode "email=diag-419@invalid.invalid" --data-urlencode "password=diag-not-a-password" \
             "$action" 2>/dev/null)"
     rm -f "$JAR"
-    echo "   GET $LP → $fin ; formulaire → $action"
+    echo "   [$MODE] GET $LP → $fin ; formulaire → $action"
     case "$code" in
-      419) echo "     POST → 419 PAGE EXPIRÉE — la session n'est pas conservée. Cookies : $flags$note" ;;
-      000) echo "     POST → injoignable en local$note" ;;
-      *)   echo "     POST → $code — session OK (compte de test refusé, normal). Cookies : $flags$note" ;;
+      419) echo "     [$MODE] POST → 419 PAGE EXPIRÉE — la session n'est pas conservée. Cookies : $flags$note" ;;
+      000) echo "     [$MODE] POST → injoignable en local$note" ;;
+      *)   echo "     [$MODE] POST → $code — session OK (compte de test refusé, normal). Cookies : $flags$note" ;;
     esac
+  done
   done
 fi
 echo "   419 dans laravel.log : $(grep -c 'TokenMismatchException\|CSRF token mismatch' storage/logs/laravel.log 2>/dev/null || echo 0)"
