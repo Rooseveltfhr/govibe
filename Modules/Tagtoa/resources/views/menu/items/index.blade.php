@@ -40,7 +40,7 @@
                             @endif
                             <div style="flex:1;min-width:0">
                                 <b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $it->name }}</b>
-                                <span style="font-size:13px;color:var(--muted)">{{ \Modules\Tagtoa\App\Support\Money::format($it->price, $menu->currency) }}</span>
+                                <span style="font-size:13px;color:var(--muted)">{{ \Modules\Tagtoa\App\Support\Money::format($it->price, $it->currency ?: $menu->currency) }}</span>
                                 @unless($it->is_available)<span class="pill n" style="margin-left:6px">{{ __('Indisponible') }}</span>@endunless
                                 @unless($it->is_published)<span class="pill n" style="margin-left:6px">{{ __('Brouillon') }}</span>@endunless
                             </div>

@@ -109,6 +109,7 @@ class PublicController extends Controller
                 'invalid_table'           => __('Ce QR de table n\'est plus valide. Rechargez la page en le rescannant.'),
                 'missing_customer_info'   => __('Indiquez votre nom et votre téléphone pour commander.'),
                 'missing_delivery_info'   => __('Pour une livraison, indiquez votre numéro de téléphone et votre adresse.'),
+                'currency_rate_missing'   => __('Le prix d\'un article n\'est plus disponible dans la devise du menu. Rechargez la page.'),
                 default                   => __('Votre commande est vide.'),
             };
 

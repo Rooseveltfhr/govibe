@@ -88,6 +88,7 @@ class DashboardModules
             'children' => [
                 ['label' => 'Mes commerces',     'icon' => 'fa-shop', 'url' => '/tagtoa/business'],
                 ['label' => 'Créer un commerce', 'icon' => 'fa-plus', 'url' => '/tagtoa/business/new'],
+                ['label' => 'Devises et taux',   'icon' => 'fa-coins', 'url' => '/tagtoa/currencies'],
             ],
         ],
 

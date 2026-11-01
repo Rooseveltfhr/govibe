@@ -385,6 +385,11 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/services/{id}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'toggle'])->whereNumber('id')->name('services.toggle');
     });
 
+    // DEVISES (CUR-1) — devises du commerce et taux vers la devise principale.
+    Route::get('/currencies', [\Modules\Tagtoa\App\Http\Controllers\Currency\CurrencyController::class, 'index'])->name('tagtoa.currencies.index');
+    Route::post('/currencies', [\Modules\Tagtoa\App\Http\Controllers\Currency\CurrencyController::class, 'store'])->name('tagtoa.currencies.store');
+    Route::post('/currencies/{id}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Currency\CurrencyController::class, 'toggle'])->whereNumber('id')->name('tagtoa.currencies.toggle');
+
     Route::prefix('business')->name('tagtoa.business.')->group(function () {
         Route::get('/', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'index'])->name('index');
         Route::get('/new', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'create'])->name('create');

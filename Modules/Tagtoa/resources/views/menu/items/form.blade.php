@@ -65,6 +65,16 @@
 
         <div style="display:flex;gap:16px;align-items:center;margin-top:10px;flex-wrap:wrap">
             <div>
+                <label class="lbl">{{ __('Devise') }}</label>
+                <select name="item_currency" class="sel" style="max-width:200px">
+                    @foreach($currencyChoices as $code => $label)
+                        <option value="{{ $code }}" @selected(strtoupper((string) old('item_currency', $item?->currency ?: $menu->currency ?: 'HTG')) === $code)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <div style="font-size:12px;margin-top:3px"><a href="{{ route('tagtoa.currencies.index') }}">{{ __('+ Ajouter une devise') }}</a></div>
+                @error('item_currency')<div class="err">{{ $message }}</div>@enderror
+            </div>
+            <div>
                 <label class="lbl">{{ __('Prix') }} *</label>
                 <input name="item_price" type="number" step="0.01" min="0" required class="inp" style="max-width:150px" value="{{ old('item_price', $item?->price) }}">
                 @error('item_price')<div class="err">{{ $message }}</div>@enderror

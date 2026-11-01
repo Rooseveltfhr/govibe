@@ -220,6 +220,7 @@ class PosService
 
             $lines = [];
             $subtotal = 0;
+            $tauxCaisse = null; // taux de change, lus au premier article en devise étrangère
             foreach ($items as $it) {
                 // « menu:7 » ou « pos:7 ». Les caisses déjà installées envoient
                 // encore un identifiant nu, compris comme un bouton de caisse.
@@ -239,6 +240,18 @@ class PosService
                 }
 
                 $price = $article ? (float) $article->price : (float) ($it['price'] ?? 0);
+
+                // CUR-1 : un article de MENU en USD / $HT est converti dans la devise de la caisse,
+                // au taux en vigueur. Sans taux actif (désactivé depuis que la caisse a chargé son
+                // catalogue), on garde le prix que la caisse a réellement encaissé : une vente déjà
+                // faite n'est jamais refusée ni recalculée à 5 G pour 5 $.
+                $deviseArticle = $article instanceof MenuItem ? strtoupper((string) $article->currency) : '';
+                $deviseCaisse = strtoupper($terminal->currency ?: 'HTG');
+                if ($deviseArticle !== '' && $deviseArticle !== $deviseCaisse) {
+                    $tauxCaisse ??= app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->activeFor($terminal->tenant_id, $deviseCaisse);
+                    $price = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert($price, $deviseArticle, $deviseCaisse, $tauxCaisse)
+                        ?? (float) ($it['price'] ?? 0);
+                }
                 $name  = $article ? $article->name : (string) ($it['name'] ?? 'Article');
 
                 // Coût du JOUR de la vente, figé sur la ligne : sans lui, le
@@ -247,6 +260,9 @@ class PosService
                 $cost = $article && $article->cost_price !== null
                     ? (float) $article->cost_price
                     : null;
+                if ($cost !== null && $deviseArticle !== '' && $deviseArticle !== $deviseCaisse) {
+                    $cost = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert($cost, $deviseArticle, $deviseCaisse, $tauxCaisse);
+                }
 
                 $ligneTotal = Pricing::lineTotal($unit, $price, $qty);
                 $subtotal += $ligneTotal;

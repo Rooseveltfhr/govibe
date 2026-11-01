@@ -112,6 +112,12 @@ class MenuOrderService
             // seulement au comptoir.
             $taxe = TaxProfile::current($menu->tenant_id);
 
+            // CUR-1 : taux ACTIFS du commerce vers la devise du menu, lus UNE fois, côté serveur.
+            // Un prix en USD ou en $HT est converti ici ; sans taux actif, la commande est refusée
+            // (jamais vendre 5 G un article affiché 5 $).
+            $base = strtoupper($menu->currency ?: 'HTG');
+            $taux = app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->activeFor($menu->tenant_id, $base);
+
             $lines = [];
             $subtotal = 0.0;
             foreach (($payload['items'] ?? []) as $it) {
@@ -128,7 +134,13 @@ class MenuOrderService
 
                 [$optionsExtra, $optionsSnapshot] = $this->resolveOptions($item, $it['options'] ?? []);
 
-                $price = round((float) $item->price + $optionsExtra, 2);
+                $prixOrigine = round((float) $item->price + $optionsExtra, 2);
+                $deviseOrigine = strtoupper((string) $item->currency);
+                $estEtranger = $deviseOrigine !== '' && $deviseOrigine !== $base;
+                $price = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert($prixOrigine, $deviseOrigine, $base, $taux);
+                if ($price === null) {
+                    throw new OrderRuleException('currency_rate_missing');
+                }
                 $ligneTotal = round($price * $qty, 2);
                 $subtotal += $ligneTotal;
                 // Taux du JOUR de la commande, figé sur la ligne — comme le
@@ -138,6 +150,10 @@ class MenuOrderService
                 $lines[] = [
                     'item' => $item, 'price' => $price, 'qty' => $qty, 'options' => $optionsSnapshot,
                     'line_total' => $ligneTotal, 'tax_rate' => $tauxLigne,
+                    // Figés sur la ligne : un taux changé demain ne recalcule jamais cette commande.
+                    'currency_original'   => $estEtranger ? $deviseOrigine : null,
+                    'unit_price_original' => $estEtranger ? $prixOrigine : null,
+                    'rate_used'           => $estEtranger ? \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::rateOf($deviseOrigine, $base, $taux) : null,
                 ];
             }
 
@@ -277,6 +293,9 @@ class MenuOrderService
                     'selected_options' => $l['options'] ?: null,
                     'tax_rate'         => $taxe->enabled ? $l['tax_rate'] : null,
                     'tax_amount'       => $taxe->enabled ? $partLigne['tax'] : null,
+                    'currency_original'   => $l['currency_original'],
+                    'unit_price_original' => $l['unit_price_original'],
+                    'rate_used'           => $l['rate_used'],
                 ]);
 
                 // Le stock passe par le journal, jamais par une écriture
