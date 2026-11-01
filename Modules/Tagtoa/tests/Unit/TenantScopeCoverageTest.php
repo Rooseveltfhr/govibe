@@ -141,6 +141,9 @@ class TenantScopeCoverageTest extends TestCase
             // Ne règle un paiement que par CheckoutService::settle() (même chemin
             // que le webhook) et n'écrit jamais « échouée ».
             'Console/ReconcilePaymentsCommand.php',
+            // Profil d'hôtel (H1) : lu/écrit pour le commerce REÇU en paramètre (déjà vérifié
+            // comme appartenant au compte connecté), toujours filtré sur son identifiant.
+            'Services/Hotel/HotelProfileService.php',
             'Services/Pay/CheckoutService.php',         // reconcile() : relit la transaction par sa référence
             'Support/BelongsToTenant.php',              // définition
         ];

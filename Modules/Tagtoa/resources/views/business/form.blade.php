@@ -57,6 +57,8 @@
         </p>
     </div>
 
+    @include('tagtoa::business._hotel-fields')
+
     <div class="card">
         <div class="h-row"><h2>{{ __('Vos catégories') }}</h2></div>
         <p style="color:var(--muted);font-size:13px;margin-top:-8px">
@@ -254,7 +256,14 @@ function addCat(){
 document.getElementById('newcat').addEventListener('keydown', function(e){
     if(e.key === 'Enter'){ e.preventDefault(); addCat(); }
 });
-document.getElementById('btype').addEventListener('change', renderCats);
+document.getElementById('btype').addEventListener('change', function(){
+    renderCats();
+    /* Champs d'hôtel : visibles seulement pour le type « hôtel » (le serveur revalide). */
+    document.getElementById('hotel-fields').style.display = (this.value === 'hotel') ? '' : 'none';
+});
+document.getElementById('h24').addEventListener('change', function(){
+    document.getElementById('hhours').style.display = this.checked ? 'none' : '';
+});
 renderCats();
 </script>
 @endpush
