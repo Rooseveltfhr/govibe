@@ -346,7 +346,11 @@ if [ -n "$HOST_ONLY" ]; then
             --data-urlencode "email=diag-419@invalid.invalid" --data-urlencode "password=diag-not-a-password" \
             "$action" 2>/dev/null)"
     rm -f "$JAR"
+    # En-têtes de cache de la page de connexion : une page de connexion mise en cache (navigateur, CDN)
+    # garde un vieux jeton CSRF — cause classique de « Page expirée » alors que la session serveur est saine.
+    hdrs="$(curl -sk -m 15 -o /dev/null -D - -L ${RES[@]+"${RES[@]}"} "https://$HOST_ONLY$LP" 2>/dev/null | tr -d '\r' | grep -iE '^(cache-control|expires|age|pragma|cf-cache-status|cf-ray|x-cache|server|via|vary|last-modified|etag):' | cut -c1-120 | tr '\n' '|' | cut -c1-500)"
     echo "   [$MODE] GET $LP → $fin ; formulaire → $action"
+    echo "     en-têtes : $hdrs"
     case "$code" in
       419) echo "     [$MODE] POST → 419 PAGE EXPIRÉE — la session n'est pas conservée. Cookies : $flags$note" ;;
       000) echo "     [$MODE] POST → injoignable en local$note" ;;

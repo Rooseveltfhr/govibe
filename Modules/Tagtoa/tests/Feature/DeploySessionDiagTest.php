@@ -51,7 +51,7 @@ class DeploySessionDiagTest extends TestCase
 args="\$*"
 echo "\$args" >> "\$(dirname "\$0")/../curl.log"
 if [[ "\$args" == *"--data-urlencode"* ]]; then echo "\$args" > "\$(dirname "\$0")/../posted"; printf '%s' '$postCode'; exit 0; fi
-if [[ "\$args" == *" -D -"* ]]; then printf 'HTTP/1.1 200 OK\r\nSet-Cookie: biztap_session=SECRETVALUE123; path=/; secure; httponly; samesite=lax\r\n\r\n'; exit 0; fi
+if [[ "\$args" == *" -D -"* ]]; then printf 'HTTP/1.1 200 OK\r\nCache-Control: max-age=3600, public\r\nCF-Cache-Status: HIT\r\nSet-Cookie: biztap_session=SECRETVALUE123; path=/; secure; httponly; samesite=lax\r\n\r\n'; exit 0; fi
 if [[ "\$args" == *"/admin/login"* ]]; then printf '<p>non</p>\n__FINAL__ 404 https://tagtoa.test/admin/login'; exit 0; fi
 if [[ "\$args" == *"/login"* ]]; then printf '<form method="POST" action="$action"><input type="hidden" name="_token" value="tok123" autocomplete="off"></form>\n__FINAL__ 200 https://tagtoa.test/fr/login'; fi
 exit 0
@@ -154,6 +154,15 @@ SH;
             $this->assertStringContainsString("[$mode] GET /login → 200", $out);
             $this->assertStringContainsString("[$mode] POST → 302 — session OK", $out);
         }
+    }
+
+    public function test_cache_headers_of_the_login_page_are_shown_without_cookie_values(): void
+    {
+        $this->fakeCurl('302');
+        $out = $this->run59()->getOutput();
+
+        $this->assertStringContainsString('en-têtes : Cache-Control: max-age=3600, public|CF-Cache-Status: HIT|', $out);
+        $this->assertStringNotContainsString('SECRETVALUE123', $out);
     }
 
     public function test_the_public_probe_passes_no_resolve_override_but_loopback_does(): void
