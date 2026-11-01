@@ -369,6 +369,16 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     });
 
     // MON COMMERCE — le déclarer, le modifier, passer de l'un à l'autre.
+    // HÔTEL (H2) — chambres. Réservé au commerce de type « hôtel » (RoomController::hotel()).
+    Route::prefix('hotel')->name('tagtoa.hotel.')->group(function () {
+        Route::get('/', fn () => redirect()->route('tagtoa.hotel.rooms'));
+        Route::get('/rooms', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'index'])->name('rooms');
+        Route::post('/rooms', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'store'])->name('rooms.store');
+        Route::post('/rooms/bulk', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'bulk'])->name('rooms.bulk');
+        Route::put('/rooms/{id}', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'update'])->whereNumber('id')->name('rooms.update');
+        Route::post('/rooms/{id}/toggle', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'toggle'])->whereNumber('id')->name('rooms.toggle');
+    });
+
     Route::prefix('business')->name('tagtoa.business.')->group(function () {
         Route::get('/', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'index'])->name('index');
         Route::get('/new', [\Modules\Tagtoa\App\Http\Controllers\Business\BusinessController::class, 'create'])->name('create');
