@@ -21,7 +21,7 @@ use Modules\Tagtoa\App\Support\Money;
 class CurrencyRateService
 {
     /** Lettres majuscules ou symboles monétaires : « USD », « $HT », « EUR », « G ». */
-    public const CODE_PATTERN = '/^[\p{Lu}\p{Sc}]{1,6}$/u';
+    public const CODE_PATTERN = '/^[A-Z\p{Sc}]{1,6}$/u';
 
     public const RATE_MIN = 0.000001;
 
@@ -58,6 +58,16 @@ class CurrencyRateService
             throw new RateRuleException('invalid_rate');
         }
 
+        try {
+            return $this->saveOnce($tenantId, $base, $code, $rate, $data, $actor);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // Deux premières sauvegardes simultanées (double clic) : la seconde met à jour.
+            return $this->saveOnce($tenantId, $base, $code, $rate, $data, $actor);
+        }
+    }
+
+    private function saveOnce(string $tenantId, string $base, string $code, float $rate, array $data, ?string $actor): CurrencyRate
+    {
         return DB::transaction(function () use ($tenantId, $base, $code, $rate, $data, $actor) {
             $row = CurrencyRate::allTenants()->where('tenant_id', $tenantId)
                 ->where('code', $code)->where('base_currency', $base)->lockForUpdate()->first();
@@ -92,10 +102,13 @@ class CurrencyRateService
     /** Active / désactive. Un taux désactivé ne convertit plus rien : les articles concernés ne se vendent plus. */
     public function toggle(CurrencyRate $rate, ?string $actor = null): CurrencyRate
     {
-        $rate->update(['is_active' => ! $rate->is_active, 'updated_by' => $actor]);
-        $this->history($rate, (float) $rate->rate, (float) $rate->rate, $rate->is_active ? 'activated' : 'deactivated', $actor);
+        return DB::transaction(function () use ($rate, $actor) {
+            $rate = CurrencyRate::allTenants()->whereKey($rate->id)->lockForUpdate()->firstOrFail();
+            $rate->update(['is_active' => ! $rate->is_active, 'updated_by' => $actor]);
+            $this->history($rate, (float) $rate->rate, (float) $rate->rate, $rate->is_active ? 'activated' : 'deactivated', $actor);
 
-        return $rate;
+            return $rate;
+        });
     }
 
     /**
@@ -124,15 +137,19 @@ class CurrencyRateService
     {
         $code = self::normalizeCode($code);
         $base = self::normalizeCode($base);
+        // Article dans la devise du menu (ou sans devise) : AUCUN arrondi supplémentaire.
+        // Arrondir ici aux décimales de la devise (0 pour HTG) changerait 12,40 G en 12 G
+        // sur tous les menus existants.
         if ($code === '' || $code === $base) {
-            return round($amount, self::baseDecimals($base));
+            return round($amount, 2);
         }
         $r = $rates[$code] ?? null;
         if (! $r || ! $r->is_active) {
             return null;
         }
 
-        return round($amount * (float) $r->rate, self::baseDecimals($base));
+        // Montants convertis : 2 décimales (colonnes decimal(…,2)), le total reste la somme des lignes.
+        return round($amount * (float) $r->rate, 2);
     }
 
     /** Taux utilisé pour `code` (1 pour la devise principale), NULL si absent. */
@@ -158,10 +175,15 @@ class CurrencyRateService
         return Money::format($amount, $code);
     }
 
-    private static function baseDecimals(string $base): int
+    /**
+     * Devise de base de la CAISSE d'un commerce : la même pour le catalogue, le scanner, la vente
+     * et la synchronisation, pour qu'un prix annoncé soit toujours le prix encaissé.
+     */
+    public static function posBase(?string $tenantId): string
     {
-        // Jamais plus de 2 : les colonnes de prix des commandes sont en decimal(…, 2).
-        return min(2, (int) (Money::meta($base)['decimals'] ?? 2));
+        $c = $tenantId ? \Modules\Tagtoa\App\Models\Business\Business::whereKey($tenantId)->value('currency') : null;
+
+        return self::normalizeCode($c ?: (string) config('tagtoa.default_currency', 'HTG'));
     }
 
     private function history(CurrencyRate $r, ?float $old, ?float $new, string $event, ?string $actor): void

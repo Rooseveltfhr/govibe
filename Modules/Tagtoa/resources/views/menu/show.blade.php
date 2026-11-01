@@ -312,7 +312,7 @@
                                     @php
                                         $opts = $it->options->map(fn ($o) => [
                                             'id' => $o->id, 'name' => $o->name, 'required' => $o->required, 'multiple' => $o->multiple,
-                                            'choices' => $o->choices->map(fn ($c) => ['id' => $c->id, 'label' => $c->label, 'price_delta' => round((float) $c->price_delta * ($itTaux ?? 1), 2)])->values(),
+                                            'choices' => $o->choices->map(fn ($c) => ['id' => $c->id, 'label' => $c->label, 'price_delta' => (float) $c->price_delta * ($itTaux ?? 1)])->values(),
                                         ])->values();
                                     @endphp
                                     <button class="add" aria-label="{{ __('Ajouter') }} — {{ $itNom }}" data-id="{{ $it->id }}" data-name="{{ $itNom }}" data-price="{{ (float) $itPrixBase }}" data-options='@json($opts)' onclick="add(this)"><i class="fa-solid fa-plus"></i></button>

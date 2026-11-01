@@ -142,7 +142,7 @@ class PosCatalog
 
         // CUR-1 : un article de menu en USD / $HT s'affiche en caisse au prix converti dans la
         // devise du commerce ; sans taux actif, il n'est pas proposé à la vente.
-        $deviseCaisse = strtoupper((string) (\Modules\Tagtoa\App\Models\Business\Business::whereKey($tenantId)->value('currency') ?: config('tagtoa.default_currency', 'HTG')));
+        $deviseCaisse = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::posBase($tenantId);
         $taux = app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->activeFor($tenantId, $deviseCaisse);
 
         foreach ($this->menuItems($tenantId) as $i) {

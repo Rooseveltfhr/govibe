@@ -390,7 +390,123 @@ class CurrencyPerItemTest extends TestCase
             ->assertOk()->assertJsonPath('found', false)->assertJsonPath('reason', 'currency_rate_missing');
     }
 
-        public function test_the_migration_is_replayable_and_reversible(): void
+        /* ---------- corrections de la revue indépendante ---------- */
+
+    public function test_existing_items_without_currency_keep_their_exact_price(): void
+    {
+        $menu = $this->menu();
+        $plat = $this->article($menu, ['price' => 12.40]);
+        $opt = ItemOption::create(['item_id' => $plat->id, 'name' => 'Sauce', 'required' => false, 'multiple' => false]);
+        $piment = ItemOptionChoice::create(['option_id' => $opt->id, 'label' => 'Piment', 'price_delta' => 0.35]);
+
+        $o = $this->commander($menu, [['id' => $plat->id, 'qty' => 10, 'options' => [$piment->id]]]);
+
+        // (12,40 + 0,35) × 10 = 127,50 : aucun arrondi à la gourde pour un article sans devise.
+        $this->assertSame('127.50', $o->subtotal);
+        $this->assertSame('12.75', $o->items()->sole()->price);
+
+        $this->patron();
+        $this->assertSame(12.4, CurrencyRateService::convert(12.40, null, 'HTG', []));
+        $this->assertSame(12.4, CurrencyRateService::convert(12.40, 'HTG', 'HTG', []));
+        $ligne = collect(app(PosCatalog::class)->sellable('t-1'))->firstWhere('ref', 'menu:'.$plat->id);
+        $this->assertSame(12.4, $ligne['price'], 'La caisse annonce 12,40, pas 12.');
+    }
+
+    public function test_online_pos_never_trusts_the_till_price_when_the_rate_is_missing(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $r = $this->taux('USD', 132);
+        $whisky = $this->article($menu, ['name' => 'Whisky', 'price' => 50, 'currency' => 'USD', 'stock' => 10]);
+        app(CurrencyRateService::class)->toggle($r);
+
+        $this->expectException(OrderRuleException::class);
+        try {
+            app(PosService::class)->recordSale($this->caisse(), ['items' => [['ref' => 'menu:'.$whisky->id, 'qty' => 1, 'price' => 0.01]]]);
+        } finally {
+            $this->assertSame(10.0, (float) $whisky->fresh()->stock, 'Aucun stock retiré, aucune vente écrite.');
+            $this->assertSame(0, \Modules\Tagtoa\App\Models\Pos\Sale::count());
+        }
+    }
+
+    public function test_the_pos_route_answers_422_when_the_rate_is_missing(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $r = $this->taux('USD', 132);
+        $whisky = $this->article($menu, ['price' => 50, 'currency' => 'USD']);
+        app(CurrencyRateService::class)->toggle($r);
+        $caisse = $this->caisse();
+
+        $this->postJson(route('tagtoa.pos.sale', $caisse->id), ['items' => [['ref' => 'menu:'.$whisky->id, 'name' => 'Whisky', 'qty' => 1, 'price' => 0.01]]])
+            ->assertStatus(422)->assertJsonPath('ok', false);
+        $this->assertSame(0, \Modules\Tagtoa\App\Models\Pos\Sale::count());
+    }
+
+    public function test_every_pos_path_converts_into_the_same_base_currency(): void
+    {
+        $this->patron();
+        $b = app(\Modules\Tagtoa\App\Services\Business\BusinessService::class)->create(Tenant::account(), ['name' => 'Chez Rose', 'type' => 'restaurant', 'currency' => 'USD']);
+        $this->assertSame('USD', CurrencyRateService::posBase($b->id));
+        // Caisse créée en HTG alors que le commerce est en USD : la base reste celle du commerce.
+        $caisse = Terminal::create(['tenant_id' => $b->id, 'name' => 'Caisse', 'currency' => 'HTG', 'is_active' => true]);
+        $menu = Menu::allTenants()->create(['tenant_id' => $b->id, 'name' => 'Carte', 'alias' => 'carte-usd', 'currency' => 'USD', 'is_active' => true]);
+        app(CurrencyRateService::class)->save($b->id, 'USD', ['code' => '$HT', 'rate' => 0.2, 'confirm_jump' => true]);
+        $plat = $this->article($menu, ['price' => 100, 'currency' => '$HT', 'cost_price' => 50]);
+
+        $ligne = collect(app(PosCatalog::class)->sellable($b->id))->firstWhere('ref', 'menu:'.$plat->id);
+        $this->assertSame(20.0, $ligne['price']);
+        $vente = app(PosService::class)->recordSale($caisse, ['items' => [['ref' => 'menu:'.$plat->id, 'qty' => 1]]]);
+        $this->assertEquals(20, (float) $vente->items()->sole()->price, 'Prix encaissé = prix annoncé.');
+    }
+
+    public function test_sync_never_copies_a_raw_foreign_price_and_keeps_the_last_known_one(): void
+    {
+        $this->patron();
+        $menu = $this->menu();
+        $r = $this->taux('USD', 132);
+        $steak = $this->article($menu, ['price' => 50, 'currency' => 'USD']);
+        $sync = app(MenuProductSync::class);
+        $sync->sync('t-1', $this->caisse()->id);
+        $this->assertEquals(6600, (float) Product::where('menu_item_id', $steak->id)->sole()->price);
+
+        app(CurrencyRateService::class)->toggle($r);
+        $sync->sync('t-1', $this->caisse()->id);
+        $p = Product::where('menu_item_id', $steak->id)->sole();
+        $this->assertEquals(6600, (float) $p->price, 'Jamais 50 G.');
+        $this->assertFalse((bool) $p->is_active);
+
+        // Article jamais synchronisé et sans taux : créé à 0 et inactif, jamais à 50.
+        $autre = $this->article($menu, ['name' => 'Vin', 'price' => 30, 'currency' => 'EUR']);
+        $sync->sync('t-1', $this->caisse()->id);
+        $q = Product::where('menu_item_id', $autre->id)->sole();
+        $this->assertEquals(0, (float) $q->price);
+        $this->assertFalse((bool) $q->is_active);
+    }
+
+    /** @dataProvider lookalikeCodes */
+    public function test_codes_are_ascii_letters_or_currency_symbols_only(string $code): void
+    {
+        $this->patron();
+        $this->menu();
+        $this->post(route('tagtoa.currencies.store'), ['code' => $code, 'base_currency' => 'HTG', 'rate' => '5'])->assertSessionHasErrors('rate');
+        $this->assertSame(0, CurrencyRate::count());
+    }
+
+    public static function lookalikeCodes(): array
+    {
+        return ['É accentué' => ['ÉUR'], 'cyrillique' => ['UЅD']];
+    }
+
+    public function test_a_double_first_save_does_not_fail(): void
+    {
+        $this->taux('USD', 132);
+        $this->taux('USD', 132);   // second enregistrement identique (double clic)
+        $this->assertSame(1, CurrencyRate::allTenants()->count());
+        $this->assertSame(1, CurrencyRateHistory::allTenants()->count(), 'Un taux inchangé ne crée pas d\'historique.');
+    }
+
+    public function test_the_migration_is_replayable_and_reversible(): void
     {
         $mig = require __DIR__.'/../../Database/migrations/2026_11_01_000185_create_tagtoa_currency_rates.php';
         $mig->up();

@@ -246,11 +246,20 @@ class PosService
                 // catalogue), on garde le prix que la caisse a réellement encaissé : une vente déjà
                 // faite n'est jamais refusée ni recalculée à 5 G pour 5 $.
                 $deviseArticle = $article instanceof MenuItem ? strtoupper((string) $article->currency) : '';
-                $deviseCaisse = strtoupper($terminal->currency ?: 'HTG');
+                $deviseCaisse = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::posBase($terminal->tenant_id);
                 if ($deviseArticle !== '' && $deviseArticle !== $deviseCaisse) {
                     $tauxCaisse ??= app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->activeFor($terminal->tenant_id, $deviseCaisse);
-                    $price = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert($price, $deviseArticle, $deviseCaisse, $tauxCaisse)
-                        ?? (float) ($it['price'] ?? 0);
+                    $converti = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert($price, $deviseArticle, $deviseCaisse, $tauxCaisse);
+                    if ($converti === null) {
+                        // Seule une VRAIE reprise hors ligne garde le prix encaissé (la marchandise est
+                        // remise, l'argent pris). En ligne, un prix envoyé par la caisse n'est jamais cru :
+                        // sinon un article du catalogue se vendrait 0,01 sous son vrai nom, avec son stock.
+                        if (! $negatifPermis) {
+                            throw new \Modules\Tagtoa\App\Exceptions\OrderRuleException('currency_rate_missing');
+                        }
+                        $converti = (float) ($it['price'] ?? 0);
+                    }
+                    $price = $converti;
                 }
                 $name  = $article ? $article->name : (string) ($it['name'] ?? 'Article');
 
