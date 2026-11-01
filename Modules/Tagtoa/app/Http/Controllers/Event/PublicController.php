@@ -77,7 +77,8 @@ class PublicController extends Controller
             }
         );
 
-        return view('tagtoa::event.show', ['event' => $event]);
+        // CUR-4 : taux hors du cache public (un changement de taux doit se voir tout de suite ; le serveur recalcule de toute façon).
+        return view('tagtoa::event.show', ['event' => $event, 'taux' => $this->tickets->ratesFor($event)]);
     }
 
     /** Reçu public d'une transaction wallet (achat/recharge), par référence. */
@@ -100,6 +101,7 @@ class PublicController extends Controller
             'buyer_email' => ['nullable', 'email', 'max:120'],
             'qty'         => ['required', 'array'],
             'qty.*'       => ['nullable', 'integer', 'min:0', 'max:50'],
+            'expected_total' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $lines = [];
@@ -112,6 +114,7 @@ class PublicController extends Controller
         try {
             $order = $this->tickets->createOrder($event, $lines, [
                 'name' => $data['buyer_name'], 'phone' => $data['buyer_phone'] ?? null, 'email' => $data['buyer_email'] ?? null,
+                'expected_total' => $data['expected_total'] ?? null,
             ]);
         } catch (TicketRuleException $e) {
             // Uniquement les règles métier. Surtout pas \RuntimeException :

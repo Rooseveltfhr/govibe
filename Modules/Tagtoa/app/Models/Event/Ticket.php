@@ -20,12 +20,12 @@ class Ticket extends Model
 
     protected $fillable = [
         'event_id', 'order_id', 'ticket_type_id', 'code', 'serial', 'imported', 'holder_name', 'holder_phone',
-        'payment_method', 'sold_by_staff_id', 'sold_at', 'status', 'checked_in', 'checked_in_at',
+        'currency_original', 'unit_price_original', 'rate_used', 'payment_method', 'sold_by_staff_id', 'sold_at', 'status', 'checked_in', 'checked_in_at',
     ];
 
     protected $casts = [
         'status' => 'integer', 'checked_in' => 'boolean', 'checked_in_at' => 'datetime',
-        'imported' => 'boolean', 'sold_at' => 'datetime',
+        'imported' => 'boolean', 'unit_price_original' => 'decimal:2', 'rate_used' => 'decimal:6', 'sold_at' => 'datetime',
     ];
 
     public function event(): BelongsTo

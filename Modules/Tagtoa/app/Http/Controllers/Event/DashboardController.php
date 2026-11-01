@@ -39,7 +39,7 @@ class DashboardController extends Controller
 
     public function create(): View
     {
-        return view('tagtoa::event.form', ['event' => new Event(), 'vcards' => $this->vcards(), 'payPages' => $this->payPages()]);
+        return view('tagtoa::event.form', ['event' => new Event(), 'vcards' => $this->vcards(), 'payPages' => $this->payPages(), 'currencyChoices' => []]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -49,6 +49,7 @@ class DashboardController extends Controller
             return $r;
         }
 $data = $this->validateEvent($request);
+        $this->checkTypeCurrencies(Tenant::id(), (string) ($data['currency'] ?? 'HTG'), $request);
         $event = new Event($data);
         $event->tenant_id = Tenant::id();
         $event->alias = ($data['alias'] ?? null) ?: Event::generateAlias($data['title']);
@@ -58,8 +59,10 @@ $data = $this->validateEvent($request);
         if ($request->hasFile('logo')) {
             $event->logo_path = $request->file('logo')->store('tagtoa/event-logos', 'public');
         }
-        $event->save();
-        $this->syncTypes($event, $request); // capture les types de billets + prix dès la création
+        \Illuminate\Support\Facades\DB::transaction(function () use ($event, $request) {
+            $event->save();
+            $this->syncTypes($event, $request);
+        }); // capture les types de billets + prix dès la création
 
         return redirect()->route('tagtoa.event.dashboard.edit', $event->id)->with('success', __('Événement créé.'));
     }
@@ -68,13 +71,19 @@ $data = $this->validateEvent($request);
     {
         $event = $this->own($id, ['ticketTypes']);
 
-        return view('tagtoa::event.form', ['event' => $event, 'vcards' => $this->vcards(), 'payPages' => $this->payPages()]);
+        return view('tagtoa::event.form', [
+            'event' => $event, 'vcards' => $this->vcards(), 'payPages' => $this->payPages(),
+            // CUR-4 : devise de l'événement + devises du commerce ayant un taux ACTIF.
+            'currencyChoices' => app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->choices($event->tenant_id, $event->currency ?: 'HTG'),
+        ]);
     }
 
     public function update(Request $request, int $id): RedirectResponse
     {
         $event = $this->own($id);
         $data = $this->validateEvent($request, $event->id);
+        // Devise de l'événement + devises des types validées ENSEMBLE, avant toute écriture.
+        $this->checkTypeCurrencies($event->tenant_id, (string) ($data['currency'] ?? $event->currency ?: 'HTG'), $request);
         $data['alias'] = ($data['alias'] ?? null) ?: $event->alias;
         if ($request->hasFile('cover')) {
             $data['cover_path'] = $request->file('cover')->store('tagtoa/event-covers', 'public');
@@ -82,8 +91,10 @@ $data = $this->validateEvent($request);
         if ($request->hasFile('logo')) {
             $data['logo_path'] = $request->file('logo')->store('tagtoa/event-logos', 'public');
         }
-        $event->update($data);
-        $this->syncTypes($event, $request);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($event, $data, $request) {
+            $event->update($data);
+            $this->syncTypes($event, $request);
+        });
 
         return back()->with('success', __('Événement mis à jour.'));
     }
@@ -259,8 +270,34 @@ $data = $this->validateEvent($request);
         return Event::with($with)->where('tenant_id', Tenant::id())->findOrFail($id);
     }
 
+    /** CUR-4 : devise et prix de chaque type de billet validés AVANT toute écriture. */
+    protected function checkTypeCurrencies(?string $tenantId, string $base, Request $request): void
+    {
+        $permises = array_keys(app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->choices($tenantId, strtoupper($base ?: 'HTG')));
+        foreach (array_values((array) $request->input('ticket_types', [])) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if (array_key_exists('currency', $row) && $row['currency'] !== null && ! is_string($row['currency'])) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['ticket_types' => __('Devise invalide.')]);
+            }
+            $c = is_string($row['currency'] ?? null) ? strtoupper(trim($row['currency'])) : '';
+            if ($c !== '' && ! in_array($c, $permises, true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'ticket_types' => __('Devise « :c » inconnue ou sans taux actif. Ajoutez-la dans « Devises et taux ».', ['c' => e($c)]),
+                ]);
+            }
+            foreach (['price', 'compare_at_price'] as $k) {
+                if (isset($row[$k]) && $row[$k] !== '' && (! is_numeric($row[$k]) || (float) $row[$k] < 0 || (float) $row[$k] > 99999999)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['ticket_types' => __('Prix invalide (0 à 99 999 999).')]);
+                }
+            }
+        }
+    }
+
     protected function syncTypes(Event $event, Request $request): void
     {
+        $base = strtoupper($event->currency ?: 'HTG');
         $rows = $request->input('ticket_types', []);
         $keep = [];
         foreach ($rows as $i => $row) {
@@ -282,6 +319,11 @@ $data = $this->validateEvent($request);
                 'allowed_gates'    => $gates ?: null,
                 'sort'             => (int) ($row['sort'] ?? $i),
             ];
+            // Champ absent (ancien formulaire, appel tiers) : on ne touche pas à la devise du type.
+            if (array_key_exists('currency', $row)) {
+                $c = strtoupper(trim((string) $row['currency']));
+                $attrs['currency'] = ($c === '' || $c === $base) ? null : $c;
+            }
             $t = ! empty($row['id']) ? $event->ticketTypes()->whereKey($row['id'])->first() : null;
             $t ? $t->update($attrs) : $t = $event->ticketTypes()->create($attrs);
             $keep[] = $t->id;
@@ -293,6 +335,9 @@ $data = $this->validateEvent($request);
     {
         $ownVcardIds = $this->vcards()->pluck('id')->all();
         $ownPayIds   = $this->payPages()->pluck('id')->all();
+        if (is_string($request->input('currency'))) {
+            $request->merge(['currency' => strtoupper(trim($request->input('currency')))]);
+        }
 
         return $request->validate([
             'vcard_id'     => ['nullable', 'integer', Rule::in($ownVcardIds)],
@@ -305,7 +350,7 @@ $data = $this->validateEvent($request);
             'address'      => ['nullable', 'string', 'max:255'],
             'starts_at'    => ['nullable', 'date'],
             'ends_at'      => ['nullable', 'date'],
-            'currency'     => ['nullable', 'string', 'max:10'],
+            'currency'     => ['nullable', 'string', 'regex:'.\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::CODE_PATTERN],
             'is_free'      => ['nullable', 'boolean'],
             'is_published' => ['nullable', 'boolean'],
             'pay_page_id'  => ['nullable', 'integer', Rule::in($ownPayIds)],

@@ -61,14 +61,24 @@
         @forelse($event->activeTicketTypes as $tt)
             <div class="tt">
                 @php
-                    $priceLabel = $tt->price > 0 ? number_format($tt->price, 2).' '.$event->currency : __('Gratuit');
+                    $CurS = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class;
+                    $ttDevise = strtoupper((string) $tt->currency);
+                    $ttEtranger = $ttDevise !== '' && $ttDevise !== strtoupper($event->currency ?: 'HTG');
+                    $ttBase = $CurS::convert((float) $tt->price, $tt->currency, $event->currency ?: 'HTG', $taux ?? []);
+                    $ttSansTaux = ! $event->is_free && (float) $tt->price > 0 && ($ttBase === null || $ttBase <= 0);
+                    $ttBase = $ttBase ?? 0;
+                    if ($tt->price <= 0) { $priceLabel = __('Gratuit'); }
+                    elseif ($ttEtranger) { $priceLabel = $CurS::format((float) $tt->price, $ttDevise, $event->currency ?: 'HTG', $taux ?? []).($ttSansTaux ? '' : ' ≈ '.number_format($ttBase, 2).' '.$event->currency); }
+                    else { $priceLabel = number_format($tt->price, 2).' '.$event->currency; }
                     $remainLabel = $tt->remaining !== null ? ' · '.$tt->remaining.' '.__('restants') : '';
                 @endphp
                 <div class="info"><b>{{ $tt->name }}</b><span>{{ $priceLabel }}{{ $remainLabel }}</span>
-                    @if($tt->hasDiscount())<span style="margin-left:6px"><s style="opacity:.55">{{ number_format($tt->compare_at_price,2) }}</s> <b style="color:#1D9E75">−{{ $tt->discount_percent }}%</b></span>@endif
+                    @if($tt->hasDiscount())<span style="margin-left:6px"><s style="opacity:.55">{{ $ttEtranger ? $CurS::format((float) $tt->compare_at_price, $ttDevise, $event->currency ?: 'HTG', $taux ?? []) : number_format($tt->compare_at_price,2) }}</s> <b style="color:#1D9E75">−{{ $tt->discount_percent }}%</b></span>@endif
                 </div>
-                @if($tt->isOnSale())
-                    <div class="qty"><button type="button" onclick="ev(-1,{{ $tt->id }})">−</button><input type="number" name="qty[{{ $tt->id }}]" id="q{{ $tt->id }}" value="0" min="0" max="{{ $tt->remaining ?? 50 }}" data-price="{{ $tt->price }}" readonly><button type="button" onclick="ev(1,{{ $tt->id }})">+</button></div>
+                @if($ttSansTaux)
+                    <span style="color:#E0473E;font-size:12px;font-weight:600">{{ __('Indisponible') }}</span>
+                @elseif($tt->isOnSale())
+                    <div class="qty"><button type="button" onclick="ev(-1,{{ $tt->id }})">−</button><input type="number" name="qty[{{ $tt->id }}]" id="q{{ $tt->id }}" value="0" min="0" max="{{ $tt->remaining ?? 50 }}" data-price="{{ (float) $ttBase }}" readonly><button type="button" onclick="ev(1,{{ $tt->id }})">+</button></div>
                 @else<span style="color:#E0473E;font-size:12px;font-weight:600">{{ __('Épuisé') }}</span>@endif
             </div>
         @empty<p style="color:#888;font-size:14px">{{ __('Aucun billet disponible.') }}</p>@endforelse
@@ -81,11 +91,13 @@
         </div>
     </div>
     <div class="foot">{{ __('Propulsé par') }} <b>TAGTOA</b></div>
+    <input type="hidden" name="expected_total" id="expTot" value="0">
     <div class="bar"><div class="tot"><small>{{ __('Total') }}</small><b><span id="tot">0.00</span> {{ $event->currency }}</b></div><button class="btn" type="submit"><i class="fa-solid fa-ticket"></i> {{ __('Obtenir') }}</button></div>
 </form>
 <script>
 function ev(d,id){var i=document.getElementById('q'+id),v=Math.max(0,parseInt(i.value||0)+d),mx=parseInt(i.max||50);i.value=Math.min(v,mx);tot();}
-function tot(){var s=0;document.querySelectorAll('[id^=q]').forEach(function(i){s+=parseInt(i.value||0)*parseFloat(i.dataset.price||0);});document.getElementById('tot').textContent=s.toFixed(2);}
+function tot(){var s=0;document.querySelectorAll('[id^=q]').forEach(function(i){s+=parseInt(i.value||0)*parseFloat(i.dataset.price||0);});document.getElementById('tot').textContent=s.toFixed(2);document.getElementById('expTot').value=(Math.round(s*100)/100).toFixed(2);}
+document.addEventListener('DOMContentLoaded',tot);window.addEventListener('pageshow',tot);
 </script>
 </body>
 </html>
