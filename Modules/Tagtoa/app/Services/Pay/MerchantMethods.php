@@ -39,11 +39,33 @@ class MerchantMethods
         ]);
     }
 
-    /** Moyens ACTIFS du marchand, dans l'ordre d'affichage. */
+    /** Moyens ACTIFS du marchand, dans l'ordre d'affichage (liens de paiement compris). */
     public function active(?string $tenantId): Collection
     {
         return $this->library($tenantId)
             ->methods()->where('is_active', true)->orderBy('sort')->get();
+    }
+
+    /**
+     * Moyens à présenter comme « payer chez moi puis déclarer » sur la page d'une COMMANDE :
+     * actifs, et soit manuels, soit automatiques mais que la passerelle ne peut PAS servir
+     * (« Une passerelle auto non prête reste proposable en mode manuel », GatewayCatalog).
+     *
+     * Un moyen automatique que la passerelle sert vraiment se paie par la passerelle, qui confirme
+     * toute seule : le montrer comme une carte vide avec « J'ai payé » laissait un client déclarer
+     * un paiement MonCash qui n'a jamais eu lieu.
+     */
+    public function declarable(?string $tenantId): Collection
+    {
+        return $this->active($tenantId)->reject(
+            fn ($m) => $m->isAuto() && (\Modules\Tagtoa\App\Support\Pay\GatewayCatalog::forMerchant()[$m->type]['online_ready'] ?? false)
+        )->values();
+    }
+
+    /** Tous les moyens enregistrés par le marchand, actifs ou non (pour respecter ses interrupteurs). */
+    public function saved(?string $tenantId): Collection
+    {
+        return $this->library($tenantId)->methods()->get();
     }
 
     /** Tous les moyens configurés (actifs ou non), indexés par type. */

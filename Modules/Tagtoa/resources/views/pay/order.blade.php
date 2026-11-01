@@ -81,18 +81,21 @@
             @unless($claimed)
                 <div class="card">
                     <div class="mh"><i class="fa-solid fa-hand-holding-dollar" style="color:var(--acc)"></i> {{ __('J\'ai payé') }}</div>
-                    <form method="POST" action="{{ route('tagtoa.pay.order.claim', [$type, $order->reference]) }}">
+                    @if($errors->any())
+                        <div class="info" role="alert" style="margin-top:8px;background:#fdecea;color:#8a1f11">
+                            @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
+                        </div>
+                    @endif
+                    <form id="claim" method="POST" action="{{ route('tagtoa.pay.order.claim', [$type, $order->reference]) }}">
                         @csrf
                         <label class="lbl" for="pm">{{ __('Moyen utilisé') }}</label>
                         <select class="inp" id="pm" name="payment_method_id" required>
                             @foreach($methods as $m)<option value="{{ $m->id }}" @selected(old('payment_method_id') == $m->id)>{{ $m->display_label }}</option>@endforeach
                         </select>
-                        @error('payment_method_id')<div class="err">{{ $message }}</div>@enderror
                         <label class="lbl" for="pn">{{ __('Votre nom') }}</label>
                         <input class="inp" id="pn" name="payer_name" maxlength="120" value="{{ old('payer_name') }}">
                         <label class="lbl" for="pp">{{ __('Votre téléphone') }}</label>
                         <input class="inp" id="pp" name="payer_phone" type="tel" maxlength="20" value="{{ old('payer_phone') }}">
-                        @error('payer_phone')<div class="err">{{ $message }}</div>@enderror
                         <label class="lbl" for="pr">{{ __('Référence du paiement (optionnel)') }}</label>
                         <input class="inp" id="pr" name="reference" maxlength="120" value="{{ old('reference') }}">
                         <button class="btn" style="background:var(--acc);margin:16px 0 0"><i class="fa-solid fa-check"></i> {{ __('Envoyer au commerce') }}</button>

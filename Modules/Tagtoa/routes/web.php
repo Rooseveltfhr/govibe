@@ -50,7 +50,8 @@ Route::get('/pay/{alias}', [PayPublic::class, 'show'])->name('tagtoa.pay.show');
 Route::get('/pay/order/{type}/{reference}', [\Modules\Tagtoa\App\Http\Controllers\Pay\OrderPayController::class, 'show'])
     ->middleware('throttle:60,1')->name('tagtoa.pay.order');
 Route::post('/pay/order/{type}/{reference}/claim', [\Modules\Tagtoa\App\Http\Controllers\Pay\OrderPayController::class, 'claim'])
-    ->middleware('throttle:10,1')->name('tagtoa.pay.order.claim');
+    // 30/min : derrière un réseau mobile partagé, plusieurs clients ont la même adresse IP.
+    ->middleware('throttle:30,1')->name('tagtoa.pay.order.claim');
 Route::get('/pay/{alias}/checkout/{method}', [PayPublic::class, 'checkout'])->name('tagtoa.pay.checkout');
 // Paiement par CARTE TAGTOA (closed-loop) : tap NFC/UID + PIN → débit instantané.
 Route::post('/pay/{alias}/card/charge', [PayPublic::class, 'cardCharge'])->middleware('throttle:20,1')->name('tagtoa.pay.card.charge');
