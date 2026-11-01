@@ -136,6 +136,12 @@ class TenantScopeCoverageTest extends TestCase
             // qui expédie, donc le fondateur doit les voir. Sortie nommée,
             // derrière le rôle super-admin, dans ce seul contrôleur.
             'Http/Controllers/SuperAdmin/ShopAdminController.php',
+            // Le filet des paiements « en attente » (CS-12) : tâche de console, sans
+            // commerce courant, qui doit voir les transactions de TOUS les commerces.
+            // Ne règle un paiement que par CheckoutService::settle() (même chemin
+            // que le webhook) et n'écrit jamais « échouée ».
+            'Console/ReconcilePaymentsCommand.php',
+            'Services/Pay/CheckoutService.php',         // reconcile() : relit la transaction par sa référence
             'Support/BelongsToTenant.php',              // définition
         ];
 

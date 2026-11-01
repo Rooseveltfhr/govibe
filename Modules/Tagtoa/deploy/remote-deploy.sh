@@ -273,4 +273,20 @@ if [ -n "${TAGTOA_SMOKE_BASE:-}" ]; then
   done
 fi
 
+
+# 6) FILET DES PAIEMENTS « EN ATTENTE » (CS-12) — après la réouverture, jamais bloquant.
+#    Un paiement dont le webhook a échoué et dont le client n'est pas revenu reste
+#    « en attente » pour toujours. `tagtoa:pay:reconcile` le re-vérifie auprès de la
+#    passerelle par le même chemin que le webhook (verrou, atomique, idempotent).
+#    Le planificateur de l'hôte la lance toutes les 10 min SI un cron `schedule:run`
+#    existe ; on le constate ici (lecture seule) et on lance un passage de rattrapage.
+echo "==> Paiements en attente (réconciliation)"
+if crontab -l 2>/dev/null | grep -q 'schedule:run'; then
+  echo "   planificateur : cron schedule:run présent — la réconciliation tourne toutes les 10 min"
+else
+  echo "   planificateur : aucun cron schedule:run détecté dans le crontab de cet utilisateur (crontab absent, ou cron géré par le panneau d'hébergement)."
+  echo "   Sans lui, la réconciliation ne tourne qu'à chaque déploiement. Ajoutez au cron : * * * * * cd '$(pwd)' && php artisan schedule:run >> /dev/null 2>&1"
+fi
+timeout 90 php artisan tagtoa:pay:reconcile --limit=20 2>&1 | sed 's/^/   /' || echo "   (réconciliation indisponible — ignorée)"
+
 echo "DEPLOY_OK"

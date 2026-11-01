@@ -156,6 +156,50 @@ class CheckoutService
     }
 
     /**
+     * Passage du FILET (tagtoa:pay:reconcile). Comme confirmOrFail(), avec deux
+     * différences voulues :
+     *
+     *  - JAMAIS d'écriture « échouée ». Le filet est un rattrapage de paiements
+     *    RÉUSSIS : un verdict « failed » (paiement partiel, ancienne session d'un
+     *    paiement réessayé, lecture périmée) laissé définitif ferait perdre à
+     *    jamais un paiement que le webhook ou le retour du client aurait encore
+     *    pu régler. Le verdict est rendu à l'appelant, rien n'est écrit.
+     *  - Une commande de billetterie ANNULÉE est ignorée AVANT d'interroger la
+     *    passerelle : verify() peut capturer un paiement PayPal approuvé, et
+     *    markPaid() réactiverait une commande dont les places ont été libérées.
+     *
+     * @return string 'paid' | 'pending' (rien à faire) | 'failed' (verdict seulement) | 'skipped'
+     */
+    public function reconcile(string $reference): string
+    {
+        $txn = PayTransaction::allTenants()->where('reference', $reference)->first();
+        if (! $txn) {
+            return 'pending';
+        }
+        if ($txn->isPaid()) {
+            return 'paid';
+        }
+        if ($txn->order_type === 'event') {
+            $order = $this->loadOrder('event', (int) $txn->order_id);
+            if ($order && $order->isCancelled()) {
+                return 'skipped';
+            }
+        }
+
+        $driver = $this->driver($txn->gateway);
+        if (! $driver) {
+            return 'pending';
+        }
+
+        $status = $driver->verify($txn);
+        if ($status === 'paid') {
+            return $this->settle($txn, PayTransaction::STATUS_PAID) ? 'paid' : 'pending';
+        }
+
+        return $status === 'failed' ? 'failed' : 'pending';
+    }
+
+    /**
      * Fait passer une transaction de « en attente » à `$to`, et applique ses
      * effets, dans UNE transaction sous verrou. Retourne true seulement pour
      * « payée » (par nous ou par une requête concurrente).
