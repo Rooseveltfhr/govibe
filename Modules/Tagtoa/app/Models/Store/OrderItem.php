@@ -12,12 +12,14 @@ class OrderItem extends Model
 {
     protected $table = 'tagtoa_store_order_items';
 
-    protected $fillable = ['order_id', 'product_id', 'name', 'price', 'qty', 'line_total'];
+    protected $fillable = ['order_id', 'product_id', 'name', 'price', 'qty', 'line_total', 'currency_original', 'unit_price_original', 'rate_used'];
 
     protected $casts = [
         'price'      => 'decimal:2',
         'qty'        => 'integer',
         'line_total' => 'decimal:2',
+        'unit_price_original' => 'decimal:2',
+        'rate_used'  => 'decimal:6',
     ];
 
     public function order(): BelongsTo

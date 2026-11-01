@@ -194,6 +194,23 @@ class CurrencyRateService
         return array_values(array_unique($out));
     }
 
+    /**
+     * Devises qu'un produit peut porter dans un commerce de devise principale `$base` : la principale
+     * (par défaut) puis celles qui ont un taux ACTIF. code => libellé.
+     *
+     * @return array<string,string>
+     */
+    public function choices(?string $tenantId, string $base): array
+    {
+        $base = self::normalizeCode($base) ?: 'HTG';
+        $out = [$base => $base.' — '.__('devise de la boutique')];
+        foreach ($this->activeFor($tenantId, $base) as $code => $r) {
+            $out[$code] = $code.' — 1 = '.rtrim(rtrim(number_format((float) $r->rate, 6, '.', ''), '0'), '.').' '.$base;
+        }
+
+        return $out;
+    }
+
     /** Taux utilisé pour `code` (1 pour la devise principale), NULL si absent. */
     public static function rateOf(?string $code, string $base, array $rates): ?float
     {

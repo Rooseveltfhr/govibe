@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Tagtoa\App\Models\Store\Order;
 use Modules\Tagtoa\App\Models\Store\Store;
 use Modules\Tagtoa\App\Services\Billing\RevenueService;
+use Modules\Tagtoa\App\Services\Currency\CurrencyRateService;
 use Modules\Tagtoa\App\Services\Inventory\StockLedger;
 use Modules\Tagtoa\App\Services\Order\OrderSpine;
 use Modules\Tagtoa\App\Support\Order\Channel;
@@ -24,6 +25,10 @@ use Modules\Tagtoa\App\Support\Store\Cart;
  */
 class StoreOrderService
 {
+    /** Bornes des colonnes decimal(12,2) (prix de ligne et total). */
+    public const PRIX_MAX = 99999999.0;
+    public const TOTAL_MAX = 9999999999.0;
+
     public function __construct(protected RevenueService $revenue)
     {
     }
@@ -61,9 +66,37 @@ class StoreOrderService
         $order = DB::transaction(function () use ($store, $payload, $uuid) {
             // Catalogue autorisé : produits disponibles de CETTE boutique.
             $products = $store->products()->where('is_available', true)->get()->keyBy('id');
+
+            // CUR-3 : un produit en USD / $HT est converti dans la devise de la boutique avec le taux ACTIF
+            // du commerce, côté serveur. Sans taux actif, la commande est refusée (jamais 5 G pour 5 $).
+            $base = strtoupper($store->currency ?: 'HTG');
+            $taux = app(CurrencyRateService::class)->activeFor($store->tenant_id, $base);
             $catalog = [];
+            $origines = [];
+            $sansTaux = [];
             foreach ($products as $p) {
-                $catalog[$p->id] = ['price' => (float) $p->price, 'name' => $p->name];
+                $prix = CurrencyRateService::convert((float) $p->price, $p->currency, $base, $taux);
+                // Taux minuscule : 1 $ à 0,000001 donnerait 0,00 → article gratuit. Un prix positif qui
+                // devient nul, ou un montant hors des colonnes, est refusé comme un taux manquant.
+                if ($prix === null || ((float) $p->price > 0 && $prix <= 0) || $prix > self::PRIX_MAX) {
+                    $sansTaux[$p->id] = true;
+
+                    continue;
+                }
+                $catalog[$p->id] = ['price' => $prix, 'name' => $p->name];
+                $devise = strtoupper((string) $p->currency);
+                if ($devise !== '' && $devise !== $base) {
+                    $origines[$p->id] = [
+                        'currency_original'   => $devise,
+                        'unit_price_original' => round((float) $p->price, 2),
+                        'rate_used'           => CurrencyRateService::rateOf($devise, $base, $taux),
+                    ];
+                }
+            }
+            foreach ((array) ($payload['items'] ?? []) as $it) {
+                if (isset($sansTaux[(int) ($it['id'] ?? 0)])) {
+                    throw new OrderRuleException('currency_rate_missing');
+                }
             }
 
             $cart = Cart::build($catalog, (array) ($payload['items'] ?? []));
@@ -80,6 +113,18 @@ class StoreOrderService
             }
 
             $total = $cart['subtotal'];
+            if ($total > self::TOTAL_MAX) {
+                throw new OrderRuleException('amount_too_large');
+            }
+
+            // Prix affiché au chargement de la page : si le marchand a changé un taux entre-temps,
+            // le client confirme le NOUVEAU total au lieu de payer un montant qu'il n'a pas vu.
+            if (isset($payload['expected_total']) && is_numeric($payload['expected_total'])
+                && abs((float) $payload['expected_total'] - (float) $total) > 0.01) {
+                $e = new OrderRuleException('rate_changed');
+                $e->newTotal = (float) $total;
+                throw $e;
+            }
 
             $order = $store->orders()->create([
                 'tenant_id'        => $store->tenant_id,
@@ -105,7 +150,7 @@ class StoreOrderService
                     'price'      => $l['price'],
                     'qty'        => $l['qty'],
                     'line_total' => $l['line_total'],
-                ]);
+                ] + ($origines[$l['id']] ?? []));
                 // Le stock de la boutique passe par le journal comme celui de
                 // la caisse : le marchand doit pouvoir dire quelle commande a
                 // fait baisser quel article.

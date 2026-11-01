@@ -92,6 +92,7 @@ class CurrencyController extends Controller
     {
         return collect([Tenant::currency()])
             ->merge(Menu::pluck('currency'))
+            ->merge(\Modules\Tagtoa\App\Models\Store\Store::pluck('currency'))
             ->filter()->map(fn ($c) => strtoupper($c))->unique()->values()->all();
     }
 

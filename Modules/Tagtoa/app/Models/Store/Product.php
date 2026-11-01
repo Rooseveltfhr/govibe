@@ -15,7 +15,7 @@ class Product extends Model
 
     protected $fillable = [
         'store_id', 'name', 'description', 'price', 'compare_price', 'image_path',
-        'category', 'stock', 'is_available', 'is_featured', 'sort',
+        'category', 'stock', 'is_available', 'is_featured', 'sort', 'currency',
     ];
 
     protected $casts = [

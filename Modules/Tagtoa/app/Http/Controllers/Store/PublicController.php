@@ -33,6 +33,8 @@ class PublicController extends Controller
         return view('tagtoa::store.show', [
             'store'  => $store,
             'groups' => $groups,
+            // CUR-3 : taux actifs du commerce vers la devise de la boutique (affichage ; le serveur recalcule).
+            'taux'   => app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->activeFor($store->tenant_id, $store->currency ?: 'HTG'),
         ]);
     }
 
@@ -50,16 +52,21 @@ class PublicController extends Controller
             'customer_address' => ['nullable', 'string', 'max:200'],
             'note'             => ['nullable', 'string', 'max:500'],
             'client_uuid'      => ['nullable', 'string', 'max:64'],
+            'expected_total'   => ['nullable', 'numeric', 'min:0'],
         ]);
 
         try {
             $order = app(StoreOrderService::class)->placeOrder($store, $data);
         } catch (OrderRuleException $e) {
-            $message = $e->getMessage() === 'out_of_stock'
-                ? __('Un produit est en rupture de stock. Ajustez votre panier.')
-                : __('Votre panier est vide.');
+            $message = match ($e->getMessage()) {
+                'out_of_stock'          => __('Un produit est en rupture de stock. Ajustez votre panier.'),
+                'amount_too_large'      => __('Le montant de la commande est trop élevé.'),
+                'rate_changed'          => __('Les prix ont changé. Le nouveau total est :t. Vérifiez votre panier puis confirmez de nouveau.', ['t' => Money::format($e->newTotal ?? 0, $store->currency ?: 'HTG')]),
+                'currency_rate_missing' => __('Le prix d\'un produit n\'est plus disponible dans la devise de la boutique. Rechargez la page.'),
+                default                 => __('Votre panier est vide.'),
+            };
 
-            return response()->json(['ok' => false, 'message' => $message], 422);
+            return response()->json(['ok' => false, 'message' => $message] + ($e->getMessage() === 'rate_changed' ? ['new_total' => $e->newTotal] : []), 422);
         }
 
         return response()->json([
