@@ -35,6 +35,13 @@ use Modules\Tagtoa\App\Support\Tenant;
 class StockLedger
 {
     /**
+     * Motif posé sur le mouvement d'une vente DÉJÀ ENCAISSÉE (reprise hors ligne)
+     * qui a fait passer le stock sous zéro. Texte stable : le journal et le
+     * tableau de bord s'y reconnaissent pour dire « à vérifier ».
+     */
+    public const REASON_SHORTFALL = 'Vente hors ligne déjà encaissée : stock insuffisant à la reprise — à vérifier par un comptage';
+
+    /**
      * Applique un mouvement et le journalise. Renvoie la ligne écrite, ou null
      * si l'article ne suit pas son stock (rien à compter, rien à raconter).
      *
@@ -70,8 +77,18 @@ class StockLedger
             // suite. Le verrou posé plus haut (lockForUpdate) est ce qui rend
             // cette vérification fiable : sans lui, deux transactions
             // liraient le même « avant » et passeraient toutes les deux.
-            if ($delta < 0 && $apres < 0) {
+            //
+            // EXCEPTION VOULUE (`allow_negative`) : une vente faite hors ligne dont la
+            // marchandise est DÉJÀ partie et l'argent DÉJÀ pris. La refuser ne rend
+            // pas l'article ; elle ferait disparaître une vente réelle du chiffre
+            // d'affaires. Le stock passe alors sous zéro — signé exprès, voir la
+            // migration decimal_quantities — et le mouvement est marqué.
+            $manque = $delta < 0 && $apres < 0;
+            if ($manque && empty($contexte['allow_negative'])) {
                 throw new InsufficientStockException($frais->name, $avant);
+            }
+            if ($manque) {
+                $contexte['reason'] = $contexte['reason'] ?? self::REASON_SHORTFALL;
             }
 
             $frais->forceFill(['stock' => $apres])->save();

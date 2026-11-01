@@ -62,6 +62,21 @@
     </a>
 </div>
 
+@php $negatifs = $articles->filter(fn ($a) => $a->stock !== null && (float) $a->stock < 0); @endphp
+@if($negatifs->isNotEmpty())
+    {{-- Stock NÉGATIF : des ventes encaissées hors ligne ont dépassé ce que le système croyait
+         avoir. La marchandise est partie et l'argent est pris — il reste à comprendre l'écart. --}}
+    <div class="card" style="border-left:4px solid var(--red);background:#fff5f5">
+        <b><i class="fa-solid fa-circle-exclamation"></i> {{ __('Stock négatif à vérifier') }} ({{ $negatifs->count() }})</b>
+        <div style="color:var(--muted);font-size:13px;margin-top:4px">
+            {{ __('Des ventes encaissées hors ligne ont dépassé le stock enregistré. Comptez ces articles sur l\'étagère : le comptage corrige le stock et garde la trace de l\'écart.') }}
+        </div>
+        <div style="margin-top:6px;font-size:13.5px">
+            @foreach($negatifs as $a)<span class="pill r" style="margin:2px 4px 2px 0">{{ $a->name }} · {{ $fmt($a->stock) }} {{ $a->unit }}</span>@endforeach
+        </div>
+    </div>
+@endif
+
 @if($articles->isEmpty())
     <div class="card" style="text-align:center;color:var(--muted);padding:34px 16px">
         <i class="fa-solid fa-boxes-stacked" style="font-size:30px;opacity:.35"></i>

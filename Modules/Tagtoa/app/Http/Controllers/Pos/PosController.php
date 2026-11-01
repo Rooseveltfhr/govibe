@@ -190,8 +190,15 @@ class PosController extends Controller
             }
 
             try {
-                $sale = $this->service->recordSale($terminal, $validator->validated(), $staff);
-                $results[] = ['client_uuid' => $uuid, 'ok' => true, 'reference' => $sale->reference];
+                // Reprise HORS LIGNE : marchandise remise, argent pris → la vente est
+                // enregistrée même si le stock a manqué ailleurs (voir PosService::
+                // recordSaleWithReport, politique D4). Le manque est signalé.
+                $r = $this->service->recordSaleWithReport($terminal, $validator->validated(), $staff, true);
+                $res = ['client_uuid' => $uuid, 'ok' => true, 'reference' => $r['sale']->reference];
+                if ($r['shortfalls']) {
+                    $res['warnings'] = [['code' => 'stock_shortfall', 'items' => array_column($r['shortfalls'], 'name')]];
+                }
+                $results[] = $res;
             } catch (InsufficientStockException $e) {
                 // Vente faite hors ligne pendant que le stock s'épuisait
                 // ailleurs : elle ne peut pas être rejouée telle quelle. Le

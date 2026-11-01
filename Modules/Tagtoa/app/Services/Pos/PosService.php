@@ -40,7 +40,25 @@ class PosService
      * `$staff` est facultatif : un commerce qui n'a pas encore créé d'employé
      * vend exactement comme avant, et la vente est alors celle du patron.
      */
-    public function recordSale(Terminal $terminal, array $payload, ?Staff $staff = null): Sale
+    public function recordSale(Terminal $terminal, array $payload, ?Staff $staff = null, bool $offlineReplay = false): Sale
+    {
+        return $this->recordSaleWithReport($terminal, $payload, $staff, $offlineReplay)['sale'];
+    }
+
+    /**
+     * Comme recordSale(), et dit quels articles ont manqué de stock.
+     *
+     * POLITIQUE (D4) — deux situations différentes, deux réponses :
+     *  - vente EN LIGNE : la caisse a le client devant elle, l'ajustement est
+     *    possible → le stock insuffisant refuse la vente (409), comme avant ;
+     *  - vente REPRISE hors ligne ($offlineReplay) : marchandise remise, argent
+     *    pris. Elle est ENREGISTRÉE, le stock passe sous zéro, le mouvement est
+     *    marqué et un audit est écrit : c'est au patron de vérifier par un
+     *    comptage, pas à la vente de disparaître.
+     *
+     * @return array{sale: Sale, shortfalls: array<int, array{name:string, short:float}>}
+     */
+    public function recordSaleWithReport(Terminal $terminal, array $payload, ?Staff $staff = null, bool $offlineReplay = false): array
     {
         // Idempotence limitée à CETTE caisse. La recherche était globale : une
         // caisse qui numérote « 1 » ou « vente-42 » retrouvait alors la vente
@@ -48,7 +66,7 @@ class PosService
         // référence du voisin lui était renvoyée.
         $uuid = $payload['client_uuid'] ?? null;
         if ($existing = $this->existingSale($terminal, $uuid)) {
-            return $existing;
+            return ['sale' => $existing, 'shortfalls' => []];
         }
 
         // L'heure de la vente est décidée AVANT d'ouvrir la transaction : c'est
@@ -56,8 +74,9 @@ class PosService
         // l'heure annoncée par la caisse n'a pas été retenue (ou null).
         [$soldAt, $flag] = $this->resolveSoldAt($payload);
 
+        $shortfalls = [];
         try {
-            $sale = $this->persistSale($terminal, $payload, $uuid, $staff, $soldAt);
+            $sale = $this->persistSale($terminal, $payload, $uuid, $staff, $soldAt, $offlineReplay, $shortfalls);
         } catch (UniqueConstraintViolationException $e) {
             // Course : deux requêtes identiques ont passé la recherche ci-dessus
             // en même temps ; l'autre a écrit sa vente la première et l'endex
@@ -67,10 +86,18 @@ class PosService
             // Une autre violation d'unicité (la référence) n'a pas de vente à
             // rendre : elle remonte.
             if ($existing = $this->existingSale($terminal, $uuid)) {
-                return $existing;
+                return ['sale' => $existing, 'shortfalls' => []];
             }
 
             throw $e;
+        }
+
+        if ($shortfalls) {
+            app(AuditService::class)->log(
+                'pos.sale_stock_shortfall',
+                $sale,
+                $sale->reference.' · '.collect($shortfalls)->map(fn ($m) => $m['name'].' (-'.rtrim(rtrim(number_format($m['short'], 3, '.', ''), '0'), '.').')')->implode(', ')
+            );
         }
 
         // Journalisé APRÈS la validation de la vente, et seulement pour la vente
@@ -84,7 +111,7 @@ class PosService
             );
         }
 
-        return $sale;
+        return ['sale' => $sale, 'shortfalls' => $shortfalls];
     }
 
     /**
@@ -152,9 +179,10 @@ class PosService
     }
 
     /** La transaction qui écrit la vente, ses lignes, le stock et la colonne vertébrale. */
-    private function persistSale(Terminal $terminal, array $payload, ?string $uuid, ?Staff $staff, Carbon $soldAt): Sale
+    private function persistSale(Terminal $terminal, array $payload, ?string $uuid, ?Staff $staff, Carbon $soldAt, bool $offlineReplay = false, array &$shortfalls = []): Sale
     {
-        return DB::transaction(function () use ($terminal, $payload, $uuid, $staff, $soldAt) {
+        return DB::transaction(function () use ($terminal, $payload, $uuid, $staff, $soldAt, $offlineReplay, &$shortfalls) {
+            $shortfalls = [];   // la transaction peut être rejouée : repartir de zéro
             $items    = $payload['items'] ?? [];
             $discount = max(0, (float) ($payload['discount'] ?? 0));
 
@@ -280,10 +308,18 @@ class PosService
                 if ($article) {
                     [$stockArticle, $stockQty] = $this->stockCible($article, $qty);
                     if ($stockArticle) {
-                        app(StockLedger::class)->remove(
+                        $mouvement = app(StockLedger::class)->remove(
                             $stockArticle, $stockQty, MovementType::SALE,
-                            ['staff' => $staff, 'origin_type' => 'pos_sale', 'origin_id' => $sale->id]
+                            ['staff' => $staff, 'origin_type' => 'pos_sale', 'origin_id' => $sale->id,
+                             'allow_negative' => $offlineReplay]
                         );
+                        // Combien il MANQUAIT : la part du mouvement qui a creusé sous zéro.
+                        if ($mouvement && (float) $mouvement->stock_after < 0) {
+                            $shortfalls[] = [
+                                'name'  => (string) $mouvement->product_name,
+                                'short' => min(abs((float) $mouvement->delta), abs((float) $mouvement->stock_after)),
+                            ];
+                        }
                     }
                 }
             }

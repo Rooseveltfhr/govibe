@@ -147,8 +147,10 @@ class PosSyncCorrectnessTest extends TestCase
         $this->sync($t, array_map(fn ($i) => $this->vente("u$i"), range(1, 51)))->assertStatus(422);
     }
 
-    public function test_a_stock_shortage_is_a_refusal_with_a_code_and_the_rest_still_syncs(): void
+    public function test_a_stock_shortage_on_an_offline_replay_is_recorded_flagged_not_refused(): void
     {
+        // POLITIQUE D4 : marchandise remise, argent pris. La vente est ENREGISTRÉE,
+        // le stock passe sous zéro et le manque est signalé (voir PosOfflineStockPolicyTest).
         $t = $this->caisse();
         $a = $this->article($t, 1);
         $ligne = [['product_id' => $a->id, 'qty' => 1, 'name' => 'Prestige', 'price' => 150]];
@@ -160,11 +162,12 @@ class PosSyncCorrectnessTest extends TestCase
         ])->assertOk()->json('results');
 
         $this->assertTrue($res[0]['ok']);
-        $this->assertFalse($res[1]['ok']);
-        $this->assertSame('stock', $res[1]['code']);
-        $this->assertStringContainsString('Prestige', $res[1]['message']);
-        $this->assertStringContainsString('Prestige', $res[1]['error'], 'Ancien champ gardé pour les caisses déjà installées.');
+        $this->assertArrayNotHasKey('warnings', $res[0]);
+        $this->assertTrue($res[1]['ok'], 'Une vente déjà encaissée ne doit pas disparaître.');
+        $this->assertSame('stock_shortfall', $res[1]['warnings'][0]['code']);
+        $this->assertSame(['Prestige'], $res[1]['warnings'][0]['items']);
         $this->assertTrue($res[2]['ok']);
+        $this->assertSame(3, Sale::count());
     }
 
     public function test_an_unexpected_failure_never_returns_the_exception_text(): void
@@ -173,7 +176,7 @@ class PosSyncCorrectnessTest extends TestCase
         $this->app->bind(PosService::class, fn () => new class extends PosService {
             public function __construct() {}
 
-            public function recordSale(Terminal $terminal, array $payload, ?\Modules\Tagtoa\App\Models\Staff\Staff $staff = null): Sale
+            public function recordSaleWithReport(Terminal $terminal, array $payload, ?\Modules\Tagtoa\App\Models\Staff\Staff $staff = null, bool $offlineReplay = false): array
             {
                 throw new QueryException('mysql', 'insert into `tagtoa_pos_sales` (`secret_col`) values (?)', ['valeur-secrete'], new \PDOException('SQLSTATE[23000]: Integrity constraint violation'));
             }
