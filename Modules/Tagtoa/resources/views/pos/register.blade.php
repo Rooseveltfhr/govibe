@@ -203,7 +203,11 @@
             <div class="lines" id="lines"><p style="color:#999;padding:14px;font-size:14px">{{ __('Touchez un produit') }}</p></div>
             <div class="tot">
                 <div class="r"><span>{{ __('Sous-total') }}</span><span id="sub">0.00</span></div>
+                @if(! ($staff && ! $staff->can('discount')))
                 <div class="r"><span>{{ __('Remise') }}</span><span><input id="disc" type="number" value="0" min="0" style="width:80px;text-align:right;border:1px solid var(--bd);border-radius:6px" oninput="render()"></span></div>
+                @else
+                <input id="disc" type="hidden" value="0">
+                @endif
                 <div class="r" id="taxrow" style="display:none"><span id="taxlbl">{{ __('Taxe') }}</span><span id="taxval">0.00</span></div>
                 <div class="r g"><span>{{ __('Total') }}</span><span id="tot">0.00</span></div>
                 <button class="pay" id="paybtn" onclick="openPay()" disabled><i class="fa-solid fa-credit-card"></i> {{ __('Encaisser') }}</button>
@@ -589,7 +593,7 @@ var PosSync=(function(){
                  connexion…) — on la garde : la reprise est idempotente. */
   function classify(status,body){
     if(status>=200&&status<300&&body&&body.ok===true)return 'ok';
-    if(status===409||status===422)return 'refused';
+    if(status===409||status===422||status===403)return 'refused';   /* 403 = droit refusé (CS-14) : jamais traité comme « hors ligne » */
     return 'unknown';
   }
   function refusalMessage(body,fallback){

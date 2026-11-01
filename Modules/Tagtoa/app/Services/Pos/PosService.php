@@ -120,7 +120,7 @@ class PosService
      * Isolée pour pouvoir être lue deux fois : avant d'écrire, et après une
      * violation d'unicité.
      */
-    protected function existingSale(Terminal $terminal, ?string $uuid): ?Sale
+    public function existingSale(Terminal $terminal, ?string $uuid): ?Sale
     {
         if (! $uuid) {
             return null;

@@ -49,7 +49,7 @@ class CheckinController extends Controller
     public function sync(Request $request, int $id): JsonResponse
     {
         $event = $this->ownEvent($id);
-        $data = $request->validate(['scans' => ['required', 'array']]);
+        $data = $request->validate(['scans' => ['required', 'array', 'max:500']]);
 
         return response()->json(['results' => $this->service->sync($event, $data['scans'])]);
     }

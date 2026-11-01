@@ -46,7 +46,7 @@ class RacingPosService extends PosService
         parent::__construct(app(\Modules\Tagtoa\App\Services\Billing\RevenueService::class), app(\Modules\Tagtoa\App\Services\Pos\PosCatalog::class));
     }
 
-    protected function existingSale(Terminal $terminal, ?string $uuid): ?Sale
+    public function existingSale(Terminal $terminal, ?string $uuid): ?Sale
     {
         $this->lookups++;
         if ($this->lookups === 1) {
@@ -481,7 +481,8 @@ const S = (u)=>({ client_uuid:u, items:[{name:'X',qty:1,price:1}] });
   assert.strictEqual(C(200,{ok:true}), 'ok');
   assert.strictEqual(C(409,{ok:false,error:'stock'}), 'refused');
   assert.strictEqual(C(422,{message:'x',errors:{}}), 'refused');
-  for (const s of [500,502,503,419,401,403,404,302]) assert.strictEqual(C(s,{ok:false}), 'unknown', String(s));
+  assert.strictEqual(C(403,{message:'Vous n\'avez pas le droit de faire cela.'}), 'refused');   // droit refusé (CS-14) : jamais « hors ligne »
+  for (const s of [500,502,503,419,401,404,302]) assert.strictEqual(C(s,{ok:false}), 'unknown', String(s));
   assert.strictEqual(C(200,{ok:false}), 'unknown'); assert.strictEqual(C(200,null), 'unknown'); assert.strictEqual(C(200,{}), 'unknown');
   const M = PosSync.refusalMessage;
   assert.strictEqual(M({error:'Stock insuffisant'},'f'), 'Stock insuffisant');
