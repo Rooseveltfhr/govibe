@@ -55,11 +55,11 @@ class MerchantMethods
      * toute seule : le montrer comme une carte vide avec « J'ai payé » laissait un client déclarer
      * un paiement MonCash qui n'a jamais eu lieu.
      */
-    public function declarable(?string $tenantId): Collection
+    public function declarable(?string $tenantId, ?string $currency = null): Collection
     {
         return $this->active($tenantId)->reject(
             fn ($m) => $m->isAuto() && (\Modules\Tagtoa\App\Support\Pay\GatewayCatalog::forMerchant()[$m->type]['online_ready'] ?? false)
-        )->values();
+        )->filter(fn ($m) => $m->acceptsCurrency($currency))->values();
     }
 
     /** Tous les moyens enregistrés par le marchand, actifs ou non (pour respecter ses interrupteurs). */

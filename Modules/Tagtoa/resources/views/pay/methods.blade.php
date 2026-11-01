@@ -14,6 +14,34 @@
     </p>
 </div>
 
+@if($errors->any())
+    <div class="card" style="border-left:4px solid var(--red)" role="alert">
+        @foreach($errors->all() as $e)<div style="color:var(--red);font-size:13.5px">{{ $e }}</div>@endforeach
+    </div>
+@endif
+
+{{-- Aperçu : ce que voit un client qui paie dans cette devise (même logique que la page « Payer »). --}}
+<div class="card" style="margin-bottom:16px">
+    <form method="GET" action="{{ route('tagtoa.pay.methods') }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <b style="font-family:var(--fh,sans-serif)"><i class="fa-solid fa-eye"></i> {{ __('Aperçu client') }}</b>
+        <select class="sel" name="preview" style="max-width:260px" onchange="this.form.submit()">
+            <option value="">{{ __('Choisir une devise…') }}</option>
+            @foreach($currencies as $code => $lib)<option value="{{ $code }}" @selected($preview === $code)>{{ $lib }}</option>@endforeach
+        </select>
+    </form>
+    @if($preview)
+        <p style="color:var(--muted);font-size:13px;margin:8px 0 6px">{{ __('Un client qui paie en :c voit :', ['c' => $preview]) }}</p>
+        @if(empty($previewOnline) && $previewManual->isEmpty())
+            <div style="color:#7a5200;font-size:13.5px"><i class="fa-solid fa-triangle-exclamation"></i> {{ __('Aucun moyen de paiement : le client sera invité à payer directement au commerce.') }}</div>
+        @else
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+                @foreach($previewOnline as $o)<span class="gwtag ok"><i class="{{ $o['icon'] }}"></i> {{ __($o['label']) }} · {{ __('automatique') }}</span>@endforeach
+                @foreach($previewManual as $pm)<span class="gwtag off" style="background:#eef2ff;color:#1f2a6b"><i class="{{ $pm->icon }}"></i> {{ $pm->display_label }} · {{ __('manuel') }}</span>@endforeach
+            </div>
+        @endif
+    @endif
+</div>
+
 <form method="POST" action="{{ route('tagtoa.pay.methods.update') }}" enctype="multipart/form-data">
     @csrf @method('PUT')
 
