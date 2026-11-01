@@ -77,6 +77,15 @@
                 @endif
             </div>
 
+            <label class="lbl" style="margin-top:8px">{{ __('Devises acceptées') }} <span style="font-weight:400;color:var(--muted)">({{ __('rien de coché = toutes') }})</span></label>
+            <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:6px">
+                @foreach($currencies as $code => $lib)
+                    <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer">
+                        <input type="checkbox" name="methods[{{ $type }}][currencies][]" value="{{ $code }}" @checked(in_array($code, (array) old('methods.'.$type.'.currencies', $m->currencies ?? []), true))> {{ $code }}
+                    </label>
+                @endforeach
+            </div>
+
             <label class="lbl" style="margin-top:8px">{{ __('Instructions pour le client') }}</label>
             <textarea name="methods[{{ $type }}][instructions]" class="inp" rows="2" maxlength="1000"
                       placeholder="{{ __('Ex. Envoyez le montant exact puis téléversez la capture.') }}">{{ old('methods.'.$type.'.instructions', $m->instructions ?? '') }}</textarea>

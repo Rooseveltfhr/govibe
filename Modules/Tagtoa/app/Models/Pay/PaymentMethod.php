@@ -21,14 +21,29 @@ class PaymentMethod extends Model
 
     protected $fillable = [
         'payment_page_id', 'tenant_id', 'type', 'label', 'account_holder', 'institution', 'account_number',
-        'instructions', 'qr_path', 'logo_path', 'requires_proof', 'is_active', 'sort',
+        'instructions', 'qr_path', 'logo_path', 'requires_proof', 'is_active', 'sort', 'currencies',
     ];
 
     protected $casts = [
         'requires_proof' => 'boolean',
         'is_active'      => 'boolean',
         'sort'           => 'integer',
+        'currencies'     => 'array',
     ];
+
+    /**
+     * Ce moyen accepte-t-il cette devise ? Liste absente ou vide = toutes (comportement d'avant).
+     * Un moyen restreint à USD n'est jamais proposé pour une commande en HTG.
+     */
+    public function acceptsCurrency(?string $currency): bool
+    {
+        $liste = array_values(array_filter((array) $this->currencies));
+        if ($liste === [] || $currency === null || $currency === '') {
+            return true;
+        }
+
+        return in_array(strtoupper($currency), array_map('strtoupper', $liste), true);
+    }
 
     public function page(): BelongsTo
     {

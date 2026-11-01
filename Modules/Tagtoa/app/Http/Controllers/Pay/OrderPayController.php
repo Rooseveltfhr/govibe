@@ -37,7 +37,7 @@ class OrderPayController extends Controller
     public function show(string $type, string $reference): View
     {
         $order = $this->order($type, $reference);
-        $methods = app(MerchantMethods::class)->declarable($order->tenant_id);
+        $methods = app(MerchantMethods::class)->declarable($order->tenant_id, $order->currency);
         $online = $order->isPaid() ? [] : OnlineOptions::for($order->currency, app(MerchantMethods::class)->saved($order->tenant_id));
 
         return view('tagtoa::pay.order', [
@@ -64,7 +64,7 @@ class OrderPayController extends Controller
             return redirect()->route('tagtoa.pay.order', [$type, $reference]);
         }
 
-        $methods = app(MerchantMethods::class)->declarable($order->tenant_id);
+        $methods = app(MerchantMethods::class)->declarable($order->tenant_id, $order->currency);
 
         // Un numéro tapé « (509) 3456-7890 » ou « +509 3456.7890 » est un numéro valide : on garde
         // les chiffres (et un + initial) avant de valider, au lieu de refuser la saisie.
@@ -109,7 +109,7 @@ class OrderPayController extends Controller
             return null;
         }
         if (empty(OnlineOptions::for($order->currency, app(MerchantMethods::class)->saved($order->tenant_id)))
-            && app(MerchantMethods::class)->declarable($order->tenant_id)->isEmpty()) {
+            && app(MerchantMethods::class)->declarable($order->tenant_id, $order->currency)->isEmpty()) {
             return null;
         }
 

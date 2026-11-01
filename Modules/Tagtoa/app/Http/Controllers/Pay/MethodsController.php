@@ -5,9 +5,12 @@ namespace Modules\Tagtoa\App\Http\Controllers\Pay;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Services\Pay\MerchantMethods;
+use Modules\Tagtoa\App\Support\Pay\OnlineOptions;
+use Modules\Tagtoa\App\Support\Money;
 use Modules\Tagtoa\App\Support\Pay\GatewayCatalog;
 use Modules\Tagtoa\App\Support\Tenant;
 
@@ -34,9 +37,18 @@ class MethodsController extends Controller
     {
         $tenantId = Tenant::id();
 
+        $currencies = array_keys(Money::currencies());
+        $preview = strtoupper((string) request('preview', ''));
+        $preview = in_array($preview, $currencies, true) ? $preview : null;
+
         return view('tagtoa::pay.methods', [
-            'catalog' => GatewayCatalog::split(GatewayCatalog::forMerchant()),
-            'saved'   => $this->methods->allByType($tenantId),
+            'catalog'    => GatewayCatalog::split(GatewayCatalog::forMerchant()),
+            'saved'      => $this->methods->allByType($tenantId),
+            'currencies' => Money::options(),
+            'preview'    => $preview,
+            // Ce que VOIT un client qui paie dans cette devise : même code que la page « Payer ».
+            'previewOnline' => $preview ? OnlineOptions::for($preview, $this->methods->saved($tenantId)) : [],
+            'previewManual' => $preview ? $this->methods->declarable($tenantId, $preview) : collect(),
         ]);
     }
 
@@ -58,6 +70,15 @@ class MethodsController extends Controller
         }
         $rows = array_intersect_key($rows, $catalog);
 
+        // « usd » et « USD » sont la même devise : normalisation avant validation (les valeurs qui ne
+        // sont pas du texte restent telles quelles et sont refusées par les règles).
+        foreach ($rows as $t => $r) {
+            if (is_array($r) && isset($r['currencies']) && is_array($r['currencies'])) {
+                $rows[$t]['currencies'] = array_map(fn ($c) => is_string($c) ? strtoupper(trim($c)) : $c, $r['currencies']);
+            }
+        }
+        $request->merge(['methods' => $rows]);
+
         $rules = [];
         foreach (array_keys($rows) as $type) {
             $rules["methods.$type.label"]          = ['nullable', 'string', 'max:120'];
@@ -67,12 +88,16 @@ class MethodsController extends Controller
             $rules["methods.$type.instructions"]   = ['nullable', 'string', 'max:1000'];
             $rules["methods.$type.qr"]             = ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'];
             $rules["methods.$type.logo"]           = ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1024'];
+            // Devises acceptées : codes du catalogue seulement ; vide = toutes.
+            $rules["methods.$type.currencies"]     = ['nullable', 'array', 'max:'.count(Money::currencies())];
+            $rules["methods.$type.currencies.*"]   = ['string', Rule::in(array_keys(Money::currencies()))];
         }
         if ($rules) {
             $request->validate($rules);
         }
 
-        DB::transaction(function () use ($rows, $request, $catalog, $order, $library, $tenantId) {
+        $vides = [];
+        DB::transaction(function () use ($rows, $request, $catalog, $order, $library, $tenantId, &$vides) {
             $existing = $library->methods()->get()->keyBy('type');
 
             foreach ($rows as $type => $row) {
@@ -90,6 +115,15 @@ class MethodsController extends Controller
                     continue; // rien à enregistrer pour cette passerelle
                 }
 
+                // Un moyen MANUEL activé sans rien à montrer au client (ni numéro, ni titulaire, ni
+                // consignes, ni QR, ni ancien QR) ne sert à rien : « Payer chez moi » sans dire où.
+                $manuelSansRien = ! $meta['online_ready'] && $enabled && ! $hasDetails && ! filled($current?->qr_path)
+                    && ! filled($current?->account_number) && ! filled($current?->account_holder) && ! filled($current?->instructions);
+                if ($manuelSansRien) {
+                    $vides[] = $meta['label'] ?? $type;
+                    continue;
+                }
+
                 $attrs = [
                     'tenant_id'      => $tenantId,
                     'type'           => $type,
@@ -102,6 +136,7 @@ class MethodsController extends Controller
                     'requires_proof' => ! $meta['online_ready'],
                     'is_active'      => $enabled,
                     'sort'           => (int) ($order[$type] ?? 0),
+                    'currencies'     => ($c = array_values(array_unique(array_map('strtoupper', (array) ($row['currencies'] ?? []))))) ? $c : null,
                 ];
 
                 $current ? $current->update($attrs) : $current = $library->methods()->create($attrs);
@@ -114,6 +149,12 @@ class MethodsController extends Controller
                 }
             }
         });
+
+        if ($vides) {
+            return back()->withInput()->withErrors([
+                'methods' => __('Ajoutez un numéro, un titulaire, des consignes ou un QR avant d\'activer : :noms. Les autres moyens sont enregistrés.', ['noms' => implode(', ', $vides)]),
+            ]);
+        }
 
         return back()->with('success', __('Vos moyens de paiement sont enregistrés. Ils s\'appliquent à tous vos liens.'));
     }
