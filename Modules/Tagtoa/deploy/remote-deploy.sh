@@ -146,7 +146,7 @@ fi
 #       LISTE BLANCHE, jamais « tagtoa » en bloc : les justificatifs de paiement (tagtoa/pay-proofs) peuvent se
 #       trouver sous le même disque et ne doivent JAMAIS devenir publics. Idempotent ; ne touche à aucun vrai
 #       dossier ou fichier déjà présent ; un lien mort est refait.
-TAGTOA_PUBLIC_DIRS="booking-covers booking-logos business-logos event-covers event-logos link-avatars loyalty-logos menu-covers menu-items menu-logos pay-logos pay-qr pos-products shop site-covers site-gallery site-logos store-covers store-logos store-products"
+TAGTOA_PUBLIC_DIRS="booking-covers booking-logos business-logos event-covers event-logos hotel-covers link-avatars loyalty-logos menu-covers menu-items menu-logos pay-logos pay-qr pos-products shop site-covers site-gallery site-logos store-covers store-logos store-products"
 DISK_LINE="$(php artisan tinker --execute="echo config('filesystems.disks.public.root').'|'.config('filesystems.disks.public.url');" 2>/dev/null | tail -1)"
 DISK_ROOT="${DISK_LINE%%|*}"
 DISK_URLPATH="$(printf '%s' "${DISK_LINE#*|}" | sed -E 's#^https?://[^/]+##; s#/+$##')"

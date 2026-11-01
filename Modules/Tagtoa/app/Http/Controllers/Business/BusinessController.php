@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Modules\Tagtoa\App\Services\Hotel\HotelProfileService;
+use Modules\Tagtoa\App\Support\Hotel\HotelCatalog;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Business\Business;
 use Modules\Tagtoa\App\Models\Menu\Menu;
@@ -45,6 +47,8 @@ class BusinessController extends Controller
             'suggestions' => BusinessProfile::PROFILES,
             'devises'  => Business::SUGGESTED_CURRENCIES,
             'premier'  => ! $this->businesses->hasAny(Tenant::account()),
+            'hotel'    => new \Modules\Tagtoa\App\Models\Hotel\HotelProfile(['reception_24h' => true]),
+            'facilities' => HotelCatalog::FACILITIES,
         ]);
     }
 
@@ -54,6 +58,8 @@ class BusinessController extends Controller
         $data['logo_path'] = $this->logo($request);
 
         $business = $this->businesses->create(Tenant::account(), $data);
+        // Profil propre à l'hôtel (seulement si type = hôtel ; sinon le service n'écrit rien).
+        app(HotelProfileService::class)->save($business, (array) $request->input('hotel', []), $this->hotelCover($request));
 
         app(AuditService::class)->log('business.created', $business, $business->name);
 
@@ -71,6 +77,9 @@ class BusinessController extends Controller
             'suggestions' => BusinessProfile::PROFILES,
             'devises'  => Business::SUGGESTED_CURRENCIES,
             'premier'  => false,
+            'hotel'    => app(HotelProfileService::class)->for($business)
+                ?? new \Modules\Tagtoa\App\Models\Hotel\HotelProfile(['reception_24h' => true]),
+            'facilities' => HotelCatalog::FACILITIES,
         ]);
     }
 
@@ -86,6 +95,7 @@ class BusinessController extends Controller
         }
 
         $this->businesses->update($business, $data);
+        app(HotelProfileService::class)->save($business->refresh(), (array) $request->input('hotel', []), $this->hotelCover($request));
 
         app(AuditService::class)->log('business.updated', $business, $business->name);
 
@@ -109,7 +119,11 @@ class BusinessController extends Controller
 
     protected function validated(Request $request, ?Business $business = null): array
     {
-        return $request->validate([
+        // Les champs d'hôtel ne sont validés — et n'existent — que pour un hôtel : pour tout
+        // autre type, `hotel[...]` est ignoré, comme avant.
+        $reglesHotel = $request->input('type') === 'hotel' ? HotelCatalog::rules() : [];
+
+        return $request->validate($reglesHotel + [
             'name' => ['required', 'string', 'max:160'],
             'type' => ['required', Rule::in(array_keys(Menu::TYPES))],
             'categories' => ['nullable', 'array', 'max:30'],
@@ -135,6 +149,13 @@ class BusinessController extends Controller
             // papier à chaque vente, et personne ne le lit.
             'receipt_footer' => ['nullable', 'string', 'max:240'],
         ]);
+    }
+
+    protected function hotelCover(Request $request): ?string
+    {
+        return $request->input('type') === 'hotel' && $request->hasFile('hotel_cover')
+            ? $request->file('hotel_cover')->store('tagtoa/hotel-covers', 'public')
+            : null;
     }
 
     protected function logo(Request $request): ?string
