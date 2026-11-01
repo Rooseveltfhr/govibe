@@ -15,7 +15,7 @@ class HotelRoom extends Model
 
     protected $fillable = ['tenant_id', 'number', 'name', 'type', 'floor', 'notes', 'is_active'];
 
-    protected $casts = ['is_active' => 'boolean'];
+    protected $casts = ['is_active' => 'boolean', 'stand_id' => 'integer'];
 
     public function getTypeLabelAttribute(): ?string
     {
