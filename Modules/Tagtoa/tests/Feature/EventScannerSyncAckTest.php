@@ -118,6 +118,7 @@ class EventScannerSyncAckTest extends TestCase
         $this->assertStringContainsString('setQ(evqRemaining(q(),j&&j.results))', $html);
         $this->assertStringContainsString('if(!r.ok){throw new Error(\'http\');}', $html, 'Un statut HTTP d\'erreur ne vide jamais la file.');
         $this->assertStringContainsString('if(flushing)return;', $html, 'Un seul envoi à la fois.');
+        $this->assertStringContainsString('setInterval(function(){if(navigator.onLine)flush();},30000)', $html, 'Les scans différés (> 100) sont repris sans recharger.');
     }
 
     public function test_the_queue_logic_behaves_under_node(): void
@@ -154,5 +155,12 @@ JS);
 
         $this->assertSame(0, $code, implode("\n", $out));
         $this->assertStringContainsString('EVQ OK', implode("\n", $out));
+    }
+
+    public function test_the_server_bounds_the_number_of_scans_per_call(): void
+    {
+        $scans = array_fill(0, 501, ['code' => 'X', 'client_uuid' => 'U']);
+
+        $this->sync($scans)->assertStatus(422);
     }
 }

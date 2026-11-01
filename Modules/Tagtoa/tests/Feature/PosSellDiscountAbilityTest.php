@@ -98,7 +98,12 @@ class PosSellDiscountAbilityTest extends TestCase
         $this->assertSame(0, Sale::count());
     }
 
-    public function test_the_owner_without_a_staff_session_is_unaffected(): void
+    /**
+     * LIMITE ASSUMÉE, documentée (revue indépendante) : sans session d'employé sur CE poste, la
+     * personne est traitée en patron. Le contrôle protège l'usage de l'interface et les appels
+     * faits par la session d'un employé ; la vraie frontière est le compte administrateur partagé.
+     */
+    public function test_the_owner_without_a_staff_session_is_unaffected_known_limit(): void
     {
         app(StaffService::class)->save('t-1', ['name' => 'Employé', 'pin' => '1234', 'role' => StaffAccess::ROLE_CASHIER, 'terminal_id' => $this->terminal->id]);
 
@@ -156,5 +161,39 @@ class PosSellDiscountAbilityTest extends TestCase
         $res = $this->sync([array_merge($this->vente(['discount' => 400]), ['client_uuid' => 'O1'])])->assertOk()->json('results.0');
 
         $this->assertTrue($res['ok']);
+    }
+
+    /* ---------- revue indépendante ---------- */
+
+    public function test_a_sale_already_recorded_is_acknowledged_even_when_replayed_by_a_cashier_without_the_right(): void
+    {
+        // Le gérant a fait la vente avec remise ; la réponse s'est perdue ; elle est rejouée sous un caissier.
+        $this->ouvrirAvec(StaffAccess::ROLE_MANAGER, '5678');
+        $vente = array_merge($this->vente(['discount' => 400]), ['client_uuid' => 'M1']);
+        $this->sync([$vente])->assertOk();
+        $this->assertSame(1, Sale::count());
+        $this->post(route('tagtoa.pos.staff.logout', $this->terminal->id));
+
+        $this->ouvrirAvec(StaffAccess::ROLE_CASHIER);
+        $res = $this->sync([$vente])->assertOk()->json('results.0');
+
+        $this->assertTrue($res['ok'], 'Une vente qui existe déjà n\'est jamais « refusée ».');
+        $this->assertArrayNotHasKey('code', $res);
+        $this->assertSame(1, Sale::count(), 'Pas de doublon.');
+    }
+
+    public function test_the_register_hides_the_discount_field_from_someone_without_the_right(): void
+    {
+        $this->ouvrirAvec(StaffAccess::ROLE_CASHIER);
+        $html = $this->get(route('tagtoa.pos.register', $this->terminal->id))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('<input id="disc" type="number"', $html);
+        $this->assertStringContainsString('<input id="disc" type="hidden" value="0">', $html);
+    }
+
+    public function test_the_register_shows_the_discount_field_to_a_manager_and_to_the_owner(): void
+    {
+        $html = $this->get(route('tagtoa.pos.register', $this->terminal->id))->assertOk()->getContent();
+        $this->assertStringContainsString('<input id="disc" type="number"', $html);
     }
 }

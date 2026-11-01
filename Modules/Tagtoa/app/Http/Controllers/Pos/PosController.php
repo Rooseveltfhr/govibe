@@ -83,9 +83,16 @@ class PosController extends Controller
         $data = $request->validate($this->saleRules());
 
         // DROITS DE LA PERSONNE AU POSTE (POS-8). Sans employé connecté (le patron, ou
-        // un commerce qui n'a créé personne) rien ne change. Un employé sans le droit
-        // « encaisser » ne vend pas ; sans le droit « remise », il ne peut en accorder
-        // aucune — le montant de la remise ne vient jamais de lui seul.
+        // un commerce qui n'a créé personne) rien ne change. Un employé connecté sans le
+        // droit « encaisser » ne vend pas ; sans le droit « remise », il ne peut en
+        // accorder aucune par le champ remise.
+        //
+        // LIMITES ASSUMÉES (revue indépendante) : ce contrôle protège contre l'usage de
+        // l'interface et les appels directs faits PAR LA SESSION D'UN EMPLOYÉ. La vraie
+        // frontière reste le compte administrateur partagé du commerce : qui détient cette
+        // session (ou ferme le poste, sans PIN) agit en patron. Un article au pied levé
+        // (« divers », sans référence) garde le prix saisi : c'est sa raison d'être, ce
+        // n'est pas une remise.
         $staffAuPoste = $this->currentStaff($terminal);
         $this->denyUnless($staffAuPoste, 'sell');
         if ((float) ($data['discount'] ?? 0) > 0) {
@@ -195,6 +202,15 @@ class PosController extends Controller
             ]));
             if ($validator->fails()) {
                 $results[] = ['client_uuid' => $uuid, 'ok' => false, 'code' => 'invalid', 'errors' => $validator->errors()->keys()];
+
+                continue;
+            }
+
+            // Une vente DÉJÀ enregistrée (réponse perdue, reprise rejouée) est acquittée
+            // AVANT tout contrôle de droit : la refuser ferait marquer « refusée » une vente
+            // qui existe, et la ferait traîner dans la file jusqu'à un clic d'un gérant.
+            if ($deja = $this->service->existingSale($terminal, $uuid)) {
+                $results[] = ['client_uuid' => $uuid, 'ok' => true, 'reference' => $deja->reference];
 
                 continue;
             }
