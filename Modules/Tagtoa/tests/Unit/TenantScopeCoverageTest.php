@@ -148,6 +148,12 @@ class TenantScopeCoverageTest extends TestCase
             // paramètre (aussi depuis la page publique, sans commerce courant), toujours
             // filtrés sur ce tenant_id explicite.
             'Services/Currency/CurrencyRateService.php',
+            // Chambres d'hôtel (H4) : le portail public et le rattachement d'un support résolvent le
+            // commerce EXPLICITEMENT depuis le support / le paramètre, jamais depuis un état ambiant,
+            // et filtrent chaque requête sur ce tenant_id.
+            'Http/Controllers/Hotel/PortalController.php',
+            'Services/Hotel/HotelRoomSupportService.php',
+            'Services/Stand/StandResolver.php',         // destination d'un support de chambre (tenant du stand)
             'Services/Pay/CheckoutService.php',         // reconcile() : relit la transaction par sa référence
             'Support/BelongsToTenant.php',              // définition
         ];

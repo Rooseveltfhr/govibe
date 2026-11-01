@@ -117,6 +117,9 @@ class StandTransferService
                 ->whereIn('id', $ids)
                 ->where('digital_state', StandState::ACTIVE)
                 ->whereNotIn('physical_state', StandState::PHYSICAL_CLOSED)
+                // H4 : le support d'une CHAMBRE d'hôtel ne se cède pas (il resterait lié à la chambre de
+                // l'ancien hôtel et deviendrait inutilisable chez le repreneur) : révoquer, puis en activer un autre.
+                ->whereNotIn('id', \Illuminate\Support\Facades\DB::table('tagtoa_hotel_rooms')->whereNotNull('stand_id')->select('stand_id'))
                 ->lockForUpdate()->get();
 
             if ($stands->isEmpty()) {

@@ -186,6 +186,15 @@ class StandResolver
             return $alias ? url('/menu/'.$alias) : null;
         }
 
+        // H4 : le support d'une chambre d'hôtel. Le portail revérifie TOUT à chaque requête (support,
+        // chambre, hôtel) : ce cache ne garde que l'adresse, jamais l'autorisation.
+        if ($module === 'hotel_room') {
+            $chambre = \Modules\Tagtoa\App\Models\Hotel\HotelRoom::allTenants()
+                ->where('tenant_id', $stand->tenant_id)->where('stand_id', $stand->id)->where('is_active', true)->exists();
+
+            return $chambre ? url('/h/'.$stand->public_id) : null;
+        }
+
         // Module non encore branché : on ne devine pas une URL qui n'existe pas.
         return null;
     }

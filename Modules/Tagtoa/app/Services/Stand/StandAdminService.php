@@ -320,7 +320,12 @@ class StandAdminService
             $avant = $stand->tenant_id;
             $avantEtat = $stand->digital_state;
 
+            // H4 : un support de chambre déplacé de force ne reste pas lié à la chambre de l'ancien hôtel.
+            \Illuminate\Support\Facades\DB::table('tagtoa_hotel_rooms')->where('stand_id', $stand->id)->update(['stand_id' => null]);
+            $ciblePerdue = $stand->target_module === 'hotel_room';
+
             $stand->forceFill([
+                'target_module'        => $ciblePerdue ? 'menu' : $stand->target_module,
                 'tenant_id'            => $versCommerce,
                 'digital_state'        => StandState::ACTIVE,
                 'physical_state'       => StandState::SOLD,

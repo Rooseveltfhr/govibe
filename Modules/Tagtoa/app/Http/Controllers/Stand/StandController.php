@@ -46,9 +46,14 @@ class StandController extends Controller
 
         $stand = $this->own($id);
 
+        // Un support de CHAMBRE d'hôtel ne change pas de destination ici : il se gère depuis « Chambres ».
+        $cible = $stand->target_module === 'hotel_room'
+            ? $stand->target_module
+            : ($data['target_module'] ?? $stand->target_module);
+
         $stand->update([
             'location_label' => $data['location_label'] ?? null,
-            'target_module'  => $data['target_module'] ?? $stand->target_module,
+            'target_module'  => $cible,
         ]);
 
         // Sans cet oubli-là, l'ancienne destination continuerait d'être servie

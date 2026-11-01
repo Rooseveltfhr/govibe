@@ -66,6 +66,7 @@
                 <th style="padding:8px 10px">{{ __('Type') }}</th>
                 <th style="padding:8px 10px">{{ __('Étage') }}</th>
                 <th style="padding:8px 10px">{{ __('Statut') }}</th>
+                <th style="padding:8px 10px">{{ __('Support QR/NFC') }}</th>
                 <th style="padding:8px 10px"></th>
             </tr></thead>
             <tbody>
@@ -75,6 +76,31 @@
                     <td style="padding:7px 10px">{{ $r->type_label ? __($r->type_label) : '—' }}</td>
                     <td style="padding:7px 10px">{{ $r->floor ?: '—' }}</td>
                     <td style="padding:7px 10px"><span class="pill {{ $r->is_active ? 'g' : 'n' }}">{{ $r->is_active ? __('Active') : __('Désactivée') }}</span></td>
+                    <td style="padding:7px 10px;min-width:210px">
+                        @if($r->stand_id)
+                            <span class="pill g"><i class="fa-solid fa-qrcode"></i> {{ optional($stands->get($r->stand_id))->public_id ?? __('Actif') }}</span>
+                            <details style="margin-top:6px">
+                                <summary style="cursor:pointer;font-size:12.5px">{{ __('Remplacer / révoquer') }}</summary>
+                                <form method="POST" action="{{ route('tagtoa.hotel.rooms.support.replace', $r->id) }}" style="margin-top:6px">
+                                    @csrf
+                                    <input class="inp" name="code" required maxlength="64" autocomplete="off" placeholder="{{ __('Code du NOUVEAU support (gratté)') }}">
+                                    <button class="btn btn-o btn-sm" style="margin-top:6px">{{ __('Remplacer') }}</button>
+                                </form>
+                                <form method="POST" action="{{ route('tagtoa.hotel.rooms.support.revoke', $r->id) }}" style="margin-top:6px" onsubmit='return confirm(@json(__('Révoquer ce support ? Son QR ne fonctionnera plus, définitivement.'), JSON_HEX_APOS | JSON_HEX_QUOT))'>
+                                    @csrf
+                                    <button class="btn btn-o btn-sm" style="color:var(--red)">{{ __('Révoquer') }}</button>
+                                </form>
+                            </details>
+                        @elseif($r->is_active)
+                            <form method="POST" action="{{ route('tagtoa.hotel.rooms.support.attach', $r->id) }}">
+                                @csrf
+                                <input class="inp" name="code" required maxlength="64" autocomplete="off" placeholder="{{ __('Code gratté du support') }}">
+                                <button class="btn btn-p btn-sm" style="margin-top:6px"><i class="fa-solid fa-qrcode"></i> {{ __('Activer') }}</button>
+                            </form>
+                        @else
+                            <span style="color:var(--muted);font-size:12.5px">—</span>
+                        @endif
+                    </td>
                     <td style="padding:7px 10px;white-space:nowrap">
                         <details style="display:inline-block">
                             <summary class="btn btn-o btn-sm" style="cursor:pointer;display:inline-flex"><i class="fa-solid fa-pen"></i></summary>
