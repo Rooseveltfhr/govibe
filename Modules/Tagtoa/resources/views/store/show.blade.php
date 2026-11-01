@@ -96,7 +96,7 @@
                         $pDevise = strtoupper((string) $p->currency);
                         $pEtranger = $pDevise !== '' && $pDevise !== strtoupper($store->currency ?: 'HTG');
                         $pBase = $CurS::convert((float) $p->price, $p->currency, $store->currency ?: 'HTG', $taux ?? []);
-                        $sansTaux = $pBase === null;
+                        $sansTaux = $pBase === null || ((float) $p->price > 0 && $pBase <= 0);
                     @endphp
                     <div class="card">
                         <div class="img feat" @if($p->image_url) style="background-image:url('{{ $p->image_url }}')" @endif>
@@ -114,7 +114,7 @@
                                 @else
                                     <b>{{ number_format((float)$p->price,2) }} {{ $store->currency }}</b>
                                 @endif
-                                @if($p->compare_price && $p->compare_price > $p->price)<s>{{ number_format((float)$p->compare_price,2) }}</s>@endif
+                                @if($p->compare_price && $p->compare_price > $p->price)<s>{{ $pEtranger ? $CurS::format((float) $p->compare_price, $pDevise, $store->currency ?: 'HTG', $taux ?? []) : number_format((float)$p->compare_price,2) }}</s>@endif
                             </div>
                             @if($out || $sansTaux)
                                 <button class="add" disabled><i class="fa-solid fa-ban"></i> {{ $out ? __('Épuisé') : __('Indisponible') }}</button>
@@ -200,9 +200,9 @@
         var items=[];for(var k in cart)items.push({id:parseInt(k),qty:cart[k].qty});
         var btn=el('confirm');btn.disabled=true;btn.textContent=T.wait;
         fetch(ORDER_URL,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':CSRF},
-            body:JSON.stringify({items:items,customer_name:name,customer_phone:phone,customer_address:el('cAddr').value.trim()||null,note:el('cNote').value.trim()||null,client_uuid:uuid()})})
+            body:JSON.stringify({items:items,customer_name:name,customer_phone:phone,customer_address:el('cAddr').value.trim()||null,note:el('cNote').value.trim()||null,client_uuid:uuid(),expected_total:Math.round(totals().t*100)/100})})
         .then(function(r){return r.json();}).then(function(j){btn.disabled=false;btn.textContent=T.confirm;
-            if(!j.ok){errB.textContent=j.message||T.err;errB.classList.add('show');return;}
+            if(!j.ok){if(j.new_total!=null){/* prix changés : on remet les prix à jour au rechargement */}errB.textContent=j.message||T.err;errB.classList.add('show');return;}
             el('cartView').style.display='none';el('okBox').classList.add('show');
             el('okRef').textContent=j.reference;
             if(j.whatsapp_url){var w=el('waBtn');w.href=j.whatsapp_url;w.style.display='block';}

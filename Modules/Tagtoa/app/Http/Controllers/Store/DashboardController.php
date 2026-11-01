@@ -44,12 +44,15 @@ class DashboardController extends Controller
         }
 
         $data = $this->validateStore($request);
+        $this->checkProductCurrencies(Tenant::id(), (string) ($data['currency'] ?? 'HTG'), $request);
         $store = new Store($data);
         $store->tenant_id = Tenant::id();
         $store->alias = $data['alias'] ?? Store::generateAlias($data['name'] ?? 'boutik');
         $this->handleUploads($store, $request);
-        $store->save();
-        $this->syncProducts($store, $request);
+        DB::transaction(function () use ($store, $request) {
+            $store->save();
+            $this->syncProducts($store, $request);
+        });
 
         return redirect()->route('tagtoa.store.dashboard.edit', $store->id)
             ->with('success', __('Boutique créée. Ajoutez vos produits.'));
@@ -70,13 +73,17 @@ class DashboardController extends Controller
     {
         $store = $this->own($id);
         $data = $this->validateStore($request, $store->id);
+        // Devise de boutique + devises produits validées ENSEMBLE, avant toute écriture.
+        $this->checkProductCurrencies($store->tenant_id, (string) ($data['currency'] ?? $store->currency ?: 'HTG'), $request);
         $store->fill($data);
         if (! empty($data['alias'])) {
             $store->alias = $data['alias'];
         }
         $this->handleUploads($store, $request);
-        $store->save();
-        $this->syncProducts($store, $request);
+        DB::transaction(function () use ($store, $request) {
+            $store->save();
+            $this->syncProducts($store, $request);
+        });
 
         return back()->with('success', __('Boutique mise à jour.'));
     }
@@ -148,13 +155,16 @@ class DashboardController extends Controller
     protected function validateStore(Request $request, ?int $ignoreId = null): array
     {
         $ownPayIds = $this->payPages()->pluck('id')->all();
+        if (is_string($request->input('currency'))) {
+            $request->merge(['currency' => strtoupper(trim($request->input('currency')))]);
+        }
 
         return $request->validate([
             'name'          => ['required', 'string', 'max:160'],
             'alias'         => ['nullable', 'string', 'max:120', 'alpha_dash', 'unique:tagtoa_stores,alias'.($ignoreId ? ','.$ignoreId : '')],
             'tagline'       => ['nullable', 'string', 'max:160'],
             'description'   => ['nullable', 'string', 'max:800'],
-            'currency'      => ['nullable', 'string', 'max:8'],
+            'currency'      => ['nullable', 'string', 'regex:'.\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::CODE_PATTERN],
             'whatsapp'      => ['nullable', 'string', 'max:40'],
             'phone'         => ['nullable', 'string', 'max:40'],
             'address'       => ['nullable', 'string', 'max:200'],
@@ -193,23 +203,43 @@ class DashboardController extends Controller
             ]);
     }
 
+    /**
+     * CUR-3 : valide devise et prix de chaque produit AVANT toute écriture (boutique, fichiers, produits).
+     * Devises permises = celle de la boutique, ou une devise du commerce avec un taux ACTIF.
+     */
+    protected function checkProductCurrencies(?string $tenantId, string $base, Request $request): void
+    {
+        $base = strtoupper($base ?: 'HTG');
+        $permises = array_keys(app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->choices($tenantId, $base));
+        foreach (array_values((array) $request->input('products', [])) as $p) {
+            if (! is_array($p)) {
+                continue;
+            }
+            if (array_key_exists('currency', $p) && ! is_string($p['currency']) && $p['currency'] !== null) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['products' => __('Devise invalide.')]);
+            }
+            $c = is_string($p['currency'] ?? null) ? strtoupper(trim($p['currency'])) : '';
+            if ($c !== '' && ! in_array($c, $permises, true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'products' => __('Devise « :c » inconnue ou sans taux actif. Ajoutez-la dans « Devises et taux ».', ['c' => e($c)]),
+                ]);
+            }
+            foreach (['price', 'compare_price'] as $k) {
+                if (isset($p[$k]) && $p[$k] !== '' && (! is_numeric($p[$k]) || (float) $p[$k] < 0 || (float) $p[$k] > 99999999)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['products' => __('Prix invalide (0 à 99 999 999).')]);
+                }
+            }
+        }
+    }
+
     /** Synchronise les produits depuis le formulaire répétable (products[]). */
     protected function syncProducts(Store $store, Request $request): void
     {
         $products = $request->input('products', []);
         $keep = [];
 
-        // CUR-3 : devises permises = celle de la boutique, ou une devise du commerce avec un taux ACTIF.
-        $permises = array_keys(app(\Modules\Tagtoa\App\Services\Currency\CurrencyRateService::class)->choices($store->tenant_id, $store->currency ?: 'HTG'));
         $base = strtoupper($store->currency ?: 'HTG');
-        foreach (array_values($products) as $p) {
-            $c = isset($p['currency']) && is_string($p['currency']) ? strtoupper(trim($p['currency'])) : '';
-            if ($c !== '' && ! in_array($c, $permises, true)) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'products' => __('Devise « :c » inconnue ou sans taux actif. Ajoutez-la dans « Devises et taux ».', ['c' => e($c)]),
-                ]);
-            }
-        }
+        $this->checkProductCurrencies($store->tenant_id, $base, $request);
 
         DB::transaction(function () use ($store, $request, $products, &$keep, $base) {
             foreach (array_values($products) as $i => $p) {

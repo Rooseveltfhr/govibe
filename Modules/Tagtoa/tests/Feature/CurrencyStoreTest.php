@@ -247,4 +247,89 @@ class CurrencyStoreTest extends TestCase
         $mig->up();
         $this->assertTrue(Schema::hasColumn('tagtoa_store_order_items', 'currency_original'));
     }
+
+    /* ---------- revue indépendante CUR-3 ---------- */
+
+    public function test_a_tiny_rate_never_makes_an_item_free(): void
+    {
+        $s = $this->boutique();
+        $this->taux('USD', 0.000001);
+        $p = $this->produit($s, ['price' => 1]);
+
+        $this->expectExceptionMessage('currency_rate_missing');
+        $this->commander($s, [['id' => $p->id, 'qty' => 1]]);
+    }
+
+    public function test_an_amount_beyond_the_columns_is_refused_not_a_500(): void
+    {
+        $s = $this->boutique();
+        $this->taux('USD', 1000000);
+        $p = $this->produit($s, ['price' => 20000]);
+
+        $this->postJson(route('tagtoa.store.order', $s->alias), [
+            'items' => [['id' => $p->id, 'qty' => 1]], 'customer_name' => 'Jean', 'customer_phone' => '34567890',
+        ])->assertStatus(422)->assertJsonPath('ok', false);
+        $this->assertSame(0, \Modules\Tagtoa\App\Models\Store\Order::count());
+    }
+
+    public function test_a_rate_changed_since_the_page_loaded_asks_the_customer_to_reconfirm(): void
+    {
+        $s = $this->boutique();
+        $this->taux('USD', 160);
+        $p = $this->produit($s, ['price' => 5]);   // le client a vu 660, le serveur calcule 800
+
+        $this->postJson(route('tagtoa.store.order', $s->alias), [
+            'items' => [['id' => $p->id, 'qty' => 1]], 'customer_name' => 'Jean', 'customer_phone' => '34567890',
+            'expected_total' => 660,
+        ])->assertStatus(422)->assertJsonPath('ok', false)->assertJsonPath('new_total', 800);
+        $this->assertSame(0, \Modules\Tagtoa\App\Models\Store\Order::count());
+
+        $this->postJson(route('tagtoa.store.order', $s->alias), [
+            'items' => [['id' => $p->id, 'qty' => 1]], 'customer_name' => 'Jean', 'customer_phone' => '34567890',
+            'expected_total' => 800,
+        ])->assertOk()->assertJsonPath('ok', true);
+    }
+
+    public function test_a_failed_currency_validation_writes_nothing_not_even_the_store(): void
+    {
+        $this->patron();
+        $s = $this->boutique();
+        $this->taux('USD', 132);
+
+        $this->put(route('tagtoa.store.dashboard.update', $s->id), [
+            'name' => 'Autre nom', 'currency' => 'USD',
+            'products' => [['name' => 'Radio', 'price' => 20, 'currency' => 'EUR']],
+        ])->assertSessionHasErrors('products');
+
+        $s->refresh();
+        $this->assertSame('HTG', $s->currency);
+        $this->assertSame('Boutik', $s->name);
+    }
+
+    public function test_an_array_currency_and_absurd_prices_are_validation_errors(): void
+    {
+        $this->patron();
+        $s = $this->boutique();
+
+        $this->put(route('tagtoa.store.dashboard.update', $s->id), [
+            'name' => 'Boutik', 'currency' => 'HTG', 'products' => [['name' => 'A', 'price' => 1, 'currency' => ['x']]],
+        ])->assertSessionHasErrors('products');
+        $this->put(route('tagtoa.store.dashboard.update', $s->id), [
+            'name' => 'Boutik', 'currency' => 'HTG', 'products' => [['name' => 'A', 'price' => 1e12]],
+        ])->assertSessionHasErrors('products');
+        $this->assertSame(0, Product::count());
+    }
+
+    public function test_the_store_currency_is_normalised_and_validated(): void
+    {
+        $this->patron();
+        $s = $this->boutique();
+
+        $this->put(route('tagtoa.store.dashboard.update', $s->id), ['name' => 'Boutik', 'currency' => ' usd '])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('USD', $s->fresh()->currency);
+
+        $this->put(route('tagtoa.store.dashboard.update', $s->id), ['name' => 'Boutik', 'currency' => 'x y!'])
+            ->assertSessionHasErrors('currency');
+    }
 }

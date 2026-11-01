@@ -48,7 +48,7 @@
     <div class="prow card" style="margin-top:10px;padding:14px">
         <div class="row">
             <div style="flex:2"><input name="products[IDX][name]" class="inp" placeholder="{{ __('Nom du produit') }}"></div>
-            @if(! empty($currencyChoices) && count($currencyChoices) > 1)
+            @if(! empty($currencyChoices))
                 <div>
                     <select name="products[IDX][currency]" class="sel" title="{{ __('Devise du produit') }}">
                         @foreach($currencyChoices as $code => $label)<option value="{{ $code }}">{{ $label }}</option>@endforeach
@@ -75,7 +75,7 @@
 <script>
 var pIdx=0;
 function addP(d){var h=document.getElementById('ptpl').innerHTML.replace(/IDX/g,pIdx),x=document.createElement('div');x.innerHTML=h;var r=x.firstElementChild;document.getElementById('plist').appendChild(r);
-    if(d){r.querySelector('[name$="[name]"]').value=d.name||'';var cs=r.querySelector('[name$="[currency]"]');if(cs&&d.currency){cs.value=d.currency;}r.querySelector('[name$="[price]"]').value=d.price||'';r.querySelector('[name$="[compare_price]"]').value=d.compare_price||'';r.querySelector('[name$="[category]"]').value=d.category||'';r.querySelector('[name$="[stock]"]').value=d.stock==null?'':d.stock;r.querySelector('[name$="[description]"]').value=d.description||'';r.querySelector('[name$="[is_available]"]').checked=!!d.is_available;r.querySelector('[name$="[is_featured]"]').checked=!!d.is_featured;var i=document.createElement('input');i.type='hidden';i.name='products['+pIdx+'][id]';i.value=d.id;r.appendChild(i);}
+    if(d){r.querySelector('[name$="[name]"]').value=d.name||'';var cs=r.querySelector('[name$="[currency]"]');if(cs&&d.currency){if(!Array.prototype.some.call(cs.options,function(o){return o.value===d.currency;})){var o=document.createElement('option');o.value=d.currency;o.textContent=d.currency+' ('+@json(__('sans taux actif'))+')';cs.appendChild(o);}cs.value=d.currency;}r.querySelector('[name$="[price]"]').value=d.price||'';r.querySelector('[name$="[compare_price]"]').value=d.compare_price||'';r.querySelector('[name$="[category]"]').value=d.category||'';r.querySelector('[name$="[stock]"]').value=d.stock==null?'':d.stock;r.querySelector('[name$="[description]"]').value=d.description||'';r.querySelector('[name$="[is_available]"]').checked=!!d.is_available;r.querySelector('[name$="[is_featured]"]').checked=!!d.is_featured;var i=document.createElement('input');i.type='hidden';i.name='products['+pIdx+'][id]';i.value=d.id;r.appendChild(i);}
     pIdx++;}
 @php
     $exProducts = $store->relationLoaded('products')

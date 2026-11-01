@@ -20,4 +20,6 @@ namespace Modules\Tagtoa\App\Exceptions;
  */
 class OrderRuleException extends \RuntimeException
 {
+    /** 'rate_changed' : le total que le serveur calcule maintenant. */
+    public ?float $newTotal = null;
 }
