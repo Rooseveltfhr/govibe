@@ -34,7 +34,7 @@ class DashboardModules
     /** Modules mis en avant par défaut. Le reste existe mais reste discret. */
     public const DEFAULT_ENABLED = [
         'activate', 'menu', 'pos', 'event', 'pay', 'cards',
-        'business', 'staff', 'stands', 'inventory', 'orders', 'analytics', 'customers', 'reviews', 'qr', 'shop', 'plan',
+        'business', 'hotel', 'staff', 'stands', 'inventory', 'orders', 'analytics', 'customers', 'reviews', 'qr', 'shop', 'plan',
         // Réservations générales (prestations, créneaux) : activé pour que
         // le lien « Réservations » de Menu ne disparaisse pas — restait
         // discret jusqu'ici faute d'être relié depuis un autre module.
@@ -88,6 +88,17 @@ class DashboardModules
             'children' => [
                 ['label' => 'Mes commerces',     'icon' => 'fa-shop', 'url' => '/tagtoa/business'],
                 ['label' => 'Créer un commerce', 'icon' => 'fa-plus', 'url' => '/tagtoa/business/new'],
+            ],
+        ],
+
+        // HÔTEL (H2) — visible UNIQUEMENT quand le commerce courant est de type « hôtel »
+        // (`only_types`, voir visiblePourCommerce()). Un restaurant ne voit jamais ce module.
+        'hotel' => [
+            'label' => 'Mon Hôtel', 'icon' => 'fa-hotel', 'group' => 'module',
+            'desc'  => 'Chambres, services et demandes de vos clients.',
+            'only_types' => ['hotel'],
+            'children' => [
+                ['label' => 'Chambres', 'icon' => 'fa-bed', 'url' => '/tagtoa/hotel/rooms'],
             ],
         ],
 
@@ -367,6 +378,26 @@ class DashboardModules
         return array_values(array_filter($keys, fn ($k) => isset(self::CATALOG[$k])));
     }
 
+    /**
+     * Un module peut être réservé à certains types de commerce (`only_types`). Sans
+     * commerce lisible (test sans base, page publique), un module réservé reste CACHÉ :
+     * mieux vaut un lien de moins qu'un lien mort vers un écran qui répond « hôtels seulement ».
+     */
+    private static function visiblePourCommerce(array $meta): bool
+    {
+        if (empty($meta['only_types'])) {
+            return true;
+        }
+
+        try {
+            $type = \Modules\Tagtoa\App\Models\Business\Business::whereKey(\Modules\Tagtoa\App\Support\Tenant::id())->value('type');
+        } catch (\Throwable $e) {
+            return false;
+        }
+
+        return in_array($type, $meta['only_types'], true);
+    }
+
     public static function isEnabled(string $key): bool
     {
         return in_array($key, self::enabledKeys(), true);
@@ -413,6 +444,9 @@ class DashboardModules
                 continue;
             }
             if ($group !== null && $meta['group'] !== $group) {
+                continue;
+            }
+            if (! self::visiblePourCommerce($meta)) {
                 continue;
             }
             $out[$key] = array_merge($meta, [
