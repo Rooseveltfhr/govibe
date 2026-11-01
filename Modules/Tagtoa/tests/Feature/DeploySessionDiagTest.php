@@ -43,15 +43,16 @@ class DeploySessionDiagTest extends TestCase
         parent::tearDown();
     }
 
-    /** Faux curl : page de connexion avec jeton au GET, code $postCode au POST. */
-    private function fakeCurl(string $postCode): void
+    /** Faux curl : page de connexion (formulaire → $action) au GET, code $postCode au POST. */
+    private function fakeCurl(string $postCode, string $action = '/login'): void
     {
         $sh = <<<SH
 #!/usr/bin/env bash
 args="\$*"
-if [[ "\$args" == *"--data-urlencode"* ]]; then printf '%s' '$postCode'; exit 0; fi
+if [[ "\$args" == *"--data-urlencode"* ]]; then echo "\$args" > "\$(dirname "\$0")/../posted"; printf '%s' '$postCode'; exit 0; fi
 if [[ "\$args" == *" -D -"* ]]; then printf 'HTTP/1.1 200 OK\r\nSet-Cookie: biztap_session=SECRETVALUE123; path=/; secure; httponly; samesite=lax\r\n\r\n'; exit 0; fi
-if [[ "\$args" == *"/login"* && "\$args" != *"/admin/login"* ]]; then echo '<form><input type="hidden" name="_token" value="tok123" autocomplete="off"></form>'; fi
+if [[ "\$args" == *"/admin/login"* ]]; then printf '<p>non</p>\n__FINAL__ 404 https://tagtoa.test/admin/login'; exit 0; fi
+if [[ "\$args" == *"/login"* ]]; then printf '<form method="POST" action="$action"><input type="hidden" name="_token" value="tok123" autocomplete="off"></form>\n__FINAL__ 200 https://tagtoa.test/fr/login'; fi
 exit 0
 SH;
         file_put_contents($this->t.'/bin/curl', $sh);
@@ -94,8 +95,11 @@ SH;
         $this->fakeCurl('302');
         $out = $this->run59()->getOutput();
 
-        $this->assertStringContainsString('/login : POST → 302 — session OK', $out);
-        $this->assertStringContainsString('/admin/login : pas de formulaire', $out);
+        $this->assertStringContainsString('GET /login → 200 https://tagtoa.test/fr/login ; formulaire → https://tagtoa.test/login', $out);
+        $this->assertStringContainsString('POST → 302 — session OK', $out);
+        $this->assertStringContainsString('GET /admin/login → 404 https://tagtoa.test/admin/login : pas de formulaire', $out);
+        $this->assertStringNotContainsString('ATTENTION', $out);
+        $this->assertStringContainsString('_token=tok123', (string) file_get_contents($this->t.'/posted'), 'Le jeton lu est bien renvoyé.');
         $this->assertStringContainsString('cookie=biztap_session', $out);
     }
 
@@ -104,11 +108,27 @@ SH;
         $this->fakeCurl('419');
         $out = $this->run59()->getOutput();
 
-        $this->assertStringContainsString('/login : POST → 419 PAGE EXPIRÉE', $out);
+        $this->assertStringContainsString('POST → 419 PAGE EXPIRÉE', $out);
         $this->assertStringContainsString('secure', $out, 'Les drapeaux du cookie sont affichés…');
         $this->assertStringNotContainsString('SECRETVALUE123', $out, '…jamais sa valeur.');
         $this->assertStringContainsString('419 dans laravel.log : 1', $out);
         $this->assertStringContainsString('production.ERROR: CSRF token mismatch.', $out);
+    }
+
+    public function test_a_form_posting_to_another_host_is_flagged(): void
+    {
+        $this->fakeCurl('419', 'https://www.tagtoa.test/login');
+        $out = $this->run59()->getOutput();
+
+        $this->assertStringContainsString('formulaire → https://www.tagtoa.test/login', $out);
+        $this->assertStringContainsString('servie sur tagtoa.test mais le formulaire poste vers www.tagtoa.test', $out);
+        $this->assertStringContainsString('https://www.tagtoa.test/login', (string) file_get_contents($this->t.'/posted'), 'Le POST suit l\'action réelle du formulaire.');
+    }
+
+    public function test_a_form_posting_over_plain_http_is_flagged(): void
+    {
+        $this->fakeCurl('419', 'http://tagtoa.test/login');
+        $this->assertStringContainsString('poste en http://', $this->run59()->getOutput());
     }
 
     public function test_the_block_runs_after_the_site_is_back_up_and_deletes_nothing(): void
