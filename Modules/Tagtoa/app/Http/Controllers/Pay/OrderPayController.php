@@ -12,6 +12,7 @@ use Modules\Tagtoa\App\Models\Menu\Order as MenuOrder;
 use Modules\Tagtoa\App\Models\Store\Order as StoreOrder;
 use Modules\Tagtoa\App\Services\Pay\MerchantMethods;
 use Modules\Tagtoa\App\Support\Pay\OnlineOptions;
+use Modules\Tagtoa\App\Support\Pay\PaymentChoices;
 
 /**
  * TAGTOA Pay — LA page « Payer » d'une commande (menu, boutique, billetterie).
@@ -37,6 +38,7 @@ class OrderPayController extends Controller
     {
         $order = $this->order($type, $reference);
         $methods = app(MerchantMethods::class)->declarable($order->tenant_id);
+        $online = $order->isPaid() ? [] : OnlineOptions::for($order->currency, app(MerchantMethods::class)->saved($order->tenant_id));
 
         return view('tagtoa::pay.order', [
             'order'    => $order,
@@ -48,8 +50,9 @@ class OrderPayController extends Controller
                 'event' => route('tagtoa.event.order', $order->reference),
                 default => null,
             },
-            'online'   => $order->isPaid() ? [] : OnlineOptions::for($order->currency, app(MerchantMethods::class)->saved($order->tenant_id)),
+            'online'   => $online,
             'methods'  => $order->isPaid() ? collect() : $methods,
+            'choices'  => PaymentChoices::build($online, $order->isPaid() ? collect() : $methods, $type, (int) $order->id),
         ]);
     }
 
