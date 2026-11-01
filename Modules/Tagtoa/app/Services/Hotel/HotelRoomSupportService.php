@@ -8,6 +8,8 @@ use Modules\Tagtoa\App\Models\Hotel\HotelRoom;
 use Modules\Tagtoa\App\Models\Stand\Stand;
 use Modules\Tagtoa\App\Models\Stand\StandEvent;
 use Modules\Tagtoa\App\Services\Stand\StandActivator;
+use Modules\Tagtoa\App\Services\Stand\StandClaimService;
+use Modules\Tagtoa\App\Support\Stand\StandScratch;
 use Modules\Tagtoa\App\Services\Stand\StandResolver;
 use Modules\Tagtoa\App\Support\Stand\StandState;
 
@@ -57,7 +59,7 @@ class HotelRoomSupportService
             }
 
             return $this->link($room, $tenantId, $lecture, $context);
-        });
+        }, $lecture, $context);
     }
 
     /** Révoque le support de la chambre. Définitif : le secret de cet objet ne rouvre plus rien. */
@@ -103,7 +105,7 @@ class HotelRoomSupportService
             $this->kill($room, $tenantId, $context, StandEvent::REPLACED, $ancien, (int) $r['stand']->id);
 
             return $r;
-        });
+        }, $lecture, $context);
     }
 
     /* ---------------- interne ---------------- */
@@ -112,7 +114,7 @@ class HotelRoomSupportService
      * Exécute dans une transaction, chambre verrouillée. Tout résultat autre que « ok » annule
      * la transaction (activation du support comprise).
      */
-    private function run(string $tenantId, int $roomId, \Closure $work): array
+    private function run(string $tenantId, int $roomId, \Closure $work, ?string $lecture = null, array $context = []): array
     {
         $oublier = [];
         try {
@@ -135,6 +137,8 @@ class HotelRoomSupportService
                 return $r;
             });
         } catch (RollbackWith $e) {
+            $this->noterEchec($e->resultat, $lecture, $context);
+
             return $e->resultat;
         } catch (UniqueConstraintViolationException) {
             // Deux requêtes ont voulu le même support : l'index unique tranche.
@@ -154,6 +158,28 @@ class HotelRoomSupportService
         return $resultat;
     }
 
+    /**
+     * Le compteur d'essais est PARTAGÉ avec les autres parcours (StandClaimService) : « deux portes,
+     * une serrure ». Or l'annulation de la transaction effaçait l'essai raté que l'activateur venait
+     * d'écrire — la serrure ne se refermait jamais par cette porte. On réécrit donc l'essai APRÈS
+     * l'annulation. Le code gratté lui-même n'est jamais enregistré, seulement l'identifiant tenté.
+     */
+    private function noterEchec(array $resultat, ?string $lecture, array $context): void
+    {
+        $r = (string) $resultat['result'];
+        if (! str_starts_with($r, 'stand_') || in_array($r, ['stand_unreadable', 'stand_no_secret', 'stand_no_business'], true)) {
+            return;
+        }
+        try {
+            [$publicId] = StandScratch::parse($lecture);
+            if ($publicId !== null) {
+                app(StandClaimService::class)->traceAttempt($this->resolver->stand($publicId), $publicId, false, $context);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
     /** Active le support (secret exigé) puis le lie à la chambre. */
     private function link(HotelRoom $room, string $tenantId, ?string $lecture, array $context): array
     {
@@ -167,6 +193,9 @@ class HotelRoomSupportService
             // laissé libre ; jamais on ne détourne le stand d'une table ou d'un autre usage.
             $s = $a['stand'];
             $libre = $s && $s->target_module === 'hotel_room'
+                && $s->digital_state === StandState::ACTIVE
+                && ! in_array($s->physical_state, StandState::PHYSICAL_CLOSED, true)
+                && ! ($s->batch && $s->batch->isRecalled())
                 && ! HotelRoom::allTenants()->where('stand_id', $s->id)->exists();
             if (! $libre) {
                 return $this->non(self::STAND_IN_USE);

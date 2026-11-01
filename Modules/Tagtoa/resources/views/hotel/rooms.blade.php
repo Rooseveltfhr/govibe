@@ -86,7 +86,7 @@
                                     <input class="inp" name="code" required maxlength="64" autocomplete="off" placeholder="{{ __('Code du NOUVEAU support (gratté)') }}">
                                     <button class="btn btn-o btn-sm" style="margin-top:6px">{{ __('Remplacer') }}</button>
                                 </form>
-                                <form method="POST" action="{{ route('tagtoa.hotel.rooms.support.revoke', $r->id) }}" style="margin-top:6px" onsubmit="return confirm('{{ __('Révoquer ce support ? Son QR ne fonctionnera plus, définitivement.') }}')">
+                                <form method="POST" action="{{ route('tagtoa.hotel.rooms.support.revoke', $r->id) }}" style="margin-top:6px" onsubmit='return confirm(@json(__('Révoquer ce support ? Son QR ne fonctionnera plus, définitivement.'), JSON_HEX_APOS | JSON_HEX_QUOT))'>
                                     @csrf
                                     <button class="btn btn-o btn-sm" style="color:var(--red)">{{ __('Révoquer') }}</button>
                                 </form>

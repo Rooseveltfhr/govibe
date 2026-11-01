@@ -78,7 +78,7 @@ Route::get('/s/{standId}', [\Modules\Tagtoa\App\Http\Controllers\Stand\StandPubl
     ->middleware('throttle:240,1')->name('tagtoa.stand.show');
 // H4 — portail de la chambre d'hôtel derrière le QR. Public ; TOUT est revérifié à chaque requête.
 Route::get('/h/{standId}', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'show'])
-    ->where('standId', '[A-Za-z0-9\-]{1,24}')->middleware('throttle:120,1')->name('tagtoa.hotel.portal');
+    ->middleware('throttle:120,1')->name('tagtoa.hotel.portal');   // pas de contrainte de forme : le contrôleur répond TOUJOURS la même 404
 Route::get('/s/{standId}/status', [\Modules\Tagtoa\App\Http\Controllers\Stand\StandPublicController::class, 'status'])
     ->middleware('throttle:60,1')->name('tagtoa.stand.status');
 // Vérifier le code gratté : SANS compte, et fortement limité — c'est la seule
@@ -384,7 +384,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         // H4 — support QR/NFC de la chambre (Smart Stand) : activer, remplacer, révoquer.
         Route::post('/rooms/{id}/support', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'attachSupport'])->whereNumber('id')->middleware('throttle:20,1')->name('rooms.support.attach');
         Route::post('/rooms/{id}/support/replace', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'replaceSupport'])->whereNumber('id')->middleware('throttle:20,1')->name('rooms.support.replace');
-        Route::post('/rooms/{id}/support/revoke', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'revokeSupport'])->whereNumber('id')->name('rooms.support.revoke');
+        Route::post('/rooms/{id}/support/revoke', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'revokeSupport'])->whereNumber('id')->middleware('throttle:20,1')->name('rooms.support.revoke');
         // H3 — catalogue des services (room service = un Menu existant du même hôtel).
         Route::get('/services', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'index'])->name('services');
         Route::post('/services', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'store'])->name('services.store');

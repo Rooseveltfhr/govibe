@@ -21,6 +21,9 @@ use Modules\Tagtoa\App\Models\Hotel\HotelProfile;
 use Modules\Tagtoa\App\Models\Hotel\HotelRoom;
 use Modules\Tagtoa\App\Models\Hotel\HotelService;
 use Modules\Tagtoa\App\Models\Stand\Stand;
+use Modules\Tagtoa\App\Models\Stand\StandClaimAttempt;
+use Modules\Tagtoa\App\Services\Stand\StandAdminService;
+use Modules\Tagtoa\App\Services\Stand\StandTransferService;
 use Modules\Tagtoa\App\Models\Stand\StandEvent;
 use Modules\Tagtoa\App\Services\Business\BusinessService;
 use Modules\Tagtoa\App\Services\Hotel\HotelRoomSupportService as S;
@@ -551,6 +554,110 @@ class HotelRoomSupportTest extends TestCase
         $this->post(route('tagtoa.hotel.rooms.toggle', $room->id));
 
         $this->get('/s/'.$stand->public_id)->assertOk();   // page sobre, plus de redirection vers le portail
+    }
+
+    public function test_wrong_codes_through_the_hotel_screen_lock_the_stand_like_every_other_door(): void
+    {
+        $this->fabriquer();
+        [$b, $room] = $this->hotelEtChambre();
+        $stand = $this->stands()[0];
+        $mauvais = StandScratch::payload($stand->public_id, 'ZZZZZZZZ');
+
+        for ($i = 0; $i < 10; $i++) {
+            $this->assertSame('stand_bad_code', $this->svc()->attach($b->id, $room->id, $mauvais)['result']);
+        }
+
+        $this->assertSame(10, StandClaimAttempt::where('stand_id', $stand->id)->where('succeeded', false)->count());
+        $this->assertSame('stand_too_many', $this->svc()->attach($b->id, $room->id, $mauvais)['result']);
+        // La serrure est partagée : même le bon code attend (comme aux autres portes).
+        $this->assertSame('stand_too_many', $this->svc()->attach($b->id, $room->id, $this->gratte($stand))['result']);
+        $this->assertNull($room->fresh()->stand_id);
+        $this->assertSame(0, StandClaimAttempt::where('public_id_tried', $stand->public_id)->where('ip', 'LIKE', '%ZZZ%')->count());
+    }
+
+    public function test_the_failed_attempts_never_store_the_scratched_code(): void
+    {
+        $this->fabriquer();
+        [$b, $room] = $this->hotelEtChambre();
+        $stand = $this->stands()[0];
+        $this->svc()->attach($b->id, $room->id, StandScratch::payload($stand->public_id, 'ZZZZZZZZ'));
+
+        $this->assertStringNotContainsString('ZZZZZZZZ', json_encode(StandClaimAttempt::all()->toArray()));
+    }
+
+    public function test_a_support_linked_to_a_room_cannot_be_offered_in_a_transfer(): void
+    {
+        $this->fabriquer();
+        [$b, $room] = $this->hotelEtChambre();
+        $stand = $this->stands()[0];
+        $this->svc()->attach($b->id, $room->id, $this->gratte($stand));
+
+        $r = app(StandTransferService::class)->offer($b->id, [$stand->id]);
+
+        $this->assertSame(StandTransferService::RIEN, $r['result']);
+        $this->assertSame(StandState::ACTIVE, $stand->fresh()->digital_state);
+        $this->get('/h/'.$stand->public_id)->assertOk();
+    }
+
+    public function test_a_forced_transfer_unlinks_the_room_and_resets_the_target(): void
+    {
+        $this->fabriquer();
+        [$b, $room] = $this->hotelEtChambre();
+        $stand = $this->stands()[0];
+        $this->svc()->attach($b->id, $room->id, $this->gratte($stand));
+
+        $r = app(StandAdminService::class)->forceTransfer($stand->public_id, 'autre-commerce', 'Compte fermé, repreneur sur place');
+
+        $this->assertSame(StandAdminService::OK, $r['result']);
+        $this->assertNull($room->fresh()->stand_id);
+        $this->assertSame('menu', $stand->fresh()->target_module);
+        $this->assertSame('autre-commerce', $stand->fresh()->tenant_id);
+        $this->get('/h/'.$stand->public_id)->assertNotFound();
+        // L'ancienne chambre peut recevoir un nouveau support.
+        $this->assertSame(S::OK, $this->svc()->attach($b->id, $room->id, $this->gratte($this->stands()[1]))['result']);
+    }
+
+    public function test_malformed_ids_get_the_very_same_neutral_page_as_unknown_ones(): void
+    {
+        $reference = $this->get('/h/TG-999999');
+        $reference->assertNotFound();
+
+        foreach (['bad.id', str_repeat('A', 30), 'tg_1'] as $id) {
+            $r = $this->get('/h/'.$id);
+            $r->assertNotFound();
+            $this->assertSame($reference->getContent(), $r->getContent(), "Corps différent pour $id");
+            $this->assertSame($reference->headers->get('Cache-Control'), $r->headers->get('Cache-Control'));
+            $this->assertSame('noindex, nofollow', $r->headers->get('X-Robots-Tag'));
+        }
+    }
+
+    public function test_an_own_unlinked_room_stand_in_a_closed_state_is_not_reused(): void
+    {
+        $this->fabriquer(3);
+        [$b, $room] = $this->hotelEtChambre();
+        [$perdu, $rappele] = [$this->stands()[0], $this->stands()[1]];
+        foreach ([$perdu, $rappele] as $st) {
+            $st->forceFill(['tenant_id' => $b->id, 'digital_state' => StandState::ACTIVE, 'physical_state' => StandState::SOLD, 'target_module' => 'hotel_room'])->save();
+        }
+        $perdu->forceFill(['physical_state' => StandState::LOST])->save();
+
+        // Le lot n'est PAS encore rappelé : seul l'état physique « perdu » doit refuser.
+        $this->assertSame(S::STAND_IN_USE, $this->svc()->attach($b->id, $room->id, $this->gratte($perdu))['result']);
+
+        $rappele->batch->forceFill(['recalled_at' => now()])->save();
+        $this->assertSame(S::STAND_IN_USE, $this->svc()->attach($b->id, $room->id, $this->gratte($rappele))['result']);
+        $this->assertNull($room->fresh()->stand_id);
+    }
+
+    public function test_the_revoke_confirmation_is_a_json_string_not_html_inside_js(): void
+    {
+        $this->fabriquer();
+        [$b, $room] = $this->hotelEtChambre();
+        $this->svc()->attach($b->id, $room->id, $this->gratte($this->stands()[0]));
+
+        $html = $this->get(route('tagtoa.hotel.rooms'))->assertOk()->getContent();
+
+        $this->assertStringContainsString("onsubmit='return confirm(\"R\\u00e9voquer ce support", $html);
     }
 
     public function test_the_migration_is_replayable_and_reversible(): void
