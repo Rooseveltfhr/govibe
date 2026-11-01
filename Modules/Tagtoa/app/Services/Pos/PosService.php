@@ -5,6 +5,7 @@ namespace Modules\Tagtoa\App\Services\Pos;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Modules\Tagtoa\App\Exceptions\InsufficientStockException;
 use Modules\Tagtoa\App\Models\Menu\Item as MenuItem;
 use Modules\Tagtoa\App\Models\Pos\Product;
 use Modules\Tagtoa\App\Models\Pos\Sale;
@@ -128,6 +129,22 @@ class PosService
         return $terminal->sales()->where('client_uuid', $uuid)->first();
     }
 
+    /** La caisse annonce-t-elle une heure de fabrication lisible (signe d'une vente hors ligne) ? */
+    protected function annonceHorsLigne(array $payload): bool
+    {
+        $claimed = $payload['client_created_at'] ?? null;
+        if (! is_string($claimed) || $claimed === '') {
+            return false;
+        }
+        try {
+            Carbon::parse($claimed);
+
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
     /** Fenêtre acceptée pour l'heure d'une vente rejouée hors ligne. */
     public const OFFLINE_MAX_AGE_HOURS = 72;
     public const FUTURE_SKEW_MINUTES   = 5;
@@ -182,7 +199,13 @@ class PosService
     private function persistSale(Terminal $terminal, array $payload, ?string $uuid, ?Staff $staff, Carbon $soldAt, bool $offlineReplay = false, array &$shortfalls = []): Sale
     {
         return DB::transaction(function () use ($terminal, $payload, $uuid, $staff, $soldAt, $offlineReplay, &$shortfalls) {
-            $shortfalls = [];   // la transaction peut être rejouée : repartir de zéro
+            $shortfalls = [];
+            // Le négatif n'est permis qu'à une VRAIE reprise : route /sync ET une heure de
+            // fabrication annoncée par la caisse (toute caisse hors ligne en envoie une). Ce
+            // n'est pas une preuve — une caisse compromise peut la fabriquer — c'est pourquoi
+            // le découvert est de toute façon PLAFONNÉ plus bas.
+            $negatifPermis = $offlineReplay && $this->annonceHorsLigne($payload);
+            $plafond = (float) config('tagtoa.pos.max_negative_stock', 100);
             $items    = $payload['items'] ?? [];
             $discount = max(0, (float) ($payload['discount'] ?? 0));
 
@@ -311,10 +334,16 @@ class PosService
                         $mouvement = app(StockLedger::class)->remove(
                             $stockArticle, $stockQty, MovementType::SALE,
                             ['staff' => $staff, 'origin_type' => 'pos_sale', 'origin_id' => $sale->id,
-                             'allow_negative' => $offlineReplay]
+                             'allow_negative' => $negatifPermis]
                         );
                         // Combien il MANQUAIT : la part du mouvement qui a creusé sous zéro.
                         if ($mouvement && (float) $mouvement->stock_after < 0) {
+                            // Plafond de découvert : au-delà, ce n'est plus une vente qui a
+                            // devancé le stock mais une anomalie (ou un abus de /sync). Refus
+                            // comme avant — la transaction entière est annulée.
+                            if ((float) $mouvement->stock_after < -$plafond) {
+                                throw new InsufficientStockException((string) $mouvement->product_name, (float) $mouvement->stock_before);
+                            }
                             $shortfalls[] = [
                                 'name'  => (string) $mouvement->product_name,
                                 'short' => min(abs((float) $mouvement->delta), abs((float) $mouvement->stock_after)),

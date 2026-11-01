@@ -114,7 +114,7 @@ class PosController extends Controller
     private function saleRules(): array
     {
         return [
-            'items'              => ['required', 'array', 'min:1'],
+            'items'              => ['required', 'array', 'min:1', 'max:100'],
             'items.*.name'       => ['required', 'string', 'max:120'],
             'items.*.price'      => ['required', 'numeric', 'min:0'],
             // DÉCIMAL : le riz se vend à la mamit, la viande à la livre. Un
@@ -196,7 +196,7 @@ class PosController extends Controller
                 $r = $this->service->recordSaleWithReport($terminal, $validator->validated(), $staff, true);
                 $res = ['client_uuid' => $uuid, 'ok' => true, 'reference' => $r['sale']->reference];
                 if ($r['shortfalls']) {
-                    $res['warnings'] = [['code' => 'stock_shortfall', 'items' => array_column($r['shortfalls'], 'name')]];
+                    $res['warnings'] = [['code' => 'stock_shortfall', 'items' => array_values(array_unique(array_column($r['shortfalls'], 'name')))]];
                 }
                 $results[] = $res;
             } catch (InsufficientStockException $e) {

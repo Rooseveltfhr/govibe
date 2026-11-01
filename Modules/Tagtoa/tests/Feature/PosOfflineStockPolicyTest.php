@@ -44,7 +44,8 @@ class PosOfflineStockPolicyTest extends TestCase
 
     private function sale(string $uuid, Product $p, float $qty): array
     {
-        return ['client_uuid' => $uuid, 'items' => [['product_id' => $p->id, 'qty' => $qty, 'name' => $p->name, 'price' => 150]]];
+        return ['client_uuid' => $uuid, 'client_created_at' => now()->subMinutes(10)->toIso8601String(),
+            'items' => [['product_id' => $p->id, 'qty' => $qty, 'name' => $p->name, 'price' => 150]]];
     }
 
     private function sync(array $sales)
@@ -158,13 +159,112 @@ class PosOfflineStockPolicyTest extends TestCase
         $this->get(route('tagtoa.inventory.index'))->assertOk()->assertDontSee('Stock négatif à vérifier');
     }
 
-    public function test_a_shortfall_in_one_sale_does_not_affect_another_merchant(): void
+    public function test_a_shortfall_never_touches_another_merchants_stock_screen_or_audit(): void
     {
         $autre = Terminal::create(['tenant_id' => 't-2', 'name' => 'Caisse B', 'currency' => 'HTG', 'is_active' => true]);
+        $voisin = Product::create(['tenant_id' => 't-2', 'terminal_id' => $autre->id, 'name' => 'Article du voisin', 'price' => 100, 'stock' => 7, 'is_active' => true]);
         $mien = $this->article(0);
-        $this->sync([$this->sale('A', $mien, 1)])->assertOk();
 
-        $this->assertSame(0, Product::allTenants()->where('tenant_id', 't-2')->count());
+        $this->sync([$this->sale('A', $mien, 3)])->assertOk();
+
+        $this->assertSame(7.0, (float) $voisin->fresh()->stock, 'Le stock du voisin est intact.');
         $this->assertSame(0, StockMovement::where('tenant_id', 't-2')->count());
+        $this->assertSame(0, AuditLog::allTenants()->where('tenant_id', 't-2')->count());
+        $this->get(route('tagtoa.inventory.index'))->assertOk()->assertSee('Stock négatif à vérifier')->assertDontSee('Article du voisin');
+    }
+
+    /* ---------- bornes contre l'abus de /sync (revue indépendante) ---------- */
+
+    public function test_a_sync_without_an_offline_timestamp_cannot_go_below_zero(): void
+    {
+        $p = $this->article(1);
+        $vente = $this->sale('A', $p, 5);
+        unset($vente['client_created_at']);   // aucune caisse hors ligne ne l'omet
+
+        $res = $this->sync([$vente])->assertOk()->json('results.0');
+
+        $this->assertFalse($res['ok']);
+        $this->assertSame('stock', $res['code']);
+        $this->assertSame(0, Sale::count());
+        $this->assertSame(1.0, (float) $p->fresh()->stock);
+    }
+
+    public function test_the_overdraft_is_capped_beyond_it_the_sale_is_refused_and_rolled_back(): void
+    {
+        config(['tagtoa.pos.max_negative_stock' => 10]);
+        $p = $this->article(2);
+
+        $ok = $this->sync([$this->sale('A', $p, 12)])->assertOk()->json('results.0');   // -10 : à la limite
+        $this->assertTrue($ok['ok']);
+        $this->assertSame(-10.0, (float) $p->fresh()->stock);
+
+        $abus = $this->sync([$this->sale('B', $p, 1)])->assertOk()->json('results.0');   // -11 : refusé
+        $this->assertFalse($abus['ok']);
+        $this->assertSame('stock', $abus['code']);
+        $this->assertSame(1, Sale::count(), 'La vente refusée n\'est pas enregistrée.');
+        $this->assertSame(-10.0, (float) $p->fresh()->stock, 'Le stock n\'a pas bougé.');
+        $this->assertSame(1, StockMovement::where('type', 'sale')->count());
+    }
+
+    public function test_a_huge_quantity_through_sync_is_refused_by_the_cap(): void
+    {
+        $p = $this->article(1);
+
+        $res = $this->sync([$this->sale('X', $p, 999999)])->assertOk()->json('results.0');
+
+        $this->assertFalse($res['ok']);
+        $this->assertSame(0, Sale::count());
+    }
+
+    public function test_a_sale_may_not_carry_more_than_a_hundred_lines(): void
+    {
+        $p = $this->article(5);
+        $vente = $this->sale('L', $p, 1);
+        $vente['items'] = array_fill(0, 101, $vente['items'][0]);
+
+        $res = $this->sync([$vente])->assertOk()->json('results.0');
+
+        $this->assertFalse($res['ok']);
+        $this->assertSame('invalid', $res['code']);
+    }
+
+    public function test_the_same_article_twice_in_one_sale_is_named_once_in_the_warning(): void
+    {
+        $p = $this->article(0);
+        $vente = $this->sale('D', $p, 1);
+        $vente['items'][] = $vente['items'][0];
+
+        $res = $this->sync([$vente])->assertOk()->json('results.0');
+
+        $this->assertSame(['Prestige'], $res['warnings'][0]['items']);
+    }
+
+    /* ---------- le signal « à vérifier » ne s'efface pas tout seul ---------- */
+
+    public function test_saving_the_catalogue_without_touching_a_negative_stock_does_not_reset_it(): void
+    {
+        $p = $this->article(0);
+        $this->sync([$this->sale('A', $p, 3)])->assertOk();
+        $this->assertSame(-3.0, (float) $p->fresh()->stock);
+
+        // Le formulaire pré-remplit le stock actuel (-3) et le renvoie tel quel.
+        $this->post(route('tagtoa.pos.products.save', $this->terminal->id), [
+            'products' => [['id' => $p->id, 'name' => 'Prestige', 'price' => 150, 'stock' => '-3', 'is_active' => 1]], 'form_end' => '1',
+        ]);
+
+        $this->assertSame(1, Product::allTenants()->where('tenant_id', 't-1')->count(), 'Le formulaire a mis à jour l\'article, pas créé un doublon.');
+        $this->assertSame(-3.0, (float) $p->fresh()->stock, 'Enregistrer sans y toucher n\'est pas un comptage.');
+        $this->get(route('tagtoa.inventory.index'))->assertSee('Stock négatif à vérifier');
+    }
+
+    public function test_a_negative_stock_never_lowers_the_stock_value(): void
+    {
+        $p = $this->article(0);
+        $p->forceFill(['cost_price' => 100])->save();
+        $this->sync([$this->sale('A', $p, 3)])->assertOk();
+
+        $summary = app(\Modules\Tagtoa\App\Services\Inventory\StockReport::class)->summary('t-1');
+
+        $this->assertGreaterThanOrEqual(0.0, (float) $summary['value'], 'La valeur de la réserve ne peut pas être négative.');
     }
 }

@@ -156,8 +156,8 @@ class PosSyncCorrectnessTest extends TestCase
         $ligne = [['product_id' => $a->id, 'qty' => 1, 'name' => 'Prestige', 'price' => 150]];
 
         $res = $this->sync($t, [
-            $this->vente('1', ['items' => $ligne]),
-            $this->vente('2', ['items' => $ligne]),
+            $this->vente('1', ['items' => $ligne, 'client_created_at' => now()->subMinutes(5)->toIso8601String()]),
+            $this->vente('2', ['items' => $ligne, 'client_created_at' => now()->subMinutes(5)->toIso8601String()]),
             $this->vente('3'),
         ])->assertOk()->json('results');
 
