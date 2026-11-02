@@ -153,6 +153,8 @@ class TenantScopeCoverageTest extends TestCase
             // commerce EXPLICITEMENT depuis le support / le paramètre, jamais depuis un état ambiant,
             // et filtrent chaque requête sur ce tenant_id.
             'Http/Controllers/Hotel/PortalController.php',
+            'Http/Controllers/Hotel/ReservationController.php',      // HM-3 : profil de l'hôtel d'une réservation (tenant de la réservation)
+            'Services/Hotel/HotelReservationService.php',         // HM-3 : demandes de réservation (tenant passé en paramètre, filtré explicitement)
             'Http/Controllers/Menu/PublicController.php',        // HM-2 : types de chambre et tarifs de l'hôtel du menu (tenant explicite)
             'Services/Hotel/HotelRoomSupportService.php',
             'Services/Hotel/HotelPortalResolver.php',   // H5 : même résolution explicite, partagée par le portail et les demandes

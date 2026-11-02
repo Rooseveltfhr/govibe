@@ -64,6 +64,13 @@
         .meta{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;color:var(--mut);font-size:13.5px}
         .meta a{display:inline-flex;align-items:center;gap:6px}.meta i{color:var(--acc)}
         /* Category nav */
+        .rform{margin-top:10px}.rform summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--ac,#2cb809)}
+        .rform form{display:grid;gap:8px;margin-top:8px}
+        .rform label{display:grid;gap:3px;font-size:12.5px;color:var(--mut)}
+        .rform input,.rform select{width:100%;border:1.5px solid var(--bd);border-radius:10px;padding:10px 12px;font-size:15px;background:var(--card,#fff);color:inherit}
+        .rform .rbtn{border:0;border-radius:10px;background:var(--ac,#2cb809);color:#fff;font-weight:800;font-size:15px;padding:12px;cursor:pointer}
+        .rform .rerr{background:#FDECEA;color:#C0392B;border-radius:10px;padding:10px 12px;font-size:13.5px}
+        .rform .rhint{margin:0;color:var(--mut);font-size:12.5px}
         .roomgrid{display:grid;gap:12px;padding:0 16px}
         .roomcard{border:1.5px solid var(--bd);border-radius:16px;padding:14px;background:var(--card,#fff)}
         .roomcard .rn{font-weight:800;font-size:17px}.roomcard .rn small{font-weight:500;color:var(--mut)}
@@ -313,6 +320,36 @@
                                         @foreach($incl as $inc)<li><i class="fa-solid fa-check"></i> {{ $inc['label'] }}</li>@endforeach
                                     </ul>
                                 @endif
+                                {{-- HM-3 : demande de réservation (sans compte, sans paiement — on règle sur place). Le prix et les
+                                     « inclus » viennent de la base, jamais de ce formulaire. --}}
+                                @php
+                                    $mine = (int) session('reserve_plan') === (int) $pl->id;
+                                    $val = fn ($k, $d = '') => $mine ? old($k, $d) : $d;
+                                    $errs = $mine ? $errors->getBag('reserve') : null;
+                                @endphp
+                                <details class="rform" @if($mine) open @endif>
+                                    <summary>{{ __('Demander cette chambre') }}</summary>
+                                    <form method="POST" action="{{ route('tagtoa.menu.reserve', $menu->alias) }}">
+                                        @csrf
+                                        <input type="hidden" name="plan_id" value="{{ $pl->id }}">
+                                        @if($mine && session('reserve_error'))<div class="rerr">{{ session('reserve_error') }}</div>@endif
+                                        @if($errs && $errs->any())<div class="rerr">@foreach($errs->all() as $e)<div>{{ $e }}</div>@endforeach</div>@endif
+                                        <label>{{ $pl->kind === 'block' ? __('Date') : __('Date d\'arrivée') }}
+                                            <input type="date" name="date" required min="{{ now()->format('Y-m-d') }}" value="{{ $val('date') }}"></label>
+                                        @if($pl->kind === 'block')
+                                            <label>{{ __('Heure d\'arrivée') }}<input type="time" name="time" required value="{{ $val('time') }}"></label>
+                                        @else
+                                            <label>{{ __('Nombre de nuits') }}
+                                                <select name="nights">@for($n = 1; $n <= 14; $n++)<option value="{{ $n }}" @selected((int) $val('nights', 1) === $n)>{{ $n }}</option>@endfor</select></label>
+                                        @endif
+                                        <label>{{ __('Personnes') }}<input type="number" name="guests" min="1" max="20" value="{{ $val('guests') }}"></label>
+                                        <label>{{ __('Votre nom') }}<input type="text" name="name" required maxlength="120" value="{{ $val('name') }}" autocomplete="name"></label>
+                                        <label>{{ __('Téléphone (WhatsApp)') }}<input type="tel" name="phone" required maxlength="40" value="{{ $val('phone') }}" autocomplete="tel"></label>
+                                        <label>{{ __('Précision (optionnel)') }}<input type="text" name="note" maxlength="300" value="{{ $val('note') }}"></label>
+                                        <button type="submit" class="rbtn">{{ __('Envoyer ma demande') }}</button>
+                                        <p class="rhint">{{ __('Aucun paiement en ligne : vous réglez sur place. L\'hôtel vous confirme sur votre page de suivi.') }}</p>
+                                    </form>
+                                </details>
                             </div>
                         @endforeach
                     </div>

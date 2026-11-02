@@ -145,6 +145,7 @@ class DashboardModules
                 ['label' => 'Démarrage', 'icon' => 'fa-list-check', 'url' => '/tagtoa/hotel'],
                 ['label' => 'Chambres', 'icon' => 'fa-bed', 'url' => '/tagtoa/hotel/rooms'],
                 ['label' => 'Tarifs des chambres', 'icon' => 'fa-tags', 'url' => '/tagtoa/hotel/room-types'],
+                ['label' => 'Réservations', 'icon' => 'fa-calendar-check', 'url' => '/tagtoa/hotel/reservations'],
                 ['label' => 'Services', 'icon' => 'fa-bell-concierge', 'url' => '/tagtoa/hotel/services'],
                 ['label' => 'Demandes', 'icon' => 'fa-inbox', 'url' => '/tagtoa/hotel/requests'],
                 ['label' => 'Écran du personnel', 'icon' => 'fa-user-clock', 'url' => '/tagtoa/hotel/board'],
