@@ -186,6 +186,14 @@ class HotelHardeningTest extends TestCase
         $this->assertNull($service->blocksTypeChange($b));
     }
 
+    public function test_the_pos_shortcut_cannot_turn_a_hotel_with_live_supports_into_another_type(): void
+    {
+        [$b] = $this->hotel();   // support actif sur la chambre
+
+        $this->put(route('tagtoa.pos.settings.business-type'), ['type' => 'restaurant'])->assertSessionHas('error');
+        $this->assertSame('hotel', \Modules\Tagtoa\App\Models\Business\Business::find($b->id)->type);
+    }
+
     public function test_the_business_form_refuses_to_leave_the_hotel_type_while_something_is_open(): void
     {
         [$b] = $this->hotel();   // support actif => refus
@@ -279,13 +287,17 @@ class HotelHardeningTest extends TestCase
         [$menu, $item] = $this->menuEtPlat($b);
         $vieille = $this->commander($menu, $item, $stand);
         $recente = $this->commander($menu, $item, $stand);
+        Order::whereKey([$vieille->id, $recente->id])->update(['status' => 'completed']);   // libère le plafond de la chambre
         $ouverte = $this->commander($menu, $item, $stand);
+        $abandonnee = $this->commander($menu, $item, $stand);
         $ordinaire = Order::allTenants()->create(['menu_id' => $menu->id, 'tenant_id' => $b->id, 'reference' => 'ORD-PLAIN', 'subtotal' => 1, 'total' => 1, 'currency' => 'HTG', 'status' => 'completed', 'payment_status' => 'paid', 'order_type' => 'pickup', 'customer_name' => 'Jean', 'placed_at' => now()->subYear()]);
-        foreach ([$vieille, $recente, $ouverte] as $o) {
+        foreach ([$vieille, $recente, $ouverte, $abandonnee] as $o) {
             $o->forceFill(['customer_name' => 'Invité', 'customer_phone' => '+50937000000', 'note' => 'sans piment'])->save();
         }
         Order::whereKey($vieille->id)->update(['status' => 'completed', 'updated_at' => now()->subDays(120)]);
         Order::whereKey($recente->id)->update(['status' => 'completed']);
+        Order::whereKey($abandonnee->id)->update(['placed_at' => now()->subDays(400)]);   // jamais terminée
+        \Modules\Tagtoa\App\Models\Order\Order::allTenants()->whereIn('source_id', [$vieille->id, $recente->id, $abandonnee->id])->where('source_type', 'menu_order')->update(['customer_name' => 'Invité', 'customer_phone' => '+50937000000']);
         // Ouverte ET ancienne : seul le statut doit la protéger (sinon une commande en cours perdrait ses coordonnées).
         Order::whereKey($ouverte->id)->update(['updated_at' => now()->subDays(120)]);
         Order::whereKey($ordinaire->id)->update(['updated_at' => now()->subDays(400)]);
@@ -297,6 +309,12 @@ class HotelHardeningTest extends TestCase
         $this->assertNull($v->customer_phone);
         $this->assertNull($v->note);
         $this->assertEquals(400, $v->total, 'La ligne et les montants restent.');
+        $spine = fn ($o) => \Modules\Tagtoa\App\Models\Order\Order::allTenants()->where('source_type', 'menu_order')->where('source_id', $o->id)->first();
+        $this->assertNull($spine($vieille)->customer_name, 'La colonne vertébrale est purgée aussi.');
+        $this->assertNull($spine($vieille)->customer_phone);
+        $this->assertSame('Invité', $spine($recente)->customer_name, 'Récente : colonne vertébrale intacte.');
+        $this->assertNull(Order::find($abandonnee->id)->customer_name, 'Restée ouverte au-delà du double délai : effacée.');
+        $this->assertNull($spine($abandonnee)->customer_phone);
         $this->assertSame('Invité', Order::find($recente->id)->customer_name, 'Récente : intacte.');
         $this->assertSame('Invité', Order::find($ouverte->id)->customer_name, 'Encore ouverte : intacte.');
         $this->assertSame('Jean', Order::find($ordinaire->id)->customer_name, 'Une commande ordinaire n\'est jamais touchée.');

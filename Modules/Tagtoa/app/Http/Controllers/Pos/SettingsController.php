@@ -79,6 +79,14 @@ class SettingsController extends Controller
         ]);
 
         $business = Business::whereKey(Tenant::id())->firstOrFail();
+
+        // H7 : même garde que l'écran « Mes commerces » — un hôtel qui a encore des demandes, commandes de chambre
+        // ou supports actifs ne change pas de type par ce raccourci non plus.
+        if ($business->type === 'hotel' && $data['type'] !== 'hotel'
+            && ($raison = app(\Modules\Tagtoa\App\Services\Hotel\HotelProfileService::class)->blocksTypeChange($business))) {
+            return back()->with('error', $raison);
+        }
+
         $business->update(['type' => $data['type']]);
 
         return back()->with('success', __('Type d\'activité mis à jour.'));

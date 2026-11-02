@@ -44,11 +44,22 @@ class PurgeHotelRequestsCommand extends Command
 
         // Commandes de chambre (room service) : nom, téléphone et note de l'invité effacés après le même délai, une
         // fois la commande terminée. La ligne reste (montants, articles, statut) pour la comptabilité.
-        $o = \Modules\Tagtoa\App\Models\Menu\Order::allTenants()->whereNotNull('hotel_room_id')
-            ->whereIn('status', \Modules\Tagtoa\App\Models\Menu\Order::DONE_STATUSES)
-            ->where('updated_at', '<', $seuil)
+        $ids = \Modules\Tagtoa\App\Models\Menu\Order::allTenants()->whereNotNull('hotel_room_id')
+            ->where(function ($q) use ($seuil, $seuilOuvertes) {
+                // Terminées : après le délai. Restées ouvertes : après le double (même règle que les demandes).
+                $q->where(fn ($c) => $c->whereIn('status', \Modules\Tagtoa\App\Models\Menu\Order::DONE_STATUSES)->where('updated_at', '<', $seuil))
+                  ->orWhere('placed_at', '<', $seuilOuvertes);
+            })
             ->where(fn ($q) => $q->whereNotNull('customer_name')->orWhereNotNull('customer_phone')->orWhereNotNull('note'))
-            ->update(['customer_name' => null, 'customer_phone' => null, 'note' => null]);
+            ->pluck('id');
+        $o = 0;
+        foreach ($ids->chunk(500) as $lot) {
+            $o += \Modules\Tagtoa\App\Models\Menu\Order::allTenants()->whereIn('id', $lot)
+                ->update(['customer_name' => null, 'customer_phone' => null, 'note' => null]);
+            // Copie dans la colonne vertébrale (tagtoa_orders) : le même nom/téléphone y vit aussi.
+            \Modules\Tagtoa\App\Models\Order\Order::allTenants()->where('source_type', 'menu_order')->whereIn('source_id', $lot)
+                ->update(['customer_name' => null, 'customer_phone' => null]);
+        }
         $this->info("Commandes de chambre : données de l'invité effacées sur $o ligne(s).");
 
         return self::SUCCESS;
