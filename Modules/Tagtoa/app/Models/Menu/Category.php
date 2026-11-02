@@ -25,14 +25,15 @@ class Category extends Model
     public const STATIONS = ['kitchen' => 'Cuisine', 'bar' => 'Bar'];
 
     /** Valeur sûre : une valeur inconnue retombe sur le défaut, jamais en base telle quelle. */
-    public static function cleanSection(?string $v): string
+    /** Reçoit du texte brut d'une requête : un tableau (`section[]=x`) ne doit jamais faire planter (TypeError). */
+    public static function cleanSection(mixed $v): string
     {
-        return array_key_exists((string) $v, self::SECTIONS) ? (string) $v : 'restaurant';
+        return is_string($v) && array_key_exists($v, self::SECTIONS) ? $v : 'restaurant';
     }
 
-    public static function cleanStation(?string $v): string
+    public static function cleanStation(mixed $v): string
     {
-        return array_key_exists((string) $v, self::STATIONS) ? (string) $v : 'kitchen';
+        return is_string($v) && array_key_exists($v, self::STATIONS) ? $v : 'kitchen';
     }
 
     /** Seul le nom d'une catégorie se traduit — une icône ne change pas de langue. */
