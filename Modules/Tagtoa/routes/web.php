@@ -392,6 +392,13 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/rooms/{id}/support', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'attachSupport'])->whereNumber('id')->middleware('throttle:20,1')->name('rooms.support.attach');
         Route::post('/rooms/{id}/support/replace', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'replaceSupport'])->whereNumber('id')->middleware('throttle:20,1')->name('rooms.support.replace');
         Route::post('/rooms/{id}/support/revoke', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'revokeSupport'])->whereNumber('id')->middleware('throttle:20,1')->name('rooms.support.revoke');
+        // H6 — écran du PERSONNEL (code personnel ; l'équipe décide de ce qu'il voit).
+        $board = \Modules\Tagtoa\App\Http\Controllers\Hotel\StaffBoardController::class;
+        Route::get('/board', [$board, 'index'])->name('board');
+        Route::post('/board/login', [$board, 'login'])->middleware('throttle:20,1')->name('board.login');
+        Route::post('/board/logout', [$board, 'logout'])->name('board.logout');
+        Route::get('/board/alerts', [$board, 'alerts'])->middleware('throttle:60,1')->name('board.alerts');
+        Route::post('/board/{id}/status', [$board, 'status'])->whereNumber('id')->name('board.status');
         // H5 — demandes des invités (liste et traitement). Rôles du personnel et alertes : H6.
         Route::get('/requests', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RequestController::class, 'index'])->name('requests');
         Route::post('/requests/bulk', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RequestController::class, 'bulk'])->name('requests.bulk');

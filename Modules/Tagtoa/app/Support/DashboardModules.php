@@ -102,6 +102,7 @@ class DashboardModules
                 ['label' => 'Chambres', 'icon' => 'fa-bed', 'url' => '/tagtoa/hotel/rooms'],
                 ['label' => 'Services', 'icon' => 'fa-bell-concierge', 'url' => '/tagtoa/hotel/services'],
                 ['label' => 'Demandes', 'icon' => 'fa-inbox', 'url' => '/tagtoa/hotel/requests'],
+                ['label' => 'Écran du personnel', 'icon' => 'fa-user-clock', 'url' => '/tagtoa/hotel/board'],
             ],
         ],
 

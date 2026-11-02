@@ -30,7 +30,7 @@
                     <td style="padding:7px 10px">@if($r->isOpen())<input type="checkbox" name="ids[]" value="{{ $r->id }}" form="bulkForm">@endif</td>
                     <td style="padding:7px 10px"><b>{{ optional($rooms->get($r->room_id))->number ?? '—' }}</b></td>
                     <td style="padding:7px 10px">{{ $r->service_name }}@if($r->note)<div style="color:var(--muted);font-size:12.5px;white-space:pre-line">{{ $r->note }}</div>@endif<div style="color:var(--muted);font-size:12px">{{ $r->reference }}</div></td>
-                    <td style="padding:7px 10px"><span class="pill {{ $r->status === 'done' ? 'g' : 'n' }}">{{ __($statuses[$r->status] ?? $r->status) }}</span>@if($r->status === 'rejected' && $r->reason)<div style="color:var(--muted);font-size:12.5px">{{ $r->reason }}</div>@endif</td>
+                    <td style="padding:7px 10px"><span class="pill {{ $r->status === 'done' ? 'g' : 'n' }}">{{ __($statuses[$r->status] ?? $r->status) }}</span>@if($r->handled_by_staff_id && ($staffNames[$r->handled_by_staff_id] ?? null))<div style="color:var(--muted);font-size:12.5px">{{ __('Par') }} {{ $staffNames[$r->handled_by_staff_id] }}</div>@endif @if($r->status === 'rejected' && $r->reason)<div style="color:var(--muted);font-size:12.5px">{{ $r->reason }}</div>@endif</td>
                     <td style="padding:7px 10px;white-space:nowrap">{{ $r->created_at?->format('d/m H:i') }}</td>
                     <td style="padding:7px 10px;white-space:nowrap">
                         @foreach(($next[$r->status] ?? []) as $to)

@@ -17,7 +17,7 @@ class HotelRequest extends Model
 
     protected $fillable = [
         'tenant_id', 'room_id', 'service_id', 'reference', 'track_hash', 'kind', 'service_name', 'team',
-        'status', 'note', 'reason', 'handled_at', 'closed_at',
+        'status', 'note', 'reason', 'handled_at', 'closed_at', 'handled_by_staff_id',
     ];
 
     protected $hidden = ['track_hash'];

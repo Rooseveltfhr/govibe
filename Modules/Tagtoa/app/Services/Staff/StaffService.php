@@ -42,7 +42,12 @@ class StaffService
                 : StaffAccess::ROLE_CASHIER,   // rôle inconnu ⇒ le moins ouvert
             'terminal_id' => $data['terminal_id'] ?? null,
             'is_active'   => (bool) ($data['is_active'] ?? true),
-            'is_kitchen'  => (bool) ($data['is_kitchen'] ?? false),
+            // Le personnel d'hôtel n'opère jamais la cuisine du menu (axe is_kitchen forcé à faux).
+            'is_kitchen'  => (($data['role'] ?? null) !== StaffAccess::ROLE_HOTEL) && (bool) ($data['is_kitchen'] ?? false),
+            // L'équipe n'a de sens que pour le personnel d'hôtel ; ailleurs, jamais enregistrée.
+            'hotel_team'  => (($data['role'] ?? null) === StaffAccess::ROLE_HOTEL
+                && array_key_exists($data['hotel_team'] ?? '', \Modules\Tagtoa\App\Support\Hotel\HotelServiceRules::STAFF_TEAMS))
+                ? $data['hotel_team'] : null,
         ];
 
         $pin = (string) ($data['pin'] ?? '');
@@ -75,7 +80,9 @@ class StaffService
             return null;
         }
 
+        // Le personnel d'hôtel (H6) n'ouvre NI une caisse NI l'écran cuisine : il passe par authenticateHotel().
         $candidats = Staff::where('tenant_id', $tenantId)->where('is_active', true)
+            ->where('role', '!=', StaffAccess::ROLE_HOTEL)
             ->when($terminalId, fn ($q) => $q->where(fn ($w) => $w
                 ->where('terminal_id', $terminalId)->orWhereNull('terminal_id')))
             ->get();
@@ -89,6 +96,50 @@ class StaffService
         }
 
         return null;
+    }
+
+    /**
+     * H6 — code d'un employé qui peut ouvrir l'écran des demandes de l'hôtel : le personnel d'hôtel
+     * (avec une équipe), le gérant et le patron. Mêmes règles que `authenticate` (commerce explicite,
+     * actifs seulement, comparaison de hachage, jamais de recherche par code).
+     */
+    public function authenticateHotel(?string $tenantId, string $pin): ?Staff
+    {
+        if (! StaffPinService::isValidPinFormat($pin)) {
+            return null;
+        }
+
+        $candidats = Staff::where('tenant_id', $tenantId)->where('is_active', true)
+            ->whereIn('role', [StaffAccess::ROLE_HOTEL, StaffAccess::ROLE_MANAGER, StaffAccess::ROLE_OWNER])
+            ->get()
+            // Deux personnes peuvent avoir choisi le même code : on essaie toujours le MOINS privilégié d'abord,
+            // pour qu'une collision n'élève jamais quelqu'un au rang de gérant ou de patron.
+            ->sortBy(fn ($s) => [StaffAccess::ROLE_HOTEL => 0, StaffAccess::ROLE_MANAGER => 1, StaffAccess::ROLE_OWNER => 2][$s->role] ?? 9)
+            ->values();
+
+        foreach ($candidats as $staff) {
+            if ($staff->role === StaffAccess::ROLE_HOTEL && ! $staff->hotel_team) {
+                continue;   // sans équipe, il ne verrait rien : on n'ouvre pas une session vide
+            }
+            if (StaffPinService::verifyPin($pin, (string) $staff->pin_hash)) {
+                $staff->forceFill(['last_login_at' => now()])->save();
+
+                return $staff;
+            }
+        }
+
+        return null;
+    }
+
+    /** Employé identifié sur l'écran des demandes de l'hôtel, ou null. Relu en base à chaque requête. */
+    public function forHotel(?string $tenantId): ?Staff
+    {
+        $id = session('tagtoa_hotel_staff.'.$tenantId);
+
+        return $id
+            ? Staff::where('tenant_id', $tenantId)->where('is_active', true)
+                ->whereIn('role', [StaffAccess::ROLE_HOTEL, StaffAccess::ROLE_MANAGER, StaffAccess::ROLE_OWNER])->find($id)
+            : null;
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Modules\Tagtoa\App\Http\Controllers\Pos;
 
+use Modules\Tagtoa\App\Support\Pos\StaffAccess;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -69,7 +70,9 @@ class PosController extends Controller
             // Employé au poste, et faut-il en demander un ? Tant que le commerce
             // n'a créé personne, la caisse fonctionne comme avant.
             'staff'      => $this->currentStaff($terminal),
-            'hasStaff'   => Staff::where('tenant_id', $terminal->tenant_id)->where('is_active', true)->exists(),
+            // Le personnel d'hôtel (H6) ne peut pas ouvrir une caisse : il ne compte pas pour exiger un code.
+            'hasStaff'   => Staff::where('tenant_id', $terminal->tenant_id)->where('is_active', true)
+                ->where('role', '!=', StaffAccess::ROLE_HOTEL)->exists(),
             // Le régime de taxe, pour que la caisse annonce le BON montant
             // avant d'encaisser. Avec des prix hors taxe, afficher le
             // sous-total ferait annoncer moins que ce que le client paiera.
