@@ -52,7 +52,6 @@
                 <div class="svc">
                     <b>{{ $s->nameFor(app()->getLocale()) }}</b>
                     @if($s->description)<span class="m">{{ $s->description }}</span>@endif
-                    @if($s->price !== null && (float) $s->price > 0)<div class="pr">{{ number_format((float) $s->price, 2) }} {{ $hotel->currency }}</div>@endif
                     @if(isset($commande[$s->id]))
                         <a class="btn" href="{{ $commande[$s->id] }}" style="text-decoration:none">{{ __('Commander') }}</a>
                     @endif

@@ -92,21 +92,6 @@ class DashboardModules
             ],
         ],
 
-        // HÔTEL (H2) — visible UNIQUEMENT quand le commerce courant est de type « hôtel »
-        // (`only_types`, voir visiblePourCommerce()). Un restaurant ne voit jamais ce module.
-        'hotel' => [
-            'label' => 'Mon Hôtel', 'icon' => 'fa-hotel', 'group' => 'module',
-            'desc'  => 'Chambres, services et demandes de vos clients.',
-            'only_types' => ['hotel'],
-            'children' => [
-                ['label' => 'Chambres', 'icon' => 'fa-bed', 'url' => '/tagtoa/hotel/rooms'],
-                ['label' => 'Tarifs des chambres', 'icon' => 'fa-tags', 'url' => '/tagtoa/hotel/room-types'],
-                ['label' => 'Services', 'icon' => 'fa-bell-concierge', 'url' => '/tagtoa/hotel/services'],
-                ['label' => 'Demandes', 'icon' => 'fa-inbox', 'url' => '/tagtoa/hotel/requests'],
-                ['label' => 'Écran du personnel', 'icon' => 'fa-user-clock', 'url' => '/tagtoa/hotel/board'],
-            ],
-        ],
-
         // --- Les quatre outils métier de TAGTOA ---
         'menu' => [
             'label' => 'Mes Menus', 'icon' => 'fa-utensils', 'group' => 'module',
@@ -145,6 +130,27 @@ class DashboardModules
                 ['label' => 'Avis clients', 'icon' => 'fa-star',           'url' => '/tagtoa/reviews',   'needs' => 'reviews'],
             ],
         ],
+        // HÔTEL — une entrée À PART dans la barre latérale, visible pour TOUS les comptes (comme un établissement qui
+        // a sa propre place, pas un simple commerce de la liste). Pour un commerce de type « hôtel », elle ouvre ses
+        // écrans (démarrage pas à pas, chambres, tarifs…) ; sinon, un seul lien mène à la page qui crée ou ouvre
+        // l'hôtel du compte (voir `children_only_types` / `children_else`, et HotelHomeController).
+        'hotel' => [
+            'label' => 'Mon Hôtel', 'icon' => 'fa-hotel', 'group' => 'module',
+            'desc'  => 'Chambres, tarifs, services et demandes de vos clients — pas à pas.',
+            'children_only_types' => ['hotel'],
+            'children_else' => [
+                ['label' => 'Mon hôtel', 'icon' => 'fa-hotel', 'url' => '/tagtoa/hotel'],
+            ],
+            'children' => [
+                ['label' => 'Démarrage', 'icon' => 'fa-list-check', 'url' => '/tagtoa/hotel'],
+                ['label' => 'Chambres', 'icon' => 'fa-bed', 'url' => '/tagtoa/hotel/rooms'],
+                ['label' => 'Tarifs des chambres', 'icon' => 'fa-tags', 'url' => '/tagtoa/hotel/room-types'],
+                ['label' => 'Services', 'icon' => 'fa-bell-concierge', 'url' => '/tagtoa/hotel/services'],
+                ['label' => 'Demandes', 'icon' => 'fa-inbox', 'url' => '/tagtoa/hotel/requests'],
+                ['label' => 'Écran du personnel', 'icon' => 'fa-user-clock', 'url' => '/tagtoa/hotel/board'],
+            ],
+        ],
+
         'pos' => [
             'label' => 'Caisse (POS)', 'icon' => 'fa-cash-register', 'group' => 'module',
             'desc'  => 'Caisse tactile qui marche même sans internet, multi-paiement.',
@@ -403,6 +409,18 @@ class DashboardModules
         return in_array($type, $meta['only_types'], true);
     }
 
+    /** Le commerce courant est-il d'un de ces types ? (faux sans commerce lisible : page publique, test sans base). */
+    private static function typeCourantDans(array $types): bool
+    {
+        try {
+            $type = \Modules\Tagtoa\App\Models\Business\Business::whereKey(\Modules\Tagtoa\App\Support\Tenant::id())->value('type');
+        } catch (\Throwable $e) {
+            return false;
+        }
+
+        return in_array($type, $types, true);
+    }
+
     public static function isEnabled(string $key): bool
     {
         return in_array($key, self::enabledKeys(), true);
@@ -422,6 +440,10 @@ class DashboardModules
         }
 
         $enfants = $meta['children'] ?? [];
+        // Un module peut montrer ses écrans seulement à certains types de commerce, et un lien unique aux autres.
+        if (! empty($meta['children_only_types']) && ! self::typeCourantDans($meta['children_only_types'])) {
+            $enfants = $meta['children_else'] ?? [];
+        }
         if ($enfants === []) {
             return [['label' => $meta['label'], 'icon' => $meta['icon'], 'url' => '/tagtoa/'.$key]];
         }

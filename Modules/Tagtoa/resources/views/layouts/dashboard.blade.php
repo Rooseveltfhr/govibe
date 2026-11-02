@@ -229,6 +229,17 @@
             /* Un tableau large ne doit jamais pousser la page de côté :
                il défile seul, à l'intérieur de sa carte. */
             .content table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+            /* Tableau « en cartes » (opt-in : class="rcards") : sur téléphone, chaque ligne devient une carte lisible
+               au lieu d'un tableau qui défile et dont les boutons se chevauchent. Les cellules portent data-l. */
+            .content table.rcards{display:block;overflow:visible;white-space:normal}
+            .rcards thead{display:none}
+            .rcards tbody{display:block}
+            .rcards tr{display:block;padding:12px 14px;border-top:1px solid var(--bd,#eee)}
+            .rcards td{display:block;padding:4px 0!important;min-width:0!important;white-space:normal!important}
+            .rcards td[data-l]::before{content:attr(data-l);display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+            .rcards td.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;padding-top:8px!important}
+            .rcards td.acts details{flex:1 1 100%}
+            .rcards .inp,.rcards .sel{width:100%;max-width:100%}
             .btn{padding:11px 15px}
         }
         /* Sous 360px, deux colonnes de statistiques deviennent illisibles. */

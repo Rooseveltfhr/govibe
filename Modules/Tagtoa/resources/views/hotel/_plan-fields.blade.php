@@ -27,7 +27,7 @@
     </select>
 </div>
 <div style="margin-top:10px">
-    <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">{{ __('Inclus dans ce prix') }}</div>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">{{ __('Inclus dans ce prix') }} — {{ __('les services de l\'hôtel (ménage, réception…) se cochent ici : ils ne sont jamais payants.') }}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:4px 10px">
         @foreach($inclusions as $key => $meta)
             <label class="switch" style="flex:0"><input type="checkbox" name="inclusions[]" value="{{ $key }}" @checked(in_array($key, (array) $sel, true))> <i class="fa-solid {{ $meta['icon'] }}" style="color:var(--muted)"></i> {{ __($meta['label']) }}</label>

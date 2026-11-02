@@ -184,17 +184,21 @@ class HotelRoomsTest extends TestCase
         return ['restaurant' => ['restaurant'], 'boutique' => ['boutique'], 'bar' => ['bar']];
     }
 
-    public function test_the_sidebar_shows_the_hotel_module_only_for_a_hotel(): void
+    public function test_the_hotel_has_its_own_sidebar_entry_for_every_account_and_its_screens_only_for_a_hotel(): void
     {
+        // « Mon Hôtel » est une entrée À PART, visible pour tous : un restaurateur y trouve un seul lien (créer / ouvrir
+        // un hôtel), jamais les écrans qui répondraient « hôtels seulement ».
         $this->compte('compte-r');
         $this->commerce('restaurant', 'Chez Rose');
-        $this->assertArrayNotHasKey('hotel', \Modules\Tagtoa\App\Support\DashboardModules::enabled('module'));
+        $mods = \Modules\Tagtoa\App\Support\DashboardModules::enabled('module');
+        $this->assertArrayHasKey('hotel', $mods);
+        $this->assertSame(['/tagtoa/hotel'], array_column($mods['hotel']['children'], 'url'));
 
         $this->compte('compte-h');
         $this->commerce('hotel', 'Belle Vue');
         $mods = \Modules\Tagtoa\App\Support\DashboardModules::enabled('module');
         $this->assertArrayHasKey('hotel', $mods);
-        $this->assertSame('/tagtoa/hotel/rooms', $mods['hotel']['children'][0]['url']);
+        $this->assertSame(['/tagtoa/hotel', '/tagtoa/hotel/rooms'], array_slice(array_column($mods['hotel']['children'], 'url'), 0, 2));
     }
 
     /* ---------- isolation ---------- */

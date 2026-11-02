@@ -251,6 +251,21 @@ class HotelRoomTypesTest extends TestCase
 
     /* ---------- texte libre ---------- */
 
+    public function test_the_hotel_services_can_be_ticked_as_included_in_a_room_rate(): void
+    {
+        $b = $this->commerce('c-a', 'Hôtel Alpha');
+        $t = $this->type($b);
+
+        $this->post(route('tagtoa.hotel.rateplans.store', $t->id), ['kind' => 'night', 'price' => 2500, 'currency' => 'HTG', 'inclusions' => ['housekeeping', 'linen', 'reception', 'maintenance']])->assertSessionHasNoErrors();
+        $this->assertSame(['housekeeping', 'linen', 'reception', 'maintenance'], HotelRatePlan::sole()->inclusions['keys']);
+
+        // Le formulaire les propose (ils ne sont jamais payants), et la page publique les montre comme inclus.
+        $this->get(route('tagtoa.hotel.roomtypes'))->assertOk()->assertSee('Ménage')->assertSee('Linge et articles')->assertSee('ne sont jamais payants');
+        $html = $this->page($this->menu($b));
+        $this->assertStringContainsString('Ménage', $html);
+        $this->assertStringContainsString('Inclus dans ce prix', $html);
+    }
+
     public function test_free_text_inclusions_are_cleaned_bounded_and_deduplicated(): void
     {
         $c = R::cleanInclusions(['pool', 'pool', 'inconnu', 42], "  <b>Jacuzzi</b>  \n\njacuzzi\n".str_repeat('é', 90)."\n<script>alert(1)</script>\nA\nB\nC\nD\nE\nF");

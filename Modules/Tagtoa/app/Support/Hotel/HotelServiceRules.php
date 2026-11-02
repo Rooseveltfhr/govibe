@@ -63,7 +63,6 @@ class HotelServiceRules
             'translations'   => ['nullable', 'array'],
             'translations.*' => ['nullable', 'string', 'max:80'],
             'description' => ['nullable', 'string', 'max:300'],
-            'price'       => ['nullable', 'numeric', 'min:0', 'max:'.self::PRICE_MAX],
             'team'        => ['nullable', 'string', Rule::in(array_keys(self::TEAMS))],
             // Le room service pointe vers un Menu du MÊME hôtel, jamais celui d'un autre.
             'menu_id'     => ['nullable', 'required_if:kind,room_service', 'integer',
@@ -91,7 +90,10 @@ class HotelServiceRules
             'name'         => trim((string) $in['name']),
             'translations' => $tr ?: null,
             'description'  => $t($in['description'] ?? null),
-            'price'        => ($p = $t($in['price'] ?? null)) === null ? null : round((float) $p, 2),
+            // Un service d'hôtel n'est JAMAIS payant : il s'offre, et se coche comme « inclus » dans le tarif de la chambre
+            // (HotelRoomTypeRules::INCLUSIONS). Aucune clé `price` n'est écrite ici : un prix envoyé est ignoré, un nouveau
+            // service n'en a pas, et la valeur historique d'un ancien service n'est PAS effacée en silence par une édition
+            // (elle n'est plus ni affichée ni lue).
             'team'         => $t($in['team'] ?? null) ?? (self::KINDS[$kind]['team'] ?? null),
             // Un menu n'a de sens que pour le room service : ailleurs, jamais enregistré.
             'menu_id'      => $kind === 'room_service' ? (int) $in['menu_id'] : null,

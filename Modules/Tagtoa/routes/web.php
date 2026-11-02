@@ -384,7 +384,8 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
     // MON COMMERCE — le déclarer, le modifier, passer de l'un à l'autre.
     // HÔTEL (H2/H3) — chambres et services. Réservé au commerce de type « hôtel » (RoomController::hotel()).
     Route::prefix('hotel')->name('tagtoa.hotel.')->group(function () {
-        Route::get('/', fn () => redirect()->route('tagtoa.hotel.rooms'));
+        // Page d'accueil de l'hôtel : démarrage pas à pas (ou création / ouverture de l'hôtel du compte).
+        Route::get('/', [\Modules\Tagtoa\App\Http\Controllers\Hotel\HotelHomeController::class, 'index'])->name('home');
         Route::get('/rooms', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'index'])->name('rooms');
         Route::post('/rooms', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'store'])->name('rooms.store');
         Route::post('/rooms/bulk', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'bulk'])->name('rooms.bulk');
