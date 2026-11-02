@@ -27,6 +27,7 @@
 <!DOCTYPE html>
 <html lang="{{ app()->getLocale() }}">
 <head>
+    @if(($roomToken ?? null) || ($roomBusy ?? false))<meta name="referrer" content="no-referrer">@endif
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -177,6 +178,7 @@
     </style>
 </head>
 <body>
+@if($roomBusy ?? false)<div style="background:#FFF5E6;color:#7a5200;padding:12px 16px;font-size:14px;text-align:center">{{ __('Plusieurs commandes sont déjà en cours pour cette chambre. Contactez la réception.') }}</div>@endif
 <div style="position:fixed;top:12px;right:12px;z-index:50">@include('tagtoa::partials.lang', ['onlyCodes' => \Modules\Tagtoa\App\Support\Locale::forMenu($menu->languages)])</div>
 <div class="wrap">
     {{-- Sans couverture envoyée, jamais un bandeau vide : l'icône du métier

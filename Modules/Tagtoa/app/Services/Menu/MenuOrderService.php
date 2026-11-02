@@ -195,7 +195,8 @@ class MenuOrderService
                 $gate = app(\Modules\Tagtoa\App\Services\Hotel\HotelRoomOrderGate::class)->check($menu, (string) $payload['room_token']);
                 $room = $gate['room'];
                 $roomKey = $gate['key'];
-                $tableLabel = $room->label;
+                // `table_label` est une colonne de 40 caractères : un nom de chambre long ferait échouer l'insertion (500).
+                $tableLabel = mb_substr($room->label, 0, 40);
             }
 
             if (! $room && ! empty($payload['table_code']) && ($menu->table_ordering_enabled ?? true)) {

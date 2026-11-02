@@ -74,7 +74,9 @@ class PublicController extends Controller
                 $data['table'] = (object) ['label' => $gate['room']->label, 'code' => null, 'room' => true];
                 $data['roomToken'] = $r;
             } catch (OrderRuleException $e) {
-                // jeton invalide / chambre occupée : page ordinaire
+                // Jeton invalide : page ordinaire. Chambre qui a atteint son plafond : on le DIT, au lieu de laisser
+                // l'invité commander « comme n'importe qui » sans lien avec sa chambre.
+                $data['roomBusy'] = $e->getMessage() === 'room_busy';
             }
         }
 

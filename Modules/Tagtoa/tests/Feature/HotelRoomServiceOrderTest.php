@@ -307,6 +307,39 @@ class HotelRoomServiceOrderTest extends TestCase
         }
     }
 
+    public function test_a_long_room_name_cannot_break_the_order(): void
+    {
+        [, $room, $stand, $menu, $item, ] = $this->hotel();
+        $room->update(['name' => str_repeat('Suite présidentielle ', 4)]);   // plus de 80 caractères
+
+        $o = $this->commander($menu, $item, HotelRoomOrderToken::issue($stand->public_id, $menu->id));
+
+        $this->assertLessThanOrEqual(40, mb_strlen($o->table_label));
+        $this->assertStringStartsWith('Chambre 101', $o->table_label);
+    }
+
+    public function test_a_busy_room_tells_the_guest_instead_of_showing_an_ordinary_menu(): void
+    {
+        [, $room, $stand, $menu, $item, ] = $this->hotel();
+        for ($i = 0; $i < HotelRoomOrderGate::OPEN_MAX; $i++) {
+            $this->commander($menu, $item, HotelRoomOrderToken::issue($stand->public_id, $menu->id), ['client_uuid' => "b$i"]);
+        }
+
+        $html = $this->get(route('tagtoa.menu.show', $menu->alias).'?r='.urlencode(HotelRoomOrderToken::issue($stand->public_id, $menu->id)))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Plusieurs commandes sont déjà en cours pour cette chambre', $html);
+        $this->assertStringNotContainsString('room_token:"TG-', $html);
+    }
+
+    public function test_pages_carrying_a_room_token_forbid_the_referrer(): void
+    {
+        [, , $stand, $menu, , ] = $this->hotel();
+        $token = HotelRoomOrderToken::issue($stand->public_id, $menu->id);
+
+        $this->assertStringContainsString('<meta name="referrer" content="no-referrer">', $this->get(route('tagtoa.menu.show', $menu->alias).'?r='.urlencode($token))->getContent());
+        $this->assertStringNotContainsString('name="referrer"', $this->get(route('tagtoa.menu.show', $menu->alias))->getContent());
+    }
+
     /* ---------- HTTP public ---------- */
 
     public function test_the_public_endpoint_explains_a_dead_room_link(): void

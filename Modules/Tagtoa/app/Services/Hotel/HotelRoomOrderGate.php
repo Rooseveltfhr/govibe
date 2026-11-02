@@ -44,7 +44,12 @@ class HotelRoomOrderGate
             throw new OrderRuleException('invalid_room');
         }
 
-        $room = $ctx['room'];
+        // Verrou de la ligne de la chambre : des commandes simultanées ne dépassent pas les plafonds
+        // (check() est appelé DANS la transaction de commande).
+        $room = HotelRoom::allTenants()->where('tenant_id', $menu->tenant_id)->whereKey($ctx['room']->id)->lockForUpdate()->first();
+        if (! $room) {
+            throw new OrderRuleException('invalid_room');
+        }
         $service = HotelService::allTenants()->where('tenant_id', $menu->tenant_id)
             ->where('kind', 'room_service')->where('is_active', true)->where('menu_id', $menu->id)->exists();
         if (! $service) {
