@@ -65,6 +65,21 @@ class PublicController extends Controller
                 ->where('code', $t)->where('is_active', true)->first();
         }
 
+        // H5b : commande depuis une chambre d'hôtel. Vérifié ICI, hors du cache partagé (le jeton appartient à
+        // CETTE requête). Un lien invalide n'affiche rien de spécial — la page se comporte comme un menu ordinaire.
+        $data['roomToken'] = null;
+        if (($r = request('r')) && is_string($r)) {
+            try {
+                $gate = app(\Modules\Tagtoa\App\Services\Hotel\HotelRoomOrderGate::class)->check($data['menu'], $r);
+                $data['table'] = (object) ['label' => $gate['room']->label, 'code' => null, 'room' => true];
+                $data['roomToken'] = $r;
+            } catch (OrderRuleException $e) {
+                // Jeton invalide : page ordinaire. Chambre qui a atteint son plafond : on le DIT, au lieu de laisser
+                // l'invité commander « comme n'importe qui » sans lien avec sa chambre.
+                $data['roomBusy'] = $e->getMessage() === 'room_busy';
+            }
+        }
+
         return view('tagtoa::menu.show', $data);
     }
 
@@ -89,6 +104,8 @@ class PublicController extends Controller
             // table (jamais tapé) — voir MenuOrderService::insertOrder(),
             // qui l'impose sur `table_label` et rejette un code invalide.
             'table_code'         => ['nullable', 'string', 'max:20'],
+            // H5b : jeton de chambre d'hôtel, revérifié de bout en bout par HotelRoomOrderGate.
+            'room_token'         => ['nullable', 'string', 'max:200'],
             'delivery_address'   => ['nullable', 'string', 'max:200'],
             // Repère (« en face du bâtiment », « à côté de l'église ») : facultatif.
             'delivery_reference' => ['nullable', 'string', 'max:200'],
@@ -107,6 +124,8 @@ class PublicController extends Controller
                 'missing_required_option' => __('Choisissez une option obligatoire pour chaque article.'),
                 'closed'                  => __('Ce commerce est fermé pour le moment. Revenez pendant les heures d\'ouverture.'),
                 'invalid_table'           => __('Ce QR de table n\'est plus valide. Rechargez la page en le rescannant.'),
+                'invalid_room'            => __('Ce lien de chambre n\'est plus valide. Rescannez le QR de votre chambre.'),
+                'room_busy'               => __('Plusieurs commandes sont déjà en cours pour cette chambre. Contactez la réception.'),
                 'missing_customer_info'   => __('Indiquez votre nom et votre téléphone pour commander.'),
                 'missing_delivery_info'   => __('Pour une livraison, indiquez votre numéro de téléphone et votre adresse.'),
                 'currency_rate_missing'   => __('Le prix d\'un article n\'est plus disponible dans la devise du menu. Rechargez la page.'),

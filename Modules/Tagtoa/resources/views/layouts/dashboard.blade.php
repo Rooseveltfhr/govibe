@@ -120,6 +120,15 @@
            partout, au lieu d'un style enligne différent par module. */
         .inp[type="color"]{padding:4px;height:44px;cursor:pointer}
         .row{display:flex;gap:12px;flex-wrap:wrap}.row>*{flex:1;min-width:160px}
+        /* Champs COURTS côte à côte, même sur téléphone (devise + prix, devise + page de paiement…) :
+           sans `pair`, chaque champ d'un .row prenait toute la largeur et une simple paire occupait deux lignes. */
+        .row.pair>*{min-width:0}
+        .row.pair>.fit{flex:0 0 112px}
+        /* Devise (étroite) + prix (large) sur UNE ligne ; `trio` ajoute un 3e champ court (prix barré…). */
+        .duo{display:grid;grid-template-columns:minmax(100px,30%) 1fr;gap:10px;align-items:start}.duo>*{min-width:0}
+        .duo.trio{grid-template-columns:minmax(100px,30%) 1fr 1fr}
+        .duo .sel,.duo .inp{width:100%;max-width:none}
+        .duo>div>label:not(.lbl){display:block;font:600 11px var(--fh);color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
         /* ── Grille de CHAMPS COURTS (prix, stock, code, ordre…) ──────────
            Plusieurs champs sur la même ligne quand l'écran le permet, une
            colonne par ligne sinon — jamais un `max-width` posé au cas par

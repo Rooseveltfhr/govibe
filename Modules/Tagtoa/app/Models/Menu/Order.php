@@ -82,7 +82,7 @@ class Order extends Model
         'status', 'payment_status', 'payment_method', 'paid_at', 'paid_by', 'channel', 'order_type', 'customer_name', 'customer_phone',
         'table_label', 'delivery_address', 'delivery_reference', 'delivery_zone_label', 'note', 'client_uuid', 'placed_at',
         'tax_total', 'tax_base', 'tax_inclusive', 'tax_label', 'tax_breakdown', 'delivery_fee',
-        'courier_id', 'courier_assigned_at', 'picked_up_at',
+        'courier_id', 'courier_assigned_at', 'picked_up_at', 'hotel_room_id',
         'payment_claim', 'payment_claimed_at',
     ];
 

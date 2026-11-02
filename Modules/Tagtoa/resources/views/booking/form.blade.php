@@ -33,8 +33,8 @@
             <div><label class="lbl">{{ __('E-mail') }}</label><input class="inp" type="email" name="email" value="{{ old('email',$page->email) }}" placeholder="contact@exemple.com"></div>
             <div><label class="lbl">{{ __('Adresse') }}</label><input class="inp" name="address" value="{{ old('address',$page->address) }}" placeholder="{{ __('Rue, ville') }}"></div>
         </div>
-        <div class="row">
-            <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(\Modules\Tagtoa\App\Support\Money::options() as $code=>$label)<option value="{{ $code }}" @selected(old('currency',$page->currency ?: \Modules\Tagtoa\App\Support\Locale::currencyFor())===$code)>{{ $label }}</option>@endforeach</select></div>
+        <div class="row pair">
+            <div class="fit"><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(\Modules\Tagtoa\App\Support\Money::options() as $code=>$label)<option value="{{ $code }}" @selected(old('currency',$page->currency ?: \Modules\Tagtoa\App\Support\Locale::currencyFor())===$code)>{{ $label }}</option>@endforeach</select></div>
             <div><label class="lbl">{{ __('Page de paiement (TAGTOA Pay)') }}</label><select class="sel" name="pay_page_id"><option value="">{{ __('— Aucune —') }}</option>@foreach($payPages as $pp)<option value="{{ $pp->id }}" @selected(old('pay_page_id',$page->pay_page_id)==$pp->id)>{{ $pp->title ?: $pp->alias }}</option>@endforeach</select></div>
         </div>
     </div>

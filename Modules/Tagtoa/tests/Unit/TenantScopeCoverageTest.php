@@ -155,6 +155,7 @@ class TenantScopeCoverageTest extends TestCase
             'Http/Controllers/Hotel/PortalController.php',
             'Services/Hotel/HotelRoomSupportService.php',
             'Services/Hotel/HotelPortalResolver.php',   // H5 : même résolution explicite, partagée par le portail et les demandes
+            'Services/Hotel/HotelRoomOrderGate.php',    // H5b : le service room service de l'hôtel du MENU (commerce explicite, contexte public)
             'Services/Hotel/HotelRequestService.php',   // H5 : demandes d'un invité sans compte — commerce passé en paramètre
 
             'Services/Stand/StandResolver.php',         // destination d'un support de chambre (tenant du stand)
