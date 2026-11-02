@@ -185,7 +185,20 @@ class MenuOrderService
             // (menu sans tables configurées).
             $table = null;
             $tableLabel = $payload['table_label'] ?? null;
-            if (! empty($payload['table_code']) && ($menu->table_ordering_enabled ?? true)) {
+
+            // H5b : commande depuis une CHAMBRE d'hôtel (room service). Un jeton présent est vérifié de bout
+            // en bout (HotelRoomOrderGate) et REFUSÉ s'il est invalide ; il impose « sur place » et le nom de
+            // la chambre, et prend le pas sur un éventuel code de table.
+            $room = null;
+            $roomKey = null;
+            if (! empty($payload['room_token'])) {
+                $gate = app(\Modules\Tagtoa\App\Services\Hotel\HotelRoomOrderGate::class)->check($menu, (string) $payload['room_token']);
+                $room = $gate['room'];
+                $roomKey = $gate['key'];
+                $tableLabel = $room->label;
+            }
+
+            if (! $room && ! empty($payload['table_code']) && ($menu->table_ordering_enabled ?? true)) {
                 $table = \Modules\Tagtoa\App\Models\Menu\Table::where('menu_id', $menu->id)
                     ->where('code', $payload['table_code'])->where('is_active', true)->first();
                 if (! $table) {
@@ -200,7 +213,7 @@ class MenuOrderService
             // « sur place » via un appel direct qui contournerait l'écran.
             $modesOfferts = Order::serviceTypesFor($menu->service_types);
             $requestedType = $payload['order_type'] ?? $modesOfferts[0];
-            $orderType = $table
+            $orderType = ($table || $room)
                 ? 'dine_in'
                 : (in_array($requestedType, $modesOfferts, true) ? $requestedType : $modesOfferts[0]);
 
@@ -255,6 +268,7 @@ class MenuOrderService
                 'payment_status'   => 'unpaid',
                 'channel'          => $channel,
                 'order_type'       => $orderType,
+                'hotel_room_id'    => $room?->id,
                 'customer_name'    => $payload['customer_name'] ?? null,
                 'customer_phone'   => $payload['customer_phone'] ?? null,
                 'table_label'      => $orderType === 'dine_in' ? $tableLabel : null,
@@ -332,6 +346,10 @@ class MenuOrderService
                 'customer_phone' => $order->customer_phone,
                 'placed_at'      => $order->placed_at,
             ]);
+
+            if ($roomKey) {
+                app(\Modules\Tagtoa\App\Services\Hotel\HotelRoomOrderGate::class)->recorded($roomKey);
+            }
 
             return $order;
         });

@@ -395,7 +395,7 @@
                              texte que le client pourrait changer pour une
                              autre table que la sienne. --}}
                         <div id="cTableFixe" class="cin" style="display:flex;align-items:center;gap:8px;color:var(--acc)">
-                            <i class="fa-solid fa-chair"></i> {{ __('Table') }} : <b>{{ $table->label }}</b>
+                            <i class="fa-solid fa-chair"></i> {{ ($table->room ?? false) ? __('Chambre') : __('Table') }} : <b>{{ $table->label }}</b>
                         </div>
                         <input id="cTable" type="hidden" value="{{ $table->label }}">
                     @else
@@ -804,7 +804,7 @@ var MenuQ=(function(){
             var items=[]; for(var k in cart){ items.push({id:cart[k].id, qty:cart[k].qty, options:cart[k].options}); }
             var payload = {items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
                 customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),
-                table_code:@json($table->code ?? null),delivery_address:val('cAddress'),delivery_reference:val('cRef'),
+                table_code:@json($table->code ?? null),room_token:@json($roomToken ?? null),delivery_address:val('cAddress'),delivery_reference:val('cRef'),
                 delivery_zone_id:(HAS_ZONES ? val('cZone') : null)};
             var btn=document.getElementById('confirmBtn'); btn.disabled=true; var old=btn.innerHTML; btn.textContent=T.wait;
             envoyerCommande(payload).then(function(j){
