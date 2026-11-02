@@ -405,6 +405,15 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::get('/requests', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RequestController::class, 'index'])->name('requests');
         Route::post('/requests/bulk', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RequestController::class, 'bulk'])->name('requests.bulk');
         Route::post('/requests/{id}/status', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RequestController::class, 'status'])->whereNumber('id')->name('requests.status');
+        // HM-2 — types de chambre et tarifs (nuit / moment) avec ce qui est inclus.
+        $rt = \Modules\Tagtoa\App\Http\Controllers\Hotel\RoomTypeController::class;
+        Route::get('/room-types', [$rt, 'index'])->name('roomtypes');
+        Route::post('/room-types', [$rt, 'storeType'])->name('roomtypes.store');
+        Route::put('/room-types/{id}', [$rt, 'updateType'])->whereNumber('id')->name('roomtypes.update');
+        Route::post('/room-types/{id}/toggle', [$rt, 'toggleType'])->whereNumber('id')->name('roomtypes.toggle');
+        Route::post('/room-types/{typeId}/plans', [$rt, 'storePlan'])->whereNumber('typeId')->name('rateplans.store');
+        Route::put('/rate-plans/{id}', [$rt, 'updatePlan'])->whereNumber('id')->name('rateplans.update');
+        Route::post('/rate-plans/{id}/toggle', [$rt, 'togglePlan'])->whereNumber('id')->name('rateplans.toggle');
         // H3 — catalogue des services (room service = un Menu existant du même hôtel).
         Route::get('/services', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'index'])->name('services');
         Route::post('/services', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'store'])->name('services.store');

@@ -64,6 +64,15 @@
         .meta{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;color:var(--mut);font-size:13.5px}
         .meta a{display:inline-flex;align-items:center;gap:6px}.meta i{color:var(--acc)}
         /* Category nav */
+        .roomgrid{display:grid;gap:12px;padding:0 16px}
+        .roomcard{border:1.5px solid var(--bd);border-radius:16px;padding:14px;background:var(--card,#fff)}
+        .roomcard .rn{font-weight:800;font-size:17px}.roomcard .rn small{font-weight:500;color:var(--mut)}
+        .roomcard .rd{color:var(--mut);font-size:13.5px;margin-top:3px}
+        .rplan{border-top:1px solid var(--bd);margin-top:10px;padding-top:10px}
+        .rplan .rp{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+        .rinc{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px;font-size:13.5px}
+        .rinc .rinc-h{color:var(--mut);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+        .rinc i{color:var(--ac,#2cb809);margin-right:6px}
         .sectabs{display:flex;gap:6px;padding:12px 16px 0;margin-top:18px}
         .sectab{flex:1;border:1.5px solid var(--bd);background:var(--card,#fff);color:inherit;border-radius:999px;padding:9px 12px;font-weight:700;font-size:14px;cursor:pointer}
         .sectab.on{background:var(--ac,#111);color:#fff;border-color:var(--ac,#111)}
@@ -228,19 +237,22 @@
         @if($menu->translated('description'))<p class="tag" style="margin-top:12px">{{ $menu->translated('description') }}</p>@endif
     </div>
 
-    @if($categories->isEmpty())
+    @php $hasRooms = isset($roomTypes) && $roomTypes->isNotEmpty(); @endphp
+    @if($categories->isEmpty() && ! $hasRooms)
         <div class="sec"><div class="empty"><i class="fa-solid fa-utensils" style="font-size:30px;display:block;margin-bottom:10px;opacity:.4"></i>{{ __('Le menu arrive bientôt.') }}</div></div>
     @else
         @php
             // HM-1 : un seul menu, plusieurs rayons. Les onglets n'apparaissent que s'il y a AU MOINS deux rayons
             // avec des articles : un restaurant ordinaire garde exactement la page d'avant.
             $rayons = $categories->groupBy(fn ($c) => $c->section ?: 'restaurant');
-            $multiRayon = $rayons->count() >= 2;
+            // HM-2 : « Chambres » est un onglet de plus quand l'hôtel a publié des tarifs.
+            $multiRayon = ($rayons->count() + ($hasRooms ? 1 : 0)) >= 2;
             $ordreRayons = array_keys(\Modules\Tagtoa\App\Models\Menu\Category::SECTIONS);
             $alcoolIds = $categories->filter(fn ($c) => $c->is_alcohol)->flatMap(fn ($c) => $c->availableItems->pluck('id'))->values();
         @endphp
         @if($multiRayon)
             <nav class="sectabs" id="sectabs" role="tablist">
+                @if($hasRooms)<button type="button" role="tab" class="sectab" data-sec="rooms">{{ __('Chambres') }}</button>@endif
                 @foreach($ordreRayons as $rk)
                     @continue(! $rayons->has($rk))
                     <button type="button" role="tab" class="sectab" data-sec="{{ $rk }}">{{ __(\Modules\Tagtoa\App\Models\Menu\Category::SECTIONS[$rk]) }}</button>
@@ -267,6 +279,45 @@
             // calculé une seule fois, pas à chaque article.
             $priceSuffix = \Modules\Tagtoa\App\Support\Menu\BusinessProfile::priceSuffix($menu->type);
         @endphp
+        @if($hasRooms)
+            <section class="sec" id="rooms" data-sec="rooms">
+                <h2><i class="fa-solid fa-bed"></i> {{ __('Chambres') }}</h2>
+                <div class="roomgrid">
+                @foreach($roomTypes as $rt)
+                    <div class="roomcard">
+                        <div class="rn">{{ $rt->name }} @if($rt->capacity)<small>· {{ $rt->capacity }} <i class="fa-solid fa-user"></i></small>@endif</div>
+                        @if($rt->description)<div class="rd">{{ $rt->description }}</div>@endif
+                        @foreach($rt->plans as $pl)
+                            @php
+                                $plDevise = strtoupper((string) $pl->currency);
+                                $plEtranger = $plDevise !== '' && $plDevise !== strtoupper($cur);
+                                $plBase = \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::convert((float) $pl->price, $pl->currency, $cur, $tauxDevises);
+                            @endphp
+                            <div class="rplan">
+                                <div class="rp"><b>{{ $pl->duration_label }}</b>
+                                    <span class="price">
+                                        @if($plEtranger)
+                                            {{ \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::format((float) $pl->price, $plDevise, $cur, $tauxDevises) }}
+                                            @if($plBase !== null)<small class="psuf">≈ {{ \Modules\Tagtoa\App\Support\Money::format($plBase, $cur) }}</small>@endif
+                                        @else
+                                            {{ \Modules\Tagtoa\App\Support\Money::format((float) $pl->price, $cur) }}
+                                        @endif
+                                    </span>
+                                </div>
+                                @php $incl = $pl->inclusionItems(); @endphp
+                                @if($incl)
+                                    <ul class="rinc">
+                                        <li class="rinc-h">{{ __('Inclus dans ce prix') }}</li>
+                                        @foreach($incl as $inc)<li><i class="fa-solid fa-check"></i> {{ $inc['label'] }}</li>@endforeach
+                                    </ul>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @endforeach
+                </div>
+            </section>
+        @endif
         @foreach($categories as $c)
             <section class="sec" id="cat{{ $c->id }}" data-sec="{{ $c->section ?: 'restaurant' }}">
                 <h2>
@@ -534,6 +585,9 @@
                 document.querySelectorAll('.catnav .chip, section.sec[data-sec]').forEach(function(el){
                     el.style.display = (el.getAttribute('data-sec') === sec) ? '' : 'none';
                 });
+                // L'onglet « Chambres » n'a pas de puces de catégories : on cache alors la barre vide.
+                var nav = document.getElementById('catnav');
+                if (nav) { nav.style.display = nav.querySelector('.chip[data-sec="' + sec + '"]') ? '' : 'none'; }
             }
             tabs.forEach(function(b){ b.addEventListener('click', function(){ show(b.getAttribute('data-sec')); window.scrollTo({top:0,behavior:'smooth'}); }); });
             show(tabs[0].getAttribute('data-sec'));
