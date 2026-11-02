@@ -91,8 +91,9 @@ class HotelServiceRules
             'translations' => $tr ?: null,
             'description'  => $t($in['description'] ?? null),
             // Un service d'hôtel n'est JAMAIS payant : il s'offre, et se coche comme « inclus » dans le tarif de la chambre
-            // (HotelRoomTypeRules::INCLUSIONS). Un prix envoyé est ignoré; seuls les repas du room service se paient, via le menu.
-            'price'        => null,
+            // (HotelRoomTypeRules::INCLUSIONS). Aucune clé `price` n'est écrite ici : un prix envoyé est ignoré, un nouveau
+            // service n'en a pas, et la valeur historique d'un ancien service n'est PAS effacée en silence par une édition
+            // (elle n'est plus ni affichée ni lue).
             'team'         => $t($in['team'] ?? null) ?? (self::KINDS[$kind]['team'] ?? null),
             // Un menu n'a de sens que pour le room service : ailleurs, jamais enregistré.
             'menu_id'      => $kind === 'room_service' ? (int) $in['menu_id'] : null,

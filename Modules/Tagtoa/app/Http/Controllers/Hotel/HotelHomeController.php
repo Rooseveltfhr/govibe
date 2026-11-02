@@ -44,7 +44,7 @@ class HotelHomeController extends Controller
 
         return view('tagtoa::hotel.home', [
             'hotel'  => null,
-            'hotels' => Business::where('account_id', Tenant::account())->where('type', 'hotel')->orderBy('name')->get(['id', 'name']),
+            'hotels' => Business::where('account_id', Tenant::account())->where('type', 'hotel')->where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ]);
     }
 

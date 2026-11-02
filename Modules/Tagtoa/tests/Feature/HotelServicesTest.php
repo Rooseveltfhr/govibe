@@ -157,6 +157,21 @@ class HotelServicesTest extends TestCase
         $this->assertSame(0, HotelService::whereNotNull('price')->count());
     }
 
+    public function test_editing_a_service_never_erases_an_old_stored_price_silently_and_never_shows_it(): void
+    {
+        $this->compte();
+        $b = $this->commerce();
+        $s = HotelService::allTenants()->create(['tenant_id' => $b->id, 'kind' => 'linen', 'name' => 'Serviettes', 'price' => 5, 'is_active' => true]);
+
+        $this->put(route('tagtoa.hotel.services.update', $s->id), ['kind' => 'linen', 'name' => 'Serviettes propres'])->assertSessionHasNoErrors();
+        $s->refresh();
+        $this->assertSame('Serviettes propres', $s->name);
+        $this->assertSame('5.00', $s->price, 'La valeur historique reste en base (pas de perte silencieuse)…');
+
+        $html = $this->get(route('tagtoa.hotel.services'))->assertOk()->getContent();
+        $this->assertStringNotContainsString('5.00', $html, '…mais elle n\'est plus jamais affichée.');
+    }
+
     public function test_default_services_are_added_once_and_never_overwrite(): void
     {
         $this->compte();

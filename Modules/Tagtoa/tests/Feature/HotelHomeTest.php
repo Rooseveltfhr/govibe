@@ -207,6 +207,16 @@ class HotelHomeTest extends TestCase
         $this->post(route('tagtoa.business.switch', $h->id))->assertRedirect(route('tagtoa.hub'));
     }
 
+    public function test_a_deactivated_hotel_is_not_offered_for_opening(): void
+    {
+        $this->compte();
+        $h = $this->commerce('hotel', 'Hôtel Fermé');
+        $this->commerce('restaurant', 'Chez Rose');
+        Business::whereKey($h->id)->update(['is_active' => false]);
+
+        $this->get(route('tagtoa.hotel.home'))->assertOk()->assertDontSee('Hôtel Fermé')->assertDontSee('Ouvrir mon hôtel')->assertSee('Créer mon hôtel');
+    }
+
     public function test_another_accounts_hotel_cannot_be_opened_or_listed(): void
     {
         $this->compte('c-b');
