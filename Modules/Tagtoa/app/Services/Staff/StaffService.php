@@ -42,7 +42,8 @@ class StaffService
                 : StaffAccess::ROLE_CASHIER,   // rôle inconnu ⇒ le moins ouvert
             'terminal_id' => $data['terminal_id'] ?? null,
             'is_active'   => (bool) ($data['is_active'] ?? true),
-            'is_kitchen'  => (bool) ($data['is_kitchen'] ?? false),
+            // Le personnel d'hôtel n'opère jamais la cuisine du menu (axe is_kitchen forcé à faux).
+            'is_kitchen'  => (($data['role'] ?? null) !== StaffAccess::ROLE_HOTEL) && (bool) ($data['is_kitchen'] ?? false),
             // L'équipe n'a de sens que pour le personnel d'hôtel ; ailleurs, jamais enregistrée.
             'hotel_team'  => (($data['role'] ?? null) === StaffAccess::ROLE_HOTEL
                 && array_key_exists($data['hotel_team'] ?? '', \Modules\Tagtoa\App\Support\Hotel\HotelServiceRules::STAFF_TEAMS))
@@ -110,7 +111,11 @@ class StaffService
 
         $candidats = Staff::where('tenant_id', $tenantId)->where('is_active', true)
             ->whereIn('role', [StaffAccess::ROLE_HOTEL, StaffAccess::ROLE_MANAGER, StaffAccess::ROLE_OWNER])
-            ->get();
+            ->get()
+            // Deux personnes peuvent avoir choisi le même code : on essaie toujours le MOINS privilégié d'abord,
+            // pour qu'une collision n'élève jamais quelqu'un au rang de gérant ou de patron.
+            ->sortBy(fn ($s) => [StaffAccess::ROLE_HOTEL => 0, StaffAccess::ROLE_MANAGER => 1, StaffAccess::ROLE_OWNER => 2][$s->role] ?? 9)
+            ->values();
 
         foreach ($candidats as $staff) {
             if ($staff->role === StaffAccess::ROLE_HOTEL && ! $staff->hotel_team) {

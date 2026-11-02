@@ -64,18 +64,23 @@ class StaffBoardController extends Controller
         $data = $request->validate(['pin' => ['required', 'string', 'max:12']]);
 
         // Verrou contre la devinette du code : 5 échecs par appareil et par hôtel, puis 5 minutes d'attente.
+        // Deux verrous, jamais remis à zéro par une réussite (sinon un employé qui connaît SON code
+        // l'utiliserait pour effacer ses essais ratés sur le code d'un gérant) :
+        //  - par appareil : 5 échecs puis 5 minutes ;
+        //  - par hôtel, toutes adresses confondues : 20 échecs par heure (adresse partagée ou changeante).
         $cle = 'hotel-board-pin:'.$hotel->id.'|'.$request->ip();
-        if (RateLimiter::tooManyAttempts($cle, 5)) {
+        $cleHotel = 'hotel-board-pin-all:'.$hotel->id;
+        if (RateLimiter::tooManyAttempts($cle, 5) || RateLimiter::tooManyAttempts($cleHotel, 20)) {
             return back()->withErrors(['pin' => __('Trop d\'essais. Réessayez dans quelques minutes.')]);
         }
 
         $me = $this->staff->authenticateHotel($hotel->id, $data['pin']);
         if (! $me) {
             RateLimiter::hit($cle, 300);
+            RateLimiter::hit($cleHotel, 3600);
 
             return back()->withErrors(['pin' => __('Code incorrect.')]);
         }
-        RateLimiter::clear($cle);
 
         $request->session()->put('tagtoa_hotel_staff.'.$hotel->id, $me->id);
         $request->session()->regenerate();   // l'identification change de personne : nouvel identifiant de session

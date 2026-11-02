@@ -79,7 +79,7 @@ class Staff extends Model
      */
     public function canRunKitchen(): bool
     {
-        return $this->is_active && (
+        return $this->is_active && $this->role !== StaffAccess::ROLE_HOTEL && (
             $this->is_kitchen
             || $this->role === StaffAccess::ROLE_OWNER
             || $this->role === StaffAccess::ROLE_MANAGER

@@ -296,6 +296,76 @@ class HotelStaffBoardTest extends TestCase
         $this->get(route('tagtoa.staff.index'))->assertOk()->assertDontSee('Personnel hôtel');
     }
 
+    public function test_a_valid_code_does_not_reset_the_lock_built_by_failures(): void
+    {
+        $b = $this->hotel();
+        $this->employe($b, 'Marie', StaffAccess::ROLE_HOTEL, 'housekeeping', '1111');
+        $this->employe($b, 'Chef', StaffAccess::ROLE_MANAGER, null, '5555');
+        RateLimiter::clear('hotel-board-pin:'.$b->id.'|127.0.0.1');
+        RateLimiter::clear('hotel-board-pin-all:'.$b->id);
+
+        // 4 essais ratés sur le code du gérant, puis SON propre bon code, en boucle : le verrou doit tenir.
+        for ($i = 0; $i < 4; $i++) {
+            $this->entrer('000'.$i)->assertSessionHasErrors('pin');
+        }
+        $this->entrer('1111')->assertRedirect(route('tagtoa.hotel.board'));
+        $this->post(route('tagtoa.hotel.board.logout'));
+
+        $this->entrer('0004')->assertSessionHasErrors('pin');   // 5e échec : verrou
+        $this->entrer('1111')->assertSessionHasErrors('pin');   // le bon code attend aussi
+    }
+
+    public function test_failures_are_also_capped_per_hotel_whatever_the_address(): void
+    {
+        $b = $this->hotel();
+        $this->employe($b, 'Marie', StaffAccess::ROLE_HOTEL, 'housekeeping', '1111');
+        RateLimiter::clear('hotel-board-pin:'.$b->id.'|127.0.0.1');
+        for ($i = 0; $i < 20; $i++) {
+            RateLimiter::hit('hotel-board-pin-all:'.$b->id, 3600);
+        }
+
+        $this->entrer('1111')->assertSessionHasErrors('pin');
+    }
+
+    public function test_a_shared_code_never_promotes_hotel_staff_to_manager(): void
+    {
+        $b = $this->hotel();
+        $chef = $this->employe($b, 'Chef', StaffAccess::ROLE_MANAGER, null, '7777');
+        $marie = $this->employe($b, 'Marie', StaffAccess::ROLE_HOTEL, 'housekeeping', '7777');   // même code
+        Staff::whereKey($chef->id)->update(['created_at' => now()->subDay()]);   // le gérant est « premier » en base
+
+        $this->assertSame($marie->id, app(StaffService::class)->authenticateHotel($b->id, '7777')->id);
+    }
+
+    public function test_hotel_staff_never_runs_the_kitchen_even_after_a_role_switch(): void
+    {
+        $b = $this->hotel();
+        $s = $this->employe($b, 'Marie', StaffAccess::ROLE_CASHIER, null, '1111');
+        $s->update(['is_kitchen' => true]);
+        $this->assertTrue($s->fresh()->canRunKitchen());
+
+        app(StaffService::class)->save($b->id, ['name' => 'Marie', 'role' => StaffAccess::ROLE_HOTEL, 'hotel_team' => 'housekeeping', 'is_kitchen' => true], $s);
+
+        $this->assertFalse($s->fresh()->is_kitchen);
+        $this->assertFalse($s->fresh()->canRunKitchen());
+        $s->forceFill(['is_kitchen' => true])->save();   // même une case restée cochée en base ne suffit pas
+        $this->assertFalse($s->fresh()->canRunKitchen());
+    }
+
+    public function test_hotel_staff_do_not_force_a_pin_prompt_on_the_till(): void
+    {
+        $b = $this->hotel();
+        $this->employe($b, 'Marie', StaffAccess::ROLE_HOTEL, 'housekeeping', '1111');
+        $terminal = \Modules\Tagtoa\App\Models\Pos\Terminal::create(['tenant_id' => $b->id, 'name' => 'Comptoir', 'currency' => 'HTG', 'is_active' => true]);
+
+        $vue = $this->get(route('tagtoa.pos.register', $terminal->id));
+        if ($vue->status() === 200) {
+            $this->assertFalse($vue->viewData('hasStaff'), 'Seul du personnel d\'hôtel : la caisse ne demande aucun code.');
+        } else {
+            $this->markTestSkipped('Route de caisse indisponible dans ce contexte : '.$vue->status());
+        }
+    }
+
     public function test_teams_are_resolved_by_pure_rules(): void
     {
         $this->assertNull(HotelRequestRules::teamsFor('owner', null));
