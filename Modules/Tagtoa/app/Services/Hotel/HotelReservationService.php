@@ -136,7 +136,12 @@ class HotelReservationService
         if (! $r || ! hash_equals($r->track_hash, hash('sha256', $secret))) {
             return null;
         }
-        if ($r->created_at && $r->created_at->lt(now()->subDays(R::TRACK_DAYS))) {
+        // Le lien vit TRACK_DAYS après la dernière des deux dates : création ou début du séjour (séjour lointain).
+        $depuis = $r->created_at;
+        if ($r->starts_on && (! $depuis || $r->starts_on->gt($depuis))) {
+            $depuis = $r->starts_on;
+        }
+        if ($depuis && $depuis->lt(now()->subDays(R::TRACK_DAYS))) {
             return null;
         }
 
@@ -169,6 +174,9 @@ class HotelReservationService
             $r = HotelReservation::allTenants()->where('tenant_id', $tenantId)->whereKey($id)->lockForUpdate()->first();
             if (! $r) {
                 return $this->non(self::NOT_FOUND);
+            }
+            if ($r->status === $to) {
+                return ['result' => self::OK, 'reservation' => $r, 'secret' => null]; // double clic : déjà fait
             }
             if (! R::canMove($r->status, $to)) {
                 return ['result' => self::NOT_ALLOWED, 'reservation' => $r, 'secret' => null];

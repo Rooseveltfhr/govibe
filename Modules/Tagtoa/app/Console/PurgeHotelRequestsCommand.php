@@ -68,8 +68,8 @@ class PurgeHotelRequestsCommand extends Command
                   ->orWhere(fn ($c) => $c->where('status', 'confirmed')->whereDate('starts_on', '<', $seuil->toDateString()))
                   ->orWhere(fn ($c) => $c->where('status', 'new')->where('created_at', '<', $seuilOuvertes));
             })
-            ->where(fn ($q) => $q->whereNotNull('guest_name')->orWhereNotNull('guest_phone')->orWhereNotNull('note')->orWhereNotNull('phone_key'))
-            ->update(['guest_name' => null, 'guest_phone' => null, 'phone_key' => null, 'note' => null]);
+            ->where(fn ($q) => $q->whereNotNull('guest_name')->orWhereNotNull('guest_phone')->orWhereNotNull('note')->orWhereNotNull('phone_key')->orWhereNotNull('reason'))
+            ->update(['guest_name' => null, 'guest_phone' => null, 'phone_key' => null, 'note' => null, 'reason' => null]);
         $this->info("Réservations : données de l'invité effacées sur $rez ligne(s).");
 
         $this->info("Commandes de chambre : données de l'invité effacées sur $o ligne(s).");

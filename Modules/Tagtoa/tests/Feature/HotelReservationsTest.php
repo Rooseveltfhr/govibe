@@ -390,7 +390,7 @@ class HotelReservationsTest extends TestCase
         [, $menu, , $nuit] = $this->hotel();
         [$ref, $secret] = $this->lien($this->demander($menu, $nuit));
 
-        HotelReservation::allTenants()->update(['created_at' => now()->subDays(R::TRACK_DAYS + 1)]);
+        HotelReservation::allTenants()->update(['created_at' => now()->subDays(R::TRACK_DAYS + 1), 'starts_on' => now()->subDays(R::TRACK_DAYS + 1)->toDateString()]);
         $this->get(route('tagtoa.hotel.reservation.track', [$ref, $secret]))->assertNotFound();
     }
 
@@ -457,7 +457,7 @@ class HotelReservationsTest extends TestCase
         $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'cancelled'])->assertSessionHasErrors('to');   // l'annulation est le fait de l'invité
         $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'new'])->assertSessionHasErrors('to');
         $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'confirmed'])->assertSessionHas('success');
-        $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'confirmed'])->assertSessionHas('error');         // déjà confirmée
+        $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'confirmed'])->assertSessionHas('success');       // déjà confirmée : succès neutre
         $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'refused', 'reason' => 'Retirée'])->assertSessionHas('success');
         $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'confirmed'])->assertSessionHas('error');         // une refusée ne revient pas
         $this->assertSame('refused', HotelReservation::allTenants()->value('status'));
@@ -579,7 +579,7 @@ class HotelReservationsTest extends TestCase
 
         // 0: refusée il y a 120 j (effacée) · 1: refusée hier (gardée) · 2: confirmée, séjour il y a 120 j (effacée)
         // 3: confirmée, séjour à venir (gardée) · 4: « nouvelle » vieille de 200 j (effacée)
-        $get(0)->forceFill(['status' => 'refused', 'updated_at' => now()->subDays(120)])->saveQuietly();
+        $get(0)->forceFill(['status' => 'refused', 'reason' => 'Complet', 'updated_at' => now()->subDays(120)])->saveQuietly();
         $get(1)->forceFill(['status' => 'refused', 'updated_at' => now()->subDay()])->saveQuietly();
         $get(2)->forceFill(['status' => 'confirmed', 'starts_on' => now()->subDays(120)])->saveQuietly();
         $get(3)->forceFill(['status' => 'confirmed'])->saveQuietly();
@@ -589,7 +589,7 @@ class HotelReservationsTest extends TestCase
 
         foreach ([0, 2, 4] as $i) {
             $r = $get($i);
-            $this->assertSame([null, null, null, null], [$r->guest_name, $r->guest_phone, $r->phone_key, $r->note], "ligne $i");
+            $this->assertSame([null, null, null, null, null], [$r->guest_name, $r->guest_phone, $r->phone_key, $r->note, $r->reason], "ligne $i");
             $this->assertEquals(7501.50, $r->total, 'Le montant et la ligne restent.');
         }
         foreach ([1, 3] as $i) {
@@ -616,5 +616,84 @@ class HotelReservationsTest extends TestCase
         $this->assertFalse(Schema::hasTable('tagtoa_hotel_reservations'));
         $m->up();
         $this->assertTrue(Schema::hasColumns('tagtoa_hotel_reservations', ['track_hash', 'total', 'inclusions', 'phone_key']));
+    }
+
+    /* ---------- revue HM-3 : durcissements ---------- */
+
+    public function test_one_visitor_cannot_exhaust_the_hotel_wide_cap_alone(): void
+    {
+        [$b, $menu, , $nuit] = $this->hotel();
+        for ($i = 0; $i < R::PER_IP_HOURLY; $i++) {
+            RateLimiter::hit('hotel-reserve-ip:'.$b->id.':127.0.0.1', 3600);
+        }
+
+        $this->demander($menu, $nuit)->assertSessionHas('reserve_error');
+        $this->assertSame(0, HotelReservation::allTenants()->count());
+        $this->assertSame(0, RateLimiter::attempts('hotel-reserve-all:'.$b->id), 'Le plafond de l\'hôtel reste intact.');
+    }
+
+    public function test_each_successful_request_counts_toward_the_per_visitor_cap_and_the_next_one_is_refused(): void
+    {
+        // Le throttle de la route (10/min) est testé ailleurs ; ici on isole le plafond horaire par visiteur.
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+        [$b, $menu, , $nuit] = $this->hotel();
+        for ($i = 0; $i < R::PER_IP_HOURLY; $i++) {
+            $this->lien($this->demander($menu, $nuit, ['date' => '2026-11-'.(11 + $i), 'phone' => '3700 00'.str_pad((string) $i, 2, '0', STR_PAD_LEFT)]));
+        }
+        $this->assertSame(R::PER_IP_HOURLY, RateLimiter::attempts('hotel-reserve-ip:'.$b->id.':127.0.0.1'));
+
+        $this->demander($menu, $nuit, ['date' => '2026-12-20', 'phone' => '3799 9999'])->assertSessionHas('reserve_error');
+        $this->assertSame(R::PER_IP_HOURLY, HotelReservation::allTenants()->count());
+    }
+
+    public function test_duplicate_and_too_many_give_the_same_message_so_a_phone_cannot_be_probed(): void
+    {
+        [, $menu, , $nuit] = $this->hotel();
+        $this->lien($this->demander($menu, $nuit));
+        $dup = $this->demander($menu, $nuit)->assertSessionHas('reserve_error')->getSession()->get('reserve_error');
+        foreach (['2026-11-16', '2026-11-17'] as $d) {
+            $this->lien($this->demander($menu, $nuit, ['date' => $d]));
+        }
+        $many = $this->demander($menu, $nuit, ['date' => '2026-11-18'])->assertSessionHas('reserve_error')->getSession()->get('reserve_error');
+
+        $this->assertSame($dup, $many);
+    }
+
+    public function test_the_tracking_link_of_a_far_future_stay_outlives_sixty_days_from_creation(): void
+    {
+        [, $menu, , $nuit] = $this->hotel();
+        [$ref, $secret] = $this->lien($this->demander($menu, $nuit, ['date' => '2027-06-01']));
+        HotelReservation::allTenants()->update(['created_at' => now()->subDays(R::TRACK_DAYS + 1)]);
+
+        $this->get(route('tagtoa.hotel.reservation.track', [$ref, $secret]))->assertOk();
+
+        HotelReservation::allTenants()->update(['starts_on' => now()->subDays(R::TRACK_DAYS + 1)->toDateString()]);
+        $this->get(route('tagtoa.hotel.reservation.track', [$ref, $secret]))->assertNotFound();
+    }
+
+    public function test_confirming_twice_is_a_neutral_success_not_an_error(): void
+    {
+        [$b, $menu, , $nuit] = $this->hotel();
+        $this->lien($this->demander($menu, $nuit));
+        $this->ouvrirHotel($b);
+        $id = HotelReservation::allTenants()->value('id');
+
+        $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'confirmed'])->assertSessionHas('success');
+        $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'confirmed'])->assertSessionHas('success')->assertSessionMissing('error');
+        $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'refused'])->assertSessionHas('success');
+        // Une refusée ne revient jamais en confirmée.
+        $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'confirmed'])->assertSessionHas('error');
+    }
+
+    public function test_whatsapp_link_only_for_numbers_with_a_country_code(): void
+    {
+        [$b, $menu, , $nuit, $moment] = $this->hotel();
+        $this->lien($this->demander($menu, $nuit, ['phone' => '37124455']));
+        $this->ouvrirHotel($b);
+        $this->get(route('tagtoa.hotel.reservations'))->assertOk()->assertDontSee('wa.me/', false);
+
+        $this->lien($this->demander($menu, $moment, ['phone' => '+50937124455']));
+        $this->ouvrirHotel($b);
+        $this->get(route('tagtoa.hotel.reservations'))->assertSee('wa.me/50937124455', false);
     }
 }

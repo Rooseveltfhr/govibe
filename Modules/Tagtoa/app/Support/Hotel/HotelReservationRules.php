@@ -34,10 +34,13 @@ class HotelReservationRules
 
     /** Au plus N demandes NOUVELLES par téléphone et par hôtel (une demande oubliée cesse de compter après N jours). */
     public const NEW_MAX_PER_PHONE = 3;
-    public const NEW_FRESH_DAYS = 7;
+    public const NEW_FRESH_DAYS = 3;
 
     /** Plafond par heure, par hôtel : borne le spam sans gêner un vrai flux de demandes. */
     public const PER_HOTEL_HOURLY = 60;
+
+    /** Plafond par IP et par hôtel, par heure. */
+    public const PER_IP_HOURLY = 10;
 
     /** Rétention: données de l'invité effacées après ce délai (jours). */
     public const PURGE_DAYS = 90;

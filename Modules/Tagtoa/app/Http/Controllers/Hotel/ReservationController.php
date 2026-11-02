@@ -43,6 +43,13 @@ class ReservationController extends Controller
                 ->with('reserve_plan', (int) $data['plan_id']);
         }
 
+        // Plafond par visiteur (IP) et par hôtel : un script ne peut pas épuiser seul le plafond de l'hôtel.
+        $cleIp = 'hotel-reserve-ip:'.$menu->tenant_id.':'.$request->ip();
+        if (RateLimiter::tooManyAttempts($cleIp, R::PER_IP_HOURLY)) {
+            return $retour->withInput()->with('reserve_error', __('Beaucoup de demandes en ce moment. Contactez directement l\'hôtel.'))
+                ->with('reserve_plan', (int) $data['plan_id']);
+        }
+
         $tz = $menu->timezone ?: 'America/Port-au-Prince';
         $r = $this->reservations->create($menu->tenant_id, $data, now($tz));
 
@@ -51,13 +58,14 @@ class ReservationController extends Controller
                 Svc::BAD_DATE   => __('Choisissez une date valide : aujourd\'hui ou plus tard, dans l\'année qui vient.'),
                 Svc::BAD_TIME   => __('Choisissez une heure valide (pas dans le passé).'),
                 Svc::BAD_PHONE  => __('Indiquez un numéro de téléphone valide (8 chiffres ou plus).'),
-                Svc::DUPLICATE  => __('Cette demande a déjà été transmise à l\'hôtel.'),
-                Svc::TOO_MANY   => __('Vous avez déjà plusieurs demandes en attente. Contactez directement l\'hôtel.'),
+                // Message identique : ne révèle pas si un numéro a déjà des demandes chez cet hôtel.
+                Svc::DUPLICATE, Svc::TOO_MANY => __('Votre demande n\'a pas pu être enregistrée. Contactez directement l\'hôtel.'),
                 default         => __('Ce tarif n\'est plus disponible. Rechargez la page.'),
             });
         }
 
         RateLimiter::hit($cleHotel, 3600);
+        RateLimiter::hit($cleIp, 3600);
 
         return $this->entetes(redirect()->route('tagtoa.hotel.reservation.track', [$r['reservation']->reference, $r['secret']]));
     }

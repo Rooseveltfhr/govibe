@@ -36,7 +36,7 @@
                     <td data-l="{{ __('Client') }}" style="padding:7px 10px">
                         <b>{{ $r->guest_name ?? '—' }}</b>
                         @if($r->guest_phone)
-                            <div><a href="tel:{{ $r->guest_phone }}">{{ $r->guest_phone }}</a> · <a href="https://wa.me/{{ $r->guest_phone }}" rel="noopener noreferrer" target="_blank">WhatsApp</a></div>
+                            <div><a href="tel:{{ $r->guest_phone }}">{{ $r->guest_phone }}</a> @if(strlen($r->guest_phone) >= 10)· <a href="https://wa.me/{{ $r->guest_phone }}" rel="noopener noreferrer" target="_blank">WhatsApp</a>@endif</div>
                         @endif
                         <div style="color:var(--muted);font-size:12px">{{ $r->reference }}</div>
                         @if($r->note)<div style="font-size:12.5px;white-space:pre-line">{{ $r->note }}</div>@endif
