@@ -42,7 +42,8 @@ class BusinessController extends Controller
     public function create(): View
     {
         return view('tagtoa::business.form', [
-            'business' => new Business(['type' => 'other', 'sells_products' => true, 'currency' => 'HTG']),
+            // `?type=hotel` (depuis « Mon Hôtel ») présélectionne le métier ; une valeur inconnue retombe sur « autre ».
+            'business' => new Business(['type' => $this->typePreselectionne(), 'sells_products' => true, 'currency' => 'HTG']),
             'types'    => Menu::TYPES,
             'suggestions' => BusinessProfile::PROFILES,
             'devises'  => Business::SUGGESTED_CURRENCIES,
@@ -50,6 +51,14 @@ class BusinessController extends Controller
             'hotel'    => new \Modules\Tagtoa\App\Models\Hotel\HotelProfile(['reception_24h' => true]),
             'facilities' => HotelCatalog::FACILITIES,
         ]);
+    }
+
+    /** `?type=hotel` présélectionne le métier ; tout le reste (inconnu, tableau…) retombe sur « autre ». */
+    private function typePreselectionne(): string
+    {
+        $t = request()->query('type');
+
+        return is_string($t) && array_key_exists($t, Menu::TYPES) ? $t : 'other';
     }
 
     public function store(Request $request): RedirectResponse
@@ -115,7 +124,10 @@ class BusinessController extends Controller
             return back()->with('error', __('Ce commerce n\'est pas accessible.'));
         }
 
-        return redirect()->route('tagtoa.hub')
+        // Depuis « Mon Hôtel » : on arrive directement sur le démarrage de l'hôtel, pas sur l'accueil général.
+        $dest = request()->input('to') === 'hotel' ? route('tagtoa.hotel.home') : route('tagtoa.hub');
+
+        return redirect($dest)
             ->with('success', __('Vous travaillez maintenant sur :nom.', [
                 'nom' => Business::whereKey($id)->value('name'),
             ]));

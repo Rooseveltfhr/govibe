@@ -60,7 +60,7 @@ class HotelServicesTest extends TestCase
         $this->assertSame($b->id, $s->tenant_id);
         $this->assertSame('linen', $s->kind);
         $this->assertSame('housekeeping', $s->team, 'Équipe par défaut de la nature.');
-        $this->assertSame('150.00', $s->price);
+        $this->assertNull($s->price, 'Un service n\'est JAMAIS payant : le prix envoyé est ignoré.');
         $this->assertSame(['ht' => 'Sèvyèt', 'en' => 'Towels'], $s->translations, 'Langues inconnues écartées.');
         $this->assertSame('Sèvyèt', $s->nameFor('ht'));
         $this->assertSame('Serviettes', $s->nameFor('es'), 'Repli sur le nom de base.');
@@ -70,11 +70,11 @@ class HotelServicesTest extends TestCase
             ->assertSessionHasNoErrors();
         $s->refresh();
         $this->assertSame('reception', $s->kind);
-        $this->assertNull($s->price, 'Vide = gratuit.');
+        $this->assertNull($s->price);
         $this->assertSame('reception', $s->team);
         $this->assertNull($s->translations);
 
-        $this->get(route('tagtoa.hotel.services'))->assertOk()->assertSee('Appeler la réception')->assertSee('Gratuit');
+        $this->get(route('tagtoa.hotel.services'))->assertOk()->assertSee('Appeler la réception');
     }
 
     public function test_room_service_requires_a_menu_of_the_same_hotel(): void
@@ -123,8 +123,6 @@ class HotelServicesTest extends TestCase
             'nature inconnue'   => [['kind' => 'casino'], 'kind'],
             'sans nom'          => [['name' => ''], 'name'],
             'nom trop long'     => [['name' => str_repeat('a', 81)], 'name'],
-            'prix négatif'      => [['price' => '-1'], 'price'],
-            'prix énorme'       => [['price' => '99999999'], 'price'],
             'équipe inconnue'   => [['team' => 'direction'], 'team'],
             'traduction longue' => [['translations' => ['ht' => str_repeat('b', 81)]], 'translations.ht'],
         ];
@@ -146,6 +144,19 @@ class HotelServicesTest extends TestCase
         $this->assertSame(1, HotelService::count());
     }
 
+    public function test_a_service_has_no_price_field_and_a_posted_price_is_ignored_even_when_negative_or_huge(): void
+    {
+        $this->compte();
+        $this->commerce();
+
+        $this->get(route('tagtoa.hotel.services'))->assertOk()->assertDontSee('name="price"', false)->assertDontSee('Prix (vide = gratuit)');
+        foreach (['-1', '99999999', '150', 'abc'] as $prix) {
+            $this->ajouter(['name' => 'S'.$prix, 'price' => $prix])->assertSessionHasNoErrors();
+        }
+        $this->assertSame(4, HotelService::count());
+        $this->assertSame(0, HotelService::whereNotNull('price')->count());
+    }
+
     public function test_default_services_are_added_once_and_never_overwrite(): void
     {
         $this->compte();
@@ -154,7 +165,8 @@ class HotelServicesTest extends TestCase
 
         $this->post(route('tagtoa.hotel.services.defaults'))->assertSessionHas('success');
         $this->assertSame(count(HotelServiceRules::DEFAULTS), HotelService::count());
-        $this->assertSame('300.00', HotelService::where('name', 'Nettoyage de la chambre')->first()->price, 'Existant gardé tel quel.');
+        $this->assertSame('Nettoyage de la chambre', HotelService::where('name', 'Nettoyage de la chambre')->first()->name, 'Existant gardé tel quel.');
+        $this->assertSame(1, HotelService::where('name', 'Nettoyage de la chambre')->count());
 
         $this->post(route('tagtoa.hotel.services.defaults'));
         $this->assertSame(count(HotelServiceRules::DEFAULTS), HotelService::count(), 'Rejouable.');

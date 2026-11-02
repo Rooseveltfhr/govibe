@@ -9,7 +9,6 @@
     <div><input class="inp" name="name" maxlength="80" required placeholder="{{ __('Nom (ex. Serviettes supplémentaires)') }}" value="{{ $v('name') }}"></div>
 </div>
 <div class="row" style="margin-top:8px">
-    <div><input class="inp" type="number" step="0.01" min="0" name="price" placeholder="{{ __('Prix (vide = gratuit)') }}" value="{{ $v('price') }}"></div>
     <div>
         <select class="sel" name="team">
             <option value="">{{ __('Équipe (automatique)') }}</option>

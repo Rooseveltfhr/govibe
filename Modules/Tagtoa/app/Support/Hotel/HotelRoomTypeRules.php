@@ -24,6 +24,11 @@ class HotelRoomTypeRules
         'airport_transfer' => ['label' => 'Transport à l\'aéroport',   'icon' => 'fa-van-shuttle'],
         'towels'           => ['label' => 'Serviettes',                'icon' => 'fa-bath'],
         'tv'               => ['label' => 'Télévision',                'icon' => 'fa-tv'],
+        // Les services de l'hôtel (jamais payants) : on les COCHE ici comme « inclus » dans le prix de la chambre.
+        'housekeeping'     => ['label' => 'Ménage',                    'icon' => 'fa-broom'],
+        'linen'            => ['label' => 'Linge et articles',         'icon' => 'fa-shirt'],
+        'reception'        => ['label' => 'Réception',                 'icon' => 'fa-bell-concierge'],
+        'maintenance'      => ['label' => 'Maintenance',               'icon' => 'fa-screwdriver-wrench'],
     ];
 
     /** Durées proposées pour un « moment » (en heures). */

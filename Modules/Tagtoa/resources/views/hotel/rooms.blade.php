@@ -60,7 +60,7 @@
     <div class="card"><div class="empty"><i class="fa-solid fa-bed"></i>{{ __('Aucune chambre pour le moment.') }}</div></div>
 @else
     <div class="card" style="padding:0;overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:13.5px">
+        <table class="rcards" style="width:100%;border-collapse:collapse;font-size:13.5px">
             <thead><tr style="color:var(--muted);text-align:left">
                 <th style="padding:8px 10px">{{ __('Chambre') }}</th>
                 <th style="padding:8px 10px">{{ __('Type') }}</th>
@@ -72,11 +72,11 @@
             <tbody>
             @foreach($rooms as $r)
                 <tr style="border-top:1px solid var(--bd,#eee)">
-                    <td style="padding:7px 10px"><b>{{ $r->number }}</b>@if($r->name) <span style="color:var(--muted)">— {{ $r->name }}</span>@endif</td>
-                    <td style="padding:7px 10px">{{ $r->type_label ? __($r->type_label) : '—' }}</td>
-                    <td style="padding:7px 10px">{{ $r->floor ?: '—' }}</td>
-                    <td style="padding:7px 10px"><span class="pill {{ $r->is_active ? 'g' : 'n' }}">{{ $r->is_active ? __('Active') : __('Désactivée') }}</span></td>
-                    <td style="padding:7px 10px;min-width:210px">
+                    <td data-l="{{ __('Chambre') }}" style="padding:7px 10px"><b>{{ $r->number }}</b>@if($r->name) <span style="color:var(--muted)">— {{ $r->name }}</span>@endif</td>
+                    <td data-l="{{ __('Type') }}" style="padding:7px 10px">{{ $r->type_label ? __($r->type_label) : '—' }}</td>
+                    <td data-l="{{ __('Étage') }}" style="padding:7px 10px">{{ $r->floor ?: '—' }}</td>
+                    <td data-l="{{ __('Statut') }}" style="padding:7px 10px"><span class="pill {{ $r->is_active ? 'g' : 'n' }}">{{ $r->is_active ? __('Active') : __('Désactivée') }}</span></td>
+                    <td data-l="{{ __('Support QR/NFC') }}" style="padding:7px 10px;min-width:210px">
                         @if($r->stand_id)
                             @php
                                 $st = $stands->get($r->stand_id);
@@ -108,7 +108,7 @@
                             <span style="color:var(--muted);font-size:12.5px">—</span>
                         @endif
                     </td>
-                    <td style="padding:7px 10px;white-space:nowrap">
+                    <td class="acts" style="padding:7px 10px;white-space:nowrap">
                         <details style="display:inline-block">
                             <summary class="btn btn-o btn-sm" style="cursor:pointer;display:inline-flex"><i class="fa-solid fa-pen"></i></summary>
                             <form method="POST" action="{{ route('tagtoa.hotel.rooms.update', $r->id) }}" style="margin-top:8px;min-width:240px">

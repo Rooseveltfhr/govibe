@@ -12,7 +12,7 @@
         <button class="btn btn-o btn-sm"><i class="fa-solid fa-wand-magic-sparkles"></i> {{ __('Ajouter les services standards') }}</button>
     </form>
 </div>
-<p style="color:var(--muted);font-size:13px">{{ __('Ce que vos clients pourront demander depuis le QR de leur chambre. Les prix sont affichés à titre indicatif : aucun paiement en ligne.') }}</p>
+<p style="color:var(--muted);font-size:13px">{{ __('Ce que vos clients pourront demander depuis le QR de leur chambre. Ces services sont gratuits : cochez-les comme « inclus » dans les tarifs de vos chambres.') }} <a href="{{ route('tagtoa.hotel.roomtypes') }}">{{ __('Tarifs des chambres') }}</a></p>
 
 @if($errors->any())
     <div class="card" style="border-left:4px solid var(--red)">
@@ -33,12 +33,11 @@
     <div class="card"><div class="empty"><i class="fa-solid fa-bell-concierge"></i>{{ __('Aucun service pour le moment.') }}</div></div>
 @else
     <div class="card" style="padding:0;overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:13.5px">
+        <table class="rcards" style="width:100%;border-collapse:collapse;font-size:13.5px">
             <thead><tr style="color:var(--muted);text-align:left">
                 <th style="padding:8px 10px">{{ __('Service') }}</th>
                 <th style="padding:8px 10px">{{ __('Nature') }}</th>
                 <th style="padding:8px 10px">{{ __('Équipe') }}</th>
-                <th style="padding:8px 10px">{{ __('Prix') }}</th>
                 <th style="padding:8px 10px">{{ __('Statut') }}</th>
                 <th style="padding:8px 10px"></th>
             </tr></thead>
@@ -48,11 +47,10 @@
                     <td style="padding:7px 10px"><i class="fa-solid {{ $s->icon }}" style="color:var(--muted)"></i> <b>{{ $s->name }}</b>
                         @if($s->kind === 'room_service' && ($m = $menus->firstWhere('id', $s->menu_id)))<div style="color:var(--muted);font-size:12px">{{ __('Menu') }} : {{ $m->name }}</div>@endif
                     </td>
-                    <td style="padding:7px 10px">{{ __($s->kind_label) }}</td>
-                    <td style="padding:7px 10px">{{ $s->team ? __($teams[$s->team] ?? $s->team) : '—' }}</td>
-                    <td style="padding:7px 10px">{{ $s->price !== null ? number_format((float) $s->price, 2).' '.$hotel->currency : __('Gratuit') }}</td>
-                    <td style="padding:7px 10px"><span class="pill {{ $s->is_active ? 'g' : 'n' }}">{{ $s->is_active ? __('Actif') : __('Désactivé') }}</span></td>
-                    <td style="padding:7px 10px;white-space:nowrap">
+                    <td data-l="{{ __('Nature') }}" style="padding:7px 10px">{{ __($s->kind_label) }}</td>
+                    <td data-l="{{ __('Équipe') }}" style="padding:7px 10px">{{ $s->team ? __($teams[$s->team] ?? $s->team) : '—' }}</td>
+                    <td data-l="{{ __('Statut') }}" style="padding:7px 10px"><span class="pill {{ $s->is_active ? 'g' : 'n' }}">{{ $s->is_active ? __('Actif') : __('Désactivé') }}</span></td>
+                    <td class="acts" style="padding:7px 10px;white-space:nowrap">
                         <details style="display:inline-block">
                             <summary class="btn btn-o btn-sm" style="cursor:pointer;display:inline-flex"><i class="fa-solid fa-pen"></i></summary>
                             <form method="POST" action="{{ route('tagtoa.hotel.services.update', $s->id) }}" style="margin-top:8px;min-width:260px">
