@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schema;
  * `tagtoa_hotel_rate_plans` : un prix pour une NUIT ou pour un MOMENT (1 h, 2 h, 3 h…), dans une devise, avec la liste
  *   de ce qui est inclus (`inclusions` : clés du catalogue + libellés libres).
  *
+ * `slot` + index unique: une seule nuit et un seul « moment » de chaque durée par type (même en cas de double envoi).
  * Aucune réservation ici (HM-3) : la page publique AFFICHE. Jamais supprimés, seulement désactivés (les futures
  * réservations figeront le prix et les inclusions qu'elles ont vus). Rejouable et réversible.
  */
@@ -40,6 +41,7 @@ return new class extends Migration
                 $t->unsignedBigInteger('room_type_id');
                 $t->string('kind', 8);                       // night | block
                 $t->unsignedSmallInteger('hours')->nullable(); // pour un « moment » : 1, 2, 3…
+                $t->unsignedSmallInteger('slot')->default(0);  // 0 = nuit, sinon la durée : une seule ligne par (type, slot)
                 $t->decimal('price', 14, 2);
                 $t->string('currency', 10);
                 $t->json('inclusions')->nullable();
@@ -48,6 +50,8 @@ return new class extends Migration
                 $t->timestamps();
 
                 $t->index(['tenant_id', 'room_type_id', 'is_active'], 'hotel_rate_plans_type_idx');
+                // Garde ABSOLUE contre la double soumission / deux onglets : jamais deux « nuit » ni deux « 2 h » par type.
+                $t->unique(['room_type_id', 'slot'], 'hotel_rate_plans_slot_uq');
             });
         }
     }

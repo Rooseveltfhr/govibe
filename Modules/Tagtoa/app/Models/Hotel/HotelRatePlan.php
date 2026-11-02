@@ -16,7 +16,7 @@ class HotelRatePlan extends Model
 
     protected $table = 'tagtoa_hotel_rate_plans';
 
-    protected $fillable = ['tenant_id', 'room_type_id', 'kind', 'hours', 'price', 'currency', 'inclusions', 'sort', 'is_active'];
+    protected $fillable = ['tenant_id', 'room_type_id', 'kind', 'hours', 'slot', 'price', 'currency', 'inclusions', 'sort', 'is_active'];
 
     protected $casts = ['price' => 'decimal:2', 'hours' => 'integer', 'inclusions' => 'array', 'sort' => 'integer', 'is_active' => 'boolean'];
 

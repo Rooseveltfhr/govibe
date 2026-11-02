@@ -80,6 +80,7 @@ class HotelRoomTypeRules
         return [
             'kind'       => $block ? 'block' : 'night',
             'hours'      => $block ? (int) $in['hours'] : null,
+            'slot'       => $block ? (int) $in['hours'] : 0,
             'price'      => round((float) $in['price'], 2),
             'currency'   => strtoupper((string) $in['currency']),
             'inclusions' => self::cleanInclusions($in['inclusions'] ?? [], (string) ($in['custom'] ?? '')),

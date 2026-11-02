@@ -237,7 +237,9 @@
         @if($menu->translated('description'))<p class="tag" style="margin-top:12px">{{ $menu->translated('description') }}</p>@endif
     </div>
 
-    @php $hasRooms = isset($roomTypes) && $roomTypes->isNotEmpty(); @endphp
+    {{-- Les chambres ne s'affichent que sur la page GÉNÉRALE de l'hôtel : jamais pour un invité qui a scanné le QR de sa
+         chambre (room service) ni celui d'une table — ils viennent commander, pas réserver. --}}
+    @php $hasRooms = isset($roomTypes) && $roomTypes->isNotEmpty() && ! ($roomToken ?? null) && ! ($roomBusy ?? false) && ! ($table ?? null); @endphp
     @if($categories->isEmpty() && ! $hasRooms)
         <div class="sec"><div class="empty"><i class="fa-solid fa-utensils" style="font-size:30px;display:block;margin-bottom:10px;opacity:.4"></i>{{ __('Le menu arrive bientôt.') }}</div></div>
     @else
@@ -259,7 +261,7 @@
                 @endforeach
             </nav>
         @endif
-        <nav class="catnav" id="catnav">
+        <nav class="catnav" id="catnav"@if($categories->isEmpty()) style="display:none"@endif>
             {{-- Icône + nom, jamais un emoji : un emoji se dessine autrement
                  sur chaque téléphone et tombe en carré blanc sur beaucoup
                  d'Android bon marché — juste à côté du nom du restaurant. --}}

@@ -1,22 +1,29 @@
 {{-- HM-2 — champs d'un tarif (nuit / moment). $p = le tarif à modifier, ou null pour un nouveau. --}}
 @php
-    $kind = old('kind', $p->kind ?? 'night');
-    $sel = old('inclusions', $p->inclusions['keys'] ?? []);
-    $custom = old('custom', isset($p) && $p ? implode("\n", $p->inclusions['custom'] ?? []) : '');
-    $uid = 'pf'.($p->id ?? 'new').'_'.($t->id ?? 0);
+    $uid = 'pf'.(isset($p) && $p ? $p->id : 'new').'_'.($t->id ?? 0);
+    // old() n'appartient qu'au formulaire qui a échoué : jamais pré-remplir les AUTRES formulaires de la page.
+    $mine = old('_form') === $uid;
+    $val = fn ($k, $def) => $mine ? old($k, $def) : $def;
+    $kind = $val('kind', $p->kind ?? 'night');
+    $sel = $val('inclusions', $p->inclusions['keys'] ?? []);
+    $custom = $val('custom', isset($p) && $p ? implode("\n", $p->inclusions['custom'] ?? []) : '');
+    $curNow = strtoupper((string) $val('currency', $p->currency ?? $hotel->currency));
+    $opts = $devises;
+    if ($curNow !== '' && ! isset($opts[$curNow])) { $opts[$curNow] = $curNow.' — '.__('taux désactivé'); }
 @endphp
+<input type="hidden" name="_form" value="{{ $uid }}">
 <div class="duo trio">
     <select name="kind" class="inp plan-kind" onchange="var h=this.closest('form').querySelector('.plan-hours'); if(h){h.style.display=(this.value==='block')?'':'none';}" title="{{ __('Type de tarif') }}">
         @foreach($kinds as $k => $lbl)<option value="{{ $k }}" @selected($kind === $k)>{{ __($lbl) }}</option>@endforeach
     </select>
     <select name="hours" class="inp plan-hours" style="{{ $kind === 'block' ? '' : 'display:none' }}" title="{{ __('Durée du moment') }}">
-        @foreach($hours as $h)<option value="{{ $h }}" @selected((int) old('hours', $p->hours ?? 2) === $h)>{{ $h }} h</option>@endforeach
+        @foreach($hours as $h)<option value="{{ $h }}" @selected((int) $val('hours', $p->hours ?? 2) === $h)>{{ $h }} h</option>@endforeach
     </select>
-    <input name="price" class="inp" type="number" step="0.01" min="0" required placeholder="{{ __('Prix') }}" value="{{ old('price', isset($p) && $p ? (float) $p->price : '') }}">
+    <input name="price" class="inp" type="number" step="0.01" min="0" required placeholder="{{ __('Prix') }}" value="{{ $val('price', isset($p) && $p ? (float) $p->price : '') }}">
 </div>
 <div class="row pair" style="margin-top:8px">
     <select name="currency" class="inp fit" title="{{ __('Devise') }}">
-        @foreach($devises as $code => $lbl)<option value="{{ $code }}" @selected(strtoupper(old('currency', $p->currency ?? $hotel->currency)) === $code)>{{ $code }}</option>@endforeach
+        @foreach($opts as $code => $lbl)<option value="{{ $code }}" @selected($curNow === $code)>{{ isset($devises[$code]) ? $code : $lbl }}</option>@endforeach
     </select>
 </div>
 <div style="margin-top:10px">

@@ -22,7 +22,16 @@ use Modules\Tagtoa\App\Models\Business\Business;
 use Modules\Tagtoa\App\Models\Hotel\HotelRatePlan;
 use Modules\Tagtoa\App\Models\Hotel\HotelRoomType;
 use Modules\Tagtoa\App\Models\Menu\Category;
+use Modules\Tagtoa\App\Models\Currency\CurrencyRate;
+use Modules\Tagtoa\App\Models\Hotel\HotelRoom;
+use Modules\Tagtoa\App\Models\Hotel\HotelService;
 use Modules\Tagtoa\App\Models\Menu\Item;
+use Modules\Tagtoa\App\Models\Menu\Table;
+use Modules\Tagtoa\App\Models\Stand\Stand;
+use Modules\Tagtoa\App\Services\Hotel\HotelRoomSupportService;
+use Modules\Tagtoa\App\Services\Stand\StandMinter;
+use Modules\Tagtoa\App\Support\Hotel\HotelRoomOrderToken;
+use Modules\Tagtoa\App\Support\Stand\StandScratch;
 use Modules\Tagtoa\App\Models\Menu\Menu;
 use Modules\Tagtoa\App\Services\Business\BusinessService;
 use Modules\Tagtoa\App\Services\Currency\CurrencyRateService;
@@ -49,6 +58,8 @@ class HotelRoomTypesTest extends TestCase
 
     private function plan(HotelRoomType $t, array $o = []): HotelRatePlan
     {
+        $o += ['slot' => ($o['kind'] ?? 'night') === 'block' ? (int) ($o['hours'] ?? 0) : 0];
+
         return HotelRatePlan::allTenants()->create(array_merge([
             'tenant_id' => $t->tenant_id, 'room_type_id' => $t->id, 'kind' => 'night', 'hours' => null, 'price' => 2500,
             'currency' => 'HTG', 'inclusions' => ['keys' => ['breakfast'], 'custom' => []], 'sort' => 1, 'is_active' => true,
@@ -413,6 +424,161 @@ class HotelRoomTypesTest extends TestCase
         $html = $this->page($menu);
         $this->assertStringNotContainsString('id="rooms"', $html);
         $this->assertStringNotContainsString('id="sectabs"', $html);
+    }
+
+    /* ---------- revue indépendante ---------- */
+
+    /** Une chambre scannée (room service) ou une table : l'invité vient COMMANDER, pas réserver. */
+    public function test_rooms_are_hidden_from_a_room_qr_guest_and_a_table_qr_guest_but_not_from_the_general_visitor(): void
+    {
+        $secrets = app(StandMinter::class)->mint('TAGTOA-2026-001', 1)['secrets'];
+        $b = $this->commerce('c-a', 'Hôtel Alpha');
+        $menu = $this->menu($b);
+        $cat = Category::create(['menu_id' => $menu->id, 'name' => 'Plats', 'is_active' => true]);
+        $plat = Item::create(['menu_id' => $menu->id, 'category_id' => $cat->id, 'name' => 'Griot', 'price' => 400, 'is_available' => true]);
+        $this->plan($this->type($b, 'Suite Royale'));
+        HotelService::allTenants()->create(['tenant_id' => $b->id, 'kind' => 'room_service', 'name' => 'Room service', 'menu_id' => $menu->id, 'is_active' => true]);
+        $room = HotelRoom::allTenants()->create(['tenant_id' => $b->id, 'number' => '101', 'is_active' => true]);
+        $stand = Stand::orderBy('serial')->first();
+        $this->assertSame('ok', app(HotelRoomSupportService::class)->attach($b->id, $room->id, StandScratch::payload($stand->public_id, $secrets[$stand->public_id]))['result']);
+        $table = Table::create(['menu_id' => $menu->id, 'tenant_id' => $b->id, 'label' => '4', 'code' => 'T4CODE', 'is_active' => true]);
+
+        // Visiteur général: onglets Chambres + Restaurant.
+        $general = $this->page($menu);
+        $this->assertStringContainsString('Suite Royale', $general);
+        $this->assertStringContainsString('class="sectab" data-sec="rooms"', $general);
+
+        // Invité de la chambre: la CARTE seulement, sans onglets ni tarifs de chambres.
+        $token = HotelRoomOrderToken::issue($stand->public_id, $menu->id);
+        $room = $this->get(route('tagtoa.menu.show', $menu->alias).'?r='.urlencode($token))->assertOk()->getContent();
+        $this->assertStringContainsString('Griot', $room);
+        $this->assertStringNotContainsString('Suite Royale', $room);
+        $this->assertStringNotContainsString('id="sectabs"', $room);
+
+        // Chambre qui a atteint son plafond de commandes (« occupée »): la page reste une carte, jamais des tarifs.
+        for ($i = 0; $i < \Modules\Tagtoa\App\Services\Hotel\HotelRoomOrderGate::OPEN_MAX; $i++) {
+            app(\Modules\Tagtoa\App\Services\Menu\MenuOrderService::class)->placeOrder($menu, ['items' => [['id' => $plat->id, 'qty' => 1]], 'room_token' => $token]);
+        }
+        $busy = $this->get(route('tagtoa.menu.show', $menu->alias).'?r='.urlencode($token))->assertOk()->getContent();
+        $this->assertStringNotContainsString('Suite Royale', $busy);
+        $this->assertStringNotContainsString('id="sectabs"', $busy);
+
+        // Invité d'une table: idem.
+        $tab = $this->get(route('tagtoa.menu.show', $menu->alias).'?t=T4CODE')->assertOk()->getContent();
+        $this->assertStringContainsString('Griot', $tab);
+        $this->assertStringNotContainsString('Suite Royale', $tab);
+        $this->assertStringNotContainsString('id="sectabs"', $tab);
+    }
+
+    public function test_a_failed_form_prefills_only_itself(): void
+    {
+        $b = $this->commerce('c-a', 'Hôtel Alpha');
+        $t = $this->type($b);
+        $this->plan($t);                                                   // nuit à 2500
+        $this->plan($t, ['kind' => 'block', 'hours' => 2, 'price' => 800]);  // 2 h à 800
+
+        // Doublon refusé: la nuit existe déjà. Les valeurs tapées reviennent dans CE formulaire seulement.
+        $this->post(route('tagtoa.hotel.rateplans.store', $t->id), ['_form' => 'pfnew_'.$t->id, 'kind' => 'night', 'price' => 999, 'currency' => 'HTG', 'custom' => 'ESSAI-RATE'])
+            ->assertSessionHasErrors('kind');
+        $html = $this->get(route('tagtoa.hotel.roomtypes'))->assertOk()->getContent();
+
+        $this->assertSame(1, substr_count($html, 'value="999"'), 'Le prix raté revient dans le seul formulaire fautif.');
+        $this->assertSame(1, substr_count($html, 'ESSAI-RATE'));
+        $this->assertStringContainsString('value="2500"', $html, 'Le formulaire de la nuit garde SON prix.');
+        $this->assertStringContainsString('value="800"', $html, 'Le formulaire du moment garde SON prix.');
+    }
+
+    public function test_the_unique_slot_index_refuses_a_duplicate_even_if_the_application_check_is_beaten(): void
+    {
+        $b = $this->commerce('c-a', 'Hôtel Alpha');
+        $t = $this->type($b);
+        $this->plan($t);
+
+        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        $this->plan($t, ['price' => 1]);                                   // même type, même « nuit »
+    }
+
+    public function test_a_lost_race_on_create_is_a_clear_error_not_a_500(): void
+    {
+        $b = $this->commerce('c-a', 'Hôtel Alpha');
+        $t = $this->type($b);
+
+        // Deux onglets: l'autre a inséré la même « nuit » entre la vérification et l'écriture.
+        HotelRatePlan::creating(function ($plan) use ($t) {
+            static $fait = false;
+            if (! $fait) {
+                $fait = true;
+                \Illuminate\Support\Facades\DB::table('tagtoa_hotel_rate_plans')->insert([
+                    'tenant_id' => $t->tenant_id, 'room_type_id' => $t->id, 'kind' => 'night', 'slot' => 0, 'price' => 1, 'currency' => 'HTG',
+                    'is_active' => 1, 'sort' => 1, 'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+        });
+
+        $this->post(route('tagtoa.hotel.rateplans.store', $t->id), ['kind' => 'night', 'price' => 2500, 'currency' => 'HTG'])->assertSessionHasErrors('kind');
+        $this->assertSame(1, HotelRatePlan::allTenants()->count(), 'Un seul tarif, pas de doublon.');
+    }
+
+    public function test_a_lost_race_on_update_is_a_clear_error_not_a_500(): void
+    {
+        $b = $this->commerce('c-a', 'Hôtel Alpha');
+        $t = $this->type($b);
+        $moment = $this->plan($t, ['kind' => 'block', 'hours' => 2, 'price' => 800]);
+
+        // Pendant l'enregistrement, l'autre onglet crée la « nuit » que ce tarif veut devenir.
+        HotelRatePlan::updating(function ($plan) use ($t) {
+            static $fait = false;
+            if (! $fait) {
+                $fait = true;
+                \Illuminate\Support\Facades\DB::table('tagtoa_hotel_rate_plans')->insert([
+                    'tenant_id' => $t->tenant_id, 'room_type_id' => $t->id, 'kind' => 'night', 'slot' => 0, 'price' => 1, 'currency' => 'HTG',
+                    'is_active' => 1, 'sort' => 1, 'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+        });
+
+        $this->put(route('tagtoa.hotel.rateplans.update', $moment->id), ['kind' => 'night', 'price' => 900, 'currency' => 'HTG'])->assertSessionHasErrors('kind');
+        $this->assertSame('block', $moment->fresh()->kind, 'Le tarif n\'a pas été modifié.');
+    }
+
+    public function test_a_plans_own_currency_stays_valid_when_its_rate_is_disabled_later(): void
+    {
+        $b = $this->commerce('c-a', 'Hôtel Alpha');
+        $t = $this->type($b);
+        app(CurrencyRateService::class)->save($b->id, 'HTG', ['code' => 'USD', 'rate' => 132, 'confirm_jump' => true]);
+        $p = $this->plan($t, ['price' => 50, 'currency' => 'USD']);
+        CurrencyRate::where('code', 'USD')->update(['is_active' => false]);
+
+        // Le formulaire propose toujours USD (sinon il retomberait en silence sur HTG)…
+        $this->get(route('tagtoa.hotel.roomtypes'))->assertOk()->assertSee('taux désactivé');
+        // …et changer seulement les « inclus » garde USD.
+        $this->put(route('tagtoa.hotel.rateplans.update', $p->id), ['kind' => 'night', 'price' => 50, 'currency' => 'USD', 'inclusions' => ['pool']])->assertSessionHasNoErrors();
+        $this->assertSame('USD', $p->fresh()->currency);
+        $this->assertSame(['pool'], $p->fresh()->inclusions['keys']);
+
+        // Mais une AUTRE devise sans taux reste refusée.
+        $this->put(route('tagtoa.hotel.rateplans.update', $p->id), ['kind' => 'night', 'price' => 50, 'currency' => 'EUR'])->assertSessionHasErrors('currency');
+    }
+
+    public function test_a_business_that_is_no_longer_a_hotel_shows_no_rooms_publicly(): void
+    {
+        $b = $this->commerce('c-a', 'Hôtel Alpha');
+        $menu = $this->menu($b);
+        $this->plan($this->type($b, 'Suite Fantôme'));
+        $this->assertStringContainsString('Suite Fantôme', $this->page($menu));
+
+        Business::whereKey($b->id)->update(['type' => 'restaurant']);
+        \Illuminate\Support\Facades\Cache::flush();
+        $this->assertStringNotContainsString('Suite Fantôme', $this->page($menu));
+    }
+
+    public function test_an_empty_catnav_is_hidden_when_only_rooms_are_shown(): void
+    {
+        $b = $this->commerce('c-a', 'Hôtel Alpha');
+        $menu = $this->menu($b);
+        $this->plan($this->type($b));
+
+        $this->assertStringContainsString('id="catnav" style="display:none"', $this->page($menu));
     }
 
     /* ---------- migration ---------- */

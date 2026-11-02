@@ -3,7 +3,9 @@
 namespace Modules\Tagtoa\App\Http\Controllers\Hotel;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Business\Business;
@@ -45,13 +47,20 @@ class RoomTypeController extends Controller
         if (! ($hotel = $this->hotel())) {
             return $this->pasUnHotel();
         }
-        if (HotelRoomType::count() >= R::MAX_TYPES) {
+        $data = R::cleanType($request->validate(R::typeRules()));
+
+        // Le plafond se vérifie sous verrou (ligne du commerce) : deux onglets ne passent pas tous deux le contrôle.
+        $type = DB::transaction(function () use ($hotel, $data) {
+            Business::whereKey($hotel->id)->lockForUpdate()->first();
+            if (HotelRoomType::count() >= R::MAX_TYPES) {
+                return null;
+            }
+
+            return HotelRoomType::create($data + ['tenant_id' => $hotel->id, 'is_active' => true, 'sort' => (int) HotelRoomType::max('sort') + 1]);
+        });
+        if (! $type) {
             return back()->with('error', __('Au plus :max types de chambre par hôtel.', ['max' => R::MAX_TYPES]));
         }
-
-        $type = HotelRoomType::create(R::cleanType($request->validate(R::typeRules())) + [
-            'tenant_id' => $hotel->id, 'is_active' => true, 'sort' => (int) HotelRoomType::max('sort') + 1,
-        ]);
         app(AuditService::class)->log('hotel.roomtype.created', $type, $type->name);
 
         return back()->with('success', __('Type « :n » ajouté.', ['n' => $type->name]));
@@ -98,9 +107,14 @@ class RoomTypeController extends Controller
             return back()->withErrors(['kind' => __('Ce tarif existe déjà pour ce type de chambre.')])->withInput();
         }
 
-        $plan = HotelRatePlan::create(R::cleanPlan($data) + [
-            'tenant_id' => $hotel->id, 'room_type_id' => $type->id, 'is_active' => true, 'sort' => (int) $type->plans()->max('sort') + 1,
-        ]);
+        try {
+            $plan = HotelRatePlan::create(R::cleanPlan($data) + [
+                'tenant_id' => $hotel->id, 'room_type_id' => $type->id, 'is_active' => true, 'sort' => (int) $type->plans()->max('sort') + 1,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            // Double envoi ou deux onglets : l'index unique (type, durée) a déjà refusé le doublon.
+            return back()->withErrors(['kind' => __('Ce tarif existe déjà pour ce type de chambre.')])->withInput();
+        }
         app(AuditService::class)->log('hotel.rateplan.created', $plan, $type->name.' · '.$plan->duration_label);
 
         return back()->with('success', __('Tarif ajouté.'));
@@ -114,12 +128,18 @@ class RoomTypeController extends Controller
 
         $plan = HotelRatePlan::findOrFail($id);
         $this->normaliser($request);
-        $data = $request->validate(R::planRules(array_keys($this->devises($hotel))));
+        // La devise ACTUELLE du tarif reste permise même si son taux a été désactivé depuis : modifier les « inclus »
+        // ne doit jamais changer la devise en silence (50 USD ne devient pas 50 HTG).
+        $data = $request->validate(R::planRules(array_values(array_unique([...array_keys($this->devises($hotel)), strtoupper($plan->currency)]))));
         if ($this->planExiste($plan->roomType, $data, $plan->id)) {
             return back()->withErrors(['kind' => __('Ce tarif existe déjà pour ce type de chambre.')])->withInput();
         }
 
-        $plan->update(R::cleanPlan($data));
+        try {
+            $plan->update(R::cleanPlan($data));
+        } catch (UniqueConstraintViolationException) {
+            return back()->withErrors(['kind' => __('Ce tarif existe déjà pour ce type de chambre.')])->withInput();
+        }
         app(AuditService::class)->log('hotel.rateplan.updated', $plan, $plan->duration_label);
 
         return back()->with('success', __('Tarif mis à jour.'));
