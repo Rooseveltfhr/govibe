@@ -266,6 +266,12 @@ class DashboardController extends Controller
         }
 
         $business = Business::find($menu->tenant_id);
+        // Un HÔTEL le reste : le type de son menu de room service (« restaurant ») ne doit jamais le faire sortir de
+        // l'hôtel — chambres, portail et écrans de l'hôtel disparaîtraient d'un coup. Le changement de type se fait
+        // explicitement, depuis le commerce (et seulement quand il n'y a plus rien d'ouvert).
+        if ($business && $business->type === 'hotel') {
+            return;
+        }
         if ($business && $business->type !== $menu->type) {
             $business->update(['type' => $menu->type]);
         }
@@ -371,6 +377,7 @@ class DashboardController extends Controller
                 'order_type'  => $o->order_type,
                 'order_type_label' => __($o->order_type_label),
                 'table_label' => $o->table_label,
+                'is_room'     => (bool) $o->hotel_room_id,
                 'note'        => $o->note,
                 'placed_at'   => optional($o->placed_at)->toIso8601String(),
                 'items'       => $o->items->map(fn ($it) => [
@@ -488,6 +495,7 @@ class DashboardController extends Controller
                 'order_type'  => $o->order_type,
                 'order_type_label' => __($o->order_type_label),
                 'table_label' => $o->table_label,
+                'is_room'     => (bool) $o->hotel_room_id,
                 'total'       => (string) $o->total,
                 'currency'    => $o->currency,
                 'is_paid'     => $o->isPaid(),

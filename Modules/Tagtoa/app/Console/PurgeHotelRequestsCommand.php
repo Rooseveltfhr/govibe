@@ -42,6 +42,15 @@ class PurgeHotelRequestsCommand extends Command
 
         $this->info("Demandes d'invités : texte libre effacé sur $n ligne(s).");
 
+        // Commandes de chambre (room service) : nom, téléphone et note de l'invité effacés après le même délai, une
+        // fois la commande terminée. La ligne reste (montants, articles, statut) pour la comptabilité.
+        $o = \Modules\Tagtoa\App\Models\Menu\Order::allTenants()->whereNotNull('hotel_room_id')
+            ->whereIn('status', \Modules\Tagtoa\App\Models\Menu\Order::DONE_STATUSES)
+            ->where('updated_at', '<', $seuil)
+            ->where(fn ($q) => $q->whereNotNull('customer_name')->orWhereNotNull('customer_phone')->orWhereNotNull('note'))
+            ->update(['customer_name' => null, 'customer_phone' => null, 'note' => null]);
+        $this->info("Commandes de chambre : données de l'invité effacées sur $o ligne(s).");
+
         return self::SUCCESS;
     }
 }

@@ -22,6 +22,30 @@ class HotelProfileService
     }
 
     /**
+     * Ce commerce peut-il cesser d'être un hôtel ? Renvoie la RAISON du refus, ou null.
+     *
+     * Changer le type d'un hôtel fait disparaître d'un coup le portail, les écrans et le personnel d'hôtel, et
+     * laisse sans issue les demandes et commandes de chambre encore ouvertes (personne ne peut plus les clore).
+     */
+    public function blocksTypeChange(Business $business): ?string
+    {
+        $id = $business->id;
+        if (\Modules\Tagtoa\App\Models\Hotel\HotelRequest::allTenants()->where('tenant_id', $id)
+            ->whereIn('status', \Modules\Tagtoa\App\Support\Hotel\HotelRequestRules::OPEN)->exists()) {
+            return __('Des demandes d\'invités sont encore ouvertes : clôturez-les avant de changer le type de ce commerce.');
+        }
+        if (\Modules\Tagtoa\App\Models\Menu\Order::allTenants()->where('tenant_id', $id)->whereNotNull('hotel_room_id')
+            ->whereNotIn('status', \Modules\Tagtoa\App\Models\Menu\Order::DONE_STATUSES)->exists()) {
+            return __('Des commandes de chambre sont encore en cours : terminez-les avant de changer le type de ce commerce.');
+        }
+        if (\Modules\Tagtoa\App\Models\Hotel\HotelRoom::allTenants()->where('tenant_id', $id)->whereNotNull('stand_id')->exists()) {
+            return __('Des chambres ont encore un support QR/NFC actif : révoquez-les avant de changer le type de ce commerce.');
+        }
+
+        return null;
+    }
+
+    /**
      * Crée ou met à jour le profil. Réservé aux commerces de type « hôtel » : sinon rien
      * n'est écrit (un restaurant ne reçoit jamais de profil d'hôtel, même si la requête en
      * porte les champs).

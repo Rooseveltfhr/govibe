@@ -80,7 +80,7 @@
             + '<div class="ct-tete"><span class="ct-ref">' + esc(o.reference) + '</span>'
             + '<span class="ct-total">' + esc(o.total) + ' ' + esc(o.currency) + '</span></div>'
             + '<div class="ct-tag">' + esc(o.order_type_label)
-            + (o.table_label ? ' · {{ __('Table') }} ' + esc(o.table_label) : '') + '</div>';
+            + (o.table_label ? ' · ' + (o.is_room ? '' : '{{ __('Table') }} ') + esc(o.table_label) : '') + '</div>';
 
         (o.items || []).forEach(function(it){
             html += '<div class="ct-item"><span>' + it.qty + '× ' + esc(it.name) + '</span></div>';

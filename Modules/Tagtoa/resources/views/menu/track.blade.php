@@ -82,7 +82,7 @@
             <div class="row"><span>{{ __('Pourboire') }}</span><span>{{ \Modules\Tagtoa\App\Support\Money::format($order->tip, $order->currency) }}</span></div>
         @endif
         <div class="row tot"><span>{{ __('Total') }}</span><span>{{ \Modules\Tagtoa\App\Support\Money::format($order->total, $order->currency) }}</span></div>
-        @if($order->table_label)<div class="row"><span>{{ __('Table') }}</span><span>{{ $order->table_label }}</span></div>@endif
+        @if($order->table_label)<div class="row"><span>{{ $order->hotel_room_id ? __('Chambre') : __('Table') }}</span><span>{{ $order->table_label }}</span></div>@endif
         @if($order->delivery_address)<div class="row"><span>{{ __('Adresse') }}</span><span>{{ $order->delivery_address }}</span></div>@endif
         @if($order->delivery_reference)<div class="row"><span>{{ __('Repère') }}</span><span>{{ $order->delivery_reference }}</span></div>@endif
     </div>

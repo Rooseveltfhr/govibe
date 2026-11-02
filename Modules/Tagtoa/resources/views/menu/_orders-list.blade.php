@@ -24,7 +24,7 @@
                         {{ optional($o->placed_at)->format('d/m/Y H:i') }}
                         @if($o->customer_name) · {{ $o->customer_name }}@endif
                         @if($o->customer_phone) · {{ $o->customer_phone }}@endif
-                        @if($o->table_label) · {{ __('N° table (optionnel)') }} {{ $o->table_label }}@endif
+                        @if($o->table_label) · {{ $o->hotel_room_id ? '' : __('N° table (optionnel)').' ' }}{{ $o->table_label }}@endif
                         @if($o->delivery_address) · {{ __('Adresse') }} : {{ $o->delivery_address }}@endif
                         @if($o->delivery_reference) · {{ __('Repère') }} : {{ $o->delivery_reference }}@endif
                         @if($o->order_type === 'delivery' && $o->courier) · {{ __('Livreur') }} : {{ $o->courier->name }}@endif

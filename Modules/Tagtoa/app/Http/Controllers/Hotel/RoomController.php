@@ -40,7 +40,7 @@ class RoomController extends Controller
             'expected' => $profil?->rooms_count,
             'bulkMax'  => HotelRoomRules::BULK_MAX,
             // H4 : les supports de CE commerce, pour afficher leur identifiant imprimé.
-            'stands'   => Stand::ofBusiness($hotel->id)->whereIn('id', HotelRoom::whereNotNull('stand_id')->pluck('stand_id'))->get()->keyBy('id'),
+            'stands'   => Stand::with('batch')->ofBusiness($hotel->id)->whereIn('id', HotelRoom::whereNotNull('stand_id')->pluck('stand_id'))->get()->keyBy('id'),
         ]);
     }
 

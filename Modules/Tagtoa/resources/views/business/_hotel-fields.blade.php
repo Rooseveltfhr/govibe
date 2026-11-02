@@ -67,6 +67,7 @@
 
     <div class="chipwrap" style="margin-top:10px">
         <label class="chip">
+            {{-- Information seulement : la commande depuis une chambre se règle dans « Services » (service Room service + menu). --}}
             <input type="hidden" name="hotel[room_service_enabled]" value="0">
             <input type="checkbox" name="hotel[room_service_enabled]" value="1"
                    @checked((bool) old('hotel.room_service_enabled', $hotel->room_service_enabled))>
@@ -76,5 +77,6 @@
 
     <label class="lbl">{{ __('Informations pour les clients') }}</label>
     <textarea class="inp" name="hotel[guest_info]" rows="3" maxlength="1500"
-              placeholder="{{ __('Wi-Fi, heure du petit-déjeuner, numéros utiles…') }}">{{ old('hotel.guest_info', $hotel->guest_info) }}</textarea>
+              placeholder="{{ __('Heure du petit-déjeuner, numéros utiles…') }}">{{ old('hotel.guest_info', $hotel->guest_info) }}</textarea>
+    <p style="color:var(--red);font-size:12.5px;margin:4px 0 0">{{ __('Ce texte est visible par toute personne qui ouvre le lien d\'une chambre. N\'y mettez JAMAIS de mot de passe (Wi-Fi compris).') }}</p>
 </div>

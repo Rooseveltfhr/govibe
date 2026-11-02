@@ -78,7 +78,14 @@
                     <td style="padding:7px 10px"><span class="pill {{ $r->is_active ? 'g' : 'n' }}">{{ $r->is_active ? __('Active') : __('Désactivée') }}</span></td>
                     <td style="padding:7px 10px;min-width:210px">
                         @if($r->stand_id)
-                            <span class="pill g"><i class="fa-solid fa-qrcode"></i> {{ optional($stands->get($r->stand_id))->public_id ?? __('Actif') }}</span>
+                            @php
+                                $st = $stands->get($r->stand_id);
+                                // L'état RÉEL du support : un support perdu, suspendu ou d'un lot rappelé ne sert plus aux invités.
+                                $vivant = $st && $st->digital_state === \Modules\Tagtoa\App\Support\Stand\StandState::ACTIVE
+                                    && ! in_array($st->physical_state, \Modules\Tagtoa\App\Support\Stand\StandState::PHYSICAL_CLOSED, true)
+                                    && ! ($st->batch && $st->batch->isRecalled());
+                            @endphp
+                            <span class="pill {{ $vivant ? 'g' : 'a' }}" @unless($vivant) title="{{ __('Ce support ne fonctionne plus pour les invités : remplacez-le.') }}" @endunless><i class="fa-solid fa-qrcode"></i> {{ optional($st)->public_id ?? __('Actif') }}@unless($vivant) · {{ __('à remplacer') }}@endunless</span>
                             <details style="margin-top:6px">
                                 <summary style="cursor:pointer;font-size:12.5px">{{ __('Remplacer / révoquer') }}</summary>
                                 <form method="POST" action="{{ route('tagtoa.hotel.rooms.support.replace', $r->id) }}" style="margin-top:6px">

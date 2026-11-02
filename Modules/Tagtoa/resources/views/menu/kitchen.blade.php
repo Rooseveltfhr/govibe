@@ -98,7 +98,7 @@
             + '<div class="kw-tete"><span class="kw-ref">' + esc(o.reference) + '</span>'
             + '<span class="kw-age">' + age + ' min</span></div>'
             + '<div class="kw-tag">' + esc(o.order_type_label)
-            + (o.table_label ? ' · {{ __('Table') }} ' + esc(o.table_label) : '') + '</div>';
+            + (o.table_label ? ' · ' + (o.is_room ? '' : '{{ __('Table') }} ') + esc(o.table_label) : '') + '</div>';
 
         (o.items || []).forEach(function(it){
             html += '<div class="kw-item"><div><div><span class="kw-qty">' + it.qty + '×</span> ' + esc(it.name) + '</div>'

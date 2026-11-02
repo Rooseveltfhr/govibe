@@ -349,7 +349,7 @@ class MenuOrderService
             ]);
 
             if ($roomKey) {
-                app(\Modules\Tagtoa\App\Services\Hotel\HotelRoomOrderGate::class)->recorded($roomKey);
+                app(\Modules\Tagtoa\App\Services\Hotel\HotelRoomOrderGate::class)->recorded($roomKey, $menu->tenant_id);
             }
 
             return $order;
@@ -392,7 +392,7 @@ class MenuOrderService
                 'body'     => __('Nouvelle commande').' '.$order->reference
                     .' — '.number_format((float) $order->total, 2).' '.$order->currency
                     .' · '.$order->order_type_label
-                    .($order->table_label ? ' · '.__('Table').' '.$order->table_label : '')
+                    .($order->table_label ? ' · '.($order->hotel_room_id ? '' : __('Table').' ').$order->table_label : '')
                     .($order->customer_name ? ' · '.$order->customer_name : ''),
             ]);
         } catch (\Throwable $e) {
