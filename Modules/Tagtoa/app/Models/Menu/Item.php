@@ -20,7 +20,7 @@ class Item extends Model
     protected $fillable = [
         'menu_id', 'category_id', 'name', 'description', 'price', 'currency', 'cost_price', 'unit', 'low_stock_threshold', 'sku', 'supplier_id', 'tax_rate', 'image_path',
         'emoji', 'badge', 'specs', 'is_available', 'is_published', 'is_featured', 'stock', 'sort',
-        'translations',
+        'translations', 'on_request',
     ];
 
     protected $casts = [
@@ -34,6 +34,7 @@ class Item extends Model
         'is_available' => 'boolean',
         'is_published' => 'boolean',
         'is_featured'  => 'boolean',
+        'on_request'   => 'boolean',
         'stock'        => 'float',
         'sort'         => 'integer',
         'translations' => 'array',

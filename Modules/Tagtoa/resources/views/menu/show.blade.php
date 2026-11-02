@@ -64,6 +64,10 @@
         .meta{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;color:var(--mut);font-size:13.5px}
         .meta a{display:inline-flex;align-items:center;gap:6px}.meta i{color:var(--acc)}
         /* Category nav */
+        .sectabs{display:flex;gap:6px;padding:12px 16px 0;margin-top:18px}
+        .sectab{flex:1;border:1.5px solid var(--bd);background:var(--card,#fff);color:inherit;border-radius:999px;padding:9px 12px;font-weight:700;font-size:14px;cursor:pointer}
+        .sectab.on{background:var(--ac,#111);color:#fff;border-color:var(--ac,#111)}
+        .sectabs + .catnav{margin-top:8px}
         .catnav{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--bd);padding:12px 16px;display:flex;gap:8px;overflow-x:auto;margin-top:18px;-ms-overflow-style:none;scrollbar-width:none}
         .catnav::-webkit-scrollbar{display:none}
         .chip{white-space:nowrap;font:600 13.5px var(--fh);color:var(--fg);background:var(--surf);border:1px solid var(--bd);padding:8px 14px;border-radius:999px;cursor:pointer}
@@ -227,6 +231,22 @@
     @if($categories->isEmpty())
         <div class="sec"><div class="empty"><i class="fa-solid fa-utensils" style="font-size:30px;display:block;margin-bottom:10px;opacity:.4"></i>{{ __('Le menu arrive bientôt.') }}</div></div>
     @else
+        @php
+            // HM-1 : un seul menu, plusieurs rayons. Les onglets n'apparaissent que s'il y a AU MOINS deux rayons
+            // avec des articles : un restaurant ordinaire garde exactement la page d'avant.
+            $rayons = $categories->groupBy(fn ($c) => $c->section ?: 'restaurant');
+            $multiRayon = $rayons->count() >= 2;
+            $ordreRayons = array_keys(\Modules\Tagtoa\App\Models\Menu\Category::SECTIONS);
+            $alcoolIds = $categories->filter(fn ($c) => $c->is_alcohol)->flatMap(fn ($c) => $c->availableItems->pluck('id'))->values();
+        @endphp
+        @if($multiRayon)
+            <nav class="sectabs" id="sectabs" role="tablist">
+                @foreach($ordreRayons as $rk)
+                    @continue(! $rayons->has($rk))
+                    <button type="button" role="tab" class="sectab" data-sec="{{ $rk }}">{{ __(\Modules\Tagtoa\App\Models\Menu\Category::SECTIONS[$rk]) }}</button>
+                @endforeach
+            </nav>
+        @endif
         <nav class="catnav" id="catnav">
             {{-- Icône + nom, jamais un emoji : un emoji se dessine autrement
                  sur chaque téléphone et tombe en carré blanc sur beaucoup
@@ -235,7 +255,7 @@
                 {{-- L'ICÔNE se déduit du nom de BASE, jamais de la traduction :
                      un mot-clé anglais ne doit pas soudain changer l'icône
                      d'une catégorie déjà réglée dans la langue du marchand. --}}
-                <div class="chip" data-target="cat{{ $c->id }}">
+                <div class="chip" data-target="cat{{ $c->id }}" data-sec="{{ $c->section ?: 'restaurant' }}">
                     <i class="fa-solid {{ \Modules\Tagtoa\App\Support\Menu\CategoryIcon::resolve($c->icon, $c->name) }}"></i>
                     {{ $c->translated() }}
                 </div>
@@ -248,10 +268,11 @@
             $priceSuffix = \Modules\Tagtoa\App\Support\Menu\BusinessProfile::priceSuffix($menu->type);
         @endphp
         @foreach($categories as $c)
-            <section class="sec" id="cat{{ $c->id }}">
+            <section class="sec" id="cat{{ $c->id }}" data-sec="{{ $c->section ?: 'restaurant' }}">
                 <h2>
                     <i class="fa-solid {{ \Modules\Tagtoa\App\Support\Menu\CategoryIcon::resolve($c->icon, $c->name) }}"></i>
                     {{ $c->translated() }}
+                    @if($c->is_alcohol)<span class="pillb" style="background:var(--mut);font-size:11px">18+</span>@endif
                 </h2>
                 <div class="grille">
                 @foreach($c->availableItems as $it)
@@ -285,7 +306,7 @@
                             @else<div class="ph"><i class="fa-solid {{ \Modules\Tagtoa\App\Support\Menu\CategoryIcon::resolve($c->icon, $c->name) }}"></i></div>@endif
                         @endif
                         <div class="body">
-                            <div class="nm">{{ $itNom }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ $sansTaux ? __('Indisponible') : __('Épuisé') }}</span>@endif</div>
+                            <div class="nm">{{ $itNom }} @if($it->badge)<span class="pillb">{{ $it->badge }}</span>@endif @if($out)<span class="pillb" style="background:var(--mut)">{{ $sansTaux ? __('Indisponible') : __('Épuisé') }}</span>@endif @if($it->on_request && ! $out)<span class="pillb" style="background:var(--mut)">{{ __('Sur commande') }}</span>@endif</div>
                             @if($itDesc)<div class="ds">{{ $itDesc }}</div>@endif
                             {{-- Détails propres au métier : capacité et équipements d'une
                                  chambre, degré d'alcool d'une boisson, temps de préparation
@@ -389,6 +410,10 @@
                 <div class="tot" id="deliveryrowtot" style="display:none;font-weight:500;font-size:14px;color:var(--mut)"><span>{{ __('Frais de livraison') }}</span><span id="deliveryamt">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
                 <div class="tot"><span>{{ __('Total') }}</span><span id="total">{{ \Modules\Tagtoa\App\Support\Money::format(0, $cur) }}</span></div>
 
+                <label id="ageBox" class="agebox" style="display:none;margin:10px 0;font-size:13.5px;line-height:1.4;align-items:flex-start;gap:8px">
+                    <input type="checkbox" id="cAge" style="margin-top:3px">
+                    <span>{{ __('Ma commande contient de l\'alcool : je confirme avoir 18 ans ou plus.') }}</span>
+                </label>
                 <div class="custf">
                     <input id="cName" class="cin" placeholder="{{ __('Votre nom') }}" maxlength="120">
                     <input id="cPhone" class="cin" type="tel" placeholder="{{ __('Téléphone (WhatsApp)') }}" maxlength="40">
@@ -495,10 +520,24 @@
         var HAS_ZONES = @json($menu->activeDeliveryZones->isNotEmpty());
         var REQUIRE_CUSTOMER_INFO = @json($menu->require_customer_info ?? false);
         var CSRF = document.querySelector('meta[name=csrf-token]').getAttribute('content');
-        var T = { empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')), customerInfo:@json(__('Indiquez votre nom et votre téléphone pour commander.')), deliveryInfo:@json(__('Pour une livraison, indiquez votre numéro de téléphone et votre adresse.')), phone:@json(__('Téléphone (WhatsApp)')), phoneRequired:@json(__('Téléphone (obligatoire pour la livraison)')),
+        var T = { ageRequired:@json(__('Confirmez que vous avez 18 ans ou plus pour commander de l\'alcool.')), empty:@json(__('Votre commande est vide.')), confirm:@json(__('Confirmer la commande')), wait:@json(__('Patientez…')), err:@json(__('Réessayez.')), required:@json(__('Choisissez une option obligatoire.')), customerInfo:@json(__('Indiquez votre nom et votre téléphone pour commander.')), deliveryInfo:@json(__('Pour une livraison, indiquez votre numéro de téléphone et votre adresse.')), phone:@json(__('Téléphone (WhatsApp)')), phoneRequired:@json(__('Téléphone (obligatoire pour la livraison)')),
             refusedTitle:@json(__('Commande refusée :')), notSentTitle:@json(__('Commande non envoyée :')), refused:@json(__('Le commerce n\'a pas pu accepter votre commande.')), retry:@json(__('Réessayer')), dismiss:@json(__('Fermer')),
             giveUp:@json(__('Impossible d\'envoyer votre commande pour le moment.')), storageFull:@json(__('Impossible de garder votre commande hors ligne (stockage du navigateur plein ou bloqué). Reconnectez-vous puis réessayez.')) };
         var cart = {};
+        var ALC_IDS = @json($alcoolIds ?? []);
+        function hasAlcohol(){ for (var k in cart){ if (ALC_IDS.indexOf(cart[k].id) !== -1) return true; } return false; }
+
+        (function(){
+            var tabs = document.querySelectorAll('#sectabs .sectab'); if (!tabs.length) return;
+            function show(sec){
+                tabs.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-sec') === sec); });
+                document.querySelectorAll('.catnav .chip, section.sec[data-sec]').forEach(function(el){
+                    el.style.display = (el.getAttribute('data-sec') === sec) ? '' : 'none';
+                });
+            }
+            tabs.forEach(function(b){ b.addEventListener('click', function(){ show(b.getAttribute('data-sec')); window.scrollTo({top:0,behavior:'smooth'}); }); });
+            show(tabs[0].getAttribute('data-sec'));
+        })();
         // Même défaut que le bouton .otbtn.on rendu côté serveur — un menu
         // livraison-seule ne doit pas démarrer sur un mode qu'il n'offre pas.
         var orderType = @json($modesOfferts[0] ?? 'dine_in');
@@ -741,6 +780,7 @@ var MenuQ=(function(){
             document.getElementById('deliveryrowtot').style.display = frais>0 ? '' : 'none';
             document.getElementById('total').textContent = fmt(s.t+tip+frais);
             document.getElementById('cartbar').classList.toggle('show', s.n>0);
+            var ab = document.getElementById('ageBox'); if (ab) { ab.style.display = hasAlcohol() ? 'flex' : 'none'; }
             var list = document.getElementById('clist'), html='';
             if(s.n===0){ html = '<div class="empty">'+T.empty+'</div>'; }
             else { for(var k in cart){ var c=cart[k];
@@ -803,8 +843,11 @@ var MenuQ=(function(){
                 alert(T.deliveryInfo);
                 return;
             }
+            // Confort seulement : le serveur exige la même confirmation (MenuOrderService) pour tout article d'un rayon d'alcool.
+            var ageOk = !!(document.getElementById('cAge') && document.getElementById('cAge').checked);
+            if (hasAlcohol() && !ageOk){ alert(T.ageRequired); return; }
             var items=[]; for(var k in cart){ items.push({id:cart[k].id, qty:cart[k].qty, options:cart[k].options}); }
-            var payload = {items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
+            var payload = {age_ok:ageOk,items:items,client_uuid:ORDER_UUID,channel:'menu',order_type:orderType,tip:tipAmount(s.t),
                 customer_name:val('cName'),customer_phone:val('cPhone'),table_label:val('cTable'),
                 table_code:@json($table->code ?? null),room_token:@json($roomToken ?? null),delivery_address:val('cAddress'),delivery_reference:val('cRef'),
                 delivery_zone_id:(HAS_ZONES ? val('cZone') : null)};

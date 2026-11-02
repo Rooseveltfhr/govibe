@@ -103,7 +103,7 @@ class MenuOrderService
     {
         return DB::transaction(function () use ($menu, $payload, $uuid) {
             // Catalogue autorisé : articles disponibles de ce menu, indexés par id.
-            $catalog = $menu->items()->where('is_available', true)->with('options.choices')->get()->keyBy('id');
+            $catalog = $menu->items()->where('is_available', true)->with(['options.choices', 'category'])->get()->keyBy('id');
 
             // Régime de taxe du commerce, lu UNE fois : le relire à chaque
             // ligne ferait autant de requêtes pour une réponse identique.
@@ -120,6 +120,7 @@ class MenuOrderService
 
             $lines = [];
             $subtotal = 0.0;
+            $needsAge = false;
             foreach (($payload['items'] ?? []) as $it) {
                 $item = $catalog->get((int) ($it['id'] ?? 0));
                 if (! $item) {
@@ -130,6 +131,11 @@ class MenuOrderService
                 // Stock : refuse la commande si un article suivi n'a pas assez de stock.
                 if (! StockService::canFulfill($item->stock, $qty)) {
                     throw new OrderRuleException('out_of_stock');
+                }
+
+                // HM-1 : un rayon d'alcool exige la confirmation « 18 ans et plus » — vérifiée ICI, pas seulement dans la page.
+                if ($item->category?->is_alcohol) {
+                    $needsAge = true;
                 }
 
                 [$optionsExtra, $optionsSnapshot] = $this->resolveOptions($item, $it['options'] ?? []);
@@ -148,6 +154,8 @@ class MenuOrderService
                 // commande déjà passée aujourd'hui.
                 $tauxLigne = $taxe->rateFor($item);
                 $lines[] = [
+                    // Station GELÉE sur la ligne (cuisine / bar) : déplacer la catégorie plus tard ne réécrit pas l'histoire.
+                    'station' => \Modules\Tagtoa\App\Models\Menu\Category::cleanStation($item->category?->station),
                     'item' => $item, 'price' => $price, 'qty' => $qty, 'options' => $optionsSnapshot,
                     'line_total' => $ligneTotal, 'tax_rate' => $tauxLigne,
                     // Figés sur la ligne : un taux changé demain ne recalcule jamais cette commande.
@@ -155,6 +163,10 @@ class MenuOrderService
                     'unit_price_original' => $estEtranger ? $prixOrigine : null,
                     'rate_used'           => $estEtranger ? \Modules\Tagtoa\App\Services\Currency\CurrencyRateService::rateOf($deviseOrigine, $base, $taux) : null,
                 ];
+            }
+
+            if ($needsAge && ! filter_var($payload['age_ok'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                throw new OrderRuleException('age_required');
             }
 
             if (! $lines) {
@@ -296,6 +308,7 @@ class MenuOrderService
 
                 $order->items()->create([
                     'item_id'          => $l['item']->id,
+                    'station'          => $l['station'],
                     // Le nom FIGÉ sur la ligne est celui que le CLIENT a vu au
                     // moment de commander — dans sa langue, pas forcément
                     // celle du marchand. Un client qui a lu « Fried pork » ne
