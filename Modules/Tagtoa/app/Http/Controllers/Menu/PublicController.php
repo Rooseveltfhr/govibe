@@ -48,7 +48,18 @@ class PublicController extends Controller
             $summary = app(ReviewService::class)->summary('menu', (int) $menu->id);
             $reviews = Review::query()->forSubject('menu', (int) $menu->id)->approved()->latest()->limit(20)->get();
 
-            return compact('menu', 'categories', 'reviews', 'summary');
+            // HM-2 : types de chambre et tarifs de l'hôtel (vide pour tout autre commerce). Contexte public =
+            // portée tenant ouverte : le tenant du menu est filtré EXPLICITEMENT, sur les types ET sur les tarifs.
+            // Un commerce qui n'est (plus) pas un hôtel n'affiche pas de chambres, même s'il en a gardé en base.
+            $roomTypes = \Modules\Tagtoa\App\Models\Business\Business::whereKey($menu->tenant_id)->value('type') !== 'hotel'
+                ? collect()
+                : \Modules\Tagtoa\App\Models\Hotel\HotelRoomType::allTenants()
+                    ->where('tenant_id', $menu->tenant_id)->where('is_active', true)
+                    ->with(['plans' => fn ($q) => $q->where('tenant_id', $menu->tenant_id)->where('is_active', true)])
+                    ->orderBy('sort')->orderBy('id')->get()
+                    ->filter(fn ($t) => $t->plans->isNotEmpty())->values();
+
+            return compact('menu', 'categories', 'reviews', 'summary', 'roomTypes');
         });
 
         // Vérification de table : JAMAIS dans le cache ci-dessus, qui est
