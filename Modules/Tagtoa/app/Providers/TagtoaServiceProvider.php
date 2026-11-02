@@ -39,12 +39,16 @@ class TagtoaServiceProvider extends ServiceProvider
             \Modules\Tagtoa\App\Console\BackupDatabaseCommand::class,
             \Modules\Tagtoa\App\Console\TenantAuditCommand::class,
             \Modules\Tagtoa\App\Console\ReconcilePaymentsCommand::class,
+            \Modules\Tagtoa\App\Console\PurgeHotelRequestsCommand::class,
         ]);
 
         // Filet des paiements « en attente » (CS-12). Ne fait rien si l'hôte n'a
         // pas de cron `schedule:run` (alors seul le déploiement la lance) ;
         // coupable par TAGTOA_PAY_RECONCILE=false.
         $this->app->booted(function () {
+            \Modules\Tagtoa\App\Console\PurgeHotelRequestsCommand::schedule(
+                $this->app->make(\Illuminate\Console\Scheduling\Schedule::class)
+            );
             if (! config('tagtoa.pay.reconcile', true)) {
                 return;
             }

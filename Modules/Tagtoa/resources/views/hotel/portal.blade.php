@@ -6,6 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
+    <meta name="referrer" content="no-referrer">
     <title>{{ $hotel->name }} — {{ $room->label }}</title>
     <style>
         :root{--blk:#0A0A0A;--green:#2cb809;--muted:#6B7280;--bd:rgba(0,0,0,.09);--bg:#F7F8F6}
@@ -26,7 +27,7 @@
 </head>
 <body>
 <div class="w">
-    @if(session('guest_error'))<div class="err">{{ session('guest_error') }}</div>@endif
+    @if(session('guest_error'))<div class="err">{{ session('guest_error') }}</div>@elseif($errors->any())<div class="err">{{ $errors->first() }}</div>@endif
     <div class="card">
         <h1>{{ $hotel->name }}</h1>
         <span class="room">{{ $room->label }}</span>

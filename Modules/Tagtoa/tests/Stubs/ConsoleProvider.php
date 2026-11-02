@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use Modules\Tagtoa\App\Console\BackfillOrdersCommand;
 use Modules\Tagtoa\App\Console\BackupDatabaseCommand;
 use Modules\Tagtoa\App\Console\MintStandsCommand;
+use Modules\Tagtoa\App\Console\PurgeHotelRequestsCommand;
 use Modules\Tagtoa\App\Console\ReconcilePaymentsCommand;
 use Modules\Tagtoa\App\Console\TenantAuditCommand;
 
@@ -27,6 +28,7 @@ class ConsoleProvider extends ServiceProvider
         BackupDatabaseCommand::class,
         TenantAuditCommand::class,
         ReconcilePaymentsCommand::class,
+        PurgeHotelRequestsCommand::class,
     ];
 
     public function boot(): void

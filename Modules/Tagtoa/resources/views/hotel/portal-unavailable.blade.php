@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
+    <meta name="referrer" content="no-referrer">
     <title>TAGTOA</title>
     <style>
         body{margin:0;font-family:system-ui,sans-serif;background:#F7F8F6;color:#0A0A0A;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}

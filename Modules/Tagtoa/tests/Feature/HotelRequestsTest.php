@@ -99,7 +99,7 @@ class HotelRequestsTest extends TestCase
         $this->assertFalse(HotelPortalToken::verify('TG-000002', $t, 1_800_000_000 + 60), 'Autre support.');
         $this->assertFalse(HotelPortalToken::verify('TG-000001', $t, 1_800_000_000 + HotelRequestRules::TOKEN_TTL + 1), 'Expiré.');
         $this->assertFalse(HotelPortalToken::verify('TG-000001', $t, 1_800_000_000 - 3600), 'Daté du futur.');
-        $this->assertFalse(HotelPortalToken::verify('TG-000001', substr($t, 0, -1).'0', 1_800_000_000 + 60), 'Altéré.');
+        $this->assertFalse(HotelPortalToken::verify('TG-000001', substr($t, 0, -1).(substr($t, -1) === '0' ? '1' : '0'), 1_800_000_000 + 60), 'Altéré.');
         $this->assertFalse(HotelPortalToken::verify('TG-000001', null));
         $this->assertFalse(HotelPortalToken::verify('TG-000001', 'n-importe-quoi'));
     }
@@ -118,7 +118,7 @@ class HotelRequestsTest extends TestCase
 
         $this->assertSame(1, substr_count($html, 'name="service_id"'), 'Un seul service se demande ici.');
         $this->assertStringContainsString('value="'.$menage->id.'"', $html);
-        $this->assertMatchesRegularExpression('/name="tk" value="\d+\.[a-f0-9]{64}"/', $html);
+        $this->assertMatchesRegularExpression('/name="tk" value="\d+\.[a-f0-9]{16}\.[a-f0-9]{64}"/', $html);
         $this->assertStringNotContainsString('Climatisation', $html);
     }
 
@@ -242,6 +242,124 @@ class HotelRequestsTest extends TestCase
         [$req] = $this->creer($stand, $svc, ['note' => "  Bonjour\x00\x07 \n merci  "]);
 
         $this->assertSame("Bonjour \n merci", $req->note);
+    }
+
+    public function test_a_token_works_only_once(): void
+    {
+        $this->fabriquer();
+        [$b, , $stand, $svc] = $this->hotel('c-a', 'Hôtel Alpha', 0);
+        $autre = $this->service($b->id, 'linen', 'Serviettes');
+        $tk = HotelPortalToken::issue($stand->public_id);
+        $url = route('tagtoa.hotel.request', $stand->public_id);
+
+        $this->post($url, ['service_id' => $svc->id, 'tk' => $tk])->assertRedirect();
+        $this->post($url, ['service_id' => $autre->id, 'tk' => $tk])->assertSessionHas('guest_error');
+
+        $this->assertSame(1, HotelRequest::allTenants()->count());
+    }
+
+    public function test_two_pages_loaded_in_the_same_second_get_different_tokens(): void
+    {
+        $this->assertNotSame(HotelPortalToken::issue('TG-000001', 1_800_000_000), HotelPortalToken::issue('TG-000001', 1_800_000_000));
+    }
+
+    public function test_creation_is_limited_per_support_and_per_hotel(): void
+    {
+        $this->fabriquer();
+        [$b, , $stand, ] = $this->hotel('c-a', 'Hôtel Alpha', 0);
+        $services = [];
+        for ($i = 0; $i < HotelRequestRules::PER_STAND_HOURLY + 2; $i++) {
+            $services[] = $this->service($b->id, 'linen', "Article $i");
+        }
+        // Les demandes sont clôturées au fur et à mesure : seul le plafond HORAIRE du support peut refuser.
+        foreach (array_slice($services, 0, HotelRequestRules::PER_STAND_HOURLY) as $s) {
+            [$r] = $this->creer($stand, $s);
+            app(HotelRequestService::class)->setStatus($b->id, $r->id, 'done');
+        }
+
+        $this->demander($stand, $services[HotelRequestRules::PER_STAND_HOURLY])->assertSessionHas('guest_error');
+        $this->assertSame(HotelRequestRules::PER_STAND_HOURLY, HotelRequest::allTenants()->count());
+    }
+
+    public function test_stale_unhandled_requests_stop_blocking_the_room(): void
+    {
+        $this->fabriquer();
+        [, , $stand, $svc] = $this->hotel('c-a', 'Hôtel Alpha', 0);
+        [$vieille] = $this->creer($stand, $svc);
+        HotelRequest::allTenants()->whereKey($vieille->id)->update(['created_at' => now()->subHours(HotelRequestRules::OPEN_FRESH_HOURS + 1)]);
+
+        $this->creer($stand, $svc);   // ni doublon ni plafond : la vieille ne compte plus
+
+        $this->assertSame(2, HotelRequest::allTenants()->count());
+    }
+
+    public function test_the_hotel_closes_a_selection_in_one_go_but_only_its_own(): void
+    {
+        $this->fabriquer();
+        [$a, , $standA, $svcA] = $this->hotel('c-a', 'Hôtel Alpha', 0);
+        [$reqA] = $this->creer($standA, $svcA);
+        [$b, , $standB, $svcB] = $this->hotel('c-b', 'Hôtel Bravo', 1);   // courant : Bravo
+        [$reqB] = $this->creer($standB, $svcB);
+
+        $this->post(route('tagtoa.hotel.requests.bulk'), ['ids' => [$reqA->id, $reqB->id]])->assertSessionHas('success');
+
+        $this->assertSame('new', $reqA->fresh()->status, 'Une demande d\'un autre hôtel n\'est jamais touchée.');
+        $this->assertSame('rejected', $reqB->fresh()->status);
+        $this->post(route('tagtoa.hotel.requests.bulk'), ['ids' => []])->assertSessionHasErrors('ids');
+    }
+
+    public function test_a_cancel_on_a_closed_request_says_it_is_closed(): void
+    {
+        $this->fabriquer();
+        [$b, , $stand, $svc] = $this->hotel('c-a', 'Hôtel Alpha', 0);
+        [$req, $secret] = $this->creer($stand, $svc);
+        app(HotelRequestService::class)->setStatus($b->id, $req->id, 'done');
+
+        $this->post("/h/track/{$req->reference}/{$secret}/cancel")->assertSessionHas('guest_error', 'Cette demande est déjà clôturée.');
+    }
+
+    public function test_validation_errors_are_shown_to_the_guest(): void
+    {
+        $this->fabriquer();
+        [, , $stand, ] = $this->hotel('c-a', 'Hôtel Alpha', 0);
+
+        $this->from('/h/'.$stand->public_id)->post(route('tagtoa.hotel.request', $stand->public_id), ['service_id' => 'abc', 'tk' => 'x'])
+            ->assertSessionHasErrors('service_id');
+        $this->get('/h/'.$stand->public_id)->assertOk()->assertSee('class="err"', false);
+    }
+
+    public function test_the_guest_pages_say_no_referrer_themselves(): void
+    {
+        $this->fabriquer();
+        [, , $stand, $svc] = $this->hotel('c-a', 'Hôtel Alpha', 0);
+        [$req, $secret] = $this->creer($stand, $svc);
+
+        foreach (['/h/'.$stand->public_id, "/h/track/{$req->reference}/{$secret}", '/h/TG-999999'] as $path) {
+            $this->assertStringContainsString('<meta name="referrer" content="no-referrer">', $this->get($path)->getContent(), $path);
+        }
+    }
+
+    public function test_the_purge_command_erases_guest_text_but_keeps_the_rows(): void
+    {
+        $this->fabriquer();
+        [$b, , $stand, $svc] = $this->hotel('c-a', 'Hôtel Alpha', 0);
+        $autre = $this->service($b->id, 'linen', 'Serviettes');
+        [$close] = $this->creer($stand, $svc, ['note' => 'texte ancien']);
+        [$recente] = $this->creer($stand, $autre, ['note' => 'texte récent']);
+        app(HotelRequestService::class)->setStatus($b->id, $close->id, 'rejected', 'motif ancien');
+        HotelRequest::allTenants()->whereKey($close->id)->update(['updated_at' => now()->subDays(HotelRequestRules::PURGE_DAYS + 1)]);
+
+        $this->artisan('tagtoa:hotel:purge-requests')->assertSuccessful();
+
+        $this->assertNull($close->fresh()->note);
+        $this->assertNull($close->fresh()->reason);
+        $this->assertSame('rejected', $close->fresh()->status);
+        $this->assertSame('texte récent', $recente->fresh()->note, 'Une demande récente n\'est pas touchée.');
+
+        // Une demande restée ouverte trop longtemps est aussi effacée.
+        HotelRequest::allTenants()->whereKey($recente->id)->update(['created_at' => now()->subDays(HotelRequestRules::PURGE_DAYS * 2 + 1)]);
+        $this->artisan('tagtoa:hotel:purge-requests')->assertSuccessful();
+        $this->assertNull($recente->fresh()->note);
     }
 
     /* ---------- suivi ---------- */

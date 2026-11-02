@@ -35,6 +35,22 @@ class HotelRequestRules
     /** Demandes ouvertes au plus par chambre : un QR photographié ne doit pas inonder la réception. */
     public const OPEN_MAX_PER_ROOM = 5;
 
+    /**
+     * Une demande « nouvelle » jamais traitée cesse de bloquer la chambre après ce délai (heures) : elle
+     * ne compte plus dans le plafond ni dans le doublon. Sans cela, quelques demandes parasites (ou
+     * oubliées) fermeraient le service à la chambre jusqu'à ce que quelqu'un les clôture à la main.
+     */
+    public const OPEN_FRESH_HOURS = 24;
+
+    /** Limites de création par heure : par support (chambre) et par hôtel. Bornent le spam sans gêner un vrai séjour. */
+    public const PER_STAND_HOURLY = 8;
+    public const PER_HOTEL_HOURLY = 400;
+
+    /** Rétention : le texte libre des demandes closes est effacé après ce délai (jours). */
+    public const PURGE_DAYS = 90;
+
+    public const BULK_MAX = 200;
+
     public const NOTE_MAX = 300;
     public const REASON_MAX = 200;
 

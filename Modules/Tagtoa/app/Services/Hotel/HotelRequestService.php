@@ -47,7 +47,8 @@ class HotelRequestService
                 }
 
                 $ouvertes = HotelRequest::allTenants()->where('tenant_id', $tenantId)->where('room_id', $room->id)
-                    ->whereIn('status', R::OPEN);
+                    ->whereIn('status', R::OPEN)
+                    ->where('created_at', '>=', now()->subHours(R::OPEN_FRESH_HOURS));
 
                 if ((clone $ouvertes)->where('service_id', $service->id)->exists()) {
                     return $this->non(self::DUPLICATE);

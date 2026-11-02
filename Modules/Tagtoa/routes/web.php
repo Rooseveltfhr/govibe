@@ -81,7 +81,7 @@ Route::get('/h/{standId}', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalCon
     ->middleware('throttle:120,1')->name('tagtoa.hotel.portal');
 // H5 — demandes de l'invité (sans compte). Création : jeton récent + plafonds ; suivi : référence + secret de 128 bits.
 Route::post('/h/{standId}/request', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'request'])
-    ->middleware('throttle:10,1')->name('tagtoa.hotel.request');
+    ->middleware('throttle:30,1')->name('tagtoa.hotel.request');
 Route::get('/h/track/{reference}/{secret}', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'track'])
     ->middleware('throttle:60,1')->name('tagtoa.hotel.track');
 Route::post('/h/track/{reference}/{secret}/cancel', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'cancel'])
@@ -394,6 +394,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/rooms/{id}/support/revoke', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'revokeSupport'])->whereNumber('id')->middleware('throttle:20,1')->name('rooms.support.revoke');
         // H5 — demandes des invités (liste et traitement). Rôles du personnel et alertes : H6.
         Route::get('/requests', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RequestController::class, 'index'])->name('requests');
+        Route::post('/requests/bulk', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RequestController::class, 'bulk'])->name('requests.bulk');
         Route::post('/requests/{id}/status', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RequestController::class, 'status'])->whereNumber('id')->name('requests.status');
         // H3 — catalogue des services (room service = un Menu existant du même hôtel).
         Route::get('/services', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'index'])->name('services');

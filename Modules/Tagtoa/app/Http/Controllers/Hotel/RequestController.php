@@ -66,6 +66,30 @@ class RequestController extends Controller
         return back()->with('success', __('Demande :r mise à jour.', ['r' => $req->reference]));
     }
 
+    /** Clôture en une fois les demandes cochées (parasites, oubliées) : refusées avec un motif standard. */
+    public function bulk(Request $request): RedirectResponse
+    {
+        if (! ($hotel = $this->hotel())) {
+            return redirect()->route('tagtoa.hub');
+        }
+        $data = $request->validate([
+            'ids'   => ['required', 'array', 'min:1', 'max:'.R::BULK_MAX],
+            'ids.*' => ['integer', 'min:1'],
+        ]);
+
+        $svc = app(Svc::class);
+        $ok = 0;
+        // Seules les demandes de CET hôtel (portée tenant + filtre explicite du service) peuvent être touchées.
+        foreach (HotelRequest::whereIn('id', $data['ids'])->pluck('id') as $id) {
+            if ($svc->setStatus($hotel->id, (int) $id, 'rejected', __('Clôturée par l\'hôtel'))['result'] === Svc::OK) {
+                $ok++;
+            }
+        }
+        app(AuditService::class)->log('hotel.request.bulk_closed', null, (string) $ok);
+
+        return back()->with('success', __(':n demande(s) clôturée(s).', ['n' => $ok]));
+    }
+
     private function hotel(): ?Business
     {
         $b = Business::where('account_id', Tenant::account())->whereKey(Tenant::id())->first();

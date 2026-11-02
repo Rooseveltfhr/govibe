@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\RateLimiter;
 use Modules\Tagtoa\App\Services\Hotel\HotelPortalResolver;
 use Modules\Tagtoa\App\Services\Hotel\HotelRequestService as Svc;
 use Modules\Tagtoa\App\Support\Hotel\HotelPortalToken;
@@ -63,8 +65,18 @@ class PortalController extends Controller
 
         $retour = redirect()->route('tagtoa.hotel.portal', $ctx['stand']->public_id);
 
-        if (! HotelPortalToken::verify($ctx['stand']->public_id, $data['tk'])) {
+        // Jeton valide ET à usage unique : un même jeton ne sert qu'une fois (chaque demande repasse par la page).
+        if (! HotelPortalToken::verify($ctx['stand']->public_id, $data['tk'])
+            || ! Cache::add('hotel-tk:'.hash('sha256', $data['tk']), 1, HotelRequestRules::TOKEN_TTL)) {
             return $this->entetes($retour->with('guest_error', __('Cette page a expiré. Rechargez-la puis recommencez.')));
+        }
+
+        // Plafonds de création par support et par hôtel (en plus du débit par IP, partagé derrière un Wi-Fi d'hôtel).
+        $cleStand = 'hotel-req:stand:'.$ctx['stand']->id;
+        $cleHotel = 'hotel-req:tenant:'.$ctx['stand']->tenant_id;
+        if (RateLimiter::tooManyAttempts($cleStand, HotelRequestRules::PER_STAND_HOURLY)
+            || RateLimiter::tooManyAttempts($cleHotel, HotelRequestRules::PER_HOTEL_HOURLY)) {
+            return $this->entetes($retour->with('guest_error', __('Trop de demandes pour le moment. Contactez la réception.')));
         }
 
         $r = $this->requests->create($ctx['stand']->tenant_id, $ctx['room']->id, (int) $data['service_id'], $data['note'] ?? null);
@@ -76,6 +88,9 @@ class PortalController extends Controller
                 default               => __('Ce service n\'est pas disponible. Contactez la réception.'),
             }));
         }
+
+        RateLimiter::hit($cleStand, 3600);
+        RateLimiter::hit($cleHotel, 3600);
 
         return $this->entetes(redirect()->route('tagtoa.hotel.track', [$r['request']->reference, $r['secret']]));
     }
@@ -101,9 +116,11 @@ class PortalController extends Controller
         }
 
         return $this->entetes(redirect()->route('tagtoa.hotel.track', [$reference, $secret])
-            ->with($r['result'] === Svc::OK ? 'guest_ok' : 'guest_error', $r['result'] === Svc::OK
-                ? __('Demande annulée.')
-                : __('Cette demande a déjà été prise en compte : contactez la réception pour l\'annuler.')));
+            ->with($r['result'] === Svc::OK ? 'guest_ok' : 'guest_error', match (true) {
+                $r['result'] === Svc::OK => __('Demande annulée.'),
+                $r['request'] && ! $r['request']->isOpen() => __('Cette demande est déjà clôturée.'),
+                default => __('Cette demande a déjà été prise en compte : contactez la réception pour l\'annuler.'),
+            }));
     }
 
     /** Hôtel, chambre et profil d'une demande, résolus par SON commerce (pas par le support). */
