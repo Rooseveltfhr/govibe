@@ -1011,8 +1011,14 @@ var MenuQ=(function(){
         }); });
         var secs = chips.map(function(ch){ return document.getElementById(ch.getAttribute('data-target')); });
         function onScroll(){
-            var i = secs.length-1;
-            for(var j=0;j<secs.length;j++){ if(secs[j] && secs[j].getBoundingClientRect().top<=90){ i=j; } }
+            var i = -1;
+            for(var j=0;j<secs.length;j++){
+                // Un rayon masqué par un onglet (display:none) renvoie top = 0 : il ne doit jamais « gagner ».
+                if(secs[j] && secs[j].offsetParent !== null && secs[j].getBoundingClientRect().top<=90){ i=j; }
+            }
+            if (i === -1) { // rien de visible au-dessus de la ligne : la première puce visible est la courante
+                for(var m=0;m<chips.length;m++){ if(secs[m] && secs[m].offsetParent !== null){ i=m; break; } }
+            }
             chips.forEach(function(c,k){ c.classList.toggle('on', k===i); });
         }
         window.addEventListener('scroll', onScroll, {passive:true}); onScroll();

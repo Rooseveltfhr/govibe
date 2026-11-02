@@ -177,6 +177,37 @@ class MenuSectionsStationsTest extends TestCase
         $this->assertCount(2, $this->getJson(route('tagtoa.menu.dashboard.kitchen.feed', $menu->id).'?station=piscine')->json()['orders']);
     }
 
+    public function test_array_parameters_never_crash_the_station_filter_or_the_cleaners(): void
+    {
+        [$menu, $plat] = $this->menuAvecBar();
+        $this->commander($menu, [$plat])->assertSuccessful();
+        $this->patron();
+
+        // `station[]=x` : ignoré (tout est montré), jamais un 500.
+        $this->getJson(route('tagtoa.menu.dashboard.kitchen.feed', $menu->id).'?station[]=bar')->assertOk();
+        $this->assertSame('restaurant', Category::cleanSection(['bar']));
+        $this->assertSame('kitchen', Category::cleanStation(['bar']));
+        $this->assertSame('kitchen', Category::cleanStation(123));
+
+        // Idem à l'enregistrement : un tableau pour `section` retombe sur le défaut sûr.
+        $cat = Category::where('name', 'Plats')->first();
+        $this->put(route('tagtoa.menu.dashboard.update', $menu->id), ['name' => $menu->name, 'type' => 'hotel', 'form_end' => 1,
+            'cats' => [['id' => $cat->id, 'name' => 'Plats', 'rayon_sent' => 1, 'section' => ['bar'], 'station' => ['bar']]]])->assertSessionHasNoErrors();
+        $this->assertSame(['restaurant', 'kitchen'], [$cat->fresh()->section, $cat->fresh()->station]);
+    }
+
+    public function test_the_nav_highlight_script_ignores_sections_hidden_by_a_tab(): void
+    {
+        [$menu] = $this->menuAvecBar();
+        $html = $this->get(route('tagtoa.menu.show', $menu->alias))->getContent();
+
+        // Un rayon masqué (display:none) renvoie top = 0 : le script doit l'écarter explicitement, dans la boucle
+        // de surlignage ET dans le repli « première puce visible ». (Garde de source : le comportement réel du
+        // défilement n'est pas testable en PHP.)
+        $this->assertSame(2, substr_count($html, 'offsetParent !== null'));
+        $this->assertStringContainsString('secs[j].offsetParent !== null && secs[j].getBoundingClientRect().top<=90', $html);
+    }
+
     public function test_the_kitchen_feed_of_a_menu_without_bar_hides_the_bar_tab(): void
     {
         $this->patron();

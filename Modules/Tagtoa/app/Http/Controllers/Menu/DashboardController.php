@@ -365,7 +365,8 @@ class DashboardController extends Controller
         // elle n'y montre que ces lignes. Une ligne sans station (commande d'avant) compte comme « cuisine ».
         // Le statut reste global : une seule commande, un seul cycle.
         $station = $request->query('station');
-        $station = array_key_exists((string) $station, \Modules\Tagtoa\App\Models\Menu\Category::STATIONS) ? (string) $station : null;
+        // Un tableau (`station[]=x`) est ignoré, comme toute valeur inconnue : jamais d'erreur 500.
+        $station = is_string($station) && array_key_exists($station, \Modules\Tagtoa\App\Models\Menu\Category::STATIONS) ? $station : null;
         $avecBar = $menu->orders()->whereIn('status', Order::KITCHEN_STATUSES)
             ->whereHas('items', fn ($q) => $q->where('station', 'bar'))->exists()
             || $menu->categories()->where('station', 'bar')->exists();
