@@ -6,6 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
+    <meta name="referrer" content="no-referrer">
     <title>{{ $hotel->name }} — {{ $room->label }}</title>
     <style>
         :root{--blk:#0A0A0A;--green:#2cb809;--muted:#6B7280;--bd:rgba(0,0,0,.09);--bg:#F7F8F6}
@@ -18,11 +19,15 @@
         .m{color:var(--muted);font-size:14px;line-height:1.55}
         .svc{padding:10px 0;border-top:1px solid var(--bd)}.svc:first-of-type{border-top:0}
         .svc b{display:block}.pr{color:var(--green);font-weight:700;font-size:14px}
+        .err{background:#FDECEA;color:#C0392B;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:14px}
+        .btn{display:inline-block;margin-top:8px;border:0;border-radius:10px;background:var(--blk);color:#fff;padding:9px 16px;font-weight:700;font-size:14px;cursor:pointer}
+        textarea{width:100%;margin-top:8px;border:1.5px solid var(--bd);border-radius:10px;padding:10px;font:inherit;font-size:14px}
         a{color:inherit}
     </style>
 </head>
 <body>
 <div class="w">
+    @if(session('guest_error'))<div class="err">{{ session('guest_error') }}</div>@elseif($errors->any())<div class="err">{{ $errors->first() }}</div>@endif
     <div class="card">
         <h1>{{ $hotel->name }}</h1>
         <span class="room">{{ $room->label }}</span>
@@ -48,9 +53,18 @@
                     <b>{{ $s->nameFor(app()->getLocale()) }}</b>
                     @if($s->description)<span class="m">{{ $s->description }}</span>@endif
                     @if($s->price !== null && (float) $s->price > 0)<div class="pr">{{ number_format((float) $s->price, 2) }} {{ $hotel->currency }}</div>@endif
+                    @if(in_array($s->kind, $requestable, true))
+                        <form method="POST" action="{{ route('tagtoa.hotel.request', $standId) }}">
+                            @csrf
+                            <input type="hidden" name="service_id" value="{{ $s->id }}">
+                            <input type="hidden" name="tk" value="{{ $token }}">
+                            <textarea name="note" rows="2" maxlength="300" placeholder="{{ __('Précision (facultatif)') }}"></textarea>
+                            <button class="btn">{{ __('Demander') }}</button>
+                        </form>
+                    @endif
                 </div>
             @endforeach
-            <p class="m" style="margin-top:10px">{{ __('Pour toute demande, contactez la réception.') }}</p>
+            <p class="m" style="margin-top:10px">{{ __('Aucun compte ni numéro à donner : vous recevrez un lien de suivi.') }}</p>
         </div>
     @endif
 

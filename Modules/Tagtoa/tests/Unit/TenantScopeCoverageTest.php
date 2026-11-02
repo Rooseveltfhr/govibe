@@ -140,6 +140,7 @@ class TenantScopeCoverageTest extends TestCase
             // commerce courant, qui doit voir les transactions de TOUS les commerces.
             // Ne règle un paiement que par CheckoutService::settle() (même chemin
             // que le webhook) et n'écrit jamais « échouée ».
+            'Console/PurgeHotelRequestsCommand.php',    // H5 : rétention — efface le texte libre des vieilles demandes de TOUS les hôtels (console, sans commerce courant)
             'Console/ReconcilePaymentsCommand.php',
             // Profil d'hôtel (H1) : lu/écrit pour le commerce REÇU en paramètre (déjà vérifié
             // comme appartenant au compte connecté), toujours filtré sur son identifiant.
@@ -153,6 +154,9 @@ class TenantScopeCoverageTest extends TestCase
             // et filtrent chaque requête sur ce tenant_id.
             'Http/Controllers/Hotel/PortalController.php',
             'Services/Hotel/HotelRoomSupportService.php',
+            'Services/Hotel/HotelPortalResolver.php',   // H5 : même résolution explicite, partagée par le portail et les demandes
+            'Services/Hotel/HotelRequestService.php',   // H5 : demandes d'un invité sans compte — commerce passé en paramètre
+
             'Services/Stand/StandResolver.php',         // destination d'un support de chambre (tenant du stand)
             'Services/Pay/CheckoutService.php',         // reconcile() : relit la transaction par sa référence
             'Support/BelongsToTenant.php',              // définition
