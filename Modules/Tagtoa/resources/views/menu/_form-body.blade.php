@@ -415,6 +415,24 @@
             <button type="button" class="btn btn-o btn-sm delcat" style="flex:0;color:var(--red)"
                     title="{{ __('Supprimer la catégorie') }}"><i class="fa-solid fa-trash"></i></button>
         </div>
+        @if($menu->supportsSections())
+        {{-- HM-1 : un seul menu pour restaurant ET bar. Le rayon range la carte en onglets ; la station dit sur quel
+             écran la ligne s'affiche (cuisine / bar) ; « alcool » exige la confirmation 18 ans+ à la commande. --}}
+        <div class="duo trio catrayon" style="margin-top:8px">
+            <select name="cats[CIDX][section]" class="inp rayon-section" title="{{ __('Rayon') }}">
+                @foreach(\Modules\Tagtoa\App\Models\Menu\Category::SECTIONS as $k => $lbl)
+                    <option value="{{ $k }}">{{ __($lbl) }}</option>
+                @endforeach
+            </select>
+            <select name="cats[CIDX][station]" class="inp rayon-station" title="{{ __('Préparé par') }}">
+                @foreach(\Modules\Tagtoa\App\Models\Menu\Category::STATIONS as $k => $lbl)
+                    <option value="{{ $k }}">{{ __('Préparé : :s', ['s' => __($lbl)]) }}</option>
+                @endforeach
+            </select>
+            <label class="switch" style="flex:0"><input type="checkbox" name="cats[CIDX][is_alcohol]" value="1"> {{ __('Alcool (18+)') }}</label>
+            <input type="hidden" name="cats[CIDX][rayon_sent]" value="1">
+        </div>
+        @endif
         <button type="button" class="btn btn-o btn-sm togcattr" style="margin-top:8px">
             <i class="fa-solid fa-language"></i> {{ __('Traductions du nom') }}
         </button>
@@ -479,6 +497,10 @@
             <input name="cats[CIDX][items][IIDX][stock]" class="inp" type="number" step="0.001" min="0" placeholder="{{ __('Stock (vide = illimité)') }}" style="max-width:170px" title="{{ __('Laisser vide pour ne pas suivre le stock') }}">
             <label class="switch" style="flex:0"><input type="hidden" name="cats[CIDX][items][IIDX][is_available]" value="0"><input type="checkbox" name="cats[CIDX][items][IIDX][is_available]" value="1" checked> {{ __('Disponible') }}</label>
             <label class="switch" style="flex:0"><input type="checkbox" name="cats[CIDX][items][IIDX][is_featured]" value="1"> {{ __('Mis en avant') }}</label>
+            @if($menu->supportsSections())
+            <label class="switch" style="flex:0"><input type="checkbox" name="cats[CIDX][items][IIDX][on_request]" value="1"> {{ __('Sur commande') }}</label>
+            <input type="hidden" name="cats[CIDX][items][IIDX][rayon_sent]" value="1">
+            @endif
         </div>
         {{-- Gestion : coût matière, unité, seuil, référence. Replié par défaut —
              un restaurant qui veut seulement afficher sa carte ne doit pas le
@@ -919,6 +941,7 @@ function addItem(catEl, d){
         row.querySelector('[name$="[supplier_id]"]').value = d.supplier_id || '';
         row.querySelector('input[type=checkbox][name$="[is_available]"]').checked = d.is_available !== false;
         row.querySelector('[name$="[is_featured]"]').checked = !!d.is_featured;
+        var onr = row.querySelector('[name$="[on_request]"]'); if (onr) { onr.checked = !!d.on_request; }
         var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][items]['+ii+'][id]'; h.value=d.id; row.appendChild(h);
         if (d.image_url){
             row.querySelector('.itemphoto').src = d.image_url;
@@ -991,12 +1014,24 @@ function addCat(d){
     if (d){
         block.querySelector('[name$="[name]"]').value = d.name || '';
         var h = document.createElement('input'); h.type='hidden'; h.name='cats['+ci+'][id]'; h.value=d.id; block.appendChild(h);
+        var sec = block.querySelector('.rayon-section'), sta = block.querySelector('.rayon-station'), alc = block.querySelector('[name$="[is_alcohol]"]');
+        if (sec) { sec.value = d.section || 'restaurant'; }
+        if (sta) { sta.value = d.station || 'kitchen'; }
+        if (alc) { alc.checked = !!d.is_alcohol; }
         var trad = d.translations || {};
         Object.keys(trad).forEach(function(langue){
             var nomEl = block.querySelector('[name="cats['+ci+'][translations]['+langue+'][name]"]');
             if (nomEl) nomEl.value = trad[langue].name || '';
         });
         (d.items || []).forEach(function(it){ addItem(block, it); });
+    }
+    var secSel = block.querySelector('.rayon-section');
+    if (secSel) {
+        // Choisir « Bar » propose l'écran bar ; le patron peut toujours le changer ensuite.
+        secSel.addEventListener('change', function(){
+            var st = block.querySelector('.rayon-station');
+            if (st) { st.value = (secSel.value === 'bar') ? 'bar' : 'kitchen'; }
+        });
     }
     block.querySelector('.togcattr').addEventListener('click', function(){
         var tr = block.querySelector('.cattr'); tr.hidden = !tr.hidden;
@@ -1079,11 +1114,12 @@ existingZones.forEach(addZone);
     $catData = $menu->relationLoaded('categories')
         ? $menu->categories->map(fn ($c) => [
             'id' => $c->id, 'name' => $c->name, 'icon' => $c->icon,
+            'section' => $c->section, 'station' => $c->station, 'is_alcohol' => (bool) $c->is_alcohol,
             'translations' => $c->translations ?: (object) [],
             'items' => $c->items->map(fn ($i) => [
                 'id' => $i->id, 'name' => $i->name, 'price' => $i->price,
                 'description' => $i->description, 'badge' => $i->badge, 'is_available' => $i->is_available,
-                'is_featured' => $i->is_featured, 'stock' => $i->stock, 'image_url' => $i->image_url,
+                'is_featured' => $i->is_featured, 'on_request' => (bool) $i->on_request, 'stock' => $i->stock, 'image_url' => $i->image_url,
                 'cost_price' => $i->cost_price, 'unit' => $i->unit_key,
                 'low_stock_threshold' => $i->low_stock_threshold, 'sku' => $i->sku,
                 'supplier_id' => $i->supplier_id,

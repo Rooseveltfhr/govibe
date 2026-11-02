@@ -98,6 +98,14 @@ class Menu extends Model
         return $this->belongsTo(PaymentPage::class, 'pay_page_id')->servable();
     }
 
+    /** Types où un même menu peut avoir plusieurs rayons (restaurant + bar) et des boissons alcoolisées. */
+    public const SECTIONED_TYPES = ['restaurant', 'cafe', 'bar', 'club', 'lounge', 'hotel'];
+
+    public function supportsSections(): bool
+    {
+        return in_array($this->type, self::SECTIONED_TYPES, true);
+    }
+
     public function categories(): HasMany
     {
         return $this->hasMany(Category::class, 'menu_id')->orderBy('sort');

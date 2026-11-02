@@ -14,9 +14,26 @@ class Category extends Model
 {
     protected $table = 'tagtoa_menu_categories';
 
-    protected $fillable = ['menu_id', 'name', 'icon', 'sort', 'is_active', 'translations'];
+    protected $fillable = ['menu_id', 'name', 'icon', 'sort', 'is_active', 'translations', 'section', 'station', 'is_alcohol'];
 
-    protected $casts = ['is_active' => 'boolean', 'sort' => 'integer', 'translations' => 'array'];
+    protected $casts = ['is_active' => 'boolean', 'sort' => 'integer', 'translations' => 'array', 'is_alcohol' => 'boolean'];
+
+    /** Rayons d'un même menu (hôtel avec restaurant ET bar : un seul menu). */
+    public const SECTIONS = ['restaurant' => 'Restaurant', 'bar' => 'Bar', 'other' => 'Autre'];
+
+    /** Où la ligne s'affiche une fois commandée : écran cuisine ou écran bar. */
+    public const STATIONS = ['kitchen' => 'Cuisine', 'bar' => 'Bar'];
+
+    /** Valeur sûre : une valeur inconnue retombe sur le défaut, jamais en base telle quelle. */
+    public static function cleanSection(?string $v): string
+    {
+        return array_key_exists((string) $v, self::SECTIONS) ? (string) $v : 'restaurant';
+    }
+
+    public static function cleanStation(?string $v): string
+    {
+        return array_key_exists((string) $v, self::STATIONS) ? (string) $v : 'kitchen';
+    }
 
     /** Seul le nom d'une catégorie se traduit — une icône ne change pas de langue. */
     public const CHAMPS_TRADUISIBLES = ['name'];

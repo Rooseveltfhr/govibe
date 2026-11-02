@@ -354,12 +354,28 @@ class DashboardController extends Controller
     }
 
     /** Le même écran, en JSON : ce que la page interroge toutes les quelques secondes. */
-    public function kitchenFeed(int $id): \Illuminate\Http\JsonResponse
+    public function kitchenFeed(int $id, \Illuminate\Http\Request $request): \Illuminate\Http\JsonResponse
     {
         $menu = $this->own($id);
         $orders = $menu->orders()
             ->whereIn('status', Order::KITCHEN_STATUSES)
             ->with('items')->oldest('placed_at')->get();
+
+        // HM-1 : écran cuisine / écran bar. Une commande n'apparaît que si elle a au moins une ligne de CETTE station ;
+        // elle n'y montre que ces lignes. Une ligne sans station (commande d'avant) compte comme « cuisine ».
+        // Le statut reste global : une seule commande, un seul cycle.
+        $station = $request->query('station');
+        $station = array_key_exists((string) $station, \Modules\Tagtoa\App\Models\Menu\Category::STATIONS) ? (string) $station : null;
+        $avecBar = $menu->orders()->whereIn('status', Order::KITCHEN_STATUSES)
+            ->whereHas('items', fn ($q) => $q->where('station', 'bar'))->exists()
+            || $menu->categories()->where('station', 'bar')->exists();
+        if ($station) {
+            $orders = $orders->map(function (Order $o) use ($station) {
+                $o->setRelation('items', $o->items->filter(fn ($it) => ($it->station ?: 'kitchen') === $station)->values());
+
+                return $o;
+            })->filter(fn (Order $o) => $o->items->isNotEmpty())->values();
+        }
 
         $staff = app(\Modules\Tagtoa\App\Services\Staff\StaffService::class)->forMenu($menu);
 
@@ -367,6 +383,7 @@ class DashboardController extends Controller
             // null = le patron opère directement (toujours autorisé) — voir
             // kitchenAdvance(). Un employé identifié doit avoir la case cochée.
             'staff'       => $staff ? ['name' => $staff->name, 'initials' => $staff->initials] : null,
+            'has_bar'     => $avecBar,
             'can_advance' => ! $staff || $staff->canRunKitchen(),
             'orders' => $orders->map(fn (Order $o) => [
                 'id'          => $o->id,
@@ -1132,6 +1149,13 @@ class DashboardController extends Controller
                         \Modules\Tagtoa\App\Models\Menu\Category::CHAMPS_TRADUISIBLES
                     );
                 }
+                // HM-1 : rayon (restaurant/bar), station (cuisine/bar), alcool. Même garde que les traductions :
+                // sans le marqueur du formulaire (assistant, vieux gabarit), on n'écrit RIEN.
+                if (! empty($c['rayon_sent'])) {
+                    $catAttrs['section']    = \Modules\Tagtoa\App\Models\Menu\Category::cleanSection($c['section'] ?? null);
+                    $catAttrs['station']    = \Modules\Tagtoa\App\Models\Menu\Category::cleanStation($c['station'] ?? null);
+                    $catAttrs['is_alcohol'] = ! empty($c['is_alcohol']);
+                }
                 $cat = ! empty($c['id']) ? $menu->categories()->whereKey($c['id'])->first() : null;
                 $cat ? $cat->update($catAttrs) : $cat = $menu->categories()->create($catAttrs);
                 $keepCats[] = $cat->id;
@@ -1173,6 +1197,10 @@ class DashboardController extends Controller
                         // rattacher le fournisseur du commerce d'à côté.
                         'supplier_id'         => $this->fournisseur($it['supplier_id'] ?? null),
                     ];
+                    // HM-1 : « sur commande », jamais écrit sans le marqueur du formulaire.
+                    if (! empty($it['rayon_sent'])) {
+                        $itemAttrs['on_request'] = ! empty($it['on_request']);
+                    }
                     // Même garde qu'à la catégorie : jamais écrit sans le
                     // marqueur du formulaire.
                     if (! empty($it['translations_sent'])) {

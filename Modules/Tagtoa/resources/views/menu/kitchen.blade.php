@@ -21,6 +21,12 @@
     <h2 style="flex:1">{{ __('Cuisine') }} — {{ $menu->name }}</h2>
     <span id="kw-etat" style="color:var(--muted);font-size:12.5px"></span>
 </div>
+{{-- HM-1 : n'apparaît que si le menu a un rayon « bar » (ou des lignes bar en cours). --}}
+<div id="kw-stations" style="display:none;gap:6px;margin-top:10px">
+    <button type="button" class="btn btn-sm kw-st on" data-st="">{{ __('Tout') }}</button>
+    <button type="button" class="btn btn-o btn-sm kw-st" data-st="kitchen">{{ __('Cuisine') }}</button>
+    <button type="button" class="btn btn-o btn-sm kw-st" data-st="bar">{{ __('Bar') }}</button>
+</div>
 
 <div class="card" id="kw-staff-bar" style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <span id="kw-staff-qui" style="font-size:13.5px;color:var(--muted)"></span>
@@ -117,11 +123,24 @@
         return html;
     }
 
+    var STATION = '';
+    document.querySelectorAll('.kw-st').forEach(function(b){
+        b.addEventListener('click', function(){
+            STATION = b.getAttribute('data-st') || '';
+            document.querySelectorAll('.kw-st').forEach(function(x){
+                var on = x === b; x.classList.toggle('on', on); x.classList.toggle('btn-o', !on);
+            });
+            connus = null; // changer d'écran n'est pas une nouvelle commande : pas d'alerte
+            rafraichir();
+        });
+    });
+
     function rafraichir(){
-        fetch(FEED, {headers: {'Accept': 'application/json'}})
+        fetch(FEED + (STATION ? '?station=' + encodeURIComponent(STATION) : ''), {headers: {'Accept': 'application/json'}})
             .then(function(r){ return r.json(); })
             .then(function(data){
                 var orders = data.orders || [];
+                var bar = document.getElementById('kw-stations'); if (bar) { bar.style.display = data.has_bar ? 'flex' : 'none'; }
                 etat.textContent = '{{ __('Mis à jour') }} ' + new Date().toLocaleTimeString();
 
                 var idsActuels = orders.map(function(o){ return o.id; });

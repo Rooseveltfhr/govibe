@@ -106,6 +106,7 @@ class PublicController extends Controller
             'table_code'         => ['nullable', 'string', 'max:20'],
             // H5b : jeton de chambre d'hôtel, revérifié de bout en bout par HotelRoomOrderGate.
             'room_token'         => ['nullable', 'string', 'max:200'],
+            'age_ok'             => ['nullable', 'boolean'],
             'delivery_address'   => ['nullable', 'string', 'max:200'],
             // Repère (« en face du bâtiment », « à côté de l'église ») : facultatif.
             'delivery_reference' => ['nullable', 'string', 'max:200'],
@@ -125,6 +126,7 @@ class PublicController extends Controller
                 'closed'                  => __('Ce commerce est fermé pour le moment. Revenez pendant les heures d\'ouverture.'),
                 'invalid_table'           => __('Ce QR de table n\'est plus valide. Rechargez la page en le rescannant.'),
                 'invalid_room'            => __('Ce lien de chambre n\'est plus valide. Rescannez le QR de votre chambre.'),
+                'age_required'            => __('Confirmez que vous avez 18 ans ou plus pour commander de l\'alcool.'),
                 'room_busy'               => __('Plusieurs commandes sont déjà en cours pour cette chambre. Contactez la réception.'),
                 'missing_customer_info'   => __('Indiquez votre nom et votre téléphone pour commander.'),
                 'missing_delivery_info'   => __('Pour une livraison, indiquez votre numéro de téléphone et votre adresse.'),
