@@ -78,7 +78,14 @@ Route::get('/s/{standId}', [\Modules\Tagtoa\App\Http\Controllers\Stand\StandPubl
     ->middleware('throttle:240,1')->name('tagtoa.stand.show');
 // H4 — portail de la chambre d'hôtel derrière le QR. Public ; TOUT est revérifié à chaque requête.
 Route::get('/h/{standId}', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'show'])
-    ->middleware('throttle:120,1')->name('tagtoa.hotel.portal');   // pas de contrainte de forme : le contrôleur répond TOUJOURS la même 404
+    ->middleware('throttle:120,1')->name('tagtoa.hotel.portal');
+// H5 — demandes de l'invité (sans compte). Création : jeton récent + plafonds ; suivi : référence + secret de 128 bits.
+Route::post('/h/{standId}/request', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'request'])
+    ->middleware('throttle:10,1')->name('tagtoa.hotel.request');
+Route::get('/h/track/{reference}/{secret}', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'track'])
+    ->middleware('throttle:60,1')->name('tagtoa.hotel.track');
+Route::post('/h/track/{reference}/{secret}/cancel', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'cancel'])
+    ->middleware('throttle:20,1')->name('tagtoa.hotel.track.cancel');   // pas de contrainte de forme : le contrôleur répond TOUJOURS la même 404
 Route::get('/s/{standId}/status', [\Modules\Tagtoa\App\Http\Controllers\Stand\StandPublicController::class, 'status'])
     ->middleware('throttle:60,1')->name('tagtoa.stand.status');
 // Vérifier le code gratté : SANS compte, et fortement limité — c'est la seule
@@ -385,6 +392,9 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/rooms/{id}/support', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'attachSupport'])->whereNumber('id')->middleware('throttle:20,1')->name('rooms.support.attach');
         Route::post('/rooms/{id}/support/replace', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'replaceSupport'])->whereNumber('id')->middleware('throttle:20,1')->name('rooms.support.replace');
         Route::post('/rooms/{id}/support/revoke', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RoomController::class, 'revokeSupport'])->whereNumber('id')->middleware('throttle:20,1')->name('rooms.support.revoke');
+        // H5 — demandes des invités (liste et traitement). Rôles du personnel et alertes : H6.
+        Route::get('/requests', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RequestController::class, 'index'])->name('requests');
+        Route::post('/requests/{id}/status', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RequestController::class, 'status'])->whereNumber('id')->name('requests.status');
         // H3 — catalogue des services (room service = un Menu existant du même hôtel).
         Route::get('/services', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'index'])->name('services');
         Route::post('/services', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'store'])->name('services.store');

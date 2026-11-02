@@ -3,72 +3,116 @@
 namespace Modules\Tagtoa\App\Http\Controllers\Hotel;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Modules\Tagtoa\App\Models\Business\Business;
-use Modules\Tagtoa\App\Models\Hotel\HotelProfile;
-use Modules\Tagtoa\App\Models\Hotel\HotelRoom;
-use Modules\Tagtoa\App\Models\Hotel\HotelService;
-use Modules\Tagtoa\App\Models\Stand\Stand;
-use Modules\Tagtoa\App\Support\Stand\StandId;
-use Modules\Tagtoa\App\Support\Stand\StandState;
+use Modules\Tagtoa\App\Services\Hotel\HotelPortalResolver;
+use Modules\Tagtoa\App\Services\Hotel\HotelRequestService as Svc;
+use Modules\Tagtoa\App\Support\Hotel\HotelPortalToken;
+use Modules\Tagtoa\App\Support\Hotel\HotelRequestRules;
 
 /**
- * TAGTOA HÔTEL (H4) — la page publique derrière le QR/NFC d'une chambre.
+ * TAGTOA HÔTEL (H4/H5) — la page publique derrière le QR/NFC d'une chambre, les demandes de
+ * l'invité et leur suivi.
  *
- * Route PUBLIQUE : la portée tenant est ouverte par conception. Le commerce est donc résolu
- * EXPLICITEMENT depuis le support (jamais depuis un état ambiant), puis chaque maillon est
- * revérifié À CHAQUE REQUÊTE, sans cache : support → chambre → hôtel. Un support révoqué, remplacé,
- * suspendu, perdu, d'un lot rappelé, une chambre désactivée ou un commerce qui n'est plus un hôtel
- * donnent TOUS la même réponse neutre (404) : on n'apprend rien en sondant des identifiants.
+ * Route PUBLIQUE : la portée tenant est ouverte par conception. Le commerce est résolu
+ * EXPLICITEMENT depuis le support (HotelPortalResolver), puis chaque maillon est revérifié À CHAQUE
+ * REQUÊTE, sans cache. Tous les cas indisponibles donnent la MÊME réponse neutre (404).
  *
- * La page ne montre que ce qu'un client de l'hôtel voit déjà à la réception : nom de l'hôtel,
- * numéro de la chambre, contact de la réception, services proposés. Aucun identifiant interne,
- * aucune donnée d'invité, aucune autre chambre.
+ * Créer une demande exige : le support valide, un jeton récent émis avec la page, et passe par les
+ * plafonds du service (une demande ouverte par service, 5 par chambre). Le suivi se fait par
+ * référence + secret de 128 bits (HotelRequestService), indépendant du support : une demande en
+ * cours reste suivie même si le support est remplacé pendant le séjour.
+ *
+ * La page ne montre que ce qu'un client de l'hôtel voit déjà à la réception : jamais d'identifiant
+ * interne, de donnée d'un autre invité, ni d'identité du personnel.
  */
 class PortalController extends Controller
 {
-    public function show(string $standId): Response
+    public function __construct(protected HotelPortalResolver $portal, protected Svc $requests)
     {
-        $contexte = $this->resoudre($standId);
-
-        return $contexte === null
-            ? $this->neutre()
-            : $this->entetes(response()->view('tagtoa::hotel.portal', $contexte));
     }
 
-    /** @return array<string,mixed>|null null = indisponible, sans dire pourquoi. */
-    private function resoudre(string $standId): ?array
+    public function show(string $standId): Response
     {
-        $id = StandId::normalizeId($standId);
-        if (! StandId::isValidId($id)) {
-            return null;
+        $ctx = $this->portal->page($standId);
+        if ($ctx === null) {
+            return $this->neutre();
         }
 
-        $stand = Stand::with('batch')->byPublicId($id)->first();
-        if (! $stand
-            || $stand->target_module !== 'hotel_room'
-            || $stand->tenant_id === null
-            || $stand->digital_state !== StandState::ACTIVE
-            || in_array($stand->physical_state, StandState::PHYSICAL_CLOSED, true)
-            || ($stand->batch && $stand->batch->isRecalled())) {
-            return null;
+        return $this->entetes(response()->view('tagtoa::hotel.portal', $ctx + [
+            'standId'     => $ctx['stand']->public_id,
+            'token'       => HotelPortalToken::issue($ctx['stand']->public_id),
+            'requestable' => HotelRequestRules::REQUESTABLE_KINDS,
+        ]));
+    }
+
+    /** Crée une demande. Redirige vers le suivi de l'invité. */
+    public function request(Request $request, string $standId): Response|RedirectResponse
+    {
+        $ctx = $this->portal->resolve($standId);
+        if ($ctx === null) {
+            return $this->neutre();
         }
 
-        $tenant = $stand->tenant_id;
+        $data = $request->validate([
+            'service_id' => ['required', 'integer', 'min:1'],
+            'note'       => ['nullable', 'string', 'max:'.HotelRequestRules::NOTE_MAX],
+            'tk'         => ['required', 'string', 'max:100'],
+        ]);
 
-        $chambre = HotelRoom::allTenants()->where('tenant_id', $tenant)
-            ->where('stand_id', $stand->id)->where('is_active', true)->first();
-        $hotel = $chambre ? Business::find($tenant) : null;
-        if (! $chambre || ! $hotel || $hotel->type !== 'hotel' || $hotel->is_active === false) {
-            return null;
+        $retour = redirect()->route('tagtoa.hotel.portal', $ctx['stand']->public_id);
+
+        if (! HotelPortalToken::verify($ctx['stand']->public_id, $data['tk'])) {
+            return $this->entetes($retour->with('guest_error', __('Cette page a expiré. Rechargez-la puis recommencez.')));
         }
 
+        $r = $this->requests->create($ctx['stand']->tenant_id, $ctx['room']->id, (int) $data['service_id'], $data['note'] ?? null);
+
+        if ($r['result'] !== Svc::OK) {
+            return $this->entetes($retour->with('guest_error', match ($r['result']) {
+                Svc::DUPLICATE        => __('Cette demande a déjà été transmise à la réception.'),
+                Svc::TOO_MANY_OPEN    => __('Plusieurs demandes sont déjà en cours pour cette chambre. Contactez la réception.'),
+                default               => __('Ce service n\'est pas disponible. Contactez la réception.'),
+            }));
+        }
+
+        return $this->entetes(redirect()->route('tagtoa.hotel.track', [$r['request']->reference, $r['secret']]));
+    }
+
+    public function track(string $reference, string $secret): Response
+    {
+        $req = $this->requests->forGuest($reference, $secret);
+        if (! $req) {
+            return $this->neutre();
+        }
+        $ctx = $this->contexteDe($req);
+
+        return $this->entetes(response()->view('tagtoa::hotel.track', [
+            'req' => $req, 'secret' => $secret, 'hotel' => $ctx['hotel'], 'room' => $ctx['room'], 'profile' => $ctx['profile'],
+        ]));
+    }
+
+    public function cancel(string $reference, string $secret): Response|RedirectResponse
+    {
+        $r = $this->requests->guestCancel($reference, $secret);
+        if ($r['result'] === Svc::NOT_FOUND) {
+            return $this->neutre();
+        }
+
+        return $this->entetes(redirect()->route('tagtoa.hotel.track', [$reference, $secret])
+            ->with($r['result'] === Svc::OK ? 'guest_ok' : 'guest_error', $r['result'] === Svc::OK
+                ? __('Demande annulée.')
+                : __('Cette demande a déjà été prise en compte : contactez la réception pour l\'annuler.')));
+    }
+
+    /** Hôtel, chambre et profil d'une demande, résolus par SON commerce (pas par le support). */
+    private function contexteDe($req): array
+    {
         return [
-            'hotel'    => $hotel,
-            'room'     => $chambre,
-            'profile'  => HotelProfile::allTenants()->where('tenant_id', $tenant)->first(),
-            'services' => HotelService::allTenants()->where('tenant_id', $tenant)->where('is_active', true)
-                ->orderBy('sort')->orderBy('id')->get(),
+            'hotel'   => \Modules\Tagtoa\App\Models\Business\Business::find($req->tenant_id),
+            'room'    => \Modules\Tagtoa\App\Models\Hotel\HotelRoom::allTenants()->where('tenant_id', $req->tenant_id)->whereKey($req->room_id)->first(),
+            'profile' => \Modules\Tagtoa\App\Models\Hotel\HotelProfile::allTenants()->where('tenant_id', $req->tenant_id)->first(),
         ];
     }
 
@@ -78,7 +122,7 @@ class PortalController extends Controller
     }
 
     /** Page de séjour d'un client : jamais mise en cache, jamais indexée, aucune référence sortante. */
-    private function entetes(Response $r): Response
+    private function entetes(Response|RedirectResponse $r): Response|RedirectResponse
     {
         return $r->header('Cache-Control', 'no-store, private')
             ->header('X-Robots-Tag', 'noindex, nofollow')
