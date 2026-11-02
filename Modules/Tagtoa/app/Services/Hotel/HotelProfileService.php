@@ -38,6 +38,10 @@ class HotelProfileService
             ->whereNotIn('status', \Modules\Tagtoa\App\Models\Menu\Order::DONE_STATUSES)->exists()) {
             return __('Des commandes de chambre sont encore en cours : terminez-les avant de changer le type de ce commerce.');
         }
+        if (\Modules\Tagtoa\App\Models\Hotel\HotelReservation::allTenants()->where('tenant_id', $id)->whereIn('status', \Modules\Tagtoa\App\Support\Hotel\HotelReservationRules::OPEN)
+            ->whereDate('starts_on', '>=', now()->toDateString())->exists()) {
+            return __('Des réservations sont encore à venir : traitez-les avant de changer le type de ce commerce.');
+        }
         if (\Modules\Tagtoa\App\Models\Hotel\HotelRoom::allTenants()->where('tenant_id', $id)->whereNotNull('stand_id')->exists()) {
             return __('Des chambres ont encore un support QR/NFC actif : révoquez-les avant de changer le type de ce commerce.');
         }

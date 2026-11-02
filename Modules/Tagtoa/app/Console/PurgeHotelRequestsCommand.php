@@ -60,6 +60,18 @@ class PurgeHotelRequestsCommand extends Command
             \Modules\Tagtoa\App\Models\Order\Order::allTenants()->where('source_type', 'menu_order')->whereIn('source_id', $lot)
                 ->update(['customer_name' => null, 'customer_phone' => null]);
         }
+        // Réservations (HM-3) : nom, téléphone et précision effacés — refusées/annulées après le délai, confirmées une fois le
+        // séjour passé depuis le délai, restées « nouvelles » au-delà du double. La ligne, le prix et le total restent.
+        $rez = \Modules\Tagtoa\App\Models\Hotel\HotelReservation::allTenants()
+            ->where(function ($q) use ($seuil, $seuilOuvertes) {
+                $q->where(fn ($c) => $c->whereIn('status', ['refused', 'cancelled'])->where('updated_at', '<', $seuil))
+                  ->orWhere(fn ($c) => $c->where('status', 'confirmed')->whereDate('starts_on', '<', $seuil->toDateString()))
+                  ->orWhere(fn ($c) => $c->where('status', 'new')->where('created_at', '<', $seuilOuvertes));
+            })
+            ->where(fn ($q) => $q->whereNotNull('guest_name')->orWhereNotNull('guest_phone')->orWhereNotNull('note')->orWhereNotNull('phone_key'))
+            ->update(['guest_name' => null, 'guest_phone' => null, 'phone_key' => null, 'note' => null]);
+        $this->info("Réservations : données de l'invité effacées sur $rez ligne(s).");
+
         $this->info("Commandes de chambre : données de l'invité effacées sur $o ligne(s).");
 
         return self::SUCCESS;

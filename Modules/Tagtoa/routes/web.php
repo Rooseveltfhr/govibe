@@ -86,6 +86,14 @@ Route::get('/h/track/{reference}/{secret}', [\Modules\Tagtoa\App\Http\Controller
     ->middleware('throttle:120,1,hotel-track')->name('tagtoa.hotel.track');
 Route::post('/h/track/{reference}/{secret}/cancel', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'cancel'])
     ->middleware('throttle:30,1,hotel-cancel')->name('tagtoa.hotel.track.cancel');   // pas de contrainte de forme : le contrôleur répond TOUJOURS la même 404
+// HM-3 — demande de réservation de chambre (sans compte, sans paiement). Création depuis la page publique de l'hôtel ;
+// suivi et annulation par référence + secret de 128 bits. Compteurs de limitation séparés (préfixes).
+Route::post('/menu/{alias}/reserve', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ReservationController::class, 'reserve'])
+    ->middleware('throttle:10,1,hotel-reserve')->name('tagtoa.menu.reserve');
+Route::get('/h/r/{reference}/{secret}', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ReservationController::class, 'track'])
+    ->middleware('throttle:120,1,hotel-resv-track')->name('tagtoa.hotel.reservation.track');
+Route::post('/h/r/{reference}/{secret}/cancel', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ReservationController::class, 'cancel'])
+    ->middleware('throttle:30,1,hotel-resv-cancel')->name('tagtoa.hotel.reservation.cancel');
 Route::get('/s/{standId}/status', [\Modules\Tagtoa\App\Http\Controllers\Stand\StandPublicController::class, 'status'])
     ->middleware('throttle:60,1,stand-status')->name('tagtoa.stand.status');
 // Vérifier le code gratté : SANS compte, et fortement limité — c'est la seule
@@ -415,6 +423,9 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/room-types/{typeId}/plans', [$rt, 'storePlan'])->whereNumber('typeId')->name('rateplans.store');
         Route::put('/rate-plans/{id}', [$rt, 'updatePlan'])->whereNumber('id')->name('rateplans.update');
         Route::post('/rate-plans/{id}/toggle', [$rt, 'togglePlan'])->whereNumber('id')->name('rateplans.toggle');
+        // HM-3 — demandes de réservation (voir, confirmer, refuser). Création et suivi: routes publiques plus haut.
+        Route::get('/reservations', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ReservationAdminController::class, 'index'])->name('reservations');
+        Route::post('/reservations/{id}/status', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ReservationAdminController::class, 'status'])->whereNumber('id')->name('reservations.status');
         // H3 — catalogue des services (room service = un Menu existant du même hôtel).
         Route::get('/services', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'index'])->name('services');
         Route::post('/services', [\Modules\Tagtoa\App\Http\Controllers\Hotel\ServiceController::class, 'store'])->name('services.store');
