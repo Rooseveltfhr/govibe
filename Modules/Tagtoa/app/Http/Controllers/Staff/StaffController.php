@@ -39,7 +39,7 @@ class StaffController extends Controller
         return view('tagtoa::staff.index', [
             'roster'    => $this->staff->roster($tenantId),
             'terminals' => Terminal::where('tenant_id', $tenantId)->orderBy('name')->get(['id', 'name']),
-            'roles'     => StaffAccess::ROLES,
+            'roles'     => $this->rolesAllowed(),
         ]);
     }
 
@@ -119,7 +119,7 @@ class StaffController extends Controller
                     ->where('tenant_id', Tenant::id())
                     ->ignore($staff?->id)],
             'phone' => ['nullable', 'string', 'max:40'],
-            'role'  => ['required', Rule::in(array_keys(StaffAccess::ROLES))],
+            'role'  => ['required', Rule::in(array_keys($this->rolesAllowed()))],
             'terminal_id' => ['nullable', 'integer',
                 // La caisse doit être une des SIENNES.
                 Rule::exists('tagtoa_pos_terminals', 'id')->where('tenant_id', Tenant::id())],
@@ -135,11 +135,26 @@ class StaffController extends Controller
             ],
             'is_active' => ['nullable', 'boolean'],
             'is_kitchen' => ['nullable', 'boolean'],
+            // H6 : l'équipe est exigée pour le personnel d'hôtel, et seulement pour lui.
+            'hotel_team' => ['nullable', 'string', Rule::in(array_keys(\Modules\Tagtoa\App\Support\Hotel\HotelServiceRules::STAFF_TEAMS)),
+                Rule::requiredIf(fn () => $request->input('role') === StaffAccess::ROLE_HOTEL)],
         ], [
             'pin.required' => __('Choisissez un code à 4 chiffres pour cette personne.'),
         ]);
 
         return $data;
+    }
+
+    /** Rôles proposables : « Personnel hôtel » n'existe que dans un commerce de type hôtel. */
+    protected function rolesAllowed(): array
+    {
+        $roles = StaffAccess::ROLES;
+        $type = \Modules\Tagtoa\App\Models\Business\Business::whereKey(Tenant::id())->value('type');
+        if ($type !== 'hotel') {
+            unset($roles[StaffAccess::ROLE_HOTEL]);
+        }
+
+        return $roles;
     }
 
     /** Un employé de CE commerce, ou 404. */

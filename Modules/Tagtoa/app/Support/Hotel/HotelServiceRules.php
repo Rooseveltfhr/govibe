@@ -29,6 +29,13 @@ class HotelServiceRules
         'kitchen'      => 'Cuisine',
     ];
 
+    /** Équipes auxquelles on peut affecter un employé (la cuisine arrive avec le room service). */
+    public const STAFF_TEAMS = [
+        'reception'    => 'Réception',
+        'housekeeping' => 'Ménage',
+        'maintenance'  => 'Maintenance',
+    ];
+
     /** Langues du portail invité (décision H0). */
     public const LOCALES = ['ht', 'fr', 'en', 'es'];
 

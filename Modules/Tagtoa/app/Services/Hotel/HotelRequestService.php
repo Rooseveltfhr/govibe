@@ -116,12 +116,16 @@ class HotelRequestService
         });
     }
 
-    /** L'hôtel (commerce passé en paramètre) fait évoluer la demande. */
-    public function setStatus(string $tenantId, int $id, string $to, ?string $reason = null): array
+    /**
+     * L'hôtel (commerce passé en paramètre) fait évoluer la demande.
+     * `$staff` : l'employé identifié par son code (H6), ou null quand c'est le compte patron. Un employé
+     * ne traite QUE les demandes de son équipe ; sinon la demande « n'existe pas » pour lui.
+     */
+    public function setStatus(string $tenantId, int $id, string $to, ?string $reason = null, ?\Modules\Tagtoa\App\Models\Staff\Staff $staff = null): array
     {
-        return DB::transaction(function () use ($tenantId, $id, $to, $reason) {
+        return DB::transaction(function () use ($tenantId, $id, $to, $reason, $staff) {
             $req = HotelRequest::allTenants()->where('tenant_id', $tenantId)->whereKey($id)->lockForUpdate()->first();
-            if (! $req) {
+            if (! $req || ($staff && ! $this->visibleTo($staff, $req))) {
                 return $this->non(self::NOT_FOUND);
             }
             if (! R::canMove($req->status, $to)) {
@@ -130,12 +134,38 @@ class HotelRequestService
             $req->forceFill([
                 'status'     => $to,
                 'handled_at' => $req->handled_at ?? now(),
+                'handled_by_staff_id' => $staff?->id ?? $req->handled_by_staff_id,
                 'closed_at'  => in_array($to, ['done', 'rejected'], true) ? now() : null,
                 'reason'     => $to === 'rejected' ? mb_substr(trim((string) $reason), 0, R::REASON_MAX) ?: null : null,
             ])->save();
 
             return ['result' => self::OK, 'request' => $req, 'secret' => null];
         });
+    }
+
+    /** Cette demande est-elle de l'équipe de cet employé (et de SON hôtel) ? */
+    public function visibleTo(\Modules\Tagtoa\App\Models\Staff\Staff $staff, HotelRequest $req): bool
+    {
+        if ($staff->tenant_id !== $req->tenant_id || ! $staff->is_active) {
+            return false;
+        }
+        $teams = R::teamsFor($staff->role, $staff->hotel_team);
+
+        return $teams === null || in_array((string) $req->team, $teams, true);
+    }
+
+    /** Les demandes d'un hôtel visibles par un employé (null = le compte patron : toutes). */
+    public function queryFor(string $tenantId, ?\Modules\Tagtoa\App\Models\Staff\Staff $staff)
+    {
+        $q = HotelRequest::allTenants()->where('tenant_id', $tenantId);
+        if ($staff) {
+            $teams = R::teamsFor($staff->role, $staff->hotel_team);
+            if ($teams !== null) {
+                $teams === [] ? $q->whereRaw('1 = 0') : $q->whereIn('team', $teams);
+            }
+        }
+
+        return $q;
     }
 
     private function reference(): string

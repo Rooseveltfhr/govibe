@@ -28,11 +28,19 @@ class StaffAccess
     /** Livreur : récupère et livre les commandes qui lui sont assignées, rien d'autre. */
     public const ROLE_COURIER = 'courier';
 
+    /**
+     * Personnel d'hôtel (H6) : réception, ménage, maintenance. AUCUN droit de caisse, de catalogue ni de
+     * livraison (GRANTS vide) : ce rôle ne sert qu'à l'écran des demandes d'invités, où l'équipe
+     * (`hotel_team`) décide de ce qu'il voit. Ne peut pas ouvrir une caisse ni la cuisine.
+     */
+    public const ROLE_HOTEL = 'hotel_staff';
+
     public const ROLES = [
         self::ROLE_OWNER   => 'Patron',
         self::ROLE_MANAGER => 'Gérant',
         self::ROLE_CASHIER => 'Caissier',
         self::ROLE_COURIER => 'Livreur',
+        self::ROLE_HOTEL   => 'Personnel hôtel',
     ];
 
     /**
@@ -107,6 +115,9 @@ class StaffAccess
         self::ROLE_COURIER => [
             'delivery.view',
         ],
+        // Personnel d'hôtel (H6) : volontairement VIDE. Ce que voit cette personne se décide par son
+        // équipe, sur l'écran des demandes, pas par un droit de caisse.
+        self::ROLE_HOTEL => [],
     ];
 
     /** Actions assez sérieuses pour redemander le PIN, même déjà connecté. */

@@ -39,6 +39,7 @@ class RequestController extends Controller
             'requests' => $requests,
             'rooms'    => HotelRoom::whereIn('id', $requests->pluck('room_id')->unique())->get()->keyBy('id'),
             'filtre'   => $filtre,
+            'staffNames' => \Modules\Tagtoa\App\Models\Staff\Staff::whereIn('id', $requests->pluck('handled_by_staff_id')->filter()->unique())->pluck('name', 'id'),
             'statuses' => R::STATUSES,
             'next'     => R::TRANSITIONS,
         ]);

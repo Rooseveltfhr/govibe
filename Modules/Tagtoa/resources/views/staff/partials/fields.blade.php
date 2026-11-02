@@ -61,6 +61,19 @@
     </div>
 </div>
 
+@if(isset($roles['hotel_staff']))
+<div style="margin-top:8px">
+    <label class="lbl">{{ __('Équipe (personnel d\'hôtel)') }}</label>
+    <select class="sel" name="hotel_team">
+        <option value="">—</option>
+        @foreach(\Modules\Tagtoa\App\Support\Hotel\HotelServiceRules::STAFF_TEAMS as $k => $l)
+            <option value="{{ $k }}" @selected(old('hotel_team', $staff->hotel_team ?? null) === $k)>{{ __($l) }}</option>
+        @endforeach
+    </select>
+    <p style="color:var(--muted);font-size:12.5px;margin:4px 0 0">{{ __('Pour le rôle « Personnel hôtel » : il ne voit que les demandes de son équipe. Aucun accès à la caisse.') }}</p>
+</div>
+@endif
+
 <label class="switch" style="margin-top:8px">
     <input type="hidden" name="is_kitchen" value="0">
     <input type="checkbox" name="is_kitchen" value="1" @checked(old('is_kitchen', $staff->is_kitchen ?? false))>

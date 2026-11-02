@@ -60,6 +60,29 @@ class HotelRequestRules
     /** Durée de validité du jeton émis avec la page (secondes). */
     public const TOKEN_TTL = 10800;
 
+    /**
+     * Équipes de demandes qu'un employé peut voir et traiter. null = TOUTES (patron, gérant, réception).
+     * Ménage et maintenance : leur équipe seulement. Rôle ou équipe inconnus : rien.
+     *
+     * @return array<int,string>|null
+     */
+    public static function teamsFor(?string $role, ?string $hotelTeam): ?array
+    {
+        if (in_array($role, ['owner', 'manager'], true)) {
+            return null;
+        }
+        if ($role !== 'hotel_staff') {
+            return [];
+        }
+
+        return match ($hotelTeam) {
+            'reception'    => null,
+            'housekeeping' => ['housekeeping'],
+            'maintenance'  => ['maintenance'],
+            default        => [],
+        };
+    }
+
     public static function canMove(string $from, string $to): bool
     {
         return in_array($to, self::TRANSITIONS[$from] ?? [], true);

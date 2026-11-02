@@ -26,7 +26,7 @@ class Staff extends Model
 
     protected $fillable = [
         'tenant_id', 'name', 'email', 'phone', 'role', 'pin_hash',
-        'terminal_id', 'is_active', 'created_by', 'last_login_at', 'is_kitchen',
+        'terminal_id', 'is_active', 'created_by', 'last_login_at', 'is_kitchen', 'hotel_team',
     ];
 
     protected $hidden = ['pin_hash'];
@@ -58,6 +58,11 @@ class Staff extends Model
     public function isOwner(): bool
     {
         return $this->role === StaffAccess::ROLE_OWNER;
+    }
+
+    public function isHotelStaff(): bool
+    {
+        return $this->role === StaffAccess::ROLE_HOTEL;
     }
 
     public function isCourier(): bool
