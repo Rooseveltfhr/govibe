@@ -41,7 +41,8 @@ class DashboardModulesTest extends TestCase
         // le commerce qui porte le menu, pas l'inverse. 'booking' a rejoint le
         // groupe « module » en même temps qu'il a été promu (voir plus bas) —
         // c'est lui que le lien « Réservations » de Menu pointe désormais.
-        $this->assertSame(['activate', 'business', 'menu', 'pos', 'event', 'pay', 'stands', 'cards', 'booking'], $modules);
+        // 'hotel' (« Mon Hôtel ») est une entrée à part, visible pour tous : juste après le menu.
+        $this->assertSame(['activate', 'business', 'menu', 'hotel', 'pos', 'event', 'pay', 'stands', 'cards', 'booking'], $modules);
     }
 
     public function test_the_hardware_the_merchant_bought_is_never_buried(): void

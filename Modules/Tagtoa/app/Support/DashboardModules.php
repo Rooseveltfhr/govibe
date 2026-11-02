@@ -92,27 +92,6 @@ class DashboardModules
             ],
         ],
 
-        // HÔTEL — une entrée À PART dans la barre latérale, visible pour TOUS les comptes (comme un établissement qui
-        // a sa propre place, pas un simple commerce de la liste). Pour un commerce de type « hôtel », elle ouvre ses
-        // écrans (démarrage pas à pas, chambres, tarifs…) ; sinon, un seul lien mène à la page qui crée ou ouvre
-        // l'hôtel du compte (voir `children_only_types` / `children_else`, et HotelHomeController).
-        'hotel' => [
-            'label' => 'Mon Hôtel', 'icon' => 'fa-hotel', 'group' => 'module',
-            'desc'  => 'Chambres, tarifs, services et demandes de vos clients — pas à pas.',
-            'children_only_types' => ['hotel'],
-            'children_else' => [
-                ['label' => 'Mon hôtel', 'icon' => 'fa-hotel', 'url' => '/tagtoa/hotel'],
-            ],
-            'children' => [
-                ['label' => 'Démarrage', 'icon' => 'fa-list-check', 'url' => '/tagtoa/hotel'],
-                ['label' => 'Chambres', 'icon' => 'fa-bed', 'url' => '/tagtoa/hotel/rooms'],
-                ['label' => 'Tarifs des chambres', 'icon' => 'fa-tags', 'url' => '/tagtoa/hotel/room-types'],
-                ['label' => 'Services', 'icon' => 'fa-bell-concierge', 'url' => '/tagtoa/hotel/services'],
-                ['label' => 'Demandes', 'icon' => 'fa-inbox', 'url' => '/tagtoa/hotel/requests'],
-                ['label' => 'Écran du personnel', 'icon' => 'fa-user-clock', 'url' => '/tagtoa/hotel/board'],
-            ],
-        ],
-
         // --- Les quatre outils métier de TAGTOA ---
         'menu' => [
             'label' => 'Mes Menus', 'icon' => 'fa-utensils', 'group' => 'module',
@@ -151,6 +130,27 @@ class DashboardModules
                 ['label' => 'Avis clients', 'icon' => 'fa-star',           'url' => '/tagtoa/reviews',   'needs' => 'reviews'],
             ],
         ],
+        // HÔTEL — une entrée À PART dans la barre latérale, visible pour TOUS les comptes (comme un établissement qui
+        // a sa propre place, pas un simple commerce de la liste). Pour un commerce de type « hôtel », elle ouvre ses
+        // écrans (démarrage pas à pas, chambres, tarifs…) ; sinon, un seul lien mène à la page qui crée ou ouvre
+        // l'hôtel du compte (voir `children_only_types` / `children_else`, et HotelHomeController).
+        'hotel' => [
+            'label' => 'Mon Hôtel', 'icon' => 'fa-hotel', 'group' => 'module',
+            'desc'  => 'Chambres, tarifs, services et demandes de vos clients — pas à pas.',
+            'children_only_types' => ['hotel'],
+            'children_else' => [
+                ['label' => 'Mon hôtel', 'icon' => 'fa-hotel', 'url' => '/tagtoa/hotel'],
+            ],
+            'children' => [
+                ['label' => 'Démarrage', 'icon' => 'fa-list-check', 'url' => '/tagtoa/hotel'],
+                ['label' => 'Chambres', 'icon' => 'fa-bed', 'url' => '/tagtoa/hotel/rooms'],
+                ['label' => 'Tarifs des chambres', 'icon' => 'fa-tags', 'url' => '/tagtoa/hotel/room-types'],
+                ['label' => 'Services', 'icon' => 'fa-bell-concierge', 'url' => '/tagtoa/hotel/services'],
+                ['label' => 'Demandes', 'icon' => 'fa-inbox', 'url' => '/tagtoa/hotel/requests'],
+                ['label' => 'Écran du personnel', 'icon' => 'fa-user-clock', 'url' => '/tagtoa/hotel/board'],
+            ],
+        ],
+
         'pos' => [
             'label' => 'Caisse (POS)', 'icon' => 'fa-cash-register', 'group' => 'module',
             'desc'  => 'Caisse tactile qui marche même sans internet, multi-paiement.',
