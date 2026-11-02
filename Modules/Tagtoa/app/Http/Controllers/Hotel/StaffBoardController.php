@@ -43,13 +43,17 @@ class StaffBoardController extends Controller
             return view('tagtoa::hotel.board-login', ['hotel' => $hotel]);
         }
 
-        $requests = $this->requests->queryFor($hotel->id, $me)
-            ->whereIn('status', R::OPEN)->orderBy('id')->limit(100)->get();
+        // Les plus RÉCENTES d'abord : avec les plus anciennes d'abord, 100 demandes oubliées cachaient pour toujours
+        // la nouvelle demande d'un invité. Le total ouvert est affiché pour que rien ne soit caché sans le dire.
+        $ouvertes = $this->requests->queryFor($hotel->id, $me)->whereIn('status', R::OPEN);
+        $totalOuvertes = (clone $ouvertes)->count();
+        $requests = (clone $ouvertes)->orderByDesc('id')->limit(100)->get();
 
         return view('tagtoa::hotel.board', [
             'hotel'    => $hotel,
             'me'       => $me,
             'requests' => $requests,
+            'totalOuvertes' => $totalOuvertes,
             'rooms'    => HotelRoom::whereIn('id', $requests->pluck('room_id')->unique())->get()->keyBy('id'),
             'statuses' => R::STATUSES,
             'next'     => R::TRANSITIONS,
@@ -136,7 +140,9 @@ class StaffBoardController extends Controller
         $q = $this->requests->queryFor($hotel->id, $me);
 
         return response()->json([
-            'latest_id' => (int) ((clone $q)->max('id') ?? 0),
+            // Sur les demandes OUVERTES seulement, comme l'écran : sur toutes, une demande récente annulée ou
+            // terminée faisait sonner et recharger la tablette toutes les 15 secondes, indéfiniment.
+            'latest_id' => (int) ((clone $q)->whereIn('status', R::OPEN)->max('id') ?? 0),
             'pending'   => (clone $q)->where('status', 'new')->count(),
         ]);
     }

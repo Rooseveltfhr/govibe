@@ -5,10 +5,14 @@
 @section('content')
 <div class="h-row">
     <h2 style="flex:1"><i class="fa-solid fa-bell-concierge"></i> {{ __('Demandes à traiter') }}
-        <span class="pill n">{{ $requests->count() }}</span></h2>
+        <span class="pill n">{{ $totalOuvertes }}</span></h2>
     <span style="color:var(--muted);font-size:13px">{{ $me->name }} · {{ __($me->role === 'hotel_staff' ? ($me->hotel_team ? \Modules\Tagtoa\App\Support\Hotel\HotelServiceRules::STAFF_TEAMS[$me->hotel_team] ?? '' : '') : $me->role_label) }}</span>
     <form method="POST" action="{{ route('tagtoa.hotel.board.logout') }}" style="display:inline">@csrf<button class="btn btn-o btn-sm">{{ __('Changer de personne') }}</button></form>
 </div>
+
+@if($totalOuvertes > $requests->count())
+    <div class="card" style="border-left:4px solid var(--amber,#E0A100);font-size:13.5px">{{ __(':n demandes plus anciennes ne sont pas affichées. Clôturez-les depuis l\'écran « Demandes ».', ['n' => $totalOuvertes - $requests->count()]) }}</div>
+@endif
 
 @if($requests->isEmpty())
     <div class="card"><div class="empty"><i class="fa-solid fa-circle-check"></i>{{ __('Rien à traiter pour le moment.') }}</div></div>

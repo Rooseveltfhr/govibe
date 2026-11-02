@@ -67,7 +67,7 @@ class ServiceController extends Controller
         $existants = HotelService::pluck('name')->map(fn ($n) => mb_strtolower($n))->all();
         $crees = 0;
         foreach (HotelServiceRules::DEFAULTS as $i => $d) {
-            $nom = __($d['name']);
+            $nom = mb_substr((string) __($d['name']), 0, 80);   // colonne de 80 : une traduction longue ferait échouer l'insertion
             if (in_array(mb_strtolower($nom), $existants, true) || HotelService::count() >= HotelServiceRules::MAX_PER_HOTEL) {
                 continue;
             }

@@ -45,10 +45,13 @@ class PortalController extends Controller
         // H5b : le room service mène au Menu ACTIF de l'hôtel, avec un jeton lié à cette chambre ET à ce menu.
         $commande = [];
         $tenant = $ctx['stand']->tenant_id;
+        // UNE requête pour tous les menus de room service (au lieu d'une par service).
+        $menus = \Modules\Tagtoa\App\Models\Menu\Menu::allTenants()->where('tenant_id', $tenant)
+            ->whereIn('id', $ctx['services']->where('kind', 'room_service')->pluck('menu_id')->filter()->unique())
+            ->where('is_active', true)->where('ordering_enabled', true)->get()->keyBy('id');
         foreach ($ctx['services'] as $s) {
             if ($s->kind === 'room_service' && $s->menu_id) {
-                $menu = \Modules\Tagtoa\App\Models\Menu\Menu::allTenants()->where('tenant_id', $tenant)
-                    ->whereKey($s->menu_id)->where('is_active', true)->where('ordering_enabled', true)->first();
+                $menu = $menus->get($s->menu_id);
                 if ($menu) {
                     $commande[$s->id] = route('tagtoa.menu.show', $menu->alias).'?r='.urlencode(
                         \Modules\Tagtoa\App\Support\Hotel\HotelRoomOrderToken::issue($ctx['stand']->public_id, (int) $menu->id)

@@ -88,6 +88,12 @@ class BusinessController extends Controller
         $business = $this->own($id);
         $data = $this->validated($request, $business);
 
+        // H7 : un hôtel qui a encore des demandes, commandes de chambre ou supports actifs ne change pas de type.
+        if ($business->type === 'hotel' && ($data['type'] ?? 'hotel') !== 'hotel'
+            && ($raison = app(HotelProfileService::class)->blocksTypeChange($business))) {
+            return back()->withErrors(['type' => $raison])->withInput();
+        }
+
         // Un logo n'est remplacé que si un nouveau est envoyé : enregistrer une
         // correction d'adresse ne doit pas effacer l'enseigne.
         if ($logo = $this->logo($request)) {

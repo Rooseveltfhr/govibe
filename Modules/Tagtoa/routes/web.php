@@ -75,23 +75,23 @@ Route::get('/pay/i/{reference}', [PayPublic::class, 'apiCheckout'])->name('tagto
 // téléphone. Route PUBLIQUE : c'est un client attablé, pas un marchand
 // connecté. Débit large : c'est la requête la plus fréquente de la plateforme.
 Route::get('/s/{standId}', [\Modules\Tagtoa\App\Http\Controllers\Stand\StandPublicController::class, 'show'])
-    ->middleware('throttle:240,1')->name('tagtoa.stand.show');
+    ->middleware('throttle:300,1,stand-scan')->name('tagtoa.stand.show');
 // H4 — portail de la chambre d'hôtel derrière le QR. Public ; TOUT est revérifié à chaque requête.
 Route::get('/h/{standId}', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'show'])
-    ->middleware('throttle:120,1')->name('tagtoa.hotel.portal');
+    ->middleware('throttle:300,1,hotel-portal')->name('tagtoa.hotel.portal');
 // H5 — demandes de l'invité (sans compte). Création : jeton récent + plafonds ; suivi : référence + secret de 128 bits.
 Route::post('/h/{standId}/request', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'request'])
-    ->middleware('throttle:30,1')->name('tagtoa.hotel.request');
+    ->middleware('throttle:60,1,hotel-request')->name('tagtoa.hotel.request');
 Route::get('/h/track/{reference}/{secret}', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'track'])
-    ->middleware('throttle:60,1')->name('tagtoa.hotel.track');
+    ->middleware('throttle:120,1,hotel-track')->name('tagtoa.hotel.track');
 Route::post('/h/track/{reference}/{secret}/cancel', [\Modules\Tagtoa\App\Http\Controllers\Hotel\PortalController::class, 'cancel'])
-    ->middleware('throttle:20,1')->name('tagtoa.hotel.track.cancel');   // pas de contrainte de forme : le contrôleur répond TOUJOURS la même 404
+    ->middleware('throttle:30,1,hotel-cancel')->name('tagtoa.hotel.track.cancel');   // pas de contrainte de forme : le contrôleur répond TOUJOURS la même 404
 Route::get('/s/{standId}/status', [\Modules\Tagtoa\App\Http\Controllers\Stand\StandPublicController::class, 'status'])
-    ->middleware('throttle:60,1')->name('tagtoa.stand.status');
+    ->middleware('throttle:60,1,stand-status')->name('tagtoa.stand.status');
 // Vérifier le code gratté : SANS compte, et fortement limité — c'est la seule
 // porte par laquelle on pourrait tenter de deviner un code.
 Route::post('/s/{standId}/verify', [\Modules\Tagtoa\App\Http\Controllers\Stand\StandPublicController::class, 'verify'])
-    ->middleware('throttle:20,1')->name('tagtoa.stand.verify');
+    ->middleware('throttle:20,1,stand-verify')->name('tagtoa.stand.verify');
 
 Route::get('/menu/{alias}', [MenuPublic::class, 'show'])->name('tagtoa.menu.show');
 Route::get('/menu/order/{reference}', [MenuPublic::class, 'track'])->name('tagtoa.menu.track');
@@ -126,7 +126,9 @@ Route::get('/tagtoa-ops/opcache-reset/{token}', [\Modules\Tagtoa\App\Http\Contro
     ->middleware('throttle:10,1')->name('tagtoa.ops.opcache-reset');
 
 // Écritures publiques : rate-limit (anti-spam / anti-DoS / anti-épuisement disque).
-Route::middleware('throttle:20,1')->group(function () {
+// Compteur PROPRE à ces écritures publiques (Menu, preuve de paiement, billets, réservations) : sans préfixe, tous les `throttle:N,1` d'une même adresse partagent
+// UN seul compteur (clé = domaine|IP), et derrière le Wi-Fi d'un hôtel les scans de chambres bloquaient les commandes.
+Route::middleware('throttle:40,1,public-writes')->group(function () {
     Route::post('/pay/{alias}/submit-proof', [PayPublic::class, 'submitProof'])->name('tagtoa.pay.submit-proof');
     Route::post('/menu/{alias}/order', [MenuPublic::class, 'order'])->name('tagtoa.menu.order');
     // « Commander via Agent IA » — mots-clés locaux (OrderChatParser), aucun
