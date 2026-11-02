@@ -33,9 +33,9 @@
             ];
             $cm = old('checkin_mode', $event->checkin_mode ?: 'both');
         @endphp
-        <div class="row">
+        <div class="row pair">
             <div><label class="lbl">{{ __('Type') }}</label><select class="sel" name="type">@foreach($eventTypes as $val => $label)<option value="{{ $val }}" @selected(old('type',$event->type)===$val)>{{ $label }}</option>@endforeach</select></div>
-            <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(['HTG','USD'] as $c)<option @selected(old('currency',$event->currency ?: 'HTG')===$c)>{{ $c }}</option>@endforeach</select></div>
+            <div class="fit"><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(['HTG','USD'] as $c)<option @selected(old('currency',$event->currency ?: 'HTG')===$c)>{{ $c }}</option>@endforeach</select></div>
         </div>
         <label class="lbl">{{ __('Mode de billet') }}</label>
         <select class="sel" name="checkin_mode">
@@ -80,13 +80,18 @@
 
 <template id="tttpl">
     <div class="ttrow card" style="padding:14px;margin-bottom:10px">
-        <div class="pf">
-            <div><label>{{ __('Nom (VIP…)') }}</label><input name="ticket_types[IDX][name]" class="inp"></div>
+        <div class="pf" style="margin-bottom:8px">
+            <div style="grid-column:1/-1"><label>{{ __('Nom (VIP…)') }}</label><input name="ticket_types[IDX][name]" class="inp"></div>
+        </div>
+        {{-- Devise + prix + prix barré sur UNE ligne. --}}
+        <div class="duo trio" style="margin-bottom:8px;align-items:end">
             @if(! empty($currencyChoices))
-            <div><label>{{ __('Devise') }}</label><select name="ticket_types[IDX][currency]" class="sel" title="{{ __('Devise du billet') }}">@foreach($currencyChoices as $code => $label)<option value="{{ $code }}">{{ $label }}</option>@endforeach</select></div>
+            <div><label>{{ __('Devise') }}</label><select name="ticket_types[IDX][currency]" class="sel" title="{{ __('Devise du billet') }}">@foreach($currencyChoices as $code => $label)<option value="{{ $code }}" title="{{ $label }}">{{ $code }}</option>@endforeach</select></div>
             @endif
-            <div><label>{{ __('Prix') }}</label><input name="ticket_types[IDX][price]" type="number" step="0.01" min="0" class="inp"></div>
-            <div><label>{{ __('Prix barré') }}</label><input name="ticket_types[IDX][compare_at_price]" type="number" step="0.01" min="0" class="inp"></div>
+            <div><label>{{ __('Prix') }}</label><input name="ticket_types[IDX][price]" type="number" step="0.01" min="0" inputmode="decimal" class="inp"></div>
+            <div><label>{{ __('Prix barré') }}</label><input name="ticket_types[IDX][compare_at_price]" type="number" step="0.01" min="0" inputmode="decimal" class="inp"></div>
+        </div>
+        <div class="pf">
             <div><label>{{ __('Qté (∞)') }}</label><input name="ticket_types[IDX][quantity]" type="number" class="inp"></div>
             <div><label>{{ __('Portes (A,VIP…)') }}</label><input name="ticket_types[IDX][allowed_gates]" class="inp"></div>
         </div>

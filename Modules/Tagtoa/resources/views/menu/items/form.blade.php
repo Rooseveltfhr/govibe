@@ -63,23 +63,27 @@
         <label class="lbl" style="margin-top:10px">{{ __('Description (optionnel)') }}</label>
         <input name="item_description" class="inp" maxlength="600" value="{{ old('item_description', $item?->description) }}">
 
-        <div style="display:flex;gap:16px;align-items:center;margin-top:10px;flex-wrap:wrap">
+        {{-- Devise (étroite) et prix (large) sur UNE seule ligne, le lien « Ajouter une devise » dessous. --}}
+        <div class="duo" style="margin-top:10px">
             <div>
                 <label class="lbl">{{ __('Devise') }}</label>
-                <select name="item_currency" class="sel" style="max-width:200px">
+                <select name="item_currency" class="sel">
                     @foreach($currencyChoices as $code => $label)
-                        <option value="{{ $code }}" @selected(strtoupper((string) old('item_currency', $item?->currency ?: $menu->currency ?: 'HTG')) === $code)>{{ $label }}</option>
+                        <option value="{{ $code }}" @selected(strtoupper((string) old('item_currency', $item?->currency ?: $menu->currency ?: 'HTG')) === $code) title="{{ $label }}">{{ $code }}</option>
                     @endforeach
                 </select>
-                <div style="font-size:12px;margin-top:3px"><a href="{{ route('tagtoa.currencies.index') }}">{{ __('+ Ajouter une devise') }}</a></div>
                 @error('item_currency')<div class="err">{{ $message }}</div>@enderror
             </div>
             <div>
                 <label class="lbl">{{ __('Prix') }} *</label>
-                <input name="item_price" type="number" step="0.01" min="0" required class="inp" style="max-width:150px" value="{{ old('item_price', $item?->price) }}">
+                <input name="item_price" type="number" step="0.01" min="0" required class="inp" inputmode="decimal" value="{{ old('item_price', $item?->price) }}">
                 @error('item_price')<div class="err">{{ $message }}</div>@enderror
             </div>
-            <div>
+        </div>
+        <div style="font-size:12.5px;margin-top:4px"><a href="{{ route('tagtoa.currencies.index') }}">{{ __('+ Ajouter une devise') }}</a></div>
+
+        <div style="display:flex;gap:16px;align-items:center;margin-top:10px;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">
                 <label class="lbl">{{ __('Photo') }}</label>
                 {{-- SANS `capture` : sur téléphone, cet attribut ne propose pas
                      « appareil photo OU galerie » comme on pourrait le croire —
@@ -87,7 +91,7 @@
                      DIRECTEMENT, rendant la galerie inaccessible depuis ce
                      champ. Sans lui, le sélecteur natif du téléphone propose
                      les deux. --}}
-                <input name="item_image" type="file" accept="image/*" class="inp" style="max-width:220px">
+                <input name="item_image" type="file" accept="image/*" class="inp">
             </div>
             @if($editing && $item->image_url)
                 <label class="switch" style="flex:0"><input type="checkbox" name="item_remove_image" value="1"> {{ __('Retirer la photo actuelle') }}</label>

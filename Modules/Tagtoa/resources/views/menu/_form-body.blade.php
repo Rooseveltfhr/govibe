@@ -117,8 +117,8 @@
     {{-- ----- Commande & paiement ----- --}}
     <div class="card" data-step="3">
         <div class="h-row"><h2>{{ __('Commande & paiement') }}</h2></div>
-        <div class="row">
-            <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(\Modules\Tagtoa\App\Support\Money::options() as $code=>$label)<option value="{{ $code }}" @selected(old('currency',$menu->currency ?: \Modules\Tagtoa\App\Support\Locale::currencyFor())===$code)>{{ $label }}</option>@endforeach</select></div>
+        <div class="row pair">
+            <div class="fit"><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(\Modules\Tagtoa\App\Support\Money::options() as $code=>$label)<option value="{{ $code }}" @selected(old('currency',$menu->currency ?: \Modules\Tagtoa\App\Support\Locale::currencyFor())===$code)>{{ $label }}</option>@endforeach</select></div>
             <div><label class="lbl">{{ __('Page de paiement (TAGTOA Pay)') }}</label><select class="sel" name="pay_page_id"><option value="">{{ __('— Aucune —') }}</option>@foreach($payPages as $pp)<option value="{{ $pp->id }}" @selected(old('pay_page_id',$menu->pay_page_id)==$pp->id)>{{ $pp->title ?: $pp->alias }}</option>@endforeach</select></div>
         </div>
         {{-- Une page de paiement peut déjà combiner les deux à la fois — ce
@@ -230,30 +230,99 @@
                 <option value="{{ $tz }}" @selected(old('timezone',$menu->timezone ?: 'America/Port-au-Prince')===$tz)>{{ $tz }}</option>
             @endforeach
         </select>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+        @php
+            $joursLabels = ['mon'=>__('Lun'),'tue'=>__('Mar'),'wed'=>__('Mer'),'thu'=>__('Jeu'),'fri'=>__('Ven'),'sat'=>__('Sam'),'sun'=>__('Dim')];
+            $joursLong = ['mon'=>__('Lundi'),'tue'=>__('Mardi'),'wed'=>__('Mercredi'),'thu'=>__('Jeudi'),'fri'=>__('Vendredi'),'sat'=>__('Samedi'),'sun'=>__('Dimanche')];
+        @endphp
+
+        {{-- VUE SIMPLE (par défaut) : un seul horaire + les jours d'ouverture en pastilles. C'est du confort :
+             un script recopie ces choix dans les champs détaillés ci-dessous, et le SERVEUR revalide tout. --}}
+        <div id="hoursSimple" style="margin-top:12px">
+            <div class="row pair">
+                <div><label class="lbl">{{ __('Ouvre') }}</label><input class="inp" type="time" id="hsOpen"></div>
+                <div><label class="lbl">{{ __('Ferme') }}</label><input class="inp" type="time" id="hsClose"></div>
+            </div>
+            <div class="chipwrap" id="hsDays" style="margin-top:10px">
+                @foreach(\Modules\Tagtoa\App\Support\Menu\BusinessHours::DAYS as $jour)
+                    <label class="chip"><input type="checkbox" data-day="{{ $jour }}" checked><span>{{ $joursLabels[$jour] }}</span></label>
+                @endforeach
+            </div>
+            <p style="color:var(--muted);font-size:12.5px;margin:6px 0 0">{{ __('Jours cochés = ouvert. Laissez les heures vides pour ouvert toute la journée.') }}</p>
+            <button type="button" class="btn btn-o btn-sm" id="hsMore" style="margin-top:8px">{{ __('Horaires différents selon les jours') }}</button>
+        </div>
+
+        {{-- VUE DÉTAILLÉE : les champs réellement envoyés (mêmes noms qu'avant). Une ligne compacte par jour. --}}
+        <div id="hoursAdv" style="display:none;margin-top:12px">
+            <div style="display:flex;flex-direction:column;gap:6px">
             @foreach(\Modules\Tagtoa\App\Support\Menu\BusinessHours::DAYS as $jour)
                 @php
-                    $joursLabels = ['mon'=>__('Lundi'),'tue'=>__('Mardi'),'wed'=>__('Mercredi'),'thu'=>__('Jeudi'),'fri'=>__('Vendredi'),'sat'=>__('Samedi'),'sun'=>__('Dimanche')];
                     $plage = $menu->hours[$jour] ?? null;
-                    // Un menu qui n'a JAMAIS renseigné d'horaires ne doit pas
-                    // afficher les sept jours cochés « Fermé » — ça alarmerait
-                    // pour rien. Seul un menu qui a déjà des horaires ($menu->hours
-                    // non nul) sait vraiment distinguer un jour fermé d'un jour
-                    // simplement pas encore rempli.
+                    // Un menu qui n'a JAMAIS renseigné d'horaires ne doit pas afficher les sept jours « Fermé » — ça
+                    // alarmerait pour rien. Seul un menu qui a déjà des horaires sait distinguer un jour fermé d'un
+                    // jour simplement pas encore rempli.
                     $fermeParDefaut = $menu->hours !== null && ! $plage;
                 @endphp
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                    <span style="min-width:88px;font-weight:600;font-size:13.5px">{{ $joursLabels[$jour] }}</span>
-                    <label class="switch" style="flex:0">
-                        <input type="checkbox" name="hours[{{ $jour }}][closed]" value="1" @checked(old("hours.$jour.closed", $fermeParDefaut))
-                               onchange="this.closest('div').querySelectorAll('input[type=time]').forEach(function(i){ i.disabled = this.checked; }, this)">
-                        {{ __('Fermé') }}
-                    </label>
-                    <input class="inp" type="time" name="hours[{{ $jour }}][open]" value="{{ old('hours.'.$jour.'.open', $plage['open'] ?? '') }}" style="max-width:120px" @disabled(old("hours.$jour.closed", $fermeParDefaut))>
-                    <span>—</span>
-                    <input class="inp" type="time" name="hours[{{ $jour }}][close]" value="{{ old('hours.'.$jour.'.close', $plage['close'] ?? '') }}" style="max-width:120px" @disabled(old("hours.$jour.closed", $fermeParDefaut))>
+                <div class="hday" style="display:grid;grid-template-columns:44px 1fr 1fr auto;gap:6px;align-items:center">
+                    <b style="font-size:13px" title="{{ $joursLong[$jour] }}">{{ $joursLabels[$jour] }}</b>
+                    <input class="inp" type="time" name="hours[{{ $jour }}][open]" value="{{ old('hours.'.$jour.'.open', $plage['open'] ?? '') }}" @disabled(old("hours.$jour.closed", $fermeParDefaut))>
+                    <input class="inp" type="time" name="hours[{{ $jour }}][close]" value="{{ old('hours.'.$jour.'.close', $plage['close'] ?? '') }}" @disabled(old("hours.$jour.closed", $fermeParDefaut))>
+                    <label class="chip" title="{{ __('Fermé') }}"><input type="checkbox" name="hours[{{ $jour }}][closed]" value="1" @checked(old("hours.$jour.closed", $fermeParDefaut))
+                           onchange="this.closest('.hday').querySelectorAll('input[type=time]').forEach(function(i){ i.disabled = this.checked; }, this)"><span>{{ __('Fermé') }}</span></label>
                 </div>
             @endforeach
+            </div>
+            <button type="button" class="btn btn-o btn-sm" id="hsLess" style="margin-top:8px">{{ __('Même horaire tous les jours') }}</button>
+        </div>
+
+        <script>
+        (function () {
+            var DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
+            var simple = document.getElementById('hoursSimple'), adv = document.getElementById('hoursAdv');
+            var hsOpen = document.getElementById('hsOpen'), hsClose = document.getElementById('hsClose');
+            var chips = {}; DAYS.forEach(function (d) { chips[d] = document.querySelector('#hsDays [data-day="' + d + '"]'); });
+            function f(d, k) { return document.querySelector('[name="hours[' + d + '][' + k + ']"]'); }
+
+            /* Détaillé -> simple : lit les champs réels. Renvoie false si les horaires diffèrent selon les jours. */
+            function lire() {
+                var vus = null, uniforme = true;
+                DAYS.forEach(function (d) {
+                    var ferme = f(d, 'closed').checked;
+                    chips[d].checked = !ferme;
+                    if (ferme) { return; }
+                    var paire = f(d, 'open').value + '|' + f(d, 'close').value;
+                    if (vus === null) { vus = paire; } else if (vus !== paire) { uniforme = false; }
+                });
+                if (vus !== null) { var p = vus.split('|'); hsOpen.value = p[0]; hsClose.value = p[1]; }
+                return uniforme;
+            }
+
+            /* Simple -> détaillé : recopie le choix dans les champs envoyés. */
+            function ecrire() {
+                DAYS.forEach(function (d) {
+                    var ouvert = chips[d].checked, c = f(d, 'closed'), o = f(d, 'open'), x = f(d, 'close');
+                    c.checked = !ouvert;
+                    o.disabled = x.disabled = !ouvert;
+                    o.value = ouvert ? hsOpen.value : '';
+                    x.value = ouvert ? hsClose.value : '';
+                });
+            }
+
+            function montrer(vueSimple) { simple.style.display = vueSimple ? '' : 'none'; adv.style.display = vueSimple ? 'none' : ''; }
+
+            montrer(lire());
+            [hsOpen, hsClose].concat(DAYS.map(function (d) { return chips[d]; })).forEach(function (el) { el.addEventListener('change', ecrire); });
+            document.getElementById('hsMore').addEventListener('click', function () { ecrire(); montrer(false); });
+            document.getElementById('hsLess').addEventListener('click', function () {
+                // premier jour ouvert = référence ; les autres jours sont alignés dessus
+                var ref = DAYS.filter(function (d) { return !f(d, 'closed').checked; })[0];
+                if (ref) { hsOpen.value = f(ref, 'open').value; hsClose.value = f(ref, 'close').value; }
+                lire(); ecrire(); montrer(true);
+            });
+            // Vue simple affichée à l'envoi : les champs détaillés reflètent EXACTEMENT ce qu'on voit.
+            var form = simple.closest('form');
+            if (form) { form.addEventListener('submit', function () { if (simple.style.display !== 'none') { ecrire(); } }); }
+        })();
+        </script>
         </div>
         </div>
     </div>

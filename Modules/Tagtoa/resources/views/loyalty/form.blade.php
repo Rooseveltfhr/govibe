@@ -9,7 +9,7 @@
     <div class="card">
         <label class="lbl">{{ __('Nom du programme') }} *</label>
         <input class="inp" name="name" required value="{{ old('name',$program->name) }}" placeholder="{{ __('TAGTOA Fidélité') }}">
-        <div class="row">
+        <div class="row pair">
             <div><label class="lbl">{{ __('Points par unité') }}</label><input class="inp" type="number" step="0.01" name="points_per_dollar" value="{{ old('points_per_dollar',$program->points_per_dollar ?? 1) }}"></div>
             <div><label class="lbl">{{ __('Valeur d\'un point') }}</label><input class="inp" type="number" step="0.0001" name="dollar_per_point" value="{{ old('dollar_per_point',$program->dollar_per_point ?? 0.01) }}"></div>
             <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(['HTG','USD'] as $c)<option @selected(old('currency',$program->currency ?: 'HTG')===$c)>{{ $c }}</option>@endforeach</select></div>

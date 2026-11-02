@@ -9,9 +9,9 @@
     <div class="card">
         <label class="lbl">{{ __('Nom de la boutique') }} *</label>
         <input class="inp" name="name" required value="{{ old('name',$store->name) }}">
-        <div class="row">
+        <div class="row pair">
             <div><label class="lbl">{{ __('Slogan') }}</label><input class="inp" name="tagline" value="{{ old('tagline',$store->tagline) }}"></div>
-            <div><label class="lbl">{{ __('Devise') }}</label>
+            <div class="fit"><label class="lbl">{{ __('Devise') }}</label>
                 <select class="sel" name="currency">@foreach(['HTG','USD','EUR','DOP','CAD'] as $c)<option @selected(old('currency',$store->currency ?: 'HTG')===$c)>{{ $c }}</option>@endforeach</select></div>
         </div>
         <label class="lbl">{{ __('Description') }}</label>
@@ -46,17 +46,16 @@
 @if($editing)
 <template id="ptpl">
     <div class="prow card" style="margin-top:10px;padding:14px">
-        <div class="row">
-            <div style="flex:2"><input name="products[IDX][name]" class="inp" placeholder="{{ __('Nom du produit') }}"></div>
+        <input name="products[IDX][name]" class="inp" placeholder="{{ __('Nom du produit') }}">
+        {{-- Devise + prix + prix barré sur UNE ligne. --}}
+        <div class="duo trio" style="margin-top:8px">
             @if(! empty($currencyChoices))
-                <div>
-                    <select name="products[IDX][currency]" class="sel" title="{{ __('Devise du produit') }}">
-                        @foreach($currencyChoices as $code => $label)<option value="{{ $code }}">{{ $label }}</option>@endforeach
-                    </select>
-                </div>
+                <select name="products[IDX][currency]" class="sel" title="{{ __('Devise du produit') }}">
+                    @foreach($currencyChoices as $code => $label)<option value="{{ $code }}" title="{{ $label }}">{{ $code }}</option>@endforeach
+                </select>
             @endif
-            <div><input name="products[IDX][price]" type="number" step="0.01" class="inp" placeholder="{{ __('Prix') }}"></div>
-            <div><input name="products[IDX][compare_price]" type="number" step="0.01" class="inp" placeholder="{{ __('Prix barré') }}"></div>
+            <input name="products[IDX][price]" type="number" step="0.01" inputmode="decimal" class="inp" placeholder="{{ __('Prix') }}">
+            <input name="products[IDX][compare_price]" type="number" step="0.01" inputmode="decimal" class="inp" placeholder="{{ __('Prix barré') }}">
         </div>
         <div class="row" style="margin-top:8px">
             <div><input name="products[IDX][category]" class="inp" placeholder="{{ __('Catégorie') }}"></div>

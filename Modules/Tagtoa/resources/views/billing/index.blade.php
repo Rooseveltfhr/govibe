@@ -28,7 +28,7 @@
             @endforeach
         </div>
 
-        <div class="row" style="margin-top:14px">
+        <div class="row pair" style="margin-top:14px">
             <div><label class="lbl">{{ __('Commission (%)') }}</label><input class="inp" type="number" step="0.01" min="0" max="100" name="commission_percent" value="{{ old('commission_percent',$setting->commission_percent) }}"></div>
             <div><label class="lbl">{{ __('Frais fixe / transaction') }}</label><input class="inp" type="number" step="0.01" min="0" name="commission_fixed" value="{{ old('commission_fixed',$setting->commission_fixed) }}"></div>
             <div><label class="lbl">{{ __('Devise') }}</label><select class="sel" name="currency">@foreach(Money::options() as $code=>$label)<option value="{{ $code }}" @selected(old('currency',$setting->currency)===$code)>{{ $label }}</option>@endforeach</select></div>
