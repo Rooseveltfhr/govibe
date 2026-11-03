@@ -7,6 +7,7 @@ namespace Modules\Tagtoa\Tests\Unit;
 */
 
 use Modules\Tagtoa\App\Services\Backup\OffsiteCrypto;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class OffsiteCryptoTest extends TestCase
@@ -40,7 +41,7 @@ class OffsiteCryptoTest extends TestCase
         return [$src, $enc, $dec];
     }
 
-    /** @dataProvider sizes */
+    #[DataProvider('sizes')]
     public function test_round_trip_restores_the_exact_bytes_at_every_size_boundary(int $n): void
     {
         $plain = $n === 0 ? '' : random_bytes($n);
