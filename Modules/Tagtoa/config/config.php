@@ -35,8 +35,8 @@ return [
 
     /*
     | Copie HORS SITE des sauvegardes (BK-1b) — compatible Cloudflare R2, Backblaze B2, AWS S3. INACTIVE tant que rien n'est fourni.
-    | Le serveur ne détient que la clé PUBLIQUE (chiffrement) ; la clé privée reste hors du serveur. Le jeton du bucket ne doit
-    | autoriser QUE l'écriture (jamais la suppression) : un serveur compromis ne peut pas effacer les copies.
+    | Le serveur ne détient que la clé PUBLIQUE (chiffrement) ; la clé privée reste hors du serveur. Le jeton du bucket doit être limité à CE
+    | bucket ; l'effacement se prévient côté bucket (Bucket Lock / Object Lock + cycle de vie), voir DEPLOY.md.
     */
     'offsite' => [
         'endpoint'   => env('TAGTOA_OFFSITE_ENDPOINT'),     // ex. https://<compte>.r2.cloudflarestorage.com

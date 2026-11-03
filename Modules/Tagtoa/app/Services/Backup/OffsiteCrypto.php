@@ -65,7 +65,9 @@ class OffsiteCrypto
         if ($in === false) {
             throw new \RuntimeException('Fichier à chiffrer illisible.');
         }
+        $old = umask(0077);   // jamais lisible par d'autres, pas même un instant
         $out = @fopen($dest, 'wb');
+        umask($old);
         if ($out === false) {
             fclose($in);
             throw new \RuntimeException('Fichier chiffré non inscriptible.');
@@ -102,7 +104,9 @@ class OffsiteCrypto
             throw new \RuntimeException('Fichier chiffré illisible.');
         }
         $tmp = $dest.'.partial';
+        $old = umask(0077);
         $out = @fopen($tmp, 'wb');
+        umask($old);
         if ($out === false) {
             fclose($in);
             throw new \RuntimeException('Fichier de sortie non inscriptible.');

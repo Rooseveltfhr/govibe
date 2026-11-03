@@ -22,7 +22,8 @@ class BackupOffsiteCommand extends Command
 {
     protected $signature = 'tagtoa:backup-offsite
                             {--dir= : Dossier des sauvegardes (défaut : storage/app/backups)}
-                            {--timeout=600 : Durée maximale d\'un envoi, en secondes}';
+                            {--timeout=600 : Durée maximale d\'un envoi, en secondes}
+                            {--max-age-db=0 : Refuse d\'envoyer une sauvegarde de la base plus vieille que N minutes (0 = pas de contrôle ; le déploiement l\'utilise)}';
 
     protected $description = 'Envoie (chiffrées) les dernières sauvegardes vers un bucket S3-compatible (R2, B2…)';
 
@@ -66,6 +67,7 @@ class BackupOffsiteCommand extends Command
         }
 
         try {
+            $this->cleanOrphanTemps($dir, (int) $this->option('timeout') + 300);
             $candidats = array_filter([
                 BackupDatabaseCommand::listBackups($dir)[0] ?? null,
                 BackupUploadsCommand::listBackups($dir)[0] ?? null,
@@ -90,6 +92,20 @@ class BackupOffsiteCommand extends Command
         }
     }
 
+    /** Un envoi tué net (SIGKILL, OOM) laisse sa copie chiffrée temporaire (≈ la taille de la sauvegarde) : on balaie les anciennes. */
+    protected function cleanOrphanTemps(string $dir, int $olderThanSeconds): void
+    {
+        foreach (@scandir($dir) ?: [] as $name) {
+            if (preg_match('/^\.offsite-[0-9a-f]{8}\.tmp$/', $name) !== 1) {
+                continue;
+            }
+            $f = $dir.'/'.$name;
+            if (is_file($f) && time() - (int) @filemtime($f) > $olderThanSeconds && @unlink($f)) {
+                $this->line('Copie chiffrée temporaire orpheline supprimée : '.$name);
+            }
+        }
+    }
+
     /** Point d'injection des tests. */
     protected function client(array $cfg): S3Client
     {
@@ -109,8 +125,18 @@ class BackupOffsiteCommand extends Command
         $attendu = OffsiteCrypto::encryptedSize((int) filesize($file));
         $tmp = $dir.'/.offsite-'.bin2hex(random_bytes(4)).'.tmp';
         try {
+            // Fraîcheur (sauvegarde de la base seulement : l'archive d'images, inchangée, peut légitimement dater).
+            $maxAge = (int) $this->option('max-age-db');
+            if ($maxAge > 0 && str_starts_with(basename($file), BackupDatabaseCommand::PREFIX)
+                && BackupDatabaseCommand::stampOf($file)->diffInMinutes(now(), false) > $maxAge) {
+                throw new \RuntimeException('la dernière sauvegarde de la base date de plus de '.$maxAge.' min — celle de ce déploiement a probablement échoué, rien d\'ancien n\'est présenté comme frais');
+            }
+
+            $clair = hash_file('sha256', $file);
             $deja = $client->head($objet);
-            if ($deja !== null && $deja['size'] === $attendu) {
+            // « Déjà là » = même poids ET même empreinte du contenu en clair (métadonnée écrite à l'envoi) : un objet de même taille mais
+            // différent (corrompu, remplacé) n'est plus pris pour bon.
+            if ($deja !== null && $deja['size'] === $attendu && hash_equals($clair, (string) ($deja['meta']['tagtoa-sha256'] ?? ''))) {
                 $this->info('Déjà hors site : '.$objet.' ('.number_format($attendu).' octets)');
 
                 return true;
@@ -125,7 +151,7 @@ class BackupOffsiteCommand extends Command
             if ((int) filesize($tmp) !== $attendu) {
                 throw new \RuntimeException('taille chiffrée inattendue (bug)');
             }
-            $etag = $client->putFile($objet, $tmp);
+            $etag = $client->putFile($objet, $tmp, ['tagtoa-sha256' => $clair]);
 
             $apres = $client->head($objet);
             if ($apres === null || $apres['size'] !== $attendu) {

@@ -73,11 +73,15 @@ class S3Client
     }
 
     /** Envoie un fichier local (en flux). Lève une exception sur tout échec. Retourne l'ETag (sans guillemets). */
-    public function putFile(string $key, string $file): string
+    public function putFile(string $key, string $file, array $meta = []): string
     {
         $hash = hash_file('sha256', $file);
         $path = $this->objectPath($key);
-        $headers = $this->sign('PUT', $path, $hash, new \DateTimeImmutable(), ['content-type' => 'application/octet-stream']);
+        $signed = ['content-type' => 'application/octet-stream'];
+        foreach ($meta as $k => $v) {
+            $signed['x-amz-meta-'.strtolower($k)] = (string) $v;   // métadonnées signées avec le reste
+        }
+        $headers = $this->sign('PUT', $path, $hash, new \DateTimeImmutable(), $signed);
         $res = $this->transport->request('PUT', $this->endpoint.$path, $headers, $file, $this->timeout);
         if ($res['status'] < 200 || $res['status'] >= 300) {
             throw new \RuntimeException('Envoi refusé (HTTP '.$res['status'].') : '.$this->snippet($res['body']));
@@ -86,7 +90,7 @@ class S3Client
         return trim($res['headers']['etag'] ?? '', '"');
     }
 
-    /** @return array{size:int,etag:string}|null  null si l'objet n'existe pas */
+    /** @return array{size:int,etag:string,meta:array<string,string>}|null  null si l'objet n'existe pas */
     public function head(string $key): ?array
     {
         $path = $this->objectPath($key);
@@ -98,12 +102,24 @@ class S3Client
             throw new \RuntimeException('Lecture refusée (HTTP '.$res['status'].')');
         }
 
-        return ['size' => (int) ($res['headers']['content-length'] ?? 0), 'etag' => trim($res['headers']['etag'] ?? '', '"')];
+        $meta = [];
+        foreach ($res['headers'] as $k => $v) {
+            if (str_starts_with($k, 'x-amz-meta-')) {
+                $meta[substr($k, 11)] = $v;
+            }
+        }
+
+        return ['size' => (int) ($res['headers']['content-length'] ?? 0), 'etag' => trim($res['headers']['etag'] ?? '', '"'), 'meta' => $meta];
     }
 
-    /** Un extrait de la réponse, sans jamais pouvoir contenir nos identifiants (ils ne sont dans aucune réponse). */
+    /**
+     * Ce qu'on garde d'une réponse d'erreur : le code et un message court, jamais le corps brut. Une erreur de signature
+     * renvoie la requête canonique, l'identifiant de clé et l'horodatage : le journal du déploiement est lisible, on n'en recopie rien.
+     */
     private function snippet(string $body): string
     {
-        return trim(substr(strip_tags($body), 0, 300));
+        $code = preg_match('#<Code>([A-Za-z0-9_.-]{1,60})</Code>#', $body, $m) === 1 ? $m[1] : 'réponse non reconnue';
+
+        return $code;
     }
 }

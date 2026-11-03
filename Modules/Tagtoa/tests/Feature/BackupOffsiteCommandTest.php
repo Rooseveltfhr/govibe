@@ -68,6 +68,7 @@ class BackupOffsiteCommandTest extends TestCase
     {
         $t = new class($store, $failPut, $head, $putEtag) implements S3Transport {
             public array $log = [];
+            public array $meta = [];
             public function __construct(private array &$store, private bool $failPut, private ?\Closure $head, private ?string $putEtag) {}
             public function request(string $method, string $url, array $headers, ?string $uploadFile, int $timeout): array
             {
@@ -79,6 +80,7 @@ class BackupOffsiteCommandTest extends TestCase
                         return ['status' => 403, 'headers' => [], 'body' => '<Error>AccessDenied</Error>'];
                     }
                     $this->store[$key] = $body;
+                    $this->meta[$key] = array_filter($headers, fn ($k) => str_starts_with($k, 'x-amz-meta-'), ARRAY_FILTER_USE_KEY);
 
                     return ['status' => 200, 'headers' => ['etag' => '"'.($this->putEtag ?? md5($body)).'"'], 'body' => ''];
                 }
@@ -86,7 +88,7 @@ class BackupOffsiteCommandTest extends TestCase
                     return ($this->head)($method, $key, $this->store);
                 }
                 if (isset($this->store[$key])) {
-                    return ['status' => 200, 'headers' => ['content-length' => (string) strlen($this->store[$key]), 'etag' => '"'.md5($this->store[$key]).'"'], 'body' => ''];
+                    return ['status' => 200, 'headers' => ['content-length' => (string) strlen($this->store[$key]), 'etag' => '"'.md5($this->store[$key]).'"'] + ($this->meta[$key] ?? []), 'body' => ''];
                 }
 
                 return ['status' => 404, 'headers' => [], 'body' => ''];
@@ -207,6 +209,10 @@ class BackupOffsiteCommandTest extends TestCase
             '/sauvegardes/tagtoa/tagtoa-uploads-20261103-100000.tar.gz.enc' => str_repeat('y', OffsiteCrypto::encryptedSize(filesize($up))),
         ];
         $t = $this->fakeBucket($store);
+        $t->meta = [
+            '/sauvegardes/tagtoa/tagtoa-db-20261103-100000.sql.gz.enc' => ['x-amz-meta-tagtoa-sha256' => hash_file('sha256', $db)],
+            '/sauvegardes/tagtoa/tagtoa-uploads-20261103-100000.tar.gz.enc' => ['x-amz-meta-tagtoa-sha256' => hash_file('sha256', $up)],
+        ];
 
         $this->run_()->expectsOutputToContain('Déjà hors site')->assertExitCode(0);
         $this->assertSame([], array_filter($t->log, fn ($r) => $r['method'] === 'PUT'));
@@ -332,11 +338,116 @@ class BackupOffsiteCommandTest extends TestCase
         $sh = file_get_contents(__DIR__.'/../../deploy/remote-deploy.sh');
         $off = strpos($sh, 'php artisan tagtoa:backup-offsite');
         $this->assertNotFalse($off);
-        $this->assertStringContainsString('php artisan tagtoa:backup-offsite --timeout=', $sh);
+        $this->assertStringContainsString('php artisan tagtoa:backup-offsite $OFFSITE_ARGS', $sh);
+        $this->assertStringContainsString('--max-age-db=30', $sh, 'La base envoyée doit dater de ce déploiement.');
+        $this->assertStringContainsString('timeout -k 30 $(( OFFSITE_T * 2 + 300 ))', $sh, 'Le délai global couvre les deux envois ; -k tue PHP s\'il ignore le SIGTERM.');
         $this->assertGreaterThan(strpos($sh, 'php artisan tagtoa:backup-uploads'), $off);
         $this->assertLessThan(strpos($sh, 'php artisan down'), $off);
         $this->assertStringContainsString('TAGTOA_OFFSITE_SKIP', $sh);
         $this->assertMatchesRegularExpression('/COPIE HORS SITE IMPOSSIBLE.*?TAGTOA_OFFSITE_REQUIRED/s', $sh);
+    }
+
+    public function test_same_size_but_different_content_is_not_taken_for_already_sent(): void
+    {
+        [$db] = $this->backups();
+        $store = ['/sauvegardes/tagtoa/tagtoa-db-20261103-100000.sql.gz.enc' => str_repeat('x', OffsiteCrypto::encryptedSize(filesize($db)))];
+        $t = $this->fakeBucket($store);
+        $t->meta = ['/sauvegardes/tagtoa/tagtoa-db-20261103-100000.sql.gz.enc' => ['x-amz-meta-tagtoa-sha256' => str_repeat('0', 64)]];   // même poids, autre contenu
+
+        $this->run_()->assertExitCode(0);
+        $puts = array_filter($t->log, fn ($r) => $r['method'] === 'PUT' && str_contains($r['url'], 'tagtoa-db-'));
+        $this->assertCount(1, $puts, 'L\'objet suspect est renvoyé, pas validé sur sa seule taille.');
+        $this->assertNotSame(str_repeat('x', strlen($store['/sauvegardes/tagtoa/tagtoa-db-20261103-100000.sql.gz.enc'])), $store['/sauvegardes/tagtoa/tagtoa-db-20261103-100000.sql.gz.enc']);
+    }
+
+    public function test_the_content_hash_travels_as_signed_object_metadata(): void
+    {
+        [$db] = $this->backups();
+        $store = [];
+        $t = $this->fakeBucket($store);
+        $this->run_()->assertExitCode(0);
+
+        $put = array_values(array_filter($t->log, fn ($r) => $r['method'] === 'PUT' && str_contains($r['url'], 'tagtoa-db-')))[0];
+        $this->assertSame(hash_file('sha256', $db), $put['headers']['x-amz-meta-tagtoa-sha256']);
+        $this->assertStringContainsString('x-amz-meta-tagtoa-sha256', $put['headers']['authorization'], 'La métadonnée fait partie de la signature.');
+    }
+
+    public function test_a_stale_database_backup_is_refused_but_the_images_are_still_sent(): void
+    {
+        $this->backups();   // dump daté de 2026-11-03 10:00:00
+        $this->travelTo(\Carbon\Carbon::parse('2026-11-03 18:00:00'));
+        $store = [];
+        $t = $this->fakeBucket($store);
+
+        $this->run_(['--max-age-db' => 30])->expectsOutputToContain('date de plus de 30 min')->assertExitCode(1);
+
+        $this->assertArrayNotHasKey('/sauvegardes/tagtoa/tagtoa-db-20261103-100000.sql.gz.enc', $store, 'Une vieille sauvegarde n\'est pas présentée comme fraîche.');
+        $this->assertArrayHasKey('/sauvegardes/tagtoa/tagtoa-uploads-20261103-100000.tar.gz.enc', $store, 'Les images, inchangées, peuvent légitimement dater.');
+    }
+
+    public function test_a_fresh_database_backup_passes_the_age_check(): void
+    {
+        $this->backups();
+        $this->travelTo(\Carbon\Carbon::parse('2026-11-03 10:10:00'));
+        $store = [];
+        $this->fakeBucket($store);
+        $this->run_(['--max-age-db' => 30])->assertExitCode(0);
+    }
+
+    public function test_orphan_temporary_encrypted_copies_are_swept_but_recent_and_foreign_files_are_not(): void
+    {
+        $this->backups();
+        $vieux = $this->dir.'/.offsite-deadbeef.tmp';
+        $recent = $this->dir.'/.offsite-cafebabe.tmp';
+        $autre = $this->dir.'/.offsite-pas-a-moi.tmp';
+        foreach ([$vieux, $recent, $autre] as $f) { file_put_contents($f, 'x'); }
+        touch($vieux, time() - 7200);
+        touch($autre, time() - 7200);
+        $store = [];
+        $this->fakeBucket($store);
+
+        $this->run_(['--timeout' => 60])->assertExitCode(0);
+
+        $this->assertFileDoesNotExist($vieux, 'Un envoi tué net laisse ≈ la taille de la sauvegarde : sinon le disque se remplit à chaque déploiement raté.');
+        $this->assertFileExists($recent);
+        $this->assertFileExists($autre);
+    }
+
+    public function test_error_bodies_are_never_echoed_only_the_error_code(): void
+    {
+        $this->backups();
+        $store = [];
+        $this->app->instance(S3Transport::class, new class implements S3Transport {
+            public function request(string $method, string $url, array $headers, ?string $uploadFile, int $timeout): array
+            {
+                return $method === 'PUT'
+                    ? ['status' => 403, 'headers' => [], 'body' => '<Error><Code>SignatureDoesNotMatch</Code><AWSAccessKeyId>AKIDEXAMPLE</AWSAccessKeyId><CanonicalRequest>PUT /secret-bucket</CanonicalRequest></Error>']
+                    : ['status' => 404, 'headers' => [], 'body' => ''];
+            }
+        });
+
+        // Deux passages : une attente « contient » consomme la ligne, la vérification d'absence ne la reverrait plus.
+        $this->run_()->expectsOutputToContain('SignatureDoesNotMatch')->assertExitCode(1);
+        $this->run_()->doesntExpectOutputToContain('AKIDEXAMPLE')->doesntExpectOutputToContain('secret-bucket')->doesntExpectOutputToContain('CanonicalRequest')->assertExitCode(1);
+    }
+
+    public function test_dotenv_options_reach_the_deploy_script_but_a_real_environment_variable_wins(): void
+    {
+        $sh = file_get_contents(__DIR__.'/../../deploy/remote-deploy.sh');
+        $a = strpos($sh, '# >>> TAGTOA_DOTENV_OPTIONS');
+        $b = strpos($sh, '# <<< TAGTOA_DOTENV_OPTIONS');
+        $this->assertNotFalse($a);
+        $bloc = substr($sh, $a, $b - $a);
+        file_put_contents($this->dir.'/.env', "APP_KEY=base64:abc\nTAGTOA_OFFSITE_REQUIRED=1\nTAGTOA_BACKUP_KEEP=\"7\"\r\nTAGTOA_OFFSITE_SKIP=0\nTAGTOA_OFFSITE_SECRET=ne-doit-pas-sortir\n");
+        file_put_contents($this->dir.'/t.sh', "set -uo pipefail\ncd ".escapeshellarg($this->dir)."\n".$bloc."\necho \"R=\${TAGTOA_OFFSITE_REQUIRED:-}|K=\${TAGTOA_BACKUP_KEEP:-}|S=\${TAGTOA_OFFSITE_SKIP:-}|X=\${TAGTOA_OFFSITE_SECRET:-}\"\n");
+
+        $p = new Process(['bash', $this->dir.'/t.sh']);
+        $p->mustRun();
+        $this->assertSame("R=1|K=7|S=0|X=\n", $p->getOutput(), 'Valeurs lues dans le .env (guillemets et retour chariot retirés) ; une variable hors liste n\'est jamais exportée.');
+
+        $p = new Process(['bash', $this->dir.'/t.sh'], null, ['TAGTOA_OFFSITE_REQUIRED' => '0', 'PATH' => getenv('PATH')]);
+        $p->mustRun();
+        $this->assertStringStartsWith('R=0|', $p->getOutput(), 'L\'environnement du shell a priorité sur le .env.');
     }
 
     /** Vrai cURL, vrai serveur HTTP local : prouve le flux PUT/HEAD réel (pas seulement le faux transport). */
@@ -361,6 +472,8 @@ if ($m === 'PUT') {
     if (hash('sha256', $body) !== ($_SERVER['HTTP_X_AMZ_CONTENT_SHA256'] ?? '')) { http_response_code(400); exit('BadDigest'); }
     file_put_contents($f, $body);
     file_put_contents($f.'.uri', $_SERVER['REQUEST_URI']);
+    file_put_contents($f.'.meta', $_SERVER['HTTP_X_AMZ_META_TAGTOA_SHA256'] ?? '');
+    file_put_contents($f.'.expect', $_SERVER['HTTP_EXPECT'] ?? '');
     header('ETag: "'.md5($body).'"');
     exit;
 }
@@ -368,6 +481,7 @@ if ($m === 'HEAD') {
     if (! is_file($f)) { http_response_code(404); exit; }
     header('Content-Length: '.filesize($f));
     header('ETag: "'.md5_file($f).'"');
+    if (is_file($f.'.meta')) { header('x-amz-meta-tagtoa-sha256: '.file_get_contents($f.'.meta')); }
     exit;
 }
 http_response_code(405);
@@ -384,7 +498,9 @@ PHP);
             $this->app->forgetInstance(S3Transport::class);
             $this->app->offsetUnset(S3Transport::class);
 
+            file_put_contents($this->dir.'/tagtoa-uploads-20261103-100000.tar.gz', random_bytes(2 * 1048576));   // > 1 Mo : cURL ajouterait « Expect: 100-continue »
             $this->run_()->expectsOutputToContain('Hors site OK')->assertExitCode(0);
+            $this->assertSame([''], array_unique(array_map('file_get_contents', glob($srv.'/objets/*.expect') ?: [])), 'Aucun en-tête Expect envoyé.');
             $objets = glob($srv.'/objets/*.uri') ?: [];
             $this->assertCount(2, $objets, 'Les deux sauvegardes sont arrivées au serveur.');
             $this->assertStringContainsString('/sauvegardes/tagtoa/tagtoa-db-20261103-100000.sql.gz.enc', implode(' ', array_map('file_get_contents', $objets)));

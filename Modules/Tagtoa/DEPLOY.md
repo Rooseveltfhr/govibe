@@ -125,8 +125,16 @@ Quiconque prend le serveur, son `.env` ou le bucket ne peut rien lire. **Clé pr
 | `TAGTOA_OFFSITE_SKIP=1` | ignore la copie hors site |
 | `TAGTOA_OFFSITE_REQUIRED=1` | un échec annule le déploiement avant la maintenance (par défaut : avertissement bruyant) |
 
-Au déploiement suivant, le journal affiche « Hors site OK : … » (chaque fichier est relu : taille + empreinte). Un fichier déjà présent au bon
-poids n'est pas renvoyé. Les noms contiennent l'horodatage : un envoi n'écrase jamais une copie précédente.
+Au déploiement suivant, le journal affiche « Hors site OK : … ». Chaque fichier est relu : taille, et empreinte (ETag) quand le service renvoie
+un MD5 simple (R2 : oui ; sur B2 ou S3 avec chiffrement serveur, seule la taille est comparable). Un fichier est considéré « déjà hors site »
+seulement si le poids ET l'empreinte du contenu en clair (métadonnée `tagtoa-sha256` écrite à l'envoi) correspondent. La sauvegarde de la base
+doit dater de moins de 30 min (celle de ce déploiement) : sinon rien d'ancien n'est présenté comme frais. Les réglages `TAGTOA_BACKUP_*`,
+`TAGTOA_UPLOADS_*` et `TAGTOA_OFFSITE_*` sont relus dans le `.env` par le script de déploiement (une variable déjà présente dans le shell a priorité).
+
+*Limites assumées* : le chiffrement protège la CONFIDENTIALITÉ, pas l'authenticité face à quelqu'un qui détient le jeton d'écriture et la clé publique
+(il peut déposer un faux fichier ; sans clé privée il ne peut rien lire) — d'où le verrouillage du bucket. Les noms portent l'horodatage à la seconde ;
+un envoi n'écrase en pratique jamais une copie précédente (deux déploiements dans la même seconde sont exclus par un verrou). Un envoi simple est limité
+à 5 Go chez R2/B2 : bien au-delà du plafond `TAGTOA_UPLOADS_MAX_MB`. Ne lancez pas `tagtoa:backup-keygen` en CI (sa sortie contient la clé privée).
 
 *Restaurer depuis le hors site* (sur votre poste, ou un serveur de secours) : téléchargez l'objet `.enc` depuis le bucket, puis
 `TAGTOA_OFFSITE_PRIVATE_KEY='<clé privée>' php artisan tagtoa:backup-decrypt fichier.sql.gz.enc` (ou saisie masquée si la variable est absente ;

@@ -11,7 +11,7 @@ class CurlTransport implements S3Transport
         $out = ['status' => 0, 'headers' => [], 'body' => ''];
         $fh = null;
 
-        $hdrs = [];
+        $hdrs = ['Expect:'];   // pas de « 100-continue » : certains points d'accès (proxy, B2) l'ignorent ou attendent 1 s
         foreach ($headers as $k => $v) {
             $hdrs[] = $k.': '.$v;
         }
