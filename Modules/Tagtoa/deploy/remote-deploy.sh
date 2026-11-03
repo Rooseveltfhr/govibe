@@ -73,7 +73,17 @@ if [ "${TAGTOA_BACKUP_SKIP:-0}" != "1" ]; then
   fi
   # Lecture seule, JAMAIS bloquant : relit la dernière sauvegarde (complète, toutes les tables, taille plausible, place prise).
   echo "==> Sauvegarde : vérification de la dernière (contrôle du fichier, pas une restauration)"
-  timeout 120 php artisan tagtoa:backup-verify 2>&1 | sed 's/^/   /' || echo "   (vérification indisponible — ignorée)"
+  # --max-age : la sauvegarde doit dater de ce déploiement (sinon on validerait une vieille). Pas en mode IF_PENDING (aucune sauvegarde attendue).
+  VERIFY_ARGS="--max-age=30"
+  [ "${TAGTOA_BACKUP_IF_PENDING:-0}" = "1" ] && VERIFY_ARGS=""
+  # shellcheck disable=SC2086
+  timeout 120 php artisan tagtoa:backup-verify $VERIFY_ARGS 2>&1 | sed 's/^/   /'
+  VERIFY_RC=${PIPESTATUS[0]}
+  if [ "$VERIFY_RC" -eq 124 ]; then
+    echo "   (vérification interrompue après 120 s — ignorée)"
+  elif [ "$VERIFY_RC" -ne 0 ]; then
+    echo "!!!!!!!! WARN: LA DERNIÈRE SAUVEGARDE A UN PROBLÈME (voir ci-dessus) — déploiement sans filet fiable !!!!!!!!"
+  fi
 else
   echo "==> Sauvegarde ignorée (TAGTOA_BACKUP_SKIP=1)"
 fi

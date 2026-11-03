@@ -60,13 +60,13 @@ en attente : un bug qui abîme des données sans migration n'avait aucune sauveg
 Le dump est compressé, vérifié (archive lisible + pied de page du dump présent), écrit en
 `0600` dans `storage/app/backups/` (dossier `0700`).
 
-**Rétention par niveaux** : les 10 dernières, PLUS la plus récente de chaque jour pendant 14
-jours, PLUS la plus récente de chaque semaine pendant 8 semaines. Le reste est supprimé ; un
+**Rétention par niveaux** : les 10 dernières, PLUS la plus récente de chaque jour sur ≈ 15
+jours, PLUS la plus récente de chaque semaine sur ≈ 9 semaines. Le reste est supprimé ; un
 fichier nommé à la main n'est jamais compté ni supprimé.
 
 **Vérification** : juste après, `php artisan tagtoa:backup-verify` relit la dernière sauvegarde
 (lecture seule, jamais bloquant) : archive complète, **chaque table de la base présente dans le
-dump**, taille cohérente avec la précédente, place prise. C'est un contrôle du FICHIER, pas une
+dump**, taille cohérente avec la précédente, **fraîcheur** (elle doit dater du déploiement en cours, sinon alerte), place prise. Un dump orphelin (`.partial`) laissé par un processus tué est nettoyé au passage. Le dump n'inclut pas les `EVENT` MySQL. C'est un contrôle du FICHIER, pas une
 restauration : la restauration réelle (vrai `mysqldump` → vraie base MySQL 8) est prouvée à
 chaque PR par le job CI « migrations + sauvegarde ».
 

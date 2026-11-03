@@ -137,4 +137,21 @@ class BackupVerifyCommandTest extends TestCase
         $this->assertSame($avant, [md5_file($a), md5_file($b), filemtime($a), filemtime($b)]);
         $this->assertCount(2, BackupDatabaseCommand::listBackups($this->dir));
     }
+
+    public function test_max_age_flags_a_stale_latest_backup_but_accepts_a_fresh_one(): void
+    {
+        $this->sauvegarde(now()->subDays(3)->format('Ymd-His'), padding: 20000);
+        $this->artisan('tagtoa:backup-verify', ['--dir' => $this->dir, '--max-age' => 30])
+            ->expectsOutputToContain('aucune sauvegarde récente')
+            ->assertExitCode(1);
+
+        $this->sauvegarde(now()->subMinutes(2)->format('Ymd-His'), padding: 20000);
+        $this->artisan('tagtoa:backup-verify', ['--dir' => $this->dir, '--max-age' => 30])->assertExitCode(0);
+    }
+
+    public function test_without_max_age_an_old_backup_is_not_a_problem(): void
+    {
+        $this->sauvegarde('20200101-010101', padding: 20000);
+        $this->artisan('tagtoa:backup-verify', ['--dir' => $this->dir])->assertExitCode(0);
+    }
 }

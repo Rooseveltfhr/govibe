@@ -90,8 +90,10 @@ class BackupDatabaseCommand extends Command
         $final = $dir.'/'.self::PREFIX.date('Ymd-His').self::SUFFIX;
         $part  = $final.'.partial';
         @unlink($part);
+        $timeout = max(30, (int) $this->option('timeout'));
+        $this->cleanOrphanPartials($dir, $timeout + 300);
 
-        $error = $this->dump($conn, $part, max(30, (int) $this->option('timeout')));
+        $error = $this->dump($conn, $part, $timeout);
         if ($error === null) {
             $error = $this->verify($part);
         }
@@ -114,6 +116,23 @@ class BackupDatabaseCommand extends Command
         $this->prune($dir, (int) $this->option('keep'), $final, (int) $this->option('keep-daily'), (int) $this->option('keep-weekly'));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Un dump tué net (OOM, coupure) laisse un `.partial` que ni la liste ni la rétention ne voient : il grossirait
+     * le disque pour toujours. On supprime ceux qui sont plus vieux que le délai maximal d'un dump + marge.
+     */
+    protected function cleanOrphanPartials(string $dir, int $olderThanSeconds): void
+    {
+        foreach (@scandir($dir) ?: [] as $name) {
+            if (preg_match('/^tagtoa-db-\d{8}-\d{6}\.sql\.gz\.partial$/', $name) !== 1) {
+                continue;
+            }
+            $f = $dir.'/'.$name;
+            if (is_file($f) && time() - (int) @filemtime($f) > $olderThanSeconds && @unlink($f)) {
+                $this->line('Dump partiel orphelin supprimé : '.$name);
+            }
+        }
     }
 
     /** Une migration est-elle en attente (dossier de l'hôte + chemins des modules) ? */
@@ -261,8 +280,13 @@ class BackupDatabaseCommand extends Command
     public static function listBackups(string $dir): array
     {
         // Un fichier nommé à la main n'est jamais ni compté ni supprimé.
-        $files = array_values(array_filter(glob($dir.'/'.self::PREFIX.'*'.self::SUFFIX) ?: [],
-            fn ($f) => preg_match('/^tagtoa-db-\d{8}-\d{6}\.sql\.gz$/', basename($f)) === 1));
+        // scandir et non glob() : un chemin contenant [ ] * ? ferait lister « rien » en silence.
+        $files = [];
+        foreach (@scandir($dir) ?: [] as $name) {
+            if (preg_match('/^tagtoa-db-\d{8}-\d{6}\.sql\.gz$/', $name) === 1) {
+                $files[] = $dir.'/'.$name;
+            }
+        }
         rsort($files); // le nom porte l'horodatage : l'ordre alphabétique est chronologique
 
         return $files;

@@ -21,6 +21,7 @@ class BackupVerifyCommand extends Command
 {
     protected $signature = 'tagtoa:backup-verify
                             {--dir= : Dossier des sauvegardes (défaut : storage/app/backups)}
+                            {--max-age=0 : Alerte si la dernière sauvegarde a plus de N minutes (0 = pas de contrôle ; utilisé par le déploiement)}
                             {--min-ratio=0.5 : Alerte si la dernière pèse moins de ce rapport de la précédente}';
 
     protected $description = 'Vérifie (lecture seule) la dernière sauvegarde de la base : complète, toutes les tables, taille plausible.';
@@ -40,6 +41,13 @@ class BackupVerifyCommand extends Command
         $this->line('Dernière sauvegarde : '.basename($dernier).' ('.number_format((int) filesize($dernier)).' octets, il y a '.$age->diffForHumans(null, true).')');
 
         $problemes = 0;
+
+        // Fraîcheur : si la sauvegarde du déploiement a échoué, la « dernière » est une vieille — ne pas la prendre pour celle d'aujourd'hui.
+        $maxAge = (int) $this->option('max-age');
+        if ($maxAge > 0 && $age->diffInMinutes(now(), false) > $maxAge) {
+            $problemes++;
+            $this->error('   PROBLÈME : la dernière sauvegarde date de plus de '.$maxAge.' min — aucune sauvegarde récente pour ce déploiement.');
+        }
 
         if (($err = BackupDatabaseCommand::verifyFile($dernier)) !== null) {
             $this->error('   PROBLÈME : '.$err);

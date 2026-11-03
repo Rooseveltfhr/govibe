@@ -357,7 +357,11 @@ class BackupDatabaseCommandTest extends TestCase
         $this->assertStringContainsString('--timeout=${TAGTOA_BACKUP_TIMEOUT:-300}', $sh, 'Un dump qui pend ne bloque pas le déploiement 15 minutes.');
         $this->assertStringNotContainsString('tagtoa:backup-db --if-pending', $sh, 'Plus de sauvegarde seulement si migration : une à chaque déploiement.');
         $this->assertStringContainsString('TAGTOA_BACKUP_IF_PENDING', $sh, 'L\'ancien comportement reste disponible.');
-        $this->assertMatchesRegularExpression('/backup-verify[^\n]*\|\| echo/', $sh, 'La vérification ne doit jamais faire échouer le déploiement.');
+        $this->assertStringContainsString('PIPESTATUS[0]', $sh, 'Le code de sortie de la vérification (et non celui de sed) décide du message.');
+        $this->assertStringContainsString('-eq 124', $sh, 'Un délai dépassé (124) n\'est pas un vrai problème de sauvegarde.');
+        $this->assertStringContainsString('LA DERNIÈRE SAUVEGARDE A UN PROBLÈME', $sh, 'Un vrai problème est bruyant, pas « ignoré ».');
+        $this->assertStringContainsString('--max-age=', $sh, 'La sauvegarde vérifiée doit dater de CE déploiement.');
+        $this->assertDoesNotMatchRegularExpression('/backup-verify[^\n]*\|\| echo/', $sh, 'Plus de « || echo » qui masquait un vrai problème.');
         $this->assertLessThan(strpos($sh, 'php artisan down'), strpos($sh, 'tagtoa:backup-verify'), 'Vérifiée avant la maintenance.');
         $this->assertGreaterThan(strpos($sh, 'tagtoa:backup-db'), strpos($sh, 'tagtoa:backup-verify'));
     }
@@ -402,5 +406,33 @@ class BackupDatabaseCommandTest extends TestCase
         $this->assertContains($lointain, $noms);
         $this->assertNotContains($ceSoir, $noms, '0 jour / 0 semaine = pas de niveau : on ne garde pas « celle d\'aujourd\'hui » ni « celle de cette semaine ».');
         $this->assertCount(2, $noms, 'La plus récente par nom + celle qu\'on vient de faire.');
+    }
+
+    public function test_an_orphan_partial_dump_is_cleaned_but_a_recent_one_and_foreign_files_are_not(): void
+    {
+        mkdir($this->dir, 0700, true);
+        $vieux = $this->dir.'/tagtoa-db-20200101-000000.sql.gz.partial';
+        $recent = $this->dir.'/tagtoa-db-20200102-000000.sql.gz.partial';
+        $autre = $this->dir.'/mon-fichier.partial';
+        foreach ([$vieux, $recent, $autre] as $f) { file_put_contents($f, 'x'); }
+        touch($vieux, time() - 7200);
+        touch($autre, time() - 7200);
+        $this->asMysql();
+
+        $this->artisan('tagtoa:backup-db', ['--out' => $this->dir, '--timeout' => 60])->assertExitCode(0);
+
+        $this->assertFileDoesNotExist($vieux, 'Un dump tué net ne doit pas grossir le disque pour toujours.');
+        $this->assertFileExists($recent, 'Un dump peut être en cours : on ne touche pas à un .partial récent.');
+        $this->assertFileExists($autre, 'Un fichier qui n\'est pas de cette commande n\'est jamais supprimé.');
+    }
+
+    public function test_an_output_path_with_glob_metacharacters_is_still_listed_and_pruned(): void
+    {
+        $this->dir .= '[x]';
+        mkdir($this->dir, 0700, true);
+        $f = $this->sauvegardeDatee(\Carbon\Carbon::now()->subDays(3));
+
+        $this->assertSame([$this->dir."/".$f], \Modules\Tagtoa\App\Console\BackupDatabaseCommand::listBackups($this->dir),
+            'glob() lisait « rien » en silence quand le chemin contenait [ ] * ?.');
     }
 }
