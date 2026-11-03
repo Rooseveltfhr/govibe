@@ -246,6 +246,40 @@ class RevenueChannelTest extends TestCase
         $this->assertSame(0, Commission::allTenants()->where('source_type', 'pos_sale')->count());
     }
 
+    /* ---------- encaissée à la main AVANT que la passerelle confirme ---------- */
+
+    public function test_a_manual_cash_in_before_the_gateway_confirms_does_not_erase_the_commission_of_a_verified_online_payment(): void
+    {
+        // Menu : le marchand clique « Encaisser » (0 commission), PUIS la passerelle confirme.
+        $menu = $this->commandeMenu();
+        app(MenuOrderService::class)->markPaid($menu->fresh(), 'cash', 'Rose');
+        $this->assertSame(0, Commission::allTenants()->where('source_type', 'menu_order')->count());
+        $this->reglerParPasserelle('menu', $menu->id, (float) $menu->total, 't1');
+        $c = Commission::allTenants()->where('source_type', 'menu_order')->sole();
+        $this->assertSame('600.00', (string) $c->gross_amount, 'Sous-total, hors pourboire.');
+
+        // Boutique.
+        $boutique = $this->commandeBoutique();
+        app(StoreOrderService::class)->markPaid($boutique);
+        $this->reglerParPasserelle('store', $boutique->id, (float) $boutique->total, 't-1');
+        $this->assertSame(1, Commission::allTenants()->where('source_type', 'store_order')->count());
+
+        // Billetterie.
+        $evenement = $this->commandeEvenement();
+        app(TicketService::class)->markPaid($evenement, 'manual');
+        $this->reglerParPasserelle('event', $evenement->id, (float) $evenement->total, 't-1');
+        $this->assertSame(1, Commission::allTenants()->where('source_type', 'event_order')->count());
+    }
+
+    public function test_the_normal_online_path_and_a_replayed_settlement_never_commission_twice(): void
+    {
+        $menu = $this->commandeMenu();
+        $this->reglerParPasserelle('menu', $menu->id, (float) $menu->total, 't1');
+        $this->reglerParPasserelle('menu', $menu->id, (float) $menu->total, 't1');   // rejeu (webhook + réconciliation)
+
+        $this->assertSame(1, Commission::allTenants()->where('source_type', 'menu_order')->count());
+    }
+
     /* ---------- garde-fou : tout appelant déclare son canal ---------- */
 
     public function test_every_commission_call_site_declares_its_channel(): void
