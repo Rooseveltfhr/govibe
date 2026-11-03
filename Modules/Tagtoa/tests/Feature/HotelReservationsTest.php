@@ -685,6 +685,19 @@ class HotelReservationsTest extends TestCase
         $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'confirmed'])->assertSessionHas('error');
     }
 
+    public function test_the_dashboard_audits_a_confirmation_once_even_on_double_click(): void
+    {
+        [$b, $menu, , $nuit] = $this->hotel();
+        $this->lien($this->demander($menu, $nuit));
+        $this->ouvrirHotel($b);
+        $id = HotelReservation::allTenants()->value('id');
+
+        $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'confirmed'])->assertSessionHas('success');
+        $this->post(route('tagtoa.hotel.reservations.status', $id), ['to' => 'confirmed'])->assertSessionHas('success');
+
+        $this->assertSame(1, \Modules\Tagtoa\App\Models\Audit\AuditLog::where('action', 'hotel.reservation.confirmed')->count());
+    }
+
     public function test_whatsapp_link_only_for_numbers_with_a_country_code(): void
     {
         [$b, $menu, , $nuit, $moment] = $this->hotel();

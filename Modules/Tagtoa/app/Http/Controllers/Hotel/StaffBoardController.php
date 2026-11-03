@@ -155,15 +155,17 @@ class StaffBoardController extends Controller
             'reason' => ['nullable', 'string', 'max:'.ResaR::REASON_MAX],
         ]);
 
-        $r = $this->reservations->setStatus($hotel->id, $id, $data['to'], $data['reason'] ?? null);
+        $r = $this->reservations->setStatus($hotel->id, $id, $data['to'], $data['reason'] ?? null, 'new');
         if ($r['result'] === ResaSvc::NOT_FOUND) {
             abort(404);
         }
         if ($r['result'] !== ResaSvc::OK) {
-            return back()->with('error', __('Cette demande ne peut plus passer à cet état.'));
+            return back()->with('error', __('Cette réservation a déjà été traitée. L\'écran va se mettre à jour.'));
         }
 
-        app(AuditService::class)->log('hotel.reservation.'.$data['to'], $r['reservation'], $r['reservation']->reference.' · '.$me->name);
+        if ($r['changed'] ?? false) {
+            app(AuditService::class)->log('hotel.reservation.'.$data['to'], $r['reservation'], $r['reservation']->reference.' · '.$me->name.' (#'.$me->id.')');
+        }
 
         return back()->with('success', $data['to'] === 'confirmed' ? __('Réservation confirmée.') : __('Demande refusée.'));
     }

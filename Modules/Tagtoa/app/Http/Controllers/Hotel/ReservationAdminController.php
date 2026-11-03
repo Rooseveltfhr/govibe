@@ -73,7 +73,9 @@ class ReservationAdminController extends Controller
             return back()->with('error', __('Cette demande ne peut plus passer à cet état.'));
         }
 
-        app(AuditService::class)->log('hotel.reservation.'.$data['to'], $r['reservation'], $r['reservation']->reference);
+        if ($r['changed'] ?? false) {
+            app(AuditService::class)->log('hotel.reservation.'.$data['to'], $r['reservation'], $r['reservation']->reference);
+        }
 
         return back()->with('success', $data['to'] === 'confirmed' ? __('Réservation confirmée.') : __('Demande refusée.'));
     }

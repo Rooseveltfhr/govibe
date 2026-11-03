@@ -4,8 +4,8 @@
 
 @section('content')
 <div class="h-row">
-    <h2 style="flex:1"><i class="fa-solid fa-bell-concierge"></i> {{ __('Demandes à traiter') }}
-        <span class="pill n">{{ $totalOuvertes }}</span></h2>
+    <h2 style="flex:1"><i class="fa-solid fa-bell-concierge"></i> {{ __('À traiter') }}
+        <span class="pill n">{{ $totalOuvertes + $totalResas }}</span></h2>
     <span style="color:var(--muted);font-size:13px">{{ $me->name }} · {{ __($me->role === 'hotel_staff' ? ($me->hotel_team ? \Modules\Tagtoa\App\Support\Hotel\HotelServiceRules::STAFF_TEAMS[$me->hotel_team] ?? '' : '') : $me->role_label) }}</span>
     <form method="POST" action="{{ route('tagtoa.hotel.board.logout') }}" style="display:inline">@csrf<button class="btn btn-o btn-sm">{{ __('Changer de personne') }}</button></form>
 </div>
@@ -51,11 +51,11 @@
             </div>
         </div>
     @endforeach
-    <h3 style="margin:14px 0 6px"><i class="fa-solid fa-bell-concierge"></i> {{ __('Demandes à traiter') }}</h3>
+    @if($requests->isNotEmpty())<h3 style="margin:14px 0 6px"><i class="fa-solid fa-bell-concierge"></i> {{ __('Demandes des chambres') }}</h3>@endif
 @endif
 
 @if($requests->isEmpty())
-    <div class="card"><div class="empty"><i class="fa-solid fa-circle-check"></i>{{ __('Rien à traiter pour le moment.') }}</div></div>
+    @if($resas->isEmpty())<div class="card"><div class="empty"><i class="fa-solid fa-circle-check"></i>{{ __('Rien à traiter pour le moment.') }}</div></div>@endif
 @else
     @foreach($requests as $r)
         <div class="card" style="margin-bottom:10px">
