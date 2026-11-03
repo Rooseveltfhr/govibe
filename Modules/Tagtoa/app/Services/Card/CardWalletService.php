@@ -165,7 +165,8 @@ class CardWalletService
                 $ctx['module'] ?? 'pay',
                 (float) Money::fromMinor($minor, $card->currency),
                 $ctx['tenant_id'] ?? null,
-                $card->currency
+                $card->currency,
+                RevenueService::CHANNEL_LEDGER   // le débit est écrit dans NOTRE grand livre : vérifiable
             );
         }
 

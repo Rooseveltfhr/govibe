@@ -72,7 +72,9 @@ class BookingService
         if ($booking->status !== 'completed') {
             $booking->update(['status' => 'completed']);
             if ((float) $booking->price > 0) {
-                $this->revenue->record('booking', $booking->id, 'booking', (float) $booking->price, $booking->tenant_id, $booking->currency);
+                // Rendez-vous « honoré » : aucun encaissement vérifiable n'est connu ici (réglé sur place) → pas de commission.
+                $this->revenue->record('booking', $booking->id, 'booking', (float) $booking->price, $booking->tenant_id, $booking->currency,
+                    RevenueService::CHANNEL_UNKNOWN);
             }
         }
 

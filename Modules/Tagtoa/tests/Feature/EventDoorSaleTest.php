@@ -86,6 +86,19 @@ class EventDoorSaleTest extends TestCase
         return Ticket::create(['event_id' => $this->event->id, 'ticket_type_id' => $this->type->id, 'code' => $code, 'serial' => 'S-'.$code, 'status' => Ticket::STATUS_UNSOLD]);
     }
 
+    public function test_a_card_door_sale_is_commissioned_but_a_cash_door_sale_is_not(): void
+    {
+        \Modules\Tagtoa\App\Models\Billing\RevenueSetting::create(['tenant_id' => null, 'revenue_model' => \Modules\Tagtoa\App\Models\Billing\RevenueSetting::MODEL_COMMISSION,
+            'commission_percent' => 5, 'commission_fixed' => 0, 'currency' => 'HTG', 'is_active' => true]);
+        $this->card(2000);
+
+        $this->cardSale()->assertOk();
+        $this->assertSame(1, \Modules\Tagtoa\App\Models\Billing\Commission::allTenants()->where('source_type', 'event_ticket')->count(), 'Carte : grand livre TAGTOA.');
+
+        $this->sell(['payment_method' => 'Espèces'])->assertOk();
+        $this->assertSame(1, \Modules\Tagtoa\App\Models\Billing\Commission::allTenants()->where('source_type', 'event_ticket')->count(), 'Espèces au guichet : aucune commission en plus.');
+    }
+
     public function test_a_card_sale_debits_issues_the_ticket_and_counts_it_against_the_quota(): void
     {
         $card = $this->card(2000);

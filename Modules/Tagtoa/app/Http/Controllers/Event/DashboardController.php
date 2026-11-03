@@ -122,7 +122,7 @@ $data = $this->validateEvent($request);
         if (! $order->isPaid()) {
             app(\Modules\Tagtoa\App\Services\Event\TicketService::class)->markPaid($order, 'manual');
             app(\Modules\Tagtoa\App\Services\Billing\RevenueService::class)
-                ->record('event_order', $order->id, 'event', (float) $order->total, $event->tenant_id, $order->currency);
+                ->record('event_order', $order->id, 'event', (float) $order->total, $event->tenant_id, $order->currency, \Modules\Tagtoa\App\Services\Billing\RevenueService::CHANNEL_MANUAL);
             app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)
                 ->log('event_order_paid', $order, $order->reference.' — '.$order->total.' '.$order->currency);
         }

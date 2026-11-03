@@ -190,13 +190,18 @@ class StoreOrderService
         return $order;
     }
 
-    /** Marque payée + enregistre la commission plateforme (idempotent). */
-    public function markPaid(Order $order): Order
+    /**
+     * Marque payée + enregistre la commission plateforme (idempotent).
+     * `$verified` : vrai SEULEMENT pour une passerelle en ligne confirmée (webhook / réconciliation) ; le marchand qui
+     * encaisse à la main n'ouvre droit à aucune commission.
+     */
+    public function markPaid(Order $order, bool $verified = false): Order
     {
         if (! $order->isPaid()) {
             $order->update(['payment_status' => 'paid']);
             app(OrderSpine::class)->touch('store_order', $order->id, null, OrderStatus::PAID);
-            $this->revenue->record('store_order', $order->id, 'store', (float) $order->total, $order->tenant_id, $order->currency);
+            $this->revenue->record('store_order', $order->id, 'store', (float) $order->total, $order->tenant_id, $order->currency,
+                $verified ? RevenueService::CHANNEL_ONLINE_VERIFIED : RevenueService::CHANNEL_MANUAL);
         }
 
         return $order;

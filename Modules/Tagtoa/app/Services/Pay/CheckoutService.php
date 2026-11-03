@@ -381,21 +381,43 @@ class CheckoutService
         }
 
         $order = $this->loadOrder($txn->order_type, (int) $txn->order_id);
-        if (! $order || $order->isPaid()) {
+        if (! $order) {
+            return;
+        }
+        if ($order->isPaid()) {
+            // Déjà encaissée À LA MAIN (le marchand a cliqué « Encaisser » avant que la passerelle confirme) : le paiement en
+            // ligne, lui, est bien VÉRIFIÉ — la commission reste due. Sans cela, un clic suffisait à la faire disparaître.
+            // Idempotent par (source_type, source_id) : le chemin normal ne la compte pas deux fois.
+            $this->recordVerifiedCommission($txn->order_type, $order);
+
             return;
         }
 
         switch ($txn->order_type) {
             case 'store':
-                app(\Modules\Tagtoa\App\Services\Store\StoreOrderService::class)->markPaid($order);
+                app(\Modules\Tagtoa\App\Services\Store\StoreOrderService::class)->markPaid($order, true);
                 break;
             case 'menu':
-                app(\Modules\Tagtoa\App\Services\Menu\MenuOrderService::class)->markPaid($order, (string) $txn->gateway);
+                app(\Modules\Tagtoa\App\Services\Menu\MenuOrderService::class)->markPaid($order, (string) $txn->gateway, null, true);
                 break;
             case 'event':
                 app(\Modules\Tagtoa\App\Services\Event\TicketService::class)->markPaid($order, (string) $txn->gateway);
-                app(RevenueService::class)->record('event_order', $order->id, 'event', (float) $order->total, $order->tenant_id, $order->currency);
+                app(RevenueService::class)->record('event_order', $order->id, 'event', (float) $order->total, $order->tenant_id, $order->currency, RevenueService::CHANNEL_ONLINE_VERIFIED);
                 break;
+        }
+    }
+
+    /** Commission d'une vente dont le règlement en ligne vient d'être CONFIRMÉ par la passerelle (idempotent). */
+    protected function recordVerifiedCommission(string $type, object $order): void
+    {
+        [$source, $module, $gross] = match ($type) {
+            'store' => ['store_order', 'store', (float) $order->total],
+            'menu'  => ['menu_order', 'menu', (float) $order->subtotal],   // hors pourboire, comme MenuOrderService::markPaid
+            'event' => ['event_order', 'event', (float) $order->total],
+            default => [null, null, 0.0],
+        };
+        if ($source) {
+            app(RevenueService::class)->record($source, (int) $order->id, $module, $gross, $order->tenant_id, $order->currency, RevenueService::CHANNEL_ONLINE_VERIFIED);
         }
     }
 
@@ -421,7 +443,7 @@ class CheckoutService
             ]
         );
 
-        app(RevenueService::class)->record('pay_page', (int) $txn->id, 'pay', (float) $txn->amount, $txn->tenant_id, $txn->currency);
+        app(RevenueService::class)->record('pay_page', (int) $txn->id, 'pay', (float) $txn->amount, $txn->tenant_id, $txn->currency, RevenueService::CHANNEL_ONLINE_VERIFIED);
 
         // APRÈS l'écriture, jamais dedans — et seulement si cette preuve vient
         // de naître : un webhook rejoué (même référence) ne doit pas notifier
