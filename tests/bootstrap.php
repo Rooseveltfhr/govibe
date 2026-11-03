@@ -30,6 +30,7 @@ require_once $base.'/Services/Review/ReviewService.php';
 require_once $base.'/Services/Inventory/StockService.php';
 require_once $base.'/Services/Audit/AuditService.php';
 require_once $base.'/Services/Event/StaffPinService.php';
+require_once $base.'/Services/Backup/OffsiteCrypto.php';
 require_once $base.'/Services/Event/SyncReconciler.php';
 require_once $base.'/Services/Event/TicketImportService.php';
 require_once $base.'/Support/Store/Cart.php';
