@@ -13,15 +13,38 @@ use Modules\Tagtoa\App\Models\Billing\RevenueSetting;
  */
 class RevenueService
 {
-    /** Enregistre une commission si le modèle de revenu le prévoit (idempotent par source). */
+    /**
+     * Comment la vente a été encaissée — décide si TAGTOA peut la facturer.
+     *
+     * Une commission ne se prélève que sur un encaissement que TAGTOA peut VÉRIFIER lui-même :
+     *  - ONLINE_VERIFIED : passerelle en ligne, confirmée par webhook / réconciliation (jamais par le retour du client) ;
+     *  - LEDGER          : débit d'une carte TAGTOA, écrit dans notre propre grand livre.
+     * Jamais sur les espèces, ni sur un paiement « confirmé à la main » par le marchand (MonCash saisi à la caisse,
+     * virement…) : rien de vérifiable à facturer, et le marchand déclarerait lui-même sa dette.
+     * Par défaut (canal non précisé) : AUCUNE commission — un nouvel appelant doit déclarer son canal.
+     */
+    public const CHANNEL_ONLINE_VERIFIED = 'online_verified';
+    public const CHANNEL_LEDGER = 'ledger';
+    public const CHANNEL_CASH = 'cash';
+    public const CHANNEL_MANUAL = 'manual';
+    public const CHANNEL_UNKNOWN = 'unknown';
+
+    public const COMMISSIONABLE_CHANNELS = [self::CHANNEL_ONLINE_VERIFIED, self::CHANNEL_LEDGER];
+
+    /** Enregistre une commission si le modèle de revenu le prévoit ET si l'encaissement est vérifiable (idempotent par source). */
     public function record(
         string $sourceType,
         int $sourceId,
         string $module,
         float $grossAmount,
         ?string $tenantId = null,
-        string $currency = 'HTG'
+        string $currency = 'HTG',
+        string $channel = self::CHANNEL_UNKNOWN
     ): ?Commission {
+        if (! in_array($channel, self::COMMISSIONABLE_CHANNELS, true)) {
+            return null;
+        }
+
         $setting = RevenueSetting::resolve($tenantId);
 
         if (! $setting->chargesCommission() || ! $setting->appliesToModule($module) || $grossAmount <= 0) {

@@ -431,7 +431,11 @@ class PosService
                 }
             }
 
-            $this->revenue->record('pos_sale', $sale->id, 'pos', (float) $total, $terminal->tenant_id, $terminal->currency);
+            // Encaissement saisi à la caisse (espèces ou autre moyen déclaré par le caissier) : rien que TAGTOA puisse vérifier,
+            // donc pas de commission (voir RevenueService::CHANNEL_*). Un moyen de paiement vérifiable, le jour où la caisse en
+            // aura un, passera ici son canal.
+            $this->revenue->record('pos_sale', $sale->id, 'pos', (float) $total, $terminal->tenant_id, $terminal->currency,
+                RevenueService::CHANNEL_CASH);
 
             // Colonne vertébrale, DANS la même transaction. Écrire après coup
             // laisserait une vente encaissée absente du chiffre d'affaires si

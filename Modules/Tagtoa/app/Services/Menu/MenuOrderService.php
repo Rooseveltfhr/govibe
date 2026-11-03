@@ -458,8 +458,10 @@ class MenuOrderService
      *
      * `$method` : comment ça a été payé (« cash », « moncash »…), `$by` : qui a
      * encaissé — null pour une passerelle, qui n'est personne.
+     * `$verified` : vrai SEULEMENT pour une passerelle en ligne confirmée ; espèces et paiements saisis à la main
+     * n'ouvrent droit à aucune commission (voir RevenueService::CHANNEL_*).
      */
-    public function markPaid(Order $order, ?string $method = null, ?string $by = null): Order
+    public function markPaid(Order $order, ?string $method = null, ?string $by = null, bool $verified = false): Order
     {
         $fresh = DB::transaction(function () use ($order, $method, $by) {
             $locked = Order::whereKey($order->getKey())->lockForUpdate()->first();
@@ -480,7 +482,8 @@ class MenuOrderService
             // La colonne vertébrale suit le module, qui reste maître de l'état
             // réel de la commande.
             app(OrderSpine::class)->touch('menu_order', $fresh->id, null, OrderStatus::PAID);
-            $this->revenue->record('menu_order', $fresh->id, 'menu', (float) $fresh->subtotal, $fresh->tenant_id, $fresh->currency);
+            $this->revenue->record('menu_order', $fresh->id, 'menu', (float) $fresh->subtotal, $fresh->tenant_id, $fresh->currency,
+                $verified ? RevenueService::CHANNEL_ONLINE_VERIFIED : ($method === 'cash' ? RevenueService::CHANNEL_CASH : RevenueService::CHANNEL_MANUAL));
             $this->awardLoyaltyPoints($fresh);
             $order->refresh();
         }

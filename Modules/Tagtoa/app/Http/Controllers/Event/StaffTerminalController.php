@@ -583,7 +583,8 @@ class StaffTerminalController extends Controller
         try {
             if ($ticketPrice > 0) {
                 app(\Modules\Tagtoa\App\Services\Billing\RevenueService::class)
-                    ->record('event_ticket', $ticket->id, 'event', $ticketPrice, $event->tenant_id, $event->currency);
+                    ->record('event_ticket', $ticket->id, 'event', $ticketPrice, $event->tenant_id, $event->currency,
+                        $charged ? \Modules\Tagtoa\App\Services\Billing\RevenueService::CHANNEL_LEDGER : \Modules\Tagtoa\App\Services\Billing\RevenueService::CHANNEL_MANUAL);
             }
         } catch (\Throwable $e) {
             report($e);

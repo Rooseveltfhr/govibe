@@ -387,14 +387,14 @@ class CheckoutService
 
         switch ($txn->order_type) {
             case 'store':
-                app(\Modules\Tagtoa\App\Services\Store\StoreOrderService::class)->markPaid($order);
+                app(\Modules\Tagtoa\App\Services\Store\StoreOrderService::class)->markPaid($order, true);
                 break;
             case 'menu':
-                app(\Modules\Tagtoa\App\Services\Menu\MenuOrderService::class)->markPaid($order, (string) $txn->gateway);
+                app(\Modules\Tagtoa\App\Services\Menu\MenuOrderService::class)->markPaid($order, (string) $txn->gateway, null, true);
                 break;
             case 'event':
                 app(\Modules\Tagtoa\App\Services\Event\TicketService::class)->markPaid($order, (string) $txn->gateway);
-                app(RevenueService::class)->record('event_order', $order->id, 'event', (float) $order->total, $order->tenant_id, $order->currency);
+                app(RevenueService::class)->record('event_order', $order->id, 'event', (float) $order->total, $order->tenant_id, $order->currency, RevenueService::CHANNEL_ONLINE_VERIFIED);
                 break;
         }
     }
@@ -421,7 +421,7 @@ class CheckoutService
             ]
         );
 
-        app(RevenueService::class)->record('pay_page', (int) $txn->id, 'pay', (float) $txn->amount, $txn->tenant_id, $txn->currency);
+        app(RevenueService::class)->record('pay_page', (int) $txn->id, 'pay', (float) $txn->amount, $txn->tenant_id, $txn->currency, RevenueService::CHANNEL_ONLINE_VERIFIED);
 
         // APRÈS l'écriture, jamais dedans — et seulement si cette preuve vient
         // de naître : un webhook rejoué (même référence) ne doit pas notifier

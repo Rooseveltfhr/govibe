@@ -128,7 +128,9 @@ class PublicController extends Controller
         }
 
         if ($order->isPaid()) {
-            $this->revenue->record('event_order', $order->id, 'event', (float) $order->total, $event->tenant_id, $order->currency);
+            // Commande payée dès sa création (gratuite) : aucun encaissement vérifiable → pas de commission.
+            $this->revenue->record('event_order', $order->id, 'event', (float) $order->total, $event->tenant_id, $order->currency,
+                RevenueService::CHANNEL_UNKNOWN);
         }
 
         $this->notifyBuyer($event, $order);
@@ -194,7 +196,7 @@ class PublicController extends Controller
         // Débit accepté → on encaisse la commande + émet les billets (idempotent).
         if (! $order->isPaid()) {
             $this->tickets->markPaid($order, 'tagtoa_card');
-            $this->revenue->record('event_order', $order->id, 'event', (float) $order->total, $event->tenant_id, $order->currency);
+            $this->revenue->record('event_order', $order->id, 'event', (float) $order->total, $event->tenant_id, $order->currency, RevenueService::CHANNEL_LEDGER);
             $this->notifyBuyer($event, $order->fresh(['tickets']));
         }
 
