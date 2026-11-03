@@ -310,26 +310,7 @@ class BackupDatabaseCommand extends Command
     protected function prune(string $dir, int $keep, string $justMade, int $days = 14, int $weeks = 8): array
     {
         $files = self::listBackups($dir);
-        $now = \Carbon\Carbon::now();
-        $garde = [];
-        foreach (array_slice($files, 0, $keep) as $f) {
-            $garde[$f] = true;
-        }
-        $vuJour = [];
-        $vuSemaine = [];
-        foreach ($files as $f) {           // du plus récent au plus ancien : le premier vu d'un jour / d'une semaine est son plus récent
-            $t = self::stampOf($f);
-            $jour = $t->format('Y-m-d');
-            if ($days > 0 && $t->gte($now->copy()->subDays($days)->startOfDay()) && ! isset($vuJour[$jour])) {
-                $garde[$f] = true;
-            }
-            $vuJour[$jour] = true;
-            $semaine = $t->format('o-W');
-            if ($weeks > 0 && $t->gte($now->copy()->subWeeks($weeks)->startOfWeek()) && ! isset($vuSemaine[$semaine])) {
-                $garde[$f] = true;
-            }
-            $vuSemaine[$semaine] = true;
-        }
+        $garde = BackupRetention::keepSet($files, fn ($f) => self::stampOf($f), $keep, $days, $weeks);
         foreach ($files as $f) {
             if (! isset($garde[$f]) && $f !== $justMade && @unlink($f)) {
                 $this->line('Ancienne sauvegarde supprimée : '.basename($f));

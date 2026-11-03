@@ -71,6 +71,18 @@ if [ "${TAGTOA_BACKUP_SKIP:-0}" != "1" ]; then
       exit 1
     fi
   fi
+  # BK-1c : les images téléversées (photos du menu, QR, justificatifs) ne sont pas dans le dump de la base. Archive tar.gz vérifiée,
+  # sautée si rien n'a changé. Même règle que la base : échec = WARN bruyant, sauf TAGTOA_BACKUP_REQUIRED=1 (déploiement annulé, site intact).
+  if [ "${TAGTOA_UPLOADS_BACKUP_SKIP:-0}" != "1" ]; then
+    echo "==> Sauvegarde des images téléversées"
+    if ! timeout 600 php artisan tagtoa:backup-uploads --keep="${TAGTOA_UPLOADS_KEEP:-5}" --keep-daily="${TAGTOA_UPLOADS_KEEP_DAILY:-7}" --keep-weekly="${TAGTOA_UPLOADS_KEEP_WEEKLY:-4}" --max-mb="${TAGTOA_UPLOADS_MAX_MB:-2048}" --timeout="${TAGTOA_UPLOADS_TIMEOUT:-300}"; then
+      echo "!!!!!!!! WARN: SAUVEGARDE DES IMAGES IMPOSSIBLE (la base, elle, est sauvegardée) !!!!!!!!"
+      if [ "${TAGTOA_BACKUP_REQUIRED:-0}" = "1" ]; then
+        echo "TAGTOA_BACKUP_REQUIRED=1 : déploiement ANNULÉ avant la maintenance (site intact)."
+        exit 1
+      fi
+    fi
+  fi
   # Lecture seule, JAMAIS bloquant : relit la dernière sauvegarde (complète, toutes les tables, taille plausible, place prise).
   echo "==> Sauvegarde : vérification de la dernière (contrôle du fichier, pas une restauration)"
   # --max-age : la sauvegarde doit dater de ce déploiement (sinon on validerait une vieille). Pas en mode IF_PENDING (aucune sauvegarde attendue).
