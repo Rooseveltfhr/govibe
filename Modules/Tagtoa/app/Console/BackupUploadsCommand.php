@@ -60,11 +60,15 @@ class BackupUploadsCommand extends Command
         }
 
         $src = rtrim((string) ($this->option('src') ?: rtrim((string) config('filesystems.disks.public.root'), '/').'/tagtoa'), '/');
-        if ($src === '' || ! is_dir($src)) {
+        // realpath : si le dossier est lui-même un lien (dossier « shared » d'un déploiement), tar n'archiverait QUE le lien
+        // (une entrée) alors que le scan compterait les vrais fichiers → fausse bonne archive qui évince les vraies.
+        $reel = $src === '' ? false : realpath($src);
+        if ($reel === false || ! is_dir($reel)) {
             $this->info('Aucun dossier d\'images à sauvegarder ('.($src ?: 'inconnu').').');
 
             return self::SUCCESS;
         }
+        $src = $reel;
 
         $dir = rtrim((string) ($this->option('out') ?: storage_path('app/backups')), '/');
         if (! is_dir($dir) && ! @mkdir($dir, 0700, true) && ! is_dir($dir)) {
@@ -81,16 +85,37 @@ class BackupUploadsCommand extends Command
             return self::FAILURE;
         }
 
-        [$count, $bytes, $newest] = $this->scan($src);
+        // Deux déploiements simultanés partageraient le même fichier partiel : l'un effacerait celui de l'autre.
+        $lock = @fopen($dir.'/.tagtoa-uploads.lock', 'c');
+        if ($lock === false || ! flock($lock, LOCK_EX | LOCK_NB)) {
+            $this->info('Une sauvegarde des images est déjà en cours — celle-ci est ignorée.');
+
+            return self::SUCCESS;
+        }
+
+        try {
+            return $this->sauvegarder($src, $dir);
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+
+    protected function sauvegarder(string $src, string $dir): int
+    {
+        [$count, $bytes, $signature] = $this->scan($src);
         if ($count === 0) {
             $this->info('Aucune image à sauvegarder.');
 
             return self::SUCCESS;
         }
 
+        // « Rien n'a changé » = même liste de (chemin, taille, date) que lors de la dernière archive RÉUSSIE, et cette archive existe
+        // encore. Une comparaison de dates avec le nom de l'archive ratait les fichiers restaurés avec leur vieille date (rsync -a, tar -x).
+        $etat = $this->readState($dir);
         $files = self::listBackups($dir);
-        if ($files !== [] && $newest < self::stampOf($files[0])->getTimestamp()) {
-            $this->info('Rien n\'a changé depuis '.basename($files[0]).' — archive inutile ('.$count.' fichiers).');
+        if ($etat !== null && $etat['sig'] === $signature && in_array($dir.'/'.$etat['archive'], $files, true)) {
+            $this->info('Rien n\'a changé depuis '.$etat['archive'].' — archive inutile ('.$count.' fichiers).');
 
             return self::SUCCESS;
         }
@@ -132,6 +157,7 @@ class BackupUploadsCommand extends Command
             return self::FAILURE;
         }
 
+        $this->writeState($dir, $signature, basename($final));
         $this->info('Sauvegarde des images OK : '.$final.' ('.number_format((int) filesize($final)).' octets, '.$count.' fichiers)');
         $this->prune($dir, $final);
 
@@ -139,33 +165,61 @@ class BackupUploadsCommand extends Command
     }
 
     /**
-     * Compte les fichiers, leur taille totale et la date de la plus récente modification (fichiers ET dossiers :
-     * supprimer un fichier modifie le dossier qui le contenait). Les liens symboliques ne sont jamais suivis.
+     * Compte les fichiers et leur taille totale, et calcule la signature du contenu (chemin, taille, date de chaque fichier).
+     * Les liens symboliques ne sont jamais suivis ni lus (lstat) : un lien cassé ou pointant dehors ne fait rien planter.
      *
-     * @return array{0:int,1:int,2:int}
+     * @return array{0:int,1:int,2:string}
      */
     protected function scan(string $src): array
     {
         $count = 0;
         $bytes = 0;
-        $newest = (int) @filemtime($src);
+        $lignes = [];
         $it = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($src, \FilesystemIterator::SKIP_DOTS),   // pas FOLLOW_SYMLINKS
-            \RecursiveIteratorIterator::SELF_FIRST
+            \RecursiveIteratorIterator::SELF_FIRST,
+            \RecursiveIteratorIterator::CATCH_GET_CHILD
         );
         foreach ($it as $info) {
             /** @var \SplFileInfo $info */
-            $newest = max($newest, (int) $info->getMTime());
-            if ($info->isLink()) {
+            $st = @lstat($info->getPathname());   // lstat : ne suit pas le lien ; false si le fichier vient d'être supprimé
+            if ($st === false) {
                 continue;
             }
-            if ($info->isFile()) {
+            $mode = $st['mode'] & 0170000;
+            if ($mode === 0100000) {              // fichier ordinaire
                 $count++;
-                $bytes += (int) $info->getSize();
+                $bytes += (int) $st['size'];
+                $lignes[] = substr($info->getPathname(), strlen($src)).'|'.$st['size'].'|'.$st['mtime'];
+            } elseif ($mode === 0120000) {        // lien : compté dans la signature, jamais lu
+                $lignes[] = substr($info->getPathname(), strlen($src)).'|link';
             }
         }
+        sort($lignes);
 
-        return [$count, $bytes, $newest];
+        return [$count, $bytes, sha1(implode("\n", $lignes))];
+    }
+
+    protected function statePath(string $dir): string
+    {
+        return $dir.'/tagtoa-uploads.state';
+    }
+
+    /** @return array{sig:string,archive:string}|null */
+    protected function readState(string $dir): ?array
+    {
+        $raw = @file_get_contents($this->statePath($dir));
+        $d = is_string($raw) ? json_decode($raw, true) : null;
+
+        return is_array($d) && isset($d['sig'], $d['archive']) && is_string($d['sig']) && is_string($d['archive'])
+            && preg_match(self::NAME_RE, $d['archive']) === 1 ? ['sig' => $d['sig'], 'archive' => $d['archive']] : null;
+    }
+
+    protected function writeState(string $dir, string $sig, string $archive): void
+    {
+        $f = $this->statePath($dir);
+        @file_put_contents($f, json_encode(['sig' => $sig, 'archive' => $archive]));
+        @chmod($f, 0600);
     }
 
     /** Place libre (point d'injection des tests). */
@@ -184,7 +238,7 @@ class BackupUploadsCommand extends Command
     protected function archive(string $src, string $target, int $timeout): ?string
     {
         // -C parent + nom du dossier : l'archive contient « tagtoa/... » (restauration : tar -xzf dans le dossier du disque public).
-        $p = new Process(['tar', '-czf', $target, '-C', dirname($src), basename($src)], null, null, null, $timeout);
+        $p = new Process(['tar', '--force-local', '-czf', $target, '-C', dirname($src), '--', basename($src)], null, null, null, $timeout);
         try {
             $p->run();
         } catch (\Throwable $e) {
@@ -193,6 +247,9 @@ class BackupUploadsCommand extends Command
         @chmod($target, 0600);
         if (! self::tarExitIsUsable($p->getExitCode())) {
             return 'tar a retourné '.$p->getExitCode().' — '.trim(substr($p->getErrorOutput(), 0, 400));
+        }
+        if ($p->getExitCode() === 1) {
+            $this->warn('Un fichier a changé pendant l\'archivage (téléversement en cours) : il peut être tronqué dans cette archive — '.trim(substr($p->getErrorOutput(), 0, 200)));
         }
 
         return null;
@@ -204,7 +261,7 @@ class BackupUploadsCommand extends Command
         if (! is_file($file)) {
             return 'archive introuvable';
         }
-        $p = new Process(['tar', '-tzf', $file], null, null, null, 120);
+        $p = new Process(['tar', '-tvzf', $file], null, null, null, 120);
         try {
             $p->run();
         } catch (\Throwable $e) {
@@ -213,7 +270,9 @@ class BackupUploadsCommand extends Command
         if ($p->getExitCode() !== 0) {
             return 'archive corrompue ou tronquée ('.trim(substr($p->getErrorOutput(), 0, 300)).')';
         }
-        if (trim($p->getOutput()) === '') {
+        // -tv : le premier caractère de chaque ligne est le type (« - » fichier ordinaire, « d » dossier, « l » lien).
+        // Une archive faite de dossiers et de liens seulement n'est pas une sauvegarde d'images.
+        if (preg_match('/^-/m', $p->getOutput()) !== 1) {
             return 'archive sans aucun fichier';
         }
 

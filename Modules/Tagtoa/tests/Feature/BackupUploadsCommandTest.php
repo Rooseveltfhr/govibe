@@ -256,15 +256,122 @@ class BackupUploadsCommandTest extends TestCase
         $this->assertMatchesRegularExpression('/SAUVEGARDE DES IMAGES IMPOSSIBLE.*?TAGTOA_BACKUP_REQUIRED/s', $sh);
     }
 
-    public function test_a_change_in_the_very_second_of_the_last_archive_is_not_missed(): void
+    public function test_a_new_file_restored_with_an_old_date_is_not_mistaken_for_unchanged(): void
     {
         $this->run_()->assertExitCode(0);
-        $stamp = BackupUploadsCommand::stampOf($this->archives()[0])->getTimestamp();
-        touch($this->src.'/menu-items/a.jpg', $stamp);   // modifié dans la même seconde : peut-être après la lecture de tar
+        file_put_contents($this->src.'/menu-items/restauree.jpg', 'x');
+        touch($this->src.'/menu-items/restauree.jpg', time() - 5000);   // rsync -a / tar -x : date d'origine conservée, plus ancienne que l'archive
+        touch($this->src.'/menu-items', time() - 5000);
+        $this->travelTo(Carbon::now()->addSeconds(10));
+
+        $this->run_()->assertExitCode(0);
+        $this->assertCount(2, $this->archives(), 'Une comparaison de dates aurait dit « rien n\'a changé » et raté ce fichier.');
+    }
+
+    public function test_a_file_rewritten_with_the_same_size_but_a_new_date_is_detected(): void
+    {
+        $this->run_()->assertExitCode(0);
+        touch($this->src.'/menu-items/a.jpg', time() - 4000);   // même taille, autre date
         $this->travelTo(Carbon::now()->addSeconds(10));
 
         $this->run_()->assertExitCode(0);
         $this->assertCount(2, $this->archives());
+    }
+
+    public function test_a_file_rewritten_with_a_new_size_but_the_same_date_is_detected(): void
+    {
+        $mtime = filemtime($this->src.'/menu-items/a.jpg');
+        $this->run_()->assertExitCode(0);
+        file_put_contents($this->src.'/menu-items/a.jpg', 'photo-a-plus-longue');
+        touch($this->src.'/menu-items/a.jpg', $mtime);   // date remise comme avant
+        $this->travelTo(Carbon::now()->addSeconds(10));
+
+        $this->run_()->assertExitCode(0);
+        $this->assertCount(2, $this->archives());
+    }
+
+    public function test_a_new_symlink_counts_as_a_change(): void
+    {
+        $this->run_()->assertExitCode(0);
+        symlink($this->src.'/menu-items/a.jpg', $this->src.'/menu-items/raccourci.jpg');
+        $this->travelTo(Carbon::now()->addSeconds(10));
+
+        $this->run_()->assertExitCode(0);
+        $this->assertCount(2, $this->archives());
+    }
+
+    public function test_unchanged_but_the_previous_archive_is_gone_means_a_new_archive(): void
+    {
+        $this->run_()->assertExitCode(0);
+        unlink($this->archives()[0]);
+        $this->travelTo(Carbon::now()->addSeconds(10));
+
+        $this->run_()->assertExitCode(0);
+        $this->assertCount(1, $this->archives(), 'Le contenu n\'a pas changé mais son archive a disparu : on la refait.');
+    }
+
+    public function test_a_corrupt_state_file_just_means_a_fresh_archive(): void
+    {
+        $this->run_()->assertExitCode(0);
+        file_put_contents($this->out.'/tagtoa-uploads.state', '{"sig":"x","archive":"../../etc/passwd"}');
+        $this->travelTo(Carbon::now()->addSeconds(10));
+
+        $this->run_()->assertExitCode(0);
+        $this->assertCount(2, $this->archives());
+    }
+
+    public function test_a_source_that_is_itself_a_symlink_archives_the_real_files(): void
+    {
+        $lien = $this->root.'/disk/lien-tagtoa';
+        symlink($this->src, $lien);
+
+        $this->run_(['--src' => $lien])->assertExitCode(0);
+
+        $this->assertContains('tagtoa/menu-items/a.jpg', $this->listing($this->archives()[0]),
+            'tar sans realpath n\'aurait stocké que le lien : une archive « valide » sans aucune image.');
+    }
+
+    public function test_a_broken_symlink_does_not_break_the_backup(): void
+    {
+        symlink($this->root.'/nexiste-pas', $this->src.'/menu-items/casse.jpg');
+
+        $this->run_()->assertExitCode(0);
+        $this->assertCount(1, $this->archives());
+    }
+
+    public function test_a_second_run_while_one_is_in_progress_is_skipped_not_corrupted(): void
+    {
+        mkdir($this->out, 0700, true);
+        $h = fopen($this->out.'/.tagtoa-uploads.lock', 'c');
+        $this->assertTrue(flock($h, LOCK_EX | LOCK_NB));
+
+        $this->run_()->expectsOutputToContain('déjà en cours')->assertExitCode(0);
+        $this->assertSame([], $this->archives());
+
+        flock($h, LOCK_UN);
+        fclose($h);
+        $this->run_()->assertExitCode(0);
+        $this->assertCount(1, $this->archives());
+    }
+
+    public function test_a_source_folder_whose_name_starts_with_a_dash_is_not_read_as_a_tar_option(): void
+    {
+        $src = $this->root.'/disk/-etrange';
+        mkdir($src);
+        file_put_contents($src.'/z.jpg', 'z');
+
+        $this->run_(['--src' => $src])->assertExitCode(0);
+        $this->assertContains('-etrange/z.jpg', $this->listing($this->archives()[0]));
+    }
+
+    public function test_an_archive_holding_only_folders_is_not_a_backup(): void
+    {
+        $d = $this->root.'/seul/dossiers/sous';
+        mkdir($d, 0755, true);
+        $f = $this->root.'/dossiers.tar.gz';
+        (new Process(['tar', '-czf', $f, '-C', $this->root.'/seul', 'dossiers']))->mustRun();
+
+        $this->assertSame('archive sans aucun fichier', BackupUploadsCommand::verifyFile($f));
     }
 
     public function test_not_enough_free_disk_space_fails_and_creates_nothing(): void

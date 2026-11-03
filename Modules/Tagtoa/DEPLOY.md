@@ -93,7 +93,7 @@ et aucune archive. Rétention par niveaux : 5 dernières + 1 par jour (≈8 j) +
 | `TAGTOA_UPLOADS_KEEP` / `_KEEP_DAILY` / `_KEEP_WEEKLY` | Rétention (défaut 5 / 7 / 4). |
 | `TAGTOA_UPLOADS_TIMEOUT=S` | Durée maximale de l'archivage (défaut 300 s). |
 
-Un échec est un avertissement bruyant (la base, elle, reste sauvegardée) ; avec `TAGTOA_BACKUP_REQUIRED=1` il annule le déploiement avant la maintenance.
+Un échec est un avertissement bruyant (la base, elle, reste sauvegardée) ; attention : des images au-dessus de `TAGTOA_UPLOADS_MAX_MB` sont un échec, donc avec `TAGTOA_BACKUP_REQUIRED=1` elles bloquent TOUS les déploiements tant que le plafond n'est pas relevé. « Rien n'a changé » se juge sur la liste (chemin, taille, date) des fichiers, pas sur la date de l'archive. Un fichier téléversé pendant l'archivage peut être tronqué dans cette archive (avertissement affiché) ; avec `TAGTOA_BACKUP_REQUIRED=1` il annule le déploiement avant la maintenance.
 **Restaurer les images** : `tar -xzf storage/app/backups/tagtoa-uploads-….tar.gz -C <racine du disque public>` (l'archive contient `tagtoa/…`).
 
 ⚠️ Le dump contient TOUT, secrets des passerelles compris. Il reste sur le même
