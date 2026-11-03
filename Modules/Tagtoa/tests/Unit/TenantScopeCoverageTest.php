@@ -142,6 +142,7 @@ class TenantScopeCoverageTest extends TestCase
             // que le webhook) et n'écrit jamais « échouée ».
             'Console/PurgeHotelRequestsCommand.php',    // H5 : rétention — efface le texte libre des vieilles demandes de TOUS les hôtels (console, sans commerce courant)
             'Console/ReconcilePaymentsCommand.php',
+            'Console/SubscriptionExpiryReportCommand.php',   // R0-a : rapport LECTURE SEULE des abonnements de TOUS les commerces (console, sans commerce courant)
             // Profil d'hôtel (H1) : lu/écrit pour le commerce REÇU en paramètre (déjà vérifié
             // comme appartenant au compte connecté), toujours filtré sur son identifiant.
             'Services/Hotel/HotelProfileService.php',

@@ -9,6 +9,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Billing\Subscription;
 use Modules\Tagtoa\App\Services\Billing\PlanService;
+use Modules\Tagtoa\App\Support\Billing\ExpiryNotice;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -34,6 +35,8 @@ class PlanController extends Controller
             'plans'   => PlanService::effectivePlans(),
             'current' => $current,
             'usage'   => $usage,
+            // Forfait payant à renouveler (bientôt échu / en grâce / échu) : le bouton « Forfait actuel » devient « Renouveler ».
+            'renewable' => ExpiryNotice::forTenant($tid) !== null,
         ]);
     }
 
@@ -56,7 +59,10 @@ class PlanController extends Controller
 
         // Un forfait désactivé par l'administrateur ne se souscrit plus (les
         // abonnements déjà en cours ne sont pas touchés).
-        if (($plans[$plan]['is_active'] ?? true) === false) {
+        // Exception : l'abonné qui DÉTIENT déjà ce forfait peut le renouveler même désactivé — sinon, expiration appliquée,
+        // il tomberait à Free sans aucun moyen de payer.
+        $detenu = Subscription::where('tenant_id', Tenant::id())->value('plan') === $plan;
+        if (($plans[$plan]['is_active'] ?? true) === false && ! $detenu) {
             return back()->with('error', __('Ce forfait n\'est plus disponible.'));
         }
 

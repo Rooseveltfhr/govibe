@@ -369,6 +369,22 @@
             @endif
         </div>
         <main class="content">
+            @php $expiryNotice = \Modules\Tagtoa\App\Support\Billing\ExpiryNotice::forTenant(\Modules\Tagtoa\App\Support\Tenant::id()); @endphp
+            @if($expiryNotice)
+                <div class="flash {{ $expiryNotice['state'] === 'expiring' ? 'ok' : 'err' }}" style="flex-wrap:wrap">
+                    <i class="fa-solid fa-clock"></i>
+                    <span style="flex:1;min-width:200px">
+                        @if($expiryNotice['state'] === 'expiring')
+                            {{ __('Votre forfait :plan expire dans :n jour(s). Vous pouvez le renouveler dès maintenant.', ['plan' => $expiryNotice['label'], 'n' => $expiryNotice['days']]) }}
+                        @elseif($expiryNotice['state'] === 'grace')
+                            {{ __('Votre forfait :plan a expiré. Il vous reste :n jour(s) avant le retour au forfait gratuit ; vos données sont conservées.', ['plan' => $expiryNotice['label'], 'n' => $expiryNotice['days']]) }}
+                        @else
+                            {{ __('Votre forfait :plan a expiré : retour au forfait gratuit. Vos données sont conservées ; renouvelez pour retrouver toutes les fonctions.', ['plan' => $expiryNotice['label']]) }}
+                        @endif
+                    </span>
+                    <a class="btn btn-p btn-sm" href="{{ route('tagtoa.plan.index') }}">{{ __('Renouveler') }}</a>
+                </div>
+            @endif
             @if(session('success'))<div class="flash ok"><i class="fa-solid fa-circle-check"></i> {{ session('success') }}</div>@endif
             @if(session('error'))<div class="flash err"><i class="fa-solid fa-circle-exclamation"></i> {{ session('error') }}</div>@endif
             @if($errors->any())<div class="flash err"><i class="fa-solid fa-circle-exclamation"></i> {{ $errors->first() }}</div>@endif

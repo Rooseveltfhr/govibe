@@ -25,6 +25,15 @@ return [
     'default_plan' => env('TAGTOA_DEFAULT_PLAN', 'free'),
 
     /*
+    | Expiration des abonnements payants (R0-a). ÉTEINT par défaut : tant que ce drapeau est faux, un forfait payant
+    | échu continue de fonctionner (comportement historique). Allumé (TAGTOA_ENFORCE_EXPIRY=1), un abonnement dont la date
+    | de fin + le délai de grâce est dépassé retombe sur le forfait par défaut : les limites ne bloquent plus que les NOUVELLES
+    | créations — rien n'est jamais supprimé. Allumer seulement après avoir lu `tagtoa:subscriptions:expiry-report`.
+    */
+    'enforce_expiry'    => (bool) env('TAGTOA_ENFORCE_EXPIRY', false),
+    'expiry_grace_days' => (int) env('TAGTOA_EXPIRY_GRACE_DAYS', 7),
+
+    /*
     |--------------------------------------------------------------------------
     | Sécurité NFC — NTAG424 DNA (SUN/SDM, anti-clone/anti-rejeu)
     |--------------------------------------------------------------------------
