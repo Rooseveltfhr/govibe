@@ -410,6 +410,7 @@ Route::middleware(['auth', 'valid.user', 'role:admin|super_admin', 'multi_tenant
         Route::post('/board/logout', [$board, 'logout'])->name('board.logout');
         Route::get('/board/alerts', [$board, 'alerts'])->middleware('throttle:60,1')->name('board.alerts');
         Route::post('/board/{id}/status', [$board, 'status'])->whereNumber('id')->name('board.status');
+        Route::post('/board/reservations/{id}/status', [$board, 'reservationStatus'])->whereNumber('id')->name('board.reservation.status');
         // H5 — demandes des invités (liste et traitement). Rôles du personnel et alertes : H6.
         Route::get('/requests', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RequestController::class, 'index'])->name('requests');
         Route::post('/requests/bulk', [\Modules\Tagtoa\App\Http\Controllers\Hotel\RequestController::class, 'bulk'])->name('requests.bulk');

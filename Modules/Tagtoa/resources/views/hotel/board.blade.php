@@ -14,6 +14,46 @@
     <div class="card" style="border-left:4px solid var(--amber,#E0A100);font-size:13.5px">{{ __(':n demandes plus anciennes ne sont pas affichées. Clôturez-les depuis l\'écran « Demandes ».', ['n' => $totalOuvertes - $requests->count()]) }}</div>
 @endif
 
+@if($resas->isNotEmpty())
+    <h3 style="margin:14px 0 6px"><i class="fa-solid fa-calendar-check"></i> {{ __('Réservations à traiter') }} <span class="pill n">{{ $totalResas }}</span></h3>
+    @if($totalResas > $resas->count())
+        <div class="card" style="border-left:4px solid var(--amber,#E0A100);font-size:13.5px">{{ __(':n réservations plus anciennes ne sont pas affichées. Traitez-les depuis « Réservations ».', ['n' => $totalResas - $resas->count()]) }}</div>
+    @endif
+    @foreach($resas as $r)
+        <div class="card" style="margin-bottom:10px">
+            <div style="display:flex;gap:10px;align-items:baseline">
+                <b style="font-size:18px;flex:1">{{ $r->room_type_name }} · {{ $r->plan_label }}</b>
+                <span class="pill a">{{ __($r->status_label) }}</span>
+            </div>
+            <div style="margin-top:4px"><b>{{ $r->guest_name ?? '—' }}</b>
+                @if($r->guest_phone) · <a href="tel:{{ $r->guest_phone }}">{{ $r->guest_phone }}</a>@endif</div>
+            <div style="color:var(--muted);font-size:13.5px">
+                {{ $r->starts_on?->format('d/m/Y') }}@if($r->start_time) {{ substr((string) $r->start_time, 0, 5) }}@endif
+                @if($r->plan_kind === 'night') · {{ trans_choice(':n nuit|:n nuits', $r->nights, ['n' => $r->nights]) }}@endif
+                @if($r->guests) · {{ trans_choice(':n personne|:n personnes', $r->guests, ['n' => $r->guests]) }}@endif
+                · {{ \Modules\Tagtoa\App\Support\Money::format((float) $r->total, $r->currency) }}
+            </div>
+            @if($r->note)<div style="font-size:13px;white-space:pre-line;margin-top:4px">{{ $r->note }}</div>@endif
+            <div style="color:var(--muted);font-size:12px;margin-top:4px">{{ $r->reference }} · {{ $r->created_at?->format('d/m H:i') }}</div>
+            <div style="margin-top:8px">
+                <form method="POST" action="{{ route('tagtoa.hotel.board.reservation.status', $r->id) }}" style="display:inline">
+                    @csrf <input type="hidden" name="to" value="confirmed">
+                    <button class="btn btn-p btn-sm"><i class="fa-solid fa-check"></i> {{ __('Confirmer') }}</button>
+                </form>
+                <details style="display:inline-block">
+                    <summary class="btn btn-o btn-sm" style="cursor:pointer;display:inline-flex">{{ __('Refuser') }}</summary>
+                    <form method="POST" action="{{ route('tagtoa.hotel.board.reservation.status', $r->id) }}" style="margin-top:6px">
+                        @csrf <input type="hidden" name="to" value="refused">
+                        <input class="inp" name="reason" maxlength="200" placeholder="{{ __('Motif (visible du client)') }}">
+                        <button class="btn btn-o btn-sm" style="margin-top:6px">{{ __('Refuser cette demande') }}</button>
+                    </form>
+                </details>
+            </div>
+        </div>
+    @endforeach
+    <h3 style="margin:14px 0 6px"><i class="fa-solid fa-bell-concierge"></i> {{ __('Demandes à traiter') }}</h3>
+@endif
+
 @if($requests->isEmpty())
     <div class="card"><div class="empty"><i class="fa-solid fa-circle-check"></i>{{ __('Rien à traiter pour le moment.') }}</div></div>
 @else
@@ -52,12 +92,13 @@
 <script>
 (function(){
     var dernier = {{ (int) $requests->max('id') }};
+    var dernierResa = {{ (int) $resas->max('id') }};
     function verifier(){
         fetch(@json(route('tagtoa.hotel.board.alerts')), {headers:{'Accept':'application/json'}, credentials:'same-origin'})
             .then(function(r){ return r.ok ? r.json() : null; })
             .then(function(j){
                 if (!j) return;
-                if (j.latest_id > dernier) { if (window.TagtoaSound) { TagtoaSound.alerte(8); } location.reload(); }
+                if (j.latest_id > dernier || (j.resa_latest_id || 0) > dernierResa) { if (window.TagtoaSound) { TagtoaSound.alerte(8); } location.reload(); }
             }).catch(function(){});
     }
     setInterval(verifier, 15000);

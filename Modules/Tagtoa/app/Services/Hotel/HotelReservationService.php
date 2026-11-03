@@ -148,6 +148,14 @@ class HotelReservationService
         return $r;
     }
 
+    /** Les réservations d'un hôtel visibles par un employé : vide pour ménage et maintenance. */
+    public function queryFor(string $tenantId, \Modules\Tagtoa\App\Models\Staff\Staff $staff)
+    {
+        $q = HotelReservation::allTenants()->where('tenant_id', $tenantId);
+
+        return R::staffMaySee($staff->role, $staff->hotel_team) ? $q : $q->whereRaw('1 = 0');
+    }
+
     /** L'invité annule tant que la demande est ouverte (nouvelle ou confirmée). */
     public function guestCancel(?string $reference, ?string $secret): array
     {

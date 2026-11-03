@@ -63,6 +63,15 @@ class HotelReservationRules
         ];
     }
 
+    /**
+     * Qui voit et traite les réservations sur l'écran du personnel : patron, gérant et réception — jamais ménage ni maintenance
+     * (nom et téléphone d'un client). Même règle d'équipe que les demandes (null = toutes).
+     */
+    public static function staffMaySee(?string $role, ?string $hotelTeam): bool
+    {
+        return HotelRequestRules::teamsFor($role, $hotelTeam) === null;
+    }
+
     public static function canMove(string $from, string $to): bool
     {
         return in_array($to, self::TRANSITIONS[$from] ?? [], true);
