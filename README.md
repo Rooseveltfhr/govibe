@@ -109,6 +109,27 @@ toucher. Il termine par un contrôle HTTP sur https://govibeht.com/.
 > Ne pas confondre avec `deploy.yml`, qui déploie **le module TAGTOA** sur
 > tagtoa.com et ne se déclenche que sur `Modules/Tagtoa/**`.
 
+### Isoler chaque site du VPS (GOVIBEHT, TAGTOA, ANYWALEX…)
+
+Quand plusieurs sites partagent le VPS, `tools/vps/isolate-site.sh` donne à
+**un** site son propre utilisateur Linux, son propre pool PHP-FPM, un
+`open_basedir` et des permissions qui empêchent les autres sites de lire son
+code ou son `.env`. Un site à la fois, simulation par défaut :
+
+```bash
+# En root. 1) Simulation : affiche le plan, ne modifie rien.
+SITE=anywalex APP_DIR=/var/www/anywalex bash tools/vps/isolate-site.sh
+# 2) Application (sauvegarde + rollback.sh dans /root/site-isolation/).
+SITE=anywalex APP_DIR=/var/www/anywalex APPLY=1 bash tools/vps/isolate-site.sh
+```
+
+Si le dossier appartient déjà au compte qui déploie le site, ce compte devient
+l'utilisateur PHP, pour que `git pull` et `update.sh` continuent de fonctionner.
+Le script s'arrête s'il détecte un panel (Hestia, CyberPanel, aaPanel, cPanel,
+Plesk, DirectAdmin, CloudPanel) : dans ce cas, utiliser l'isolation du panel.
+`update.sh` conserve le propriétaire d'un site isolé au lieu de le rendre à
+`www-data`.
+
 ### Configuration email (Gmail)
 
 Dans `/var/www/govibe/.env`:
