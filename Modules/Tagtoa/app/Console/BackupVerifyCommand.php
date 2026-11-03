@@ -89,7 +89,18 @@ class BackupVerifyCommand extends Command
             $this->line('   pas de sauvegarde précédente à comparer.');
         }
 
-        $total = array_sum(array_map('filesize', $fichiers));
+        // Images (BK-1c) : s'il y a des archives, la dernière doit être lisible jusqu'au bout. Absence = pas un problème (rien à archiver / jamais lancé).
+        $images = BackupUploadsCommand::listBackups($dir);
+        if ($images !== []) {
+            if (($err = BackupUploadsCommand::verifyFile($images[0])) !== null) {
+                $problemes++;
+                $this->error('   PROBLÈME (images) : '.basename($images[0]).' — '.$err);
+            } else {
+                $this->line('   images : '.basename($images[0]).' lisible jusqu\'au bout ('.number_format((int) filesize($images[0])).' octets)');
+            }
+        }
+
+        $total = array_sum(array_map('filesize', $fichiers)) + array_sum(array_map('filesize', $images));
         $this->line('Sauvegardes conservées : '.count($fichiers).' · place prise : '.number_format((int) round($total / 1048576, 1), 0).' Mo');
         $this->line('(Contrôle du fichier, pas une restauration : la restauration réelle est testée en CI sur MySQL 8.)');
 

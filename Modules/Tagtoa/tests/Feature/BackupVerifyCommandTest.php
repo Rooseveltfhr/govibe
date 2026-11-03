@@ -31,7 +31,7 @@ class BackupVerifyCommandTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach (glob($this->dir.'/*') ?: [] as $f) { @unlink($f); }
+        (new \Symfony\Component\Process\Process(['rm','-rf',$this->dir]))->run();
         @rmdir($this->dir);
         parent::tearDown();
     }
@@ -152,6 +152,31 @@ class BackupVerifyCommandTest extends TestCase
     public function test_without_max_age_an_old_backup_is_not_a_problem(): void
     {
         $this->sauvegarde('20200101-010101', padding: 20000);
+        $this->artisan('tagtoa:backup-verify', ['--dir' => $this->dir])->assertExitCode(0);
+    }
+
+    public function test_the_latest_images_archive_is_checked_too_and_a_corrupt_one_fails(): void
+    {
+        $this->sauvegarde('20260102-010101', padding: 20000);
+        $src = $this->dir.'/src/tagtoa';
+        mkdir($src, 0755, true);
+        file_put_contents($src.'/a.jpg', 'x');
+        $tar = $this->dir.'/tagtoa-uploads-20260102-010102.tar.gz';
+        (new \Symfony\Component\Process\Process(['tar', '-czf', $tar, '-C', dirname($src), 'tagtoa']))->mustRun();
+
+        $this->artisan('tagtoa:backup-verify', ['--dir' => $this->dir])
+            ->expectsOutputToContain('images : tagtoa-uploads-20260102-010102.tar.gz lisible jusqu\'au bout')
+            ->assertExitCode(0);
+
+        file_put_contents($tar, substr((string) file_get_contents($tar), 0, 20));
+        $this->artisan('tagtoa:backup-verify', ['--dir' => $this->dir])
+            ->expectsOutputToContain('PROBLÈME (images)')
+            ->assertExitCode(1);
+    }
+
+    public function test_no_images_archive_is_not_a_problem(): void
+    {
+        $this->sauvegarde('20260102-010101', padding: 20000);
         $this->artisan('tagtoa:backup-verify', ['--dir' => $this->dir])->assertExitCode(0);
     }
 }

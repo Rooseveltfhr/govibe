@@ -80,9 +80,25 @@ chaque PR par le job CI « migrations + sauvegarde ».
 | `TAGTOA_BACKUP_TIMEOUT=S` | Durée maximale du dump, en secondes (défaut 300) : un dump qui pend ne bloque pas le déploiement. |
 | `TAGTOA_SEED_DEMO=1` | Réactive le seed de démo (désormais DÉSACTIVÉ par défaut en production). |
 
+**Images téléversées (BK-1c).** Le dump ne contient PAS les photos (menu, boutique), QR et justificatifs de paiement :
+`php artisan tagtoa:backup-uploads` les archive à chaque déploiement (`<disque public>/tagtoa` → `tagtoa-uploads-AAAAMMJJ-HHMMSS.tar.gz`,
+`0600`, relu jusqu'au bout avant d'être renommé). Les liens symboliques ne sont jamais suivis. Si rien n'a changé depuis la dernière archive
+(fichier ajouté, modifié ou supprimé), aucune nouvelle archive n'est faite. Plafond de taille et place disque vérifiés : au-delà, échec CLAIR
+et aucune archive. Rétention par niveaux : 5 dernières + 1 par jour (≈8 j) + 1 par semaine (≈5 sem.).
+
+| Variable | Effet |
+|---|---|
+| `TAGTOA_UPLOADS_BACKUP_SKIP=1` | Ignore la sauvegarde des images. |
+| `TAGTOA_UPLOADS_MAX_MB=N` | Taille maximale des images à archiver, en Mo (défaut 2048). |
+| `TAGTOA_UPLOADS_KEEP` / `_KEEP_DAILY` / `_KEEP_WEEKLY` | Rétention (défaut 5 / 7 / 4). |
+| `TAGTOA_UPLOADS_TIMEOUT=S` | Durée maximale de l'archivage (défaut 300 s). |
+
+Un échec est un avertissement bruyant (la base, elle, reste sauvegardée) ; avec `TAGTOA_BACKUP_REQUIRED=1` il annule le déploiement avant la maintenance.
+**Restaurer les images** : `tar -xzf storage/app/backups/tagtoa-uploads-….tar.gz -C <racine du disque public>` (l'archive contient `tagtoa/…`).
+
 ⚠️ Le dump contient TOUT, secrets des passerelles compris. Il reste sur le même
 serveur que la base : ce n'est pas une sauvegarde hors site (BK-1b : copie chiffrée
-ailleurs) — et `public/uploads` (photos, QR) n'est pas sauvegardé (BK-1c). Copiez-les
+ailleurs) — et les archives d'images restent sur le même serveur aussi. Copiez-les
 ailleurs en attendant.
 
 **Restaurer** (le site en maintenance : `php artisan down`) :
