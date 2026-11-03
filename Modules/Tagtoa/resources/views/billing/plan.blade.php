@@ -58,7 +58,12 @@
                     </li>
                 @endforeach
             </ul>
-            @if($isCur)
+            @if($isCur && ! empty($renewable))
+                <form method="POST" action="{{ route('tagtoa.plan.subscribe') }}">
+                    @csrf<input type="hidden" name="plan" value="{{ $key }}">
+                    <button class="btn btn-p" style="width:100%;justify-content:center"><i class="fa-solid fa-rotate"></i> {{ __('Renouveler ce forfait') }}</button>
+                </form>
+            @elseif($isCur)
                 <button class="btn btn-o" style="width:100%;justify-content:center" disabled>{{ __('Forfait actuel') }}</button>
             @elseif(($p['price'] ?? null) === null)
                 {{-- Sur devis : aucun formulaire. Le contrôleur le refuserait de

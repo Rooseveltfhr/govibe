@@ -197,6 +197,11 @@ fi
 echo "==> Isolation par commerce (lecture seule)"
 timeout 60 php artisan tagtoa:tenant-audit 2>&1 | sed 's/^/   /' || echo "   (inventaire indisponible — ignoré)"
 
+# 4.7b) Expiration des abonnements (R0-a) — LECTURE SEULE, jamais bloquant. Dit combien d'abonnés retomberaient sur le
+#       forfait gratuit si TAGTOA_ENFORCE_EXPIRY était allumé ; à lire avant de l'allumer.
+echo "==> Abonnements : expiration (lecture seule)"
+timeout 60 php artisan tagtoa:subscriptions:expiry-report 2>&1 | sed 's/^/   /' || echo "   (rapport indisponible — ignoré)"
+
 # 4.8) Perf HTTP pour connexions faibles (Haïti) : compression gzip + cache
 #      navigateur. Ajout IDEMPOTENT (marqueur TAGTOA-PERF-BLOCK) en fin du
 #      .htaccess existant du docroot — jamais d'écrasement, jamais de doublon.

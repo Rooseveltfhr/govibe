@@ -351,9 +351,15 @@ class CheckoutService
             $plan = $txn->meta['plan'] ?? null;
             $tenantId = $txn->meta['tenant_id'] ?? $txn->tenant_id;
             if ($plan && array_key_exists($plan, \Modules\Tagtoa\App\Services\Billing\PlanService::effectivePlans())) {
+                // Renouvellement ANTICIPÉ du MÊME forfait : le mois payé s'ajoute à ce qui reste (sinon payer en avance faisait
+                // perdre des jours). Autre forfait, ou abonnement échu : un mois à partir de maintenant.
+                $existing = \Modules\Tagtoa\App\Models\Billing\Subscription::allTenants()->where('tenant_id', $tenantId)->first();
+                $base = ($existing && $existing->plan === $plan && $existing->status === 'active'
+                    && $existing->expires_at && $existing->expires_at->isFuture())
+                    ? $existing->expires_at->copy() : now();
                 \Modules\Tagtoa\App\Models\Billing\Subscription::updateOrCreate(
                     ['tenant_id' => $tenantId],
-                    ['plan' => $plan, 'status' => 'active', 'started_at' => now(), 'expires_at' => now()->addMonth()]
+                    ['plan' => $plan, 'status' => 'active', 'started_at' => now(), 'expires_at' => $base->addMonth()]
                 );
             }
 

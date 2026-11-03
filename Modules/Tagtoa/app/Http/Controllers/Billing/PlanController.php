@@ -9,6 +9,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Modules\Tagtoa\App\Models\Billing\Subscription;
 use Modules\Tagtoa\App\Services\Billing\PlanService;
+use Modules\Tagtoa\App\Support\Billing\ExpiryNotice;
 use Modules\Tagtoa\App\Support\Tenant;
 
 /**
@@ -34,6 +35,8 @@ class PlanController extends Controller
             'plans'   => PlanService::effectivePlans(),
             'current' => $current,
             'usage'   => $usage,
+            // Forfait payant à renouveler (bientôt échu / en grâce / échu) : le bouton « Forfait actuel » devient « Renouveler ».
+            'renewable' => ExpiryNotice::forTenant($tid) !== null,
         ]);
     }
 

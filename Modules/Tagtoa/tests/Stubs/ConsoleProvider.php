@@ -7,6 +7,7 @@ use Modules\Tagtoa\App\Console\BackfillOrdersCommand;
 use Modules\Tagtoa\App\Console\BackupDatabaseCommand;
 use Modules\Tagtoa\App\Console\MintStandsCommand;
 use Modules\Tagtoa\App\Console\PurgeHotelRequestsCommand;
+use Modules\Tagtoa\App\Console\SubscriptionExpiryReportCommand;
 use Modules\Tagtoa\App\Console\ReconcilePaymentsCommand;
 use Modules\Tagtoa\App\Console\TenantAuditCommand;
 
@@ -29,6 +30,7 @@ class ConsoleProvider extends ServiceProvider
         TenantAuditCommand::class,
         ReconcilePaymentsCommand::class,
         PurgeHotelRequestsCommand::class,
+        SubscriptionExpiryReportCommand::class,
     ];
 
     public function boot(): void
