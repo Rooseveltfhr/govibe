@@ -83,6 +83,18 @@ if [ "${TAGTOA_BACKUP_SKIP:-0}" != "1" ]; then
       fi
     fi
   fi
+  # BK-1b : copie HORS SITE chiffrée (R2 / B2 / S3). Inactive tant que TAGTOA_OFFSITE_* n'est pas renseigné dans le .env.
+  # Échec = WARN bruyant (le déploiement continue : les sauvegardes locales existent) ; TAGTOA_OFFSITE_REQUIRED=1 l'annule avant la maintenance.
+  if [ "${TAGTOA_OFFSITE_SKIP:-0}" != "1" ]; then
+    echo "==> Copie hors site (chiffrée)"
+    if ! timeout 900 php artisan tagtoa:backup-offsite --timeout="${TAGTOA_OFFSITE_TIMEOUT:-600}"; then
+      echo "!!!!!!!! WARN: COPIE HORS SITE IMPOSSIBLE (les sauvegardes locales existent, mais restent sur ce serveur) !!!!!!!!"
+      if [ "${TAGTOA_OFFSITE_REQUIRED:-0}" = "1" ]; then
+        echo "TAGTOA_OFFSITE_REQUIRED=1 : déploiement ANNULÉ avant la maintenance (site intact)."
+        exit 1
+      fi
+    fi
+  fi
   # Lecture seule, JAMAIS bloquant : relit la dernière sauvegarde (complète, toutes les tables, taille plausible, place prise).
   echo "==> Sauvegarde : vérification de la dernière (contrôle du fichier, pas une restauration)"
   # --max-age : la sauvegarde doit dater de ce déploiement (sinon on validerait une vieille). Pas en mode IF_PENDING (aucune sauvegarde attendue).

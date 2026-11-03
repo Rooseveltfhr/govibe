@@ -7,6 +7,9 @@ use Modules\Tagtoa\App\Console\BackfillOrdersCommand;
 use Modules\Tagtoa\App\Console\BackupDatabaseCommand;
 use Modules\Tagtoa\App\Console\BackupVerifyCommand;
 use Modules\Tagtoa\App\Console\BackupUploadsCommand;
+use Modules\Tagtoa\App\Console\BackupKeygenCommand;
+use Modules\Tagtoa\App\Console\BackupDecryptCommand;
+use Modules\Tagtoa\App\Console\BackupOffsiteCommand;
 use Modules\Tagtoa\App\Console\MintStandsCommand;
 use Modules\Tagtoa\App\Console\PurgeHotelRequestsCommand;
 use Modules\Tagtoa\App\Console\SubscriptionExpiryReportCommand;
@@ -35,6 +38,9 @@ class ConsoleProvider extends ServiceProvider
         SubscriptionExpiryReportCommand::class,
         BackupVerifyCommand::class,
         BackupUploadsCommand::class,
+        BackupKeygenCommand::class,
+        BackupDecryptCommand::class,
+        BackupOffsiteCommand::class,
     ];
 
     public function boot(): void
