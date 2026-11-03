@@ -386,6 +386,22 @@ echo "   419 dans laravel.log : $(grep -c 'TokenMismatchException\|CSRF token mi
 echo "   dernières erreurs (titres) :"
 grep -E '^\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{8}\] [a-z]+\.(ERROR|CRITICAL|ALERT|EMERGENCY):' storage/logs/laravel.log 2>/dev/null \
   | tail -5 | cut -c1-260 | sed 's/^/     /' || true
+# BEGIN origine-erreurs
+# Diagnostic, LECTURE SEULE, jamais bloquant : pour chacune des 5 dernières erreurs, le premier cadre de la pile qui n'est PAS
+# dans vendor/ — « fichier(ligne) » seulement, jamais d'arguments ni de données de requête. Dit QUEL fichier appelle la vue ou le
+# middleware fautif (ex. View [show] not found, Authenticate::redirectTo) sans avoir à ouvrir le journal sur le serveur.
+echo "   origine des erreurs (premier cadre hors vendor/) :"
+tail -n 4000 storage/logs/laravel.log 2>/dev/null | awk '
+  function fin() { if (n > 0) { if (frame == "") frame = "(aucun cadre hors vendor/)"; out[++k] = head " <- " frame } }
+  /^\[20[0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9:]+\] [a-z]+\.(ERROR|CRITICAL|ALERT|EMERGENCY):/ {
+    fin(); n = 1; frame = ""; head = substr($0, 2, 19) " " substr($0, index($0, "]") + 2, 70); next
+  }
+  n == 1 && frame == "" && /^#[0-9]+ / && $0 !~ /\/vendor\// {
+    if (match($0, /^#[0-9]+ [^ ]+\([0-9]+\)/)) { frame = substr($0, RSTART, RLENGTH) }
+  }
+  END { fin(); s = k - 4; if (s < 1) { s = 1 }; for (i = s; i <= k; i++) { print "     " out[i] } }
+' || true
+# END origine-erreurs
 
 # 6) Smoke test public (non bloquant). Activer : TAGTOA_SMOKE_BASE=https://tagtoa.com/tapbiz/public
 if [ -n "${TAGTOA_SMOKE_BASE:-}" ]; then
