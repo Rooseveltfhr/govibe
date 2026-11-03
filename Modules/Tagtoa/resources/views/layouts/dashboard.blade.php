@@ -375,7 +375,7 @@
                     <i class="fa-solid fa-clock"></i>
                     <span style="flex:1;min-width:200px">
                         @if($expiryNotice['state'] === 'expiring')
-                            {{ __('Votre forfait :plan expire dans :n jour(s). Renouvelez-le pour garder toutes vos fonctions.', ['plan' => $expiryNotice['label'], 'n' => $expiryNotice['days']]) }}
+                            {{ __('Votre forfait :plan expire dans :n jour(s). Vous pouvez le renouveler dès maintenant.', ['plan' => $expiryNotice['label'], 'n' => $expiryNotice['days']]) }}
                         @elseif($expiryNotice['state'] === 'grace')
                             {{ __('Votre forfait :plan a expiré. Il vous reste :n jour(s) avant le retour au forfait gratuit ; vos données sont conservées.', ['plan' => $expiryNotice['label'], 'n' => $expiryNotice['days']]) }}
                         @else

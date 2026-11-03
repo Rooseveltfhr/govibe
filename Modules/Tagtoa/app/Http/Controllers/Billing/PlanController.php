@@ -59,7 +59,10 @@ class PlanController extends Controller
 
         // Un forfait désactivé par l'administrateur ne se souscrit plus (les
         // abonnements déjà en cours ne sont pas touchés).
-        if (($plans[$plan]['is_active'] ?? true) === false) {
+        // Exception : l'abonné qui DÉTIENT déjà ce forfait peut le renouveler même désactivé — sinon, expiration appliquée,
+        // il tomberait à Free sans aucun moyen de payer.
+        $detenu = Subscription::where('tenant_id', Tenant::id())->value('plan') === $plan;
+        if (($plans[$plan]['is_active'] ?? true) === false && ! $detenu) {
             return back()->with('error', __('Ce forfait n\'est plus disponible.'));
         }
 

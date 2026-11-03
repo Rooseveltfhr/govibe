@@ -68,10 +68,24 @@ class Subscription extends Model
         return $now->lte($this->expires_at->copy()->addDays(self::graceDays())) ? self::COVER_GRACE : self::COVER_EXPIRED;
     }
 
-    /** Le forfait de cet abonnement s'applique-t-il encore ? (statut actif ET pas échu au-delà de la grâce) */
+    /** Statuts qui donnent droit au forfait (l'essai en fait partie ; « expired », « cancelled »… non). */
+    public const GRANTING_STATUSES = ['active', 'trial'];
+
+    /** Le forfait de cet abonnement s'applique-t-il encore ? (statut qui donne droit ET pas échu au-delà de la grâce) */
     public function grantsPlan(?Carbon $now = null): bool
     {
-        return $this->status === 'active' && $this->coverage($now) !== self::COVER_EXPIRED;
+        return in_array($this->status, self::GRANTING_STATUSES, true) && $this->coverage($now) !== self::COVER_EXPIRED;
+    }
+
+    /**
+     * Forfait « sur devis » (prix NULL) : négocié à la main, pas renouvelable en libre-service. Il n'est JAMAIS rétrogradé
+     * automatiquement — ce sont les plus gros clients ; l'administrateur les traite à la main (le rapport les liste).
+     */
+    public function isQuoteOnly(): bool
+    {
+        $cfg = (array) (\Modules\Tagtoa\App\Services\Billing\PlanService::effectivePlans()[$this->plan] ?? []);
+
+        return array_key_exists('price', $cfg) && $cfg['price'] === null;
     }
 
     /** Forfait effectif d'un tenant (sinon défaut plateforme). */
@@ -81,7 +95,7 @@ class Subscription extends Model
         $plan = $sub?->plan ?? config('tagtoa.default_plan', 'free');
 
         // Échu au-delà de la grâce (ou statut non actif) : retour au forfait par défaut — seulement si le drapeau est allumé.
-        if ($sub && static::expiryEnforced() && ! $sub->grantsPlan()) {
+        if ($sub && static::expiryEnforced() && ! $sub->grantsPlan() && ! $sub->isQuoteOnly()) {
             $plan = config('tagtoa.default_plan', 'free');
         }
 

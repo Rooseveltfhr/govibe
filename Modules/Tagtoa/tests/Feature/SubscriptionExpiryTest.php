@@ -14,6 +14,7 @@ namespace Modules\Tagtoa\Tests\Feature;
 
 use Illuminate\Auth\GenericUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Tagtoa\App\Models\Billing\PlanDefinition;
 use Modules\Tagtoa\App\Models\Billing\Subscription;
 use Modules\Tagtoa\App\Models\Pay\PayTransaction;
 use Modules\Tagtoa\App\Models\Pay\PaymentPage;
@@ -205,6 +206,98 @@ class SubscriptionExpiryTest extends TestCase
         $this->assertSame(\Carbon\Carbon::parse($apres1)->timestamp, \Carbon\Carbon::parse($apres2)->timestamp, 'Un rejeu ne prolonge pas deux fois.');
     }
 
+    /* ---------- revue : trous du rapport, sur devis, forfait désactivé, règlements en série ---------- */
+
+    public function test_an_active_trial_keeps_its_plan_but_expired_or_cancelled_statuses_lose_it(): void
+    {
+        $this->enforce();
+        $this->abo('t-essai', 'pro', now()->addDays(10), 'trial');
+        $this->abo('t-expired', 'pro', null, 'expired');
+        $this->abo('t-cancel', 'pro', null, 'cancelled');
+
+        $this->assertSame('pro', Subscription::planFor('t-essai'));
+        $this->assertSame('free', Subscription::planFor('t-expired'));
+        $this->assertSame('free', Subscription::planFor('t-cancel'));
+    }
+
+    public function test_a_quote_only_plan_is_never_demoted_automatically_even_when_overdue(): void
+    {
+        $this->enforce();
+        $this->abo('t-grand-compte', 'enterprise', now()->subMonths(6));
+        $this->abo('t-franchise', 'franchise', null, 'expired');
+
+        $this->assertSame('enterprise', Subscription::planFor('t-grand-compte'), 'Négocié à la main : pas de rétrogradation silencieuse.');
+        $this->assertSame('franchise', Subscription::planFor('t-franchise'));
+    }
+
+    public function test_the_report_sees_every_way_to_fall_not_only_dated_paid_plans(): void
+    {
+        $this->abo('t-echu', 'pro', now()->subDays(30));
+        $this->abo('t-annule', 'pro', null, 'cancelled');         // sans date de fin : invisible d'un rapport trop étroit
+        $this->abo('t-essai', 'pro', now()->addDays(20), 'trial');   // ne tombe pas
+        $this->abo('t-devis', 'enterprise', now()->subDays(90));
+        $this->abo('t-inconnu', 'forfait-supprime', now()->subDays(90));
+        $this->abo('t-gratuit', 'free', now()->subDays(900));
+
+        $this->artisan('tagtoa:subscriptions:expiry-report')
+            ->expectsOutputToContain('au-dessus du forfait par défaut : 5')
+            ->expectsOutputToContain('sans date de fin : 1')
+            ->expectsOutputToContain('forfait inconnu du catalogue (déjà ramené au défaut) : 1')
+            ->expectsOutputToContain('forfait gratuit si l\'expiration était appliquée : 3')
+            ->expectsOutputToContain('à traiter à la main) : 1')
+            ->expectsOutputToContain('t-annule · pro · fin — · statut « cancelled »')
+            ->expectsOutputToContain('t-echu · pro')
+            ->expectsOutputToContain('[sur devis] t-devis')
+            ->doesntExpectOutputToContain('t-essai')
+            ->doesntExpectOutputToContain('t-gratuit')
+            ->assertSuccessful();
+    }
+
+    public function test_the_holder_of_a_deactivated_plan_can_still_renew_it_but_nobody_else_can_take_it(): void
+    {
+        PlanDefinition::create(['plan_key' => 'pro', 'price' => 1500, 'is_active' => false]);
+        PlanService::flush();
+        $this->abo('t-detenteur', 'pro', now()->addDays(3));
+
+        $this->connecte('t-detenteur');
+        $this->post(route('tagtoa.plan.subscribe'), ['plan' => 'pro']);
+        $this->assertNotSame('Ce forfait n\'est plus disponible.', session('error'), 'Le détenteur va au paiement.');
+
+        $this->connecte('t-autre');
+        $this->post(route('tagtoa.plan.subscribe'), ['plan' => 'pro'])->assertSessionHas('error', 'Ce forfait n\'est plus disponible.');
+    }
+
+    public function test_two_distinct_settlements_for_the_same_tenant_both_count(): void
+    {
+        $fin = now()->addDays(10)->startOfSecond();
+        $this->abo('t-1', 'pro', $fin);
+
+        $this->payer('t-1', 'pro');
+        $this->payer('t-1', 'pro');
+
+        $nouvelle = \Carbon\Carbon::parse(Subscription::allTenants()->where('tenant_id', 't-1')->value('expires_at'));
+        $this->assertEquals($fin->copy()->addMonths(2)->timestamp, $nouvelle->timestamp, 'Deux mois payés = deux mois accordés.');
+        $this->assertSame(1, Subscription::allTenants()->where('tenant_id', 't-1')->count());
+    }
+
+    public function test_a_first_ever_paid_subscription_creates_the_row_for_that_tenant_only(): void
+    {
+        $this->payer('t-neuf', 'pro');
+
+        $s = Subscription::allTenants()->where('tenant_id', 't-neuf')->sole();
+        $this->assertSame(['pro', 'active'], [$s->plan, $s->status]);
+        $this->assertEqualsWithDelta(now()->addMonth()->timestamp, $s->expires_at->timestamp, 5);
+        $this->assertSame(1, Subscription::allTenants()->count());
+    }
+
+    public function test_the_notice_text_promises_no_consequence_while_the_switch_is_off(): void
+    {
+        $this->abo('t-1', 'pro', now()->addDays(3));
+        $this->connecte('t-1');
+
+        $this->get(route('tagtoa.plan.index'))->assertOk()->assertSee('Vous pouvez le renouveler dès maintenant', false)->assertDontSee('garder toutes vos fonctions', false);
+    }
+
     /* ---------- l'avis et le bouton ---------- */
 
     public function test_the_notice_says_expiring_always_and_grace_or_expired_only_when_enforced(): void
@@ -273,7 +366,7 @@ class SubscriptionExpiryTest extends TestCase
 
         $this->artisan('tagtoa:subscriptions:expiry-report')
             ->expectsOutputToContain('non (TAGTOA_ENFORCE_EXPIRY éteint)')
-            ->expectsOutputToContain('bientôt échus 1 · en grâce 1 · échus 2')
+            ->expectsOutputToContain('bientôt échus : 1 · en grâce : 1 · échus : 2')
             ->expectsOutputToContain('forfait gratuit si l\'expiration était appliquée : 2')
             ->expectsOutputToContain('t-exp1')
             ->assertSuccessful();

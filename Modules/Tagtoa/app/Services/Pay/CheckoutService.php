@@ -353,14 +353,9 @@ class CheckoutService
             if ($plan && array_key_exists($plan, \Modules\Tagtoa\App\Services\Billing\PlanService::effectivePlans())) {
                 // Renouvellement ANTICIPÉ du MÊME forfait : le mois payé s'ajoute à ce qui reste (sinon payer en avance faisait
                 // perdre des jours). Autre forfait, ou abonnement échu : un mois à partir de maintenant.
-                $existing = \Modules\Tagtoa\App\Models\Billing\Subscription::allTenants()->where('tenant_id', $tenantId)->first();
-                $base = ($existing && $existing->plan === $plan && $existing->status === 'active'
-                    && $existing->expires_at && $existing->expires_at->isFuture())
-                    ? $existing->expires_at->copy() : now();
-                \Modules\Tagtoa\App\Models\Billing\Subscription::updateOrCreate(
-                    ['tenant_id' => $tenantId],
-                    ['plan' => $plan, 'status' => 'active', 'started_at' => now(), 'expires_at' => $base->addMonth()]
-                );
+                // Lecture VERROUILLÉE de la ligne : deux règlements distincts du même commerce confirmés en même temps ne
+                // calculent plus la même base (le second écrasait le premier : deux mois payés, un seul accordé).
+                $this->prolongerAbonnement((string) $tenantId, $plan);
             }
 
             return;
@@ -410,6 +405,31 @@ class CheckoutService
                 app(\Modules\Tagtoa\App\Services\Event\TicketService::class)->markPaid($order, (string) $txn->gateway);
                 app(RevenueService::class)->record('event_order', $order->id, 'event', (float) $order->total, $order->tenant_id, $order->currency, RevenueService::CHANNEL_ONLINE_VERIFIED);
                 break;
+        }
+    }
+
+    /** Un mois de plus pour ce commerce, calculé sous verrou (voir applyPaid). Lecture et écriture passent par le MÊME accès. */
+    protected function prolongerAbonnement(string $tenantId, string $plan): void
+    {
+        $modele = \Modules\Tagtoa\App\Models\Billing\Subscription::class;
+        $appliquer = function () use ($modele, $tenantId, $plan) {
+            $existing = $modele::allTenants()->where('tenant_id', $tenantId)->lockForUpdate()->first();
+            $base = ($existing && $existing->plan === $plan && $existing->status === 'active'
+                && $existing->expires_at && $existing->expires_at->isFuture())
+                ? $existing->expires_at->copy() : now();
+            $champs = ['plan' => $plan, 'status' => 'active', 'started_at' => now(), 'expires_at' => $base->addMonth()];
+            if ($existing) {
+                $existing->forceFill($champs)->save();
+            } else {
+                $modele::allTenants()->create(array_merge(['tenant_id' => $tenantId], $champs));
+            }
+        };
+
+        try {
+            \Illuminate\Support\Facades\DB::transaction($appliquer);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // Deux premières souscriptions simultanées : la ligne existe maintenant — on relit sous verrou et on prolonge.
+            \Illuminate\Support\Facades\DB::transaction($appliquer);
         }
     }
 
