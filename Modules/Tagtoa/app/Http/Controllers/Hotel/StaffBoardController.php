@@ -13,6 +13,8 @@ use Modules\Tagtoa\App\Models\Hotel\HotelRoom;
 use Modules\Tagtoa\App\Models\Staff\Staff;
 use Modules\Tagtoa\App\Services\Audit\AuditService;
 use Modules\Tagtoa\App\Services\Hotel\HotelRequestService as Svc;
+use Modules\Tagtoa\App\Services\Hotel\HotelReservationService as ResaSvc;
+use Modules\Tagtoa\App\Support\Hotel\HotelReservationRules as ResaR;
 use Modules\Tagtoa\App\Services\Staff\StaffService;
 use Modules\Tagtoa\App\Support\Hotel\HotelRequestRules as R;
 use Modules\Tagtoa\App\Support\Tenant;
@@ -29,7 +31,7 @@ use Modules\Tagtoa\App\Support\Tenant;
  */
 class StaffBoardController extends Controller
 {
-    public function __construct(protected StaffService $staff, protected Svc $requests)
+    public function __construct(protected StaffService $staff, protected Svc $requests, protected ResaSvc $reservations)
     {
     }
 
@@ -49,7 +51,13 @@ class StaffBoardController extends Controller
         $totalOuvertes = (clone $ouvertes)->count();
         $requests = (clone $ouvertes)->orderByDesc('id')->limit(100)->get();
 
+        // Réservations (HM-3b) : nouvelles seulement, les plus récentes d'abord ; vide pour ménage et maintenance.
+        $resaNew = $this->reservations->queryFor($hotel->id, $me)->where('status', 'new');
+        $totalResas = (clone $resaNew)->count();
+
         return view('tagtoa::hotel.board', [
+            'resas'      => (clone $resaNew)->orderByDesc('id')->limit(100)->get(),
+            'totalResas' => $totalResas,
             'hotel'    => $hotel,
             'me'       => $me,
             'requests' => $requests,
@@ -129,6 +137,39 @@ class StaffBoardController extends Controller
         return back()->with('success', __('Demande :r mise à jour.', ['r' => $r['request']->reference]));
     }
 
+    /** Réservation (HM-3b) : confirmer ou refuser, réservé patron, gérant, réception ; toute autre personne → 404 neutre. */
+    public function reservationStatus(Request $request, int $id): RedirectResponse
+    {
+        if (! ($hotel = $this->hotel())) {
+            return $this->pasUnHotel();
+        }
+        $me = $this->staff->forHotel($hotel->id);
+        if (! $me) {
+            return redirect()->route('tagtoa.hotel.board');
+        }
+        if (! ResaR::staffMaySee($me->role, $me->hotel_team)) {
+            abort(404);
+        }
+        $data = $request->validate([
+            'to'     => ['required', 'string', 'in:confirmed,refused'],
+            'reason' => ['nullable', 'string', 'max:'.ResaR::REASON_MAX],
+        ]);
+
+        $r = $this->reservations->setStatus($hotel->id, $id, $data['to'], $data['reason'] ?? null, 'new');
+        if ($r['result'] === ResaSvc::NOT_FOUND) {
+            abort(404);
+        }
+        if ($r['result'] !== ResaSvc::OK) {
+            return back()->with('error', __('Cette réservation a déjà été traitée. L\'écran va se mettre à jour.'));
+        }
+
+        if ($r['changed'] ?? false) {
+            app(AuditService::class)->log('hotel.reservation.'.$data['to'], $r['reservation'], $r['reservation']->reference.' · '.$me->name.' (#'.$me->id.')');
+        }
+
+        return back()->with('success', $data['to'] === 'confirmed' ? __('Réservation confirmée.') : __('Demande refusée.'));
+    }
+
     /** Léger : pastille + son. Réservé à l'employé identifié, limité à SON équipe. */
     public function alerts(): JsonResponse
     {
@@ -138,8 +179,11 @@ class StaffBoardController extends Controller
             return response()->json(['latest_id' => 0, 'pending' => 0], 401);
         }
         $q = $this->requests->queryFor($hotel->id, $me);
+        $resa = $this->reservations->queryFor($hotel->id, $me)->where('status', 'new');
 
         return response()->json([
+            'resa_latest_id' => (int) ((clone $resa)->max('id') ?? 0),
+            'resa_pending'   => (clone $resa)->count(),
             // Sur les demandes OUVERTES seulement, comme l'écran : sur toutes, une demande récente annulée ou
             // terminée faisait sonner et recharger la tablette toutes les 15 secondes, indéfiniment.
             'latest_id' => (int) ((clone $q)->whereIn('status', R::OPEN)->max('id') ?? 0),

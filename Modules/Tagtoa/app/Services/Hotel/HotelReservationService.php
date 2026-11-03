@@ -148,6 +148,14 @@ class HotelReservationService
         return $r;
     }
 
+    /** Les réservations d'un hôtel visibles par un employé : vide pour ménage et maintenance. */
+    public function queryFor(string $tenantId, \Modules\Tagtoa\App\Models\Staff\Staff $staff)
+    {
+        $q = HotelReservation::allTenants()->where('tenant_id', $tenantId);
+
+        return R::staffMaySee($staff->role, $staff->hotel_team) ? $q : $q->whereRaw('1 = 0');
+    }
+
     /** L'invité annule tant que la demande est ouverte (nouvelle ou confirmée). */
     public function guestCancel(?string $reference, ?string $secret): array
     {
@@ -167,16 +175,23 @@ class HotelReservationService
         });
     }
 
-    /** L'hôtel (commerce passé en paramètre) confirme ou refuse. */
-    public function setStatus(string $tenantId, int $id, string $to, ?string $reason = null): array
+    /**
+     * L'hôtel (commerce passé en paramètre) confirme ou refuse. `changed` dit si l'état a VRAIMENT changé (un double clic
+     * répond OK sans rien changer : ne pas le journaliser deux fois). `$onlyFrom` : l'écran du personnel n'agit que sur
+     * les « nouvelles » — une page périmée ne peut pas refuser une réservation qu'un collègue vient de confirmer.
+     */
+    public function setStatus(string $tenantId, int $id, string $to, ?string $reason = null, ?string $onlyFrom = null): array
     {
-        return DB::transaction(function () use ($tenantId, $id, $to, $reason) {
+        return DB::transaction(function () use ($tenantId, $id, $to, $reason, $onlyFrom) {
             $r = HotelReservation::allTenants()->where('tenant_id', $tenantId)->whereKey($id)->lockForUpdate()->first();
             if (! $r) {
                 return $this->non(self::NOT_FOUND);
             }
             if ($r->status === $to) {
-                return ['result' => self::OK, 'reservation' => $r, 'secret' => null]; // double clic : déjà fait
+                return ['result' => self::OK, 'reservation' => $r, 'secret' => null, 'changed' => false]; // double clic : déjà fait
+            }
+            if ($onlyFrom !== null && $r->status !== $onlyFrom) {
+                return ['result' => self::NOT_ALLOWED, 'reservation' => $r, 'secret' => null];
             }
             if (! R::canMove($r->status, $to)) {
                 return ['result' => self::NOT_ALLOWED, 'reservation' => $r, 'secret' => null];
@@ -188,7 +203,7 @@ class HotelReservationService
                 'reason'     => $to === 'refused' ? R::cleanText($reason, R::REASON_MAX) : null,
             ])->save();
 
-            return ['result' => self::OK, 'reservation' => $r, 'secret' => null];
+            return ['result' => self::OK, 'reservation' => $r, 'secret' => null, 'changed' => true];
         });
     }
 
