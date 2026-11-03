@@ -50,6 +50,7 @@
         .panel{margin-top:14px}
         .panel[hidden]{display:none}
         .go{background:var(--acc)}
+        .btn.sec{background:#fff;color:var(--fg);border:1.5px solid var(--bd)}
     </style>
 <noscript><style>.panel[hidden]{display:block}.opt{display:none}</style></noscript>
 </head>
@@ -61,13 +62,18 @@
         <div class="tot">{{ Money::format($order->total, $order->currency) }}</div>
     </div>
 
+    @php
+        // Une fois la commande payée OU le paiement déclaré (« J'ai payé »), le client n'a plus rien à choisir ni à payer :
+        // ni mot d'explication, ni liste de moyens — seulement où aller ensuite.
+        $termine = $order->isPaid() || $claimed;
+        $retourLabel = $type === 'store' ? __('Continuer mes achats') : __('Retour au menu');
+    @endphp
+
     @if($order->isPaid())
         <div class="ok"><i class="fa-solid fa-circle-check"></i> {{ __('Cette commande est payée. Merci !') }}</div>
+    @elseif($claimed)
+        {{-- Paiement déclaré : aucune liste de moyens, aucun message — voir les actions ci-dessous. --}}
     @else
-        @if($claimed)
-            <div class="ok"><i class="fa-solid fa-hourglass-half"></i> {{ __('Merci ! Le commerce vérifie votre paiement et confirmera votre commande.') }}</div>
-        @endif
-
         @if($nothing)
             <div class="info"><i class="fa-solid fa-circle-info"></i> {{ __('Aucun moyen de paiement en ligne n\'est disponible. Payez directement auprès du commerce.') }}</div>
         @endif
@@ -145,8 +151,13 @@
         @endif
     @endif
 
-    @if($trackUrl)<a class="lnk" href="{{ $trackUrl }}"><i class="fa-solid fa-location-crosshairs"></i> {{ __('Suivre ma commande') }}</a>@endif
-    @if($backUrl)<a class="lnk" href="{{ $backUrl }}"><i class="fa-solid fa-utensils"></i> {{ __('Continuer à voir le catalogue') }}</a>@endif
+    @if($termine)
+        @if($trackUrl)<a class="btn go" href="{{ $trackUrl }}"><i class="fa-solid fa-location-crosshairs"></i> {{ __('Suivre ma commande') }}</a>@endif
+        @if($backUrl)<a class="btn sec" href="{{ $backUrl }}"><i class="fa-solid {{ $type === 'store' ? 'fa-bag-shopping' : 'fa-utensils' }}"></i> {{ $retourLabel }}</a>@endif
+    @else
+        @if($trackUrl)<a class="lnk" href="{{ $trackUrl }}"><i class="fa-solid fa-location-crosshairs"></i> {{ __('Suivre ma commande') }}</a>@endif
+        @if($backUrl)<a class="lnk" href="{{ $backUrl }}"><i class="fa-solid fa-utensils"></i> {{ __('Continuer à voir le catalogue') }}</a>@endif
+    @endif
 </div>
 </body>
 </html>

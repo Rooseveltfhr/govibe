@@ -179,8 +179,13 @@ class PayOrderChoicesUiTest extends TestCase
         $this->assertFalse($o->isPaid());
         $this->assertNotNull($o->payment_claimed_at);
 
-        $this->assertStringContainsString('Le commerce vérifie votre paiement', $this->html($o));
-        $this->assertStringNotContainsString('id="claim-', $this->html($o), 'Déjà déclaré : plus de formulaire.');
+        $html = $this->html($o);
+        $this->assertStringNotContainsString('Le commerce vérifie votre paiement', $html, 'Plus de message d\'attente.');
+        $this->assertStringNotContainsString('id="claim-', $html, 'Déjà déclaré : plus de formulaire.');
+        $this->assertSame(0, substr_count($html, 'name="choice"'), 'Déjà déclaré : plus de liste de moyens de paiement.');
+        $this->assertStringNotContainsString('Choisissez un moyen de paiement', $html);
+        $this->assertStringContainsString('Suivre ma commande', $html);
+        $this->assertStringContainsString('Retour au menu', $html);
     }
 
     public function test_a_paid_order_shows_no_card_at_all(): void
@@ -195,5 +200,70 @@ class PayOrderChoicesUiTest extends TestCase
         $html = $this->html($o->fresh());
         $this->assertSame(0, substr_count($html, 'name="choice"'));
         $this->assertStringContainsString('Cette commande est payée', $html);
+    }
+
+    /* ---------- après le paiement : seulement où aller ensuite ---------- */
+
+    public function test_right_after_declaring_the_payment_the_customer_sees_only_where_to_go_next(): void
+    {
+        $m = $this->method('natcash', ['account_number' => '4400 2222']);
+        $this->method('zelle', ['account_number' => 'rose@mail.com']);
+        $o = $this->menuOrder();
+
+        $html = $this->followingRedirects()->from(route('tagtoa.pay.order', ['menu', $o->reference]))
+            ->post(route('tagtoa.pay.order.claim', ['menu', $o->reference]), ['payment_method_id' => $m->id, 'payer_name' => 'Jean', 'payer_phone' => '3456 7890'])
+            ->getContent();
+
+        $this->assertStringNotContainsString('Le commerce vérifie votre paiement', $html);
+        $this->assertSame(0, substr_count($html, 'name="choice"'), 'Aucune liste de moyens de paiement.');
+        $this->assertStringNotContainsString('4400 2222', $html, 'Aucun numéro de paiement à nouveau affiché.');
+        $this->assertStringNotContainsString('rose@mail.com', $html);
+        $this->assertStringContainsString(route('tagtoa.menu.track', $o->reference), $html);
+        $this->assertStringContainsString('Suivre ma commande', $html);
+        $this->assertStringContainsString('Retour au menu', $html);
+        $this->assertStringContainsString(route('tagtoa.menu.show', 'chez-rose-t-1'), $html);
+    }
+
+    public function test_before_any_payment_the_choices_and_the_discreet_links_are_unchanged(): void
+    {
+        $this->method('natcash', ['account_number' => '4400 2222']);
+        $o = $this->menuOrder();
+
+        $html = $this->html($o);
+
+        $this->assertStringContainsString('Choisissez un moyen de paiement', $html);
+        $this->assertGreaterThanOrEqual(1, substr_count($html, 'name="choice"'), 'La liste des moyens reste affichée avant le paiement.');
+        $this->assertStringContainsString('Continuer à voir le catalogue', $html);
+        $this->assertStringNotContainsString('Retour au menu', $html, 'Pas encore payé : les actions de fin ne s\'affichent pas.');
+    }
+
+    public function test_a_paid_order_offers_the_same_next_steps(): void
+    {
+        $this->method('natcash', ['account_number' => '4400 2222']);
+        $o = $this->menuOrder();
+        $o->forceFill(['payment_status' => 'paid', 'paid_at' => now()])->save();
+
+        $html = $this->html($o->fresh());
+
+        $this->assertStringContainsString('Cette commande est payée', $html);
+        $this->assertStringContainsString('Suivre ma commande', $html);
+        $this->assertStringContainsString('Retour au menu', $html);
+        $this->assertSame(0, substr_count($html, 'name="choice"'));
+    }
+
+    public function test_a_declared_store_order_says_continue_shopping_and_has_no_tracking_button(): void
+    {
+        $m = $this->method('natcash', ['account_number' => '4400 2222']);
+        $store = \Modules\Tagtoa\App\Models\Store\Store::allTenants()->create(['tenant_id' => 't-1', 'name' => 'Boutik', 'alias' => 'boutik-ui', 'currency' => 'HTG', 'is_published' => true]);
+        $p = $store->products()->create(['name' => 'Radio', 'price' => 400, 'currency' => 'HTG', 'is_available' => true]);
+        $order = app(\Modules\Tagtoa\App\Services\Store\StoreOrderService::class)->placeOrder($store, ['items' => [['id' => $p->id, 'qty' => 1]], 'customer_name' => 'Jean', 'customer_phone' => '34567890']);
+
+        $this->post(route('tagtoa.pay.order.claim', ['store', $order->reference]), ['payment_method_id' => $m->id, 'payer_name' => 'Jean', 'payer_phone' => '3456 7890']);
+        $html = $this->get(route('tagtoa.pay.order', ['store', $order->reference]))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Continuer mes achats', $html);
+        $this->assertStringNotContainsString('Suivre ma commande', $html, 'La boutique n\'a pas de page de suivi.');
+        $this->assertStringNotContainsString('Retour au menu', $html);
+        $this->assertSame(0, substr_count($html, 'name="choice"'));
     }
 }
