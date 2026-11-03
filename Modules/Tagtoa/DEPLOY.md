@@ -54,22 +54,36 @@ Laravel 10.18, `nwidart/laravel-modules`, `simple-qrcode`, `stancl/tenancy`,
 
 ## 1. Sauvegarde (toujours avant un déploiement)
 
-**Automatique.** `deploy/remote-deploy.sh` lance `php artisan tagtoa:backup-db --if-pending`
-AVANT la mise en maintenance, dès qu'une migration est en attente. Le dump est
-compressé, vérifié (archive lisible + pied de page du dump présent), écrit en
-`0600` dans `storage/app/backups/` (dossier `0700`), et les 14 plus récents sont
-conservés (`TAGTOA_BACKUP_KEEP`).
+**Automatique (BK-1a).** `deploy/remote-deploy.sh` lance `php artisan tagtoa:backup-db` à
+**CHAQUE déploiement**, AVANT la mise en maintenance (et pas seulement quand une migration est
+en attente : un bug qui abîme des données sans migration n'avait aucune sauvegarde récente).
+Le dump est compressé, vérifié (archive lisible + pied de page du dump présent), écrit en
+`0600` dans `storage/app/backups/` (dossier `0700`).
+
+**Rétention par niveaux** : les 10 dernières, PLUS la plus récente de chaque jour pendant 14
+jours, PLUS la plus récente de chaque semaine pendant 8 semaines. Le reste est supprimé ; un
+fichier nommé à la main n'est jamais compté ni supprimé.
+
+**Vérification** : juste après, `php artisan tagtoa:backup-verify` relit la dernière sauvegarde
+(lecture seule, jamais bloquant) : archive complète, **chaque table de la base présente dans le
+dump**, taille cohérente avec la précédente, place prise. C'est un contrôle du FICHIER, pas une
+restauration : la restauration réelle (vrai `mysqldump` → vraie base MySQL 8) est prouvée à
+chaque PR par le job CI « migrations + sauvegarde ».
 
 | Variable | Effet |
 |---|---|
 | `TAGTOA_BACKUP_REQUIRED=1` | Si la sauvegarde échoue, le déploiement s'arrête AVANT la maintenance (site intact). Par défaut : avertissement bruyant puis poursuite. |
-| `TAGTOA_BACKUP_SKIP=1` | Ignore la sauvegarde. |
-| `TAGTOA_BACKUP_KEEP=N` | Nombre de sauvegardes conservées. |
+| `TAGTOA_BACKUP_SKIP=1` | Ignore la sauvegarde (et sa vérification). |
+| `TAGTOA_BACKUP_IF_PENDING=1` | Ancien comportement : sauvegarde seulement si une migration est en attente. |
+| `TAGTOA_BACKUP_KEEP=N` | Dernières sauvegardes toujours conservées (défaut 10). |
+| `TAGTOA_BACKUP_KEEP_DAILY=N` / `TAGTOA_BACKUP_KEEP_WEEKLY=N` | Jours / semaines couverts par « une par jour » / « une par semaine » (défaut 14 / 8). |
+| `TAGTOA_BACKUP_TIMEOUT=S` | Durée maximale du dump, en secondes (défaut 300) : un dump qui pend ne bloque pas le déploiement. |
 | `TAGTOA_SEED_DEMO=1` | Réactive le seed de démo (désormais DÉSACTIVÉ par défaut en production). |
 
 ⚠️ Le dump contient TOUT, secrets des passerelles compris. Il reste sur le même
-serveur que la base : ce n'est pas une sauvegarde hors site. Copiez-le ailleurs
-(décision D9 : propriétaire et rétention à fixer).
+serveur que la base : ce n'est pas une sauvegarde hors site (BK-1b : copie chiffrée
+ailleurs) — et `public/uploads` (photos, QR) n'est pas sauvegardé (BK-1c). Copiez-les
+ailleurs en attendant.
 
 **Restaurer** (le site en maintenance : `php artisan down`) :
 ```bash

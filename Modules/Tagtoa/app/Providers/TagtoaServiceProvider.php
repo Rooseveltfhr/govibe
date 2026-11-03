@@ -41,6 +41,7 @@ class TagtoaServiceProvider extends ServiceProvider
             \Modules\Tagtoa\App\Console\ReconcilePaymentsCommand::class,
             \Modules\Tagtoa\App\Console\PurgeHotelRequestsCommand::class,
             \Modules\Tagtoa\App\Console\SubscriptionExpiryReportCommand::class,
+            \Modules\Tagtoa\App\Console\BackupVerifyCommand::class,
         ]);
 
         // Filet des paiements « en attente » (CS-12). Ne fait rien si l'hôte n'a

@@ -40,7 +40,9 @@ class BackupDatabaseCommand extends Command
 
     protected $signature = 'tagtoa:backup-db
                             {--if-pending : Ne sauvegarder que si une migration est en attente}
-                            {--keep=14 : Nombre de sauvegardes conservées (les plus récentes)}
+                            {--keep=10 : Nombre de sauvegardes les plus récentes toujours conservées}
+                            {--keep-daily=14 : En plus : la plus récente de chaque jour, pendant ce nombre de jours (0 = pas de niveau journalier)}
+                            {--keep-weekly=8 : En plus : la plus récente de chaque semaine, pendant ce nombre de semaines (0 = pas de niveau hebdomadaire)}
                             {--out= : Dossier de destination (défaut : storage/app/backups)}
                             {--timeout=900 : Durée maximale du dump, en secondes}';
 
@@ -53,6 +55,13 @@ class BackupDatabaseCommand extends Command
             $this->error('--keep doit être un entier >= 1.');
 
             return self::FAILURE;
+        }
+        foreach (['keep-daily', 'keep-weekly'] as $opt) {
+            if (! ctype_digit((string) $this->option($opt))) {
+                $this->error("--$opt doit être un entier >= 0.");
+
+                return self::FAILURE;
+            }
         }
 
         // Par son nom : « migrator » est le seul identifiant que le conteneur sait
@@ -102,7 +111,7 @@ class BackupDatabaseCommand extends Command
         }
 
         $this->info('Sauvegarde OK : '.$final.' ('.number_format((int) filesize($final)).' octets)');
-        $this->prune($dir, (int) $this->option('keep'), $final);
+        $this->prune($dir, (int) $this->option('keep'), $final, (int) $this->option('keep-daily'), (int) $this->option('keep-weekly'));
 
         return self::SUCCESS;
     }
@@ -214,6 +223,12 @@ class BackupDatabaseCommand extends Command
     /** Le gzip se lit jusqu'au bout et le dump est allé jusqu'à son pied de page. */
     protected function verify(string $file): ?string
     {
+        return self::verifyFile($file);
+    }
+
+    /** Idem, utilisable hors de la commande (tagtoa:backup-verify relit une sauvegarde déjà faite). */
+    public static function verifyFile(string $file): ?string
+    {
         $in = @gzopen($file, 'rb');
         if ($in === false) {
             return 'sauvegarde illisible';
@@ -242,17 +257,61 @@ class BackupDatabaseCommand extends Command
         return null;
     }
 
-    /** Ne garde que les $keep plus récentes sauvegardes de CETTE commande. */
-    protected function prune(string $dir, int $keep, string $justMade): void
+    /** Les sauvegardes de CETTE commande, de la plus récente à la plus ancienne (horodatage strict dans le nom). */
+    public static function listBackups(string $dir): array
     {
-        // Horodatage strict : un fichier nommé à la main n'est jamais ni compté ni supprimé.
+        // Un fichier nommé à la main n'est jamais ni compté ni supprimé.
         $files = array_values(array_filter(glob($dir.'/'.self::PREFIX.'*'.self::SUFFIX) ?: [],
             fn ($f) => preg_match('/^tagtoa-db-\d{8}-\d{6}\.sql\.gz$/', basename($f)) === 1));
         rsort($files); // le nom porte l'horodatage : l'ordre alphabétique est chronologique
-        foreach (array_slice($files, $keep) as $old) {
-            if ($old !== $justMade && @unlink($old)) {
-                $this->line('Ancienne sauvegarde supprimée : '.basename($old));
+
+        return $files;
+    }
+
+    /** Date portée par le nom d'une sauvegarde. */
+    public static function stampOf(string $file): \Carbon\Carbon
+    {
+        preg_match('/(\d{8})-(\d{6})/', basename($file), $m);
+
+        return \Carbon\Carbon::createFromFormat('Ymd-His', $m[1].'-'.$m[2]);
+    }
+
+    /**
+     * Rétention par niveaux (jamais « tout garder », jamais « seulement les dernières ») :
+     *  - les $keep plus récentes, toujours (les derniers déploiements) ;
+     *  - la plus récente de chaque JOUR pendant $days jours ;
+     *  - la plus récente de chaque SEMAINE pendant $weeks semaines.
+     * Le reste est supprimé, sauf le fichier qui vient d'être fait. Retourne les noms conservés (pour les tests).
+     */
+    protected function prune(string $dir, int $keep, string $justMade, int $days = 14, int $weeks = 8): array
+    {
+        $files = self::listBackups($dir);
+        $now = \Carbon\Carbon::now();
+        $garde = [];
+        foreach (array_slice($files, 0, $keep) as $f) {
+            $garde[$f] = true;
+        }
+        $vuJour = [];
+        $vuSemaine = [];
+        foreach ($files as $f) {           // du plus récent au plus ancien : le premier vu d'un jour / d'une semaine est son plus récent
+            $t = self::stampOf($f);
+            $jour = $t->format('Y-m-d');
+            if ($days > 0 && $t->gte($now->copy()->subDays($days)->startOfDay()) && ! isset($vuJour[$jour])) {
+                $garde[$f] = true;
+            }
+            $vuJour[$jour] = true;
+            $semaine = $t->format('o-W');
+            if ($weeks > 0 && $t->gte($now->copy()->subWeeks($weeks)->startOfWeek()) && ! isset($vuSemaine[$semaine])) {
+                $garde[$f] = true;
+            }
+            $vuSemaine[$semaine] = true;
+        }
+        foreach ($files as $f) {
+            if (! isset($garde[$f]) && $f !== $justMade && @unlink($f)) {
+                $this->line('Ancienne sauvegarde supprimée : '.basename($f));
             }
         }
+
+        return array_map('basename', array_keys($garde));
     }
 }

@@ -5,6 +5,7 @@ namespace Modules\Tagtoa\Tests\Stubs;
 use Illuminate\Support\ServiceProvider;
 use Modules\Tagtoa\App\Console\BackfillOrdersCommand;
 use Modules\Tagtoa\App\Console\BackupDatabaseCommand;
+use Modules\Tagtoa\App\Console\BackupVerifyCommand;
 use Modules\Tagtoa\App\Console\MintStandsCommand;
 use Modules\Tagtoa\App\Console\PurgeHotelRequestsCommand;
 use Modules\Tagtoa\App\Console\SubscriptionExpiryReportCommand;
@@ -31,6 +32,7 @@ class ConsoleProvider extends ServiceProvider
         ReconcilePaymentsCommand::class,
         PurgeHotelRequestsCommand::class,
         SubscriptionExpiryReportCommand::class,
+        BackupVerifyCommand::class,
     ];
 
     public function boot(): void
