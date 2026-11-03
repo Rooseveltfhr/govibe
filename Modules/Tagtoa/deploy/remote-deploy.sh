@@ -57,13 +57,32 @@ rollback() {
 #      (celui qui répare l'échec) serait justement celle qui saute.
 php artisan module:enable Tagtoa >/dev/null 2>&1 || true
 if [ "${TAGTOA_BACKUP_SKIP:-0}" != "1" ]; then
-  echo "==> Sauvegarde de la base (si migration en attente)"
-  if ! php artisan tagtoa:backup-db --if-pending --keep="${TAGTOA_BACKUP_KEEP:-14}"; then
-    echo "!!!!!!!! WARN: SAUVEGARDE DE LA BASE IMPOSSIBLE — migration sans filet !!!!!!!!"
+  # BK-1a : une sauvegarde à CHAQUE déploiement (pas seulement avant une migration) — un bug qui abîme des données sans migration
+  # n'avait aucune sauvegarde récente. TAGTOA_BACKUP_IF_PENDING=1 rétablit l'ancien comportement (seulement si migration en attente).
+  # Rétention par niveaux : les N dernières + la plus récente de chaque jour (14 j) et de chaque semaine (8 sem.).
+  BACKUP_ARGS="--keep=${TAGTOA_BACKUP_KEEP:-10} --keep-daily=${TAGTOA_BACKUP_KEEP_DAILY:-14} --keep-weekly=${TAGTOA_BACKUP_KEEP_WEEKLY:-8} --timeout=${TAGTOA_BACKUP_TIMEOUT:-300}"
+  [ "${TAGTOA_BACKUP_IF_PENDING:-0}" = "1" ] && BACKUP_ARGS="--if-pending $BACKUP_ARGS"
+  echo "==> Sauvegarde de la base (${BACKUP_ARGS})"
+  # shellcheck disable=SC2086
+  if ! php artisan tagtoa:backup-db $BACKUP_ARGS; then
+    echo "!!!!!!!! WARN: SAUVEGARDE DE LA BASE IMPOSSIBLE — déploiement sans filet !!!!!!!!"
     if [ "${TAGTOA_BACKUP_REQUIRED:-0}" = "1" ]; then
       echo "TAGTOA_BACKUP_REQUIRED=1 : déploiement ANNULÉ avant la maintenance (site intact)."
       exit 1
     fi
+  fi
+  # Lecture seule, JAMAIS bloquant : relit la dernière sauvegarde (complète, toutes les tables, taille plausible, place prise).
+  echo "==> Sauvegarde : vérification de la dernière (contrôle du fichier, pas une restauration)"
+  # --max-age : la sauvegarde doit dater de ce déploiement (sinon on validerait une vieille). Pas en mode IF_PENDING (aucune sauvegarde attendue).
+  VERIFY_ARGS="--max-age=30"
+  [ "${TAGTOA_BACKUP_IF_PENDING:-0}" = "1" ] && VERIFY_ARGS=""
+  # shellcheck disable=SC2086
+  timeout 120 php artisan tagtoa:backup-verify $VERIFY_ARGS 2>&1 | sed 's/^/   /'
+  VERIFY_RC=${PIPESTATUS[0]}
+  if [ "$VERIFY_RC" -eq 124 ]; then
+    echo "   (vérification interrompue après 120 s — ignorée)"
+  elif [ "$VERIFY_RC" -ne 0 ]; then
+    echo "!!!!!!!! WARN: LA DERNIÈRE SAUVEGARDE A UN PROBLÈME (voir ci-dessus) — déploiement sans filet fiable !!!!!!!!"
   fi
 else
   echo "==> Sauvegarde ignorée (TAGTOA_BACKUP_SKIP=1)"

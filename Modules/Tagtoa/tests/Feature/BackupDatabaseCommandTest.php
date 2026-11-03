@@ -269,4 +269,170 @@ class BackupDatabaseCommandTest extends TestCase
         $this->assertStringNotContainsString('exit ', $block, 'Un diagnostic ne doit jamais arrêter le déploiement.');
         $this->assertStringNotContainsString('rollback', $block);
     }
+
+    /* ---------- BK-1a : rétention par niveaux, une sauvegarde à chaque déploiement ---------- */
+
+    private function sauvegardeDatee(\Carbon\Carbon $quand): string
+    {
+        $f = $this->dir.'/tagtoa-db-'.$quand->format('Ymd-His').'.sql.gz';
+        file_put_contents($f, 'ancienne');
+
+        return basename($f);
+    }
+
+    public function test_tiered_retention_keeps_the_last_n_one_per_day_and_one_per_week_and_drops_the_rest(): void
+    {
+        mkdir($this->dir, 0700, true);
+        $jour = fn (int $n, string $h) => \Carbon\Carbon::now()->startOfDay()->subDays($n)->setTimeFromTimeString($h);
+        $auj    = $this->sauvegardeDatee(\Carbon\Carbon::now()->startOfDay()->setTime(0, 0, 1));
+        $hier9  = $this->sauvegardeDatee($jour(1, '09:00:00'));
+        $hier8  = $this->sauvegardeDatee($jour(1, '08:00:00'));
+        $j5     = $this->sauvegardeDatee($jour(5, '08:00:00'));
+        $j20a   = $this->sauvegardeDatee($jour(20, '09:00:00'));
+        $j20b   = $this->sauvegardeDatee($jour(20, '08:00:00'));
+        $j40    = $this->sauvegardeDatee($jour(40, '08:00:00'));
+        $j100   = $this->sauvegardeDatee($jour(100, '08:00:00'));
+        $this->asMysql();
+
+        $this->artisan('tagtoa:backup-db', ['--out' => $this->dir, '--keep' => 2, '--keep-daily' => 14, '--keep-weekly' => 8])->assertExitCode(0);
+
+        $restent = array_map('basename', $this->backups());
+        foreach ([$auj, $hier9, $j5, $j20a, $j40] as $doitRester) {
+            $this->assertContains($doitRester, $restent, "$doitRester doit rester");
+        }
+        foreach ([$hier8, $j20b, $j100] as $doitPartir) {
+            $this->assertNotContains($doitPartir, $restent, "$doitPartir doit partir");
+        }
+        $this->assertCount(6, $restent, 'Les 5 gardées + celle qui vient d\'être faite.');
+    }
+
+    public function test_with_daily_and_weekly_at_zero_only_the_last_n_remain(): void
+    {
+        mkdir($this->dir, 0700, true);
+        foreach ([1, 2, 3, 4] as $n) {
+            $this->sauvegardeDatee(\Carbon\Carbon::now()->startOfDay()->subDays($n)->setTime(8, 0, 0));
+        }
+        $this->asMysql();
+
+        $this->artisan('tagtoa:backup-db', ['--out' => $this->dir, '--keep' => 2, '--keep-daily' => 0, '--keep-weekly' => 0])->assertExitCode(0);
+
+        $this->assertCount(2, $this->backups(), 'La nouvelle + la plus récente des anciennes.');
+    }
+
+    public function test_the_file_just_made_is_never_pruned_and_foreign_files_stay_untouched(): void
+    {
+        mkdir($this->dir, 0700, true);
+        file_put_contents($this->dir.'/tagtoa-db-pre-release.sql.gz', 'a la main');
+        file_put_contents($this->dir.'/autre.sql.gz', 'autre');
+        $this->sauvegardeDatee(\Carbon\Carbon::now()->subYears(2));
+        $this->asMysql();
+
+        $this->artisan('tagtoa:backup-db', ['--out' => $this->dir, '--keep' => 1, '--keep-daily' => 0, '--keep-weekly' => 0])->assertExitCode(0);
+
+        $this->assertCount(1, BackupDatabaseCommand::listBackups($this->dir), 'Une seule sauvegarde datée : la nouvelle.');
+        $this->assertFileExists($this->dir.'/tagtoa-db-pre-release.sql.gz');
+        $this->assertFileExists($this->dir.'/autre.sql.gz');
+    }
+
+    public function test_invalid_daily_or_weekly_values_are_refused_without_deleting_anything(): void
+    {
+        mkdir($this->dir, 0700, true);
+        $vieille = $this->sauvegardeDatee(\Carbon\Carbon::now()->subDays(3));
+        $this->asMysql();
+
+        foreach (['--keep-daily' => '14j', '--keep-weekly' => '-1'] as $opt => $val) {
+            $this->artisan('tagtoa:backup-db', ['--out' => $this->dir, $opt => $val])->assertExitCode(1);
+        }
+
+        $this->assertFileExists($this->dir.'/'.$vieille);
+        $this->assertSame(0, FakeDumpCommand::$calls);
+    }
+
+    public function test_the_deploy_script_backs_up_every_deploy_verifies_without_blocking_and_keeps_the_old_mode_available(): void
+    {
+        $sh = file_get_contents(__DIR__.'/../../deploy/remote-deploy.sh');
+
+        $this->assertStringContainsString('--keep-daily=', $sh);
+        $this->assertStringContainsString('--keep-weekly=', $sh);
+        $this->assertStringContainsString('--timeout=${TAGTOA_BACKUP_TIMEOUT:-300}', $sh, 'Un dump qui pend ne bloque pas le déploiement 15 minutes.');
+        $this->assertStringNotContainsString('tagtoa:backup-db --if-pending', $sh, 'Plus de sauvegarde seulement si migration : une à chaque déploiement.');
+        $this->assertStringContainsString('TAGTOA_BACKUP_IF_PENDING', $sh, 'L\'ancien comportement reste disponible.');
+        $this->assertStringContainsString('PIPESTATUS[0]', $sh, 'Le code de sortie de la vérification (et non celui de sed) décide du message.');
+        $this->assertStringContainsString('-eq 124', $sh, 'Un délai dépassé (124) n\'est pas un vrai problème de sauvegarde.');
+        $this->assertStringContainsString('LA DERNIÈRE SAUVEGARDE A UN PROBLÈME', $sh, 'Un vrai problème est bruyant, pas « ignoré ».');
+        $this->assertStringContainsString('--max-age=', $sh, 'La sauvegarde vérifiée doit dater de CE déploiement.');
+        $this->assertDoesNotMatchRegularExpression('/backup-verify[^\n]*\|\| echo/', $sh, 'Plus de « || echo » qui masquait un vrai problème.');
+        $this->assertLessThan(strpos($sh, 'php artisan down'), strpos($sh, 'tagtoa:backup-verify'), 'Vérifiée avant la maintenance.');
+        $this->assertGreaterThan(strpos($sh, 'tagtoa:backup-db'), strpos($sh, 'tagtoa:backup-verify'));
+    }
+
+    public function test_the_backup_just_made_survives_even_when_a_newer_dated_file_exists(): void
+    {
+        mkdir($this->dir, 0700, true);
+        $futur = $this->sauvegardeDatee(\Carbon\Carbon::now()->addDay());   // horloge déréglée / fichier copié d'ailleurs
+        $this->asMysql();
+
+        $this->artisan('tagtoa:backup-db', ['--out' => $this->dir, '--keep' => 1, '--keep-daily' => 0, '--keep-weekly' => 0])->assertExitCode(0);
+
+        $noms = array_map('basename', $this->backups());
+        $this->assertContains($futur, $noms);
+        $this->assertCount(2, $noms, 'Celle qu\'on vient de faire n\'est jamais supprimée par sa propre rétention.');
+    }
+
+    public function test_the_weekly_tier_tells_weeks_of_different_years_apart(): void
+    {
+        mkdir($this->dir, 0700, true);
+        $a = $this->sauvegardeDatee(\Carbon\Carbon::now()->startOfDay()->subDays(10)->setTime(8, 0, 0));
+        $b = $this->sauvegardeDatee(\Carbon\Carbon::now()->startOfDay()->subDays(10 + 364)->setTime(8, 0, 0));   // même numéro de semaine, un an plus tôt
+        $this->asMysql();
+
+        $this->artisan('tagtoa:backup-db', ['--out' => $this->dir, '--keep' => 1, '--keep-daily' => 0, '--keep-weekly' => 60])->assertExitCode(0);
+
+        $noms = array_map('basename', $this->backups());
+        $this->assertContains($a, $noms);
+        $this->assertContains($b, $noms, 'Deux semaines de même numéro mais d\'années différentes sont deux semaines.');
+    }
+
+    public function test_zero_disables_the_daily_and_weekly_tiers_instead_of_keeping_today_and_this_week(): void
+    {
+        mkdir($this->dir, 0700, true);
+        $lointain = $this->sauvegardeDatee(\Carbon\Carbon::now()->addDays(30));                       // seule la plus récente (--keep=1)
+        $ceSoir = $this->sauvegardeDatee(\Carbon\Carbon::now()->startOfDay()->setTime(23, 59, 59));  // la plus récente d'AUJOURD'HUI et de CETTE SEMAINE
+        $this->asMysql();
+
+        $this->artisan('tagtoa:backup-db', ['--out' => $this->dir, '--keep' => 1, '--keep-daily' => 0, '--keep-weekly' => 0])->assertExitCode(0);
+
+        $noms = array_map('basename', $this->backups());
+        $this->assertContains($lointain, $noms);
+        $this->assertNotContains($ceSoir, $noms, '0 jour / 0 semaine = pas de niveau : on ne garde pas « celle d\'aujourd\'hui » ni « celle de cette semaine ».');
+        $this->assertCount(2, $noms, 'La plus récente par nom + celle qu\'on vient de faire.');
+    }
+
+    public function test_an_orphan_partial_dump_is_cleaned_but_a_recent_one_and_foreign_files_are_not(): void
+    {
+        mkdir($this->dir, 0700, true);
+        $vieux = $this->dir.'/tagtoa-db-20200101-000000.sql.gz.partial';
+        $recent = $this->dir.'/tagtoa-db-20200102-000000.sql.gz.partial';
+        $autre = $this->dir.'/mon-fichier.partial';
+        foreach ([$vieux, $recent, $autre] as $f) { file_put_contents($f, 'x'); }
+        touch($vieux, time() - 7200);
+        touch($autre, time() - 7200);
+        $this->asMysql();
+
+        $this->artisan('tagtoa:backup-db', ['--out' => $this->dir, '--timeout' => 60])->assertExitCode(0);
+
+        $this->assertFileDoesNotExist($vieux, 'Un dump tué net ne doit pas grossir le disque pour toujours.');
+        $this->assertFileExists($recent, 'Un dump peut être en cours : on ne touche pas à un .partial récent.');
+        $this->assertFileExists($autre, 'Un fichier qui n\'est pas de cette commande n\'est jamais supprimé.');
+    }
+
+    public function test_an_output_path_with_glob_metacharacters_is_still_listed_and_pruned(): void
+    {
+        $this->dir .= '[x]';
+        mkdir($this->dir, 0700, true);
+        $f = $this->sauvegardeDatee(\Carbon\Carbon::now()->subDays(3));
+
+        $this->assertSame([$this->dir."/".$f], \Modules\Tagtoa\App\Console\BackupDatabaseCommand::listBackups($this->dir),
+            'glob() lisait « rien » en silence quand le chemin contenait [ ] * ?.');
+    }
 }
