@@ -8,15 +8,15 @@
     .ord-bdg{position:absolute;top:4px;right:calc(50% - 22px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;
         background:#e5484d;color:#fff;font:700 11px/18px var(--fb,system-ui);text-align:center;display:none}
     #ordAlert{display:none;position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:95;
-        background:var(--blue,#1a56db);color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.3);
+        background:#14532d;color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.3);
         align-items:center;gap:10px;font-weight:700}
-    #ordAlert a{color:#fff;text-decoration:underline;flex:1}
-    #ordAlert button{border:0;border-radius:10px;padding:7px 10px;font-weight:700;background:#fff;color:#000}
+    #ordAlert button{border:1px solid rgba(255,255,255,.6);border-radius:10px;min-height:44px;min-width:44px;padding:7px 10px;font-weight:700;background:transparent;color:#fff}
 </style>
 <div id="ordAlert" role="alert">
     <i class="fa-solid fa-bell fa-shake"></i>
-    <a href="{{ url('/tagtoa/menu/orders') }}">{{ __('Nouvelle commande !') }}</a>
-    <button type="button" id="ordAlertStop">{{ __('Arrêter le son') }}</button>
+    <span style="flex:1">{{ __('Nouvelle commande !') }}</span>
+    <a href="{{ url('/tagtoa/menu/orders') }}" id="ordAlertGo" style="text-decoration:none;background:#fff;color:#000;border-radius:10px;padding:12px 14px;min-height:44px;display:inline-flex;align-items:center;font-weight:800;flex:0 0 auto">{{ __('Voir la commande') }}</a>
+    <button type="button" id="ordAlertStop" aria-label="{{ __('Arrêter le son') }}" title="{{ __('Arrêter le son') }}"><i class="fa-solid fa-volume-xmark"></i></button>
 </div>
 <script src="{{ route('tagtoa.asset', 'tagtoa-sound.js') }}"></script>
 <script>
@@ -30,7 +30,7 @@
     function ecrire(v) { try { localStorage.setItem(KEY, String(v)); } catch (e) {} }
 
     function pastille(n) {
-        document.querySelectorAll('.tabs a[href$="/tagtoa/menu"], .tabs a[href$="/tagtoa/orders"]').forEach(function (a) {
+        document.querySelectorAll('.tabs a[href$="/tagtoa/orders"]')   /* UNE pastille, sur Commandes seulement */.forEach(function (a) {
             var b = a.querySelector('.ord-bdg');
             if (!b) { b = document.createElement('span'); b.className = 'ord-bdg'; a.appendChild(b); }
             b.textContent = n > 99 ? '99+' : String(n);
@@ -38,6 +38,9 @@
         });
     }
 
+    document.getElementById('ordAlertGo').addEventListener('click', function () {   // « Voir la commande » coupe aussi le son
+        if (window.TagtoaSound) TagtoaSound.alerteStop();
+    });
     document.getElementById('ordAlertStop').addEventListener('click', function () {
         if (window.TagtoaSound) TagtoaSound.alerteStop();
         bandeau.style.display = 'none';

@@ -153,6 +153,86 @@ class Order extends Model
         return self::MANUAL_PAYMENT_METHODS[$this->payment_method] ?? ucfirst($this->payment_method);
     }
 
+    /** Au-delà, une commande encore à traiter passe en rouge : en restaurant, quinze minutes sans réponse est déjà trop. */
+    public const LATE_AFTER_MINUTES = 15;
+
+    /**
+     * L'UNE action principale de la carte : l'étape suivante du cycle (Confirmer → Cuisine → Prête → Remise).
+     * Annuler et corriger vivent dans le menu « ⋯ » — jamais à côté du geste de tous les jours. null = rien à faire (terminée, annulée).
+     *
+     * @return array{status:string,label:string,icon:string}|null
+     */
+    public function nextStep(): ?array
+    {
+        return match ($this->status) {
+            'pending'   => ['status' => 'confirmed', 'label' => 'Confirmer',          'icon' => 'fa-check'],
+            'confirmed' => ['status' => 'preparing', 'label' => 'Envoyer en cuisine', 'icon' => 'fa-fire-burner'],
+            'preparing' => ['status' => 'ready',     'label' => 'Marquer prête',      'icon' => 'fa-bell-concierge'],
+            // « Prête → Récupérée » : jamais sans livreur (même règle que l'écran Livraison). null → la carte propose d'en assigner un.
+            'ready'     => $this->order_type === 'delivery'
+                ? ($this->courier_id ? ['status' => 'picked_up', 'label' => 'Récupérée par le livreur', 'icon' => 'fa-motorcycle'] : null)
+                : $this->finalStep($this->order_type === 'pickup' ? 'Remise au client' : 'Servie'),
+            'picked_up' => $this->finalStep('Livrée'),
+            default     => null,
+        };
+    }
+
+    /**
+     * Terminer une commande ne vaut JAMAIS « non payée » : la terminer la fait sortir de la liste active, des compteurs et du filtre
+     * « À encaisser », et le revenu ne serait plus jamais enregistré. L'écran Comptoir/Livraison encaissent en terminant ; ici
+     * l'encaissement est un geste explicite (pastilles) — donc l'étape finale n'est offerte qu'une fois la commande payée.
+     */
+    private function finalStep(string $label): ?array
+    {
+        return $this->isPaid() ? ['status' => 'completed', 'label' => $label, 'icon' => 'fa-flag-checkered'] : null;
+    }
+
+    /** La carte attend un encaissement avant de pouvoir se terminer ? (pour l'indiquer plutôt que de laisser un vide) */
+    public function awaitsPaymentToFinish(): bool
+    {
+        return ! $this->isPaid() && $this->status !== 'cancelled'
+            && (in_array($this->status, ['ready', 'picked_up'], true))
+            && ! ($this->order_type === 'delivery' && $this->status === 'ready');
+    }
+
+    /** Livraison prête à partir mais personne pour la porter. */
+    public function awaitsCourier(): bool
+    {
+        return $this->order_type === 'delivery' && $this->status === 'ready' && ! $this->courier_id;
+    }
+
+    /** Minutes écoulées depuis la commande (null si la date manque). */
+    public function ageMinutes(): ?int
+    {
+        return $this->placed_at ? max(0, (int) $this->placed_at->diffInMinutes(\Carbon\Carbon::now(), false)) : null;
+    }
+
+    /** Encore à traiter ET en attente depuis plus de LATE_AFTER_MINUTES. */
+    public function isLate(): bool
+    {
+        $age = $this->ageMinutes();
+
+        return $age !== null && ! in_array($this->status, self::DONE_STATUSES, true) && $age > self::LATE_AFTER_MINUTES;
+    }
+
+    /** « à l'instant », « il y a 12 min », « il y a 3 h », « il y a 2 j » — traduisible (le nombre est un paramètre, pas dans la clé). */
+    public static function ageLabel(int $minutes): string
+    {
+        return match (true) {
+            $minutes < 1    => __("à l'instant"),
+            $minutes < 60   => __('il y a :n min', ['n' => $minutes]),
+            $minutes < 1440 => __('il y a :n h', ['n' => intdiv($minutes, 60)]),
+            default         => __('il y a :n j', ['n' => intdiv($minutes, 1440)]),
+        };
+    }
+
+    /** Icône et couleur du mode de service : la livraison demande un coursier, ça doit se voir de loin. */
+    public const ORDER_TYPE_STYLE = [
+        'dine_in'  => ['icon' => 'fa-utensils',   'color' => '#1d4ed8', 'bg' => '#e8efff'],
+        'pickup'   => ['icon' => 'fa-bag-shopping', 'color' => '#92400e', 'bg' => '#fff1d6'],
+        'delivery' => ['icon' => 'fa-motorcycle', 'color' => '#6b21a8', 'bg' => '#f3e8ff'],
+    ];
+
     public function getStatusMetaAttribute(): array
     {
         return self::STATUS_META[$this->status] ?? ['label' => ucfirst($this->status), 'pill' => 'n'];
