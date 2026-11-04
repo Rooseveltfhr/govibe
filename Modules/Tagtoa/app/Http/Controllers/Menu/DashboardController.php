@@ -291,8 +291,10 @@ class DashboardController extends Controller
         $menu = $this->own($id);
         [$orders, $done] = $this->splitOrders($menu);
         $pending = $menu->orders()->where('status', 'pending')->count();
+        [$filtre, $recherche] = $this->orderFilters();
+        $counts = $this->orderCounts($menu);
 
-        return view('tagtoa::menu.orders', compact('menu', 'orders', 'done', 'pending'));
+        return view('tagtoa::menu.orders', compact('menu', 'orders', 'done', 'pending', 'filtre', 'recherche', 'counts'));
     }
 
     /* =====================================================================
@@ -760,6 +762,7 @@ class DashboardController extends Controller
             'pending'   => $menu->orders()->where('status', 'pending')->count(),
             'unpaid'    => $menu->orders()->where('payment_status', '!=', 'paid')->where('status', '!=', 'cancelled')->count(),
             'signature' => $orders->concat($done)->map(fn ($o) => $o->id.':'.$o->status.':'.$o->payment_status)->implode('|'),
+            'counts'    => $this->orderCounts($menu),
             'html'      => view('tagtoa::menu._orders-list', ['orders' => $orders, 'done' => $done])->render(),
         ]);
     }
@@ -775,11 +778,59 @@ class DashboardController extends Controller
     private function splitOrders(Menu $menu): array
     {
         $traitees = Order::DONE_STATUSES;
+        [$filtre, $recherche] = $this->orderFilters();
 
-        $actives = $menu->orders()->whereNotIn('status', $traitees)->with(['items', 'courier'])->paginate(20);
-        $done    = $menu->orders()->whereIn('status', $traitees)->with('items')->paginate(15, ['*'], 'done_page');
+        $actives = $this->filterOrders($menu->orders()->whereNotIn('status', $traitees), $filtre, $recherche)
+            ->with(['items', 'courier'])->paginate(20)->withQueryString();
+        // Les filtres « Nouveau / À encaisser / Livraison » parlent de ce qui reste à faire : la liste des commandes traitées
+        // n'est filtrée que par la recherche (retrouver une commande d'hier par le nom ou le téléphone).
+        $done = $this->filterOrders($menu->orders()->whereIn('status', $traitees), null, $recherche)
+            ->with('items')->paginate(15, ['*'], 'done_page')->withQueryString();
 
         return [$actives, $done];
+    }
+
+    /** @return array{0:?string,1:string} filtre (new|unpaid|delivery|null) et recherche, lus dans l'URL — jamais de confiance aveugle. */
+    private function orderFilters(): array
+    {
+        $f = request()->query('f');
+        $f = is_string($f) && in_array($f, ['new', 'unpaid', 'delivery'], true) ? $f : null;
+        $q = request()->query('q');
+        $q = is_string($q) ? trim(mb_substr($q, 0, 60)) : '';
+
+        return [$f, $q];
+    }
+
+    /** Filtre + recherche (nom, téléphone, référence). Les jokers LIKE tapés par l'utilisateur sont neutralisés. */
+    private function filterOrders($query, ?string $filtre, string $recherche)
+    {
+        match ($filtre) {
+            'new'      => $query->where('status', 'pending'),
+            'unpaid'   => $query->where('payment_status', '!=', 'paid')->where('status', '!=', 'cancelled'),
+            'delivery' => $query->where('order_type', 'delivery'),
+            default    => null,
+        };
+        if (mb_strlen($recherche) >= 2) {
+            $like = '%'.addcslashes($recherche, '%_\\').'%';
+            $query->where(function ($w) use ($like) {
+                $w->where('customer_name', 'like', $like)->orWhere('customer_phone', 'like', $like)->orWhere('reference', 'like', $like);
+            });
+        }
+
+        return $query;
+    }
+
+    /** Compteurs des pastilles de filtre (commandes encore à traiter). */
+    private function orderCounts(Menu $menu): array
+    {
+        $enCours = fn () => $menu->orders()->whereNotIn('status', Order::DONE_STATUSES);
+
+        return [
+            'all'      => $enCours()->count(),
+            'new'      => $enCours()->where('status', 'pending')->count(),
+            'unpaid'   => $enCours()->where('payment_status', '!=', 'paid')->count(),
+            'delivery' => $enCours()->where('order_type', 'delivery')->count(),
+        ];
     }
 
     /**

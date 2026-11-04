@@ -153,6 +153,61 @@ class Order extends Model
         return self::MANUAL_PAYMENT_METHODS[$this->payment_method] ?? ucfirst($this->payment_method);
     }
 
+    /** Au-delà, une commande encore à traiter passe en rouge : en restaurant, quinze minutes sans réponse est déjà trop. */
+    public const LATE_AFTER_MINUTES = 15;
+
+    /**
+     * L'UNE action principale de la carte : l'étape suivante du cycle (Confirmer → Cuisine → Prête → Remise).
+     * Annuler et corriger vivent dans le menu « ⋯ » — jamais à côté du geste de tous les jours. null = rien à faire (terminée, annulée).
+     *
+     * @return array{status:string,label:string,icon:string}|null
+     */
+    public function nextStep(): ?array
+    {
+        return match ($this->status) {
+            'pending'   => ['status' => 'confirmed', 'label' => 'Confirmer',          'icon' => 'fa-check'],
+            'confirmed' => ['status' => 'preparing', 'label' => 'Envoyer en cuisine', 'icon' => 'fa-fire-burner'],
+            'preparing' => ['status' => 'ready',     'label' => 'Marquer prête',      'icon' => 'fa-bell-concierge'],
+            'ready'     => $this->order_type === 'delivery'
+                ? ['status' => 'picked_up', 'label' => 'Récupérée par le livreur', 'icon' => 'fa-motorcycle']
+                : ['status' => 'completed', 'label' => $this->order_type === 'pickup' ? 'Remise au client' : 'Servie', 'icon' => 'fa-flag-checkered'],
+            'picked_up' => ['status' => 'completed', 'label' => 'Livrée',             'icon' => 'fa-flag-checkered'],
+            default     => null,
+        };
+    }
+
+    /** Minutes écoulées depuis la commande (null si la date manque). */
+    public function ageMinutes(): ?int
+    {
+        return $this->placed_at ? max(0, (int) $this->placed_at->diffInMinutes(\Carbon\Carbon::now(), false)) : null;
+    }
+
+    /** Encore à traiter ET en attente depuis plus de LATE_AFTER_MINUTES. */
+    public function isLate(): bool
+    {
+        $age = $this->ageMinutes();
+
+        return $age !== null && ! in_array($this->status, self::DONE_STATUSES, true) && $age > self::LATE_AFTER_MINUTES;
+    }
+
+    /** « à l'instant », « il y a 12 min », « il y a 3 h », « il y a 2 j » — pur. */
+    public static function ageLabel(int $minutes): string
+    {
+        return match (true) {
+            $minutes < 1    => "à l'instant",
+            $minutes < 60   => 'il y a '.$minutes.' min',
+            $minutes < 1440 => 'il y a '.intdiv($minutes, 60).' h',
+            default         => 'il y a '.intdiv($minutes, 1440).' j',
+        };
+    }
+
+    /** Icône et couleur du mode de service : la livraison demande un coursier, ça doit se voir de loin. */
+    public const ORDER_TYPE_STYLE = [
+        'dine_in'  => ['icon' => 'fa-utensils',   'color' => '#1d4ed8', 'bg' => '#e8efff'],
+        'pickup'   => ['icon' => 'fa-bag-shopping', 'color' => '#92400e', 'bg' => '#fff1d6'],
+        'delivery' => ['icon' => 'fa-motorcycle', 'color' => '#6b21a8', 'bg' => '#f3e8ff'],
+    ];
+
     public function getStatusMetaAttribute(): array
     {
         return self::STATUS_META[$this->status] ?? ['label' => ucfirst($this->status), 'pill' => 'n'];

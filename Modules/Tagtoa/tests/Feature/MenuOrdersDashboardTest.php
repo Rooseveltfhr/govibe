@@ -69,8 +69,13 @@ class MenuOrdersDashboardTest extends TestCase
         $html = $this->get(route('tagtoa.menu.dashboard.orders', $menu->id))->assertOk()->getContent();
 
         $this->assertStringContainsString('Non payé', $html);
-        $this->assertStringContainsString('name="payment_method"', $html);
-        $this->assertStringContainsString('<option value="" selected disabled>', $html);
+        // Trois pastilles (Cash · MonCash · NatCash) + « Autre », AUCUNE présélectionnée, « Encaisser » éteint.
+        foreach (['cash', 'moncash', 'natcash'] as $k) {
+            $this->assertStringContainsString('name="payment_method" value="'.$k.'" required>', $html);
+        }
+        $this->assertStringNotContainsString('checked', preg_replace('#<style.*?</style>|<script.*?</script>#s', '', $html));
+        $this->assertMatchesRegularExpression('#<button type="submit" class="btn btn-o ord-cash" disabled>#', $html);
+        $this->assertStringNotContainsString('Moyen…', $html, 'Plus de liste déroulante « Moyen… » qui se coupait.');
     }
 
     public function test_the_cashier_must_choose_a_method_to_collect(): void
@@ -175,7 +180,8 @@ class MenuOrdersDashboardTest extends TestCase
 
         $this->assertStringContainsString(route('tagtoa.menu.dashboard.orders.feed', $menu->id), str_replace('\/', '/', $html));
         $this->assertStringContainsString('ALERTE_SECONDES = 15', $html);
-        $this->assertStringContainsString('Arrêter le son', $html);
+        $this->assertStringContainsString('Voir la commande', $html, 'L\'action naturelle devant une nouvelle commande est de la VOIR.');
+        $this->assertStringContainsString('aria-label="Arrêter le son"', $html, 'Couper le son seul reste possible, en second.');
     }
 
     public function test_the_sound_library_rings_between_ten_and_twenty_seconds(): void

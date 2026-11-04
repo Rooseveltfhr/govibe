@@ -331,7 +331,7 @@ class DashboardModules
         ['key' => 'home',   'label' => 'Accueil',   'icon' => 'fa-house',         'url' => '/tagtoa/home',   'match' => ['tagtoa/home']],
         ['key' => 'pos',    'label' => 'Caisse',    'icon' => 'fa-cash-register', 'url' => '/tagtoa/pos',    'match' => ['tagtoa/pos*', 'tagtoa/inventory*', 'tagtoa/catalog*']],
         ['key' => 'menu',   'label' => 'Menu',      'icon' => 'fa-utensils',      'url' => '/tagtoa/menu',   'match' => ['tagtoa/menu*', 'tagtoa/stands*']],
-        ['key' => 'orders', 'label' => 'Commandes', 'icon' => 'fa-receipt',       'url' => '/tagtoa/orders', 'match' => ['tagtoa/orders*']],
+        ['key' => 'orders', 'label' => 'Commandes', 'icon' => 'fa-receipt',       'url' => '/tagtoa/orders', 'match' => ['tagtoa/orders*', 'tagtoa/menu/orders*']],
         ['key' => 'more',   'label' => 'Plus',      'icon' => 'fa-ellipsis',      'url' => null,             'match' => []],
     ];
 
@@ -363,7 +363,12 @@ class DashboardModules
     {
         $path = trim($path, '/');
 
-        foreach (self::BOTTOM as $tab) {
+        // « Commandes » d'abord : /tagtoa/menu/orders correspond aussi à « tagtoa/menu* » (Menu). Sans ce passage prioritaire, le
+        // marchand voyait deux onglets « Commandes » allumés (barre du haut + barre du bas) au lieu d'un seul.
+        $tabs = self::BOTTOM;
+        usort($tabs, fn ($a, $b) => ($b['key'] === 'orders') <=> ($a['key'] === 'orders'));
+
+        foreach ($tabs as $tab) {
             foreach ($tab['match'] as $motif) {
                 $regex = '#^'.str_replace('\*', '.*', preg_quote($motif, '#')).'$#';
                 if (preg_match($regex, $path)) {

@@ -24,7 +24,7 @@
         :root{
             --blk:#0A0A0A;--white:#fff;--bg:#F5F5F3;--surface:#fff;--blue:#2cb809;--blue-deep:#239406;
             --blue-pale:rgba(44,184,9,.08);--green:#1D9E75;--red:#E0473E;--amber:#E08A1E;
-            --bd:rgba(0,0,0,.08);--muted:#8a8a8a;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif;
+            --bd:rgba(0,0,0,.08);--muted:#5b6068;--fh:'Space Grotesk',sans-serif;--fb:'Nunito',sans-serif;
             --ft:'Anton',sans-serif;--sb:260px;
         }
         *{box-sizing:border-box;margin:0;padding:0}
@@ -350,8 +350,8 @@
                 @include('tagtoa::partials.lang')
                 <span class="who">{{ optional($u)->name ?? '' }}</span>
                 @if(\Illuminate\Support\Facades\Route::has('logout'))
-                    <form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf
-                        <button type="submit" class="out" title="{{ __('Se déconnecter') }}"><i class="fa-solid fa-right-from-bracket"></i></button>
+                    <form method="POST" action="{{ route('logout') }}" style="margin:0" onsubmit="return confirm(@js(__('Se déconnecter ?')))">@csrf
+                        <button type="submit" class="out" title="{{ __('Se déconnecter') }}" aria-label="{{ __('Se déconnecter') }}"><i class="fa-solid fa-right-from-bracket"></i></button>
                     </form>
                 @endif
             </header>
