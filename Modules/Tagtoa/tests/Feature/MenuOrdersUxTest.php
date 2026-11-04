@@ -323,4 +323,50 @@ class MenuOrdersUxTest extends TestCase
         $this->assertStringContainsString('id="ordAlertGo"', $html);
         $this->assertStringContainsString('Voir la commande', $html);
     }
+
+    public function test_age_label_boundaries_between_minutes_and_hours(): void
+    {
+        $this->assertSame('il y a 59 min', Order::ageLabel(59));
+        $this->assertSame('il y a 1 h', Order::ageLabel(60), '60 minutes = 1 h, pas « 60 min ».');
+        $this->assertSame('il y a 23 h', Order::ageLabel(1439));
+        $this->assertSame('il y a 1 j', Order::ageLabel(1440));
+    }
+
+    public function test_a_one_letter_search_is_ignored_instead_of_matching_everything_or_nothing(): void
+    {
+        $this->order(['customer_name' => 'Zoe']);
+        $this->order(['customer_name' => 'Yann']);
+        $html = $this->page('?q=z');
+
+        $this->assertStringContainsString('Zoe', $html);
+        $this->assertStringContainsString('Yann', $html, 'Une seule lettre ne filtre pas (trop large) : la liste reste complète.');
+    }
+
+    public function test_processed_orders_stay_visible_under_the_chips_which_only_talk_about_what_is_left_to_do(): void
+    {
+        $this->order(['customer_name' => 'Nouvelle Zed', 'status' => 'pending']);
+        $this->order(['customer_name' => 'Deja Traitee', 'status' => 'completed']);
+
+        $html = $this->page('?f=new');
+        $this->assertStringContainsString('Nouvelle Zed', $html);
+        $this->assertStringContainsString('Deja Traitee', $html, 'Le filtre « Nouveau » ne vide pas la liste des commandes traitées.');
+    }
+
+    public function test_pagination_links_keep_the_filter_and_the_search(): void
+    {
+        for ($i = 0; $i < 22; $i++) {
+            $this->order(['order_type' => 'delivery', 'customer_name' => 'Livreur '.$i]);
+        }
+        $html = $this->page('?f=delivery&q=livreur');
+
+        $this->assertMatchesRegularExpression('#page=2[^"]*#', $html);
+        $this->assertMatchesRegularExpression('#href="[^"]*(f=delivery[^"]*q=livreur|q=livreur[^"]*f=delivery)[^"]*page=2|href="[^"]*page=2[^"]*(f=delivery[^"]*q=livreur|q=livreur[^"]*f=delivery)#', html_entity_decode($html));
+    }
+
+    public function test_the_alert_button_wires_see_the_order_and_the_meta_text_is_dark_enough(): void
+    {
+        $html = $this->page();
+        $this->assertStringContainsString('onclick="voirCommande()"', $html, '« Voir la commande » mène à la commande (et coupe le son).');
+        $this->assertStringContainsString('.ord-meta{color:#4b5563', $html, 'Le texte secondaire des cartes passe AA (7,5:1).');
+    }
 }
