@@ -8,14 +8,14 @@
     .ord-bdg{position:absolute;top:4px;right:calc(50% - 22px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;
         background:#e5484d;color:#fff;font:700 11px/18px var(--fb,system-ui);text-align:center;display:none}
     #ordAlert{display:none;position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:95;
-        background:var(--blue,#1a56db);color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.3);
+        background:#14532d;color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.3);
         align-items:center;gap:10px;font-weight:700}
-    #ordAlert button{border:1px solid rgba(255,255,255,.6);border-radius:10px;padding:7px 10px;font-weight:700;background:transparent;color:#fff}
+    #ordAlert button{border:1px solid rgba(255,255,255,.6);border-radius:10px;min-height:44px;min-width:44px;padding:7px 10px;font-weight:700;background:transparent;color:#fff}
 </style>
 <div id="ordAlert" role="alert">
     <i class="fa-solid fa-bell fa-shake"></i>
     <span style="flex:1">{{ __('Nouvelle commande !') }}</span>
-    <a href="{{ url('/tagtoa/menu/orders') }}" id="ordAlertGo" style="text-decoration:none;background:#fff;color:#000;border-radius:10px;padding:7px 12px;font-weight:800;flex:0 0 auto">{{ __('Voir la commande') }}</a>
+    <a href="{{ url('/tagtoa/menu/orders') }}" id="ordAlertGo" style="text-decoration:none;background:#fff;color:#000;border-radius:10px;padding:12px 14px;min-height:44px;display:inline-flex;align-items:center;font-weight:800;flex:0 0 auto">{{ __('Voir la commande') }}</a>
     <button type="button" id="ordAlertStop" aria-label="{{ __('Arrêter le son') }}" title="{{ __('Arrêter le son') }}"><i class="fa-solid fa-volume-xmark"></i></button>
 </div>
 <script src="{{ route('tagtoa.asset', 'tagtoa-sound.js') }}"></script>

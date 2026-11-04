@@ -59,7 +59,7 @@ class MenuOrdersCompactListTest extends TestCase
         $this->assertStringContainsString('Commandes traitées', $html);
         $this->assertStringContainsString('class="done-orders"', $html);
         // La commande en cours reste une carte avec ses boutons ; les traitées n'en ont pas.
-        $this->assertSame(1, substr_count($html, 'data-pay-form'), 'Seule la commande en cours (non payée) a « Encaisser ».');
+        $this->assertSame(1, substr_count(preg_replace('#<script.*?</script>#s', '', $html), 'data-pay-form'), 'Seule la commande en cours (non payée) a « Encaisser ».');
         // Une ligne par commande traitée, avec date, client, numéro.
         preg_match_all('#<tr title=.*?</tr>#s', $html, $rows);
         $this->assertCount(2, $rows[0]);

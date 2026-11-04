@@ -35,7 +35,7 @@
                     @endif
                     @if($age !== null && ! in_array($o->status, \Modules\Tagtoa\App\Models\Menu\Order::DONE_STATUSES, true))
                         {{-- « il y a 12 min », rouge après 15 min. Remis à jour sans recharger (data-ts) : voir la page. --}}
-                        <span class="ord-age {{ $retard ? 'late' : '' }}" data-ts="{{ $o->placed_at->timestamp }}"><i class="fa-regular fa-clock"></i> <span>{{ __(\Modules\Tagtoa\App\Models\Menu\Order::ageLabel($age)) }}</span></span>
+                        <span class="ord-age {{ $retard ? 'late' : '' }}" data-ts="{{ $o->placed_at->timestamp }}"><i class="fa-regular fa-clock"></i> <span>{{ \Modules\Tagtoa\App\Models\Menu\Order::ageLabel($age) }}</span></span>
                     @endif
                     <div class="ord-meta" style="margin-top:4px">
                         {{ optional($o->placed_at)->format('H:i') }}
@@ -96,6 +96,12 @@
                         <input type="hidden" name="status" value="{{ $suite['status'] }}">
                         <button class="btn btn-p ord-next"><i class="fa-solid {{ $suite['icon'] }}"></i> {{ __($suite['label']) }}</button>
                     </form>
+                @elseif($o->awaitsCourier())
+                    {{-- Prête à partir mais personne pour la porter : jamais « récupérée » sans livreur (règle de l'écran Livraison). --}}
+                    <a class="btn btn-p ord-next" href="{{ route('tagtoa.menu.dashboard.delivery.current') }}" style="flex:1 1 220px;text-decoration:none"><i class="fa-solid fa-motorcycle"></i> {{ __('Assigner un livreur') }}</a>
+                @elseif($o->awaitsPaymentToFinish())
+                    {{-- Terminer une commande non payée la sortirait de « À encaisser » et le revenu ne serait jamais enregistré. --}}
+                    <div class="ord-meta ord-wait"><i class="fa-solid fa-hand-holding-dollar"></i> {{ __('Encaissez d\'abord pour terminer') }}</div>
                 @endif
                 @if(! $o->isPaid() && $o->status !== 'cancelled')
                     {{-- Le caissier confirme ET dit comment. Trois pastilles, AUCUNE présélectionnée : un clic distrait ne doit

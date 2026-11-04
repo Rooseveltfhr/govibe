@@ -57,10 +57,9 @@ class MenuOrdersUxTest extends TestCase
     /* ---------- une action principale : l'étape suivante ---------- */
 
     /** @dataProvider cycle */
-    public function test_the_primary_button_is_the_next_step_of_the_cycle(string $status, string $type, ?string $next, ?string $label): void
+    public function test_the_primary_button_is_the_next_step_of_the_cycle(array $attrs, ?string $next, ?string $label): void
     {
-        $o = new Order(['status' => $status, 'order_type' => $type]);
-        $step = $o->nextStep();
+        $step = (new Order($attrs))->nextStep();
 
         $this->assertSame($next, $step['status'] ?? null);
         $this->assertSame($label, $step['label'] ?? null);
@@ -68,16 +67,21 @@ class MenuOrdersUxTest extends TestCase
 
     public static function cycle(): array
     {
+        $paid = ['payment_status' => 'paid'];
+
         return [
-            'pending'          => ['pending', 'dine_in', 'confirmed', 'Confirmer'],
-            'confirmed'        => ['confirmed', 'dine_in', 'preparing', 'Envoyer en cuisine'],
-            'preparing'        => ['preparing', 'pickup', 'ready', 'Marquer prête'],
-            'ready sur place'  => ['ready', 'dine_in', 'completed', 'Servie'],
-            'ready emporter'   => ['ready', 'pickup', 'completed', 'Remise au client'],
-            'ready livraison'  => ['ready', 'delivery', 'picked_up', 'Récupérée par le livreur'],
-            'en route'         => ['picked_up', 'delivery', 'completed', 'Livrée'],
-            'terminée'         => ['completed', 'dine_in', null, null],
-            'annulée'          => ['cancelled', 'dine_in', null, null],
+            'pending'                  => [['status' => 'pending', 'order_type' => 'dine_in'], 'confirmed', 'Confirmer'],
+            'confirmed'                => [['status' => 'confirmed', 'order_type' => 'dine_in'], 'preparing', 'Envoyer en cuisine'],
+            'preparing'                => [['status' => 'preparing', 'order_type' => 'pickup'], 'ready', 'Marquer prête'],
+            'ready sur place payée'    => [['status' => 'ready', 'order_type' => 'dine_in'] + $paid, 'completed', 'Servie'],
+            'ready emporter payée'     => [['status' => 'ready', 'order_type' => 'pickup'] + $paid, 'completed', 'Remise au client'],
+            'ready sur place IMPAYÉE'  => [['status' => 'ready', 'order_type' => 'dine_in'], null, null],
+            'ready livraison+livreur'  => [['status' => 'ready', 'order_type' => 'delivery', 'courier_id' => 7], 'picked_up', 'Récupérée par le livreur'],
+            'ready livraison SANS'     => [['status' => 'ready', 'order_type' => 'delivery'], null, null],
+            'en route payée'           => [['status' => 'picked_up', 'order_type' => 'delivery'] + $paid, 'completed', 'Livrée'],
+            'en route IMPAYÉE'         => [['status' => 'picked_up', 'order_type' => 'delivery'], null, null],
+            'terminée'                 => [['status' => 'completed', 'order_type' => 'dine_in'], null, null],
+            'annulée'                  => [['status' => 'cancelled', 'order_type' => 'dine_in'], null, null],
         ];
     }
 
@@ -111,7 +115,7 @@ class MenuOrdersUxTest extends TestCase
 
     public function test_a_finished_order_has_no_primary_button(): void
     {
-        $this->order(['status' => 'ready', 'order_type' => 'dine_in']);
+        $this->order(['status' => 'ready', 'order_type' => 'dine_in', 'payment_status' => 'paid', 'payment_method' => 'cash']);
         $o2 = $this->order(['status' => 'completed']);   // traitée : ligne compacte, pas de carte
         $html = $this->strip($this->page());
 
@@ -134,7 +138,7 @@ class MenuOrdersUxTest extends TestCase
     public function test_a_paid_order_shows_no_payment_chips(): void
     {
         $this->order(['payment_status' => 'paid', 'payment_method' => 'cash']);
-        $this->assertSame(0, substr_count($this->page(), 'data-pay-form'));
+        $this->assertSame(0, substr_count($this->strip($this->page()), 'data-pay-form'));
     }
 
     /* ---------- couleur du total ---------- */
@@ -270,20 +274,13 @@ class MenuOrdersUxTest extends TestCase
 
     /* ---------- une seule navigation, une seule pastille ---------- */
 
-    public function test_the_menu_orders_screen_lights_only_the_commandes_tab(): void
-    {
-        $this->assertSame('orders', DashboardModules::bottomActive('tagtoa/menu/orders'));
-        $this->assertSame('menu', DashboardModules::bottomActive('tagtoa/menu'), 'Le reste du menu garde son onglet.');
-        $this->assertSame('menu', DashboardModules::bottomActive('tagtoa/menu/items'));
-    }
-
-    public function test_only_one_badge_and_one_navigation_on_the_orders_screen(): void
+    public function test_the_navigation_is_left_intact_and_the_badge_sits_on_one_tab_only(): void
     {
         $html = $this->get(route('tagtoa.menu.dashboard.orders', $this->menu->id))->assertOk()->getContent();
 
         $this->assertStringContainsString('.tabs a[href$="/tagtoa/orders"]', $html);
         $this->assertStringNotContainsString('.tabs a[href$="/tagtoa/menu"], ', $html, 'La pastille n\'est plus posée deux fois (Menu ET Commandes).');
-        $this->assertStringContainsString('@media(max-width:860px){ .subnav{display:none} }', $html, 'Sur téléphone, la barre du bas suffit.');
+        $this->assertStringNotContainsString('.subnav{display:none}', $html, 'La barre du haut (Produits, Cuisine, Livraison…) n\'est pas masquée : ces écrans n\'ont pas d\'autre accès en un geste.');
     }
 
     /* ---------- accessibilité ---------- */
@@ -368,5 +365,143 @@ class MenuOrdersUxTest extends TestCase
         $html = $this->page();
         $this->assertStringContainsString('onclick="voirCommande()"', $html, '« Voir la commande » mène à la commande (et coupe le son).');
         $this->assertStringContainsString('.ord-meta{color:#4b5563', $html, 'Le texte secondaire des cartes passe AA (7,5:1).');
+    }
+
+    /* ---------- relecture indépendante : règles financières et livraison ---------- */
+
+    public function test_an_unpaid_ready_order_shows_collect_first_instead_of_a_finish_button(): void
+    {
+        $this->order(['status' => 'ready', 'order_type' => 'dine_in']);
+        $html = $this->strip($this->page());
+
+        $this->assertStringContainsString('Encaissez d\'abord pour terminer', str_replace('&#039;', "'", $html));
+        $this->assertStringNotContainsString('Servie', $html, 'Pas de « Servie » : terminer sans encaisser ferait sortir la commande de « À encaisser » et perdre le revenu.');
+        $this->assertSame(1, substr_count($html, 'data-pay-form'), 'Les pastilles d\'encaissement restent là.');
+    }
+
+    public function test_after_collecting_the_finish_button_appears(): void
+    {
+        $o = $this->order(['status' => 'ready', 'order_type' => 'pickup']);
+        $this->post(route('tagtoa.menu.dashboard.orders.paid', $o->id), ['payment_method' => 'cash'])->assertSessionHasNoErrors();
+
+        $html = $this->strip($this->page());
+        $this->assertStringContainsString('Remise au client', $html);
+    }
+
+    public function test_a_ready_delivery_without_a_courier_offers_to_assign_one_not_to_mark_it_picked_up(): void
+    {
+        $this->order(['status' => 'ready', 'order_type' => 'delivery']);
+        $html = $this->strip($this->page());
+
+        $this->assertStringContainsString('Assigner un livreur', $html);
+        $this->assertStringNotContainsString('Récupérée par le livreur', explode('<details class="ord-more">', $html)[0]);
+    }
+
+    public function test_set_status_refuses_picked_up_without_a_courier_but_accepts_it_with_one_and_stamps_the_time(): void
+    {
+        $sans = $this->order(['status' => 'ready', 'order_type' => 'delivery']);
+        $this->post(route('tagtoa.menu.dashboard.orders.status', $sans->id), ['status' => 'picked_up'])->assertSessionHas('error');
+        $this->assertSame('ready', $sans->fresh()->status);
+
+        $staff = \Modules\Tagtoa\App\Models\Staff\Staff::create(['tenant_id' => 't-1', 'name' => 'Livreur', 'role' => 'courier', 'pin_hash' => 'x', 'is_active' => true]);
+        $avec = $this->order(['status' => 'ready', 'order_type' => 'delivery', 'courier_id' => $staff->id]);
+        $this->post(route('tagtoa.menu.dashboard.orders.status', $avec->id), ['status' => 'picked_up'])->assertSessionHasNoErrors();
+        $this->assertSame('picked_up', $avec->fresh()->status);
+        $this->assertNotNull($avec->fresh()->picked_up_at);
+    }
+
+    public function test_a_cancelled_order_cannot_be_collected_server_side(): void
+    {
+        $o = $this->order(['status' => 'cancelled']);
+        $this->post(route('tagtoa.menu.dashboard.orders.paid', $o->id), ['payment_method' => 'cash'])->assertSessionHas('error');
+        $this->assertFalse($o->fresh()->isPaid());
+    }
+
+    public function test_a_second_collect_click_says_so_and_writes_no_second_audit_line(): void
+    {
+        $o = $this->order();
+        $this->post(route('tagtoa.menu.dashboard.orders.paid', $o->id), ['payment_method' => 'cash'])->assertSessionHas('success');
+        $avant = \Illuminate\Support\Facades\DB::table('tagtoa_audit_logs')->where('action', 'order.paid')->count();
+
+        $this->post(route('tagtoa.menu.dashboard.orders.paid', $o->id), ['payment_method' => 'moncash'])->assertSessionHas('success', 'Déjà encaissée.');
+
+        $this->assertSame($avant, \Illuminate\Support\Facades\DB::table('tagtoa_audit_logs')->where('action', 'order.paid')->count());
+        $this->assertSame('cash', $o->fresh()->payment_method, 'Le moyen du premier encaissement n\'est pas écrasé.');
+    }
+
+    public function test_search_wildcards_are_literal_on_every_database(): void
+    {
+        $this->order(['customer_name' => '100% Joseph']);
+        $this->order(['customer_name' => 'Autre Client']);
+
+        $this->assertStringContainsString('100% Joseph', $this->page('?q=100%25'));
+        $this->assertStringNotContainsString('Autre Client', $this->page('?q=100%25'), '« % » est un caractère, pas un joker.');
+        $this->assertStringNotContainsString('100% Joseph', $this->page('?q=!!'), '« ! » (notre caractère d\'échappement) est lui aussi littéral.');
+    }
+
+    public function test_the_feed_gives_the_server_clock_and_the_page_uses_it_for_ages(): void
+    {
+        $json = $this->getJson(route('tagtoa.menu.dashboard.orders.feed', $this->menu->id))->assertOk()->json();
+        $this->assertEqualsWithDelta(now()->timestamp, $json['now'], 5);
+
+        $html = $this->page();
+        $this->assertStringContainsString('decalage', $html, 'L\'âge ne dépend pas de l\'horloge du téléphone.');
+        $this->assertStringContainsString('PROTEGE_MS = 45000', $html, 'Une pastille ou un « ⋯ » abandonnés ne figent pas la liste indéfiniment.');
+        $this->assertStringContainsString("window.addEventListener('pageshow', syncPay)", $html);
+    }
+
+    public function test_voir_la_commande_leaves_a_filtered_view_for_the_full_list(): void
+    {
+        $html = $this->page('?f=delivery');
+        $this->assertStringContainsString('window.location.href = window.location.pathname', $html);
+    }
+
+    public function test_alert_banners_use_a_dark_background_for_white_text(): void
+    {
+        $page = $this->page();
+        $this->assertStringContainsString('background:#14532d', $page);
+        $this->assertStringNotContainsString('background:var(--blue);color:#fff;border-radius:14px', $page, 'Blanc sur le vert de marque : 2,7:1, illisible.');
+    }
+
+    public function test_touch_targets_are_at_least_44px(): void
+    {
+        $html = $this->page();
+        $this->assertGreaterThanOrEqual(3, substr_count($html, 'min-height:44px'));
+    }
+
+    public function test_every_new_label_is_translated_in_english_creole_and_spanish(): void
+    {
+        $labels = ['Envoyer en cuisine', 'Marquer prête', 'Remise au client', 'Servie', 'Livrée', 'Récupérée par le livreur', 'Assigner un livreur',
+            'Encaissez d\'abord pour terminer', 'Corriger le statut', 'Appliquer', 'Plus d\'actions', 'Annuler la commande', 'Annuler cette commande ?',
+            'Se déconnecter ?', 'Moyen de paiement', 'Autre', 'Tout', 'Nouveau', 'À encaisser', 'Filtrer les commandes', 'Nom ou téléphone…',
+            'Rechercher', 'Aujourd\'hui', 'Hier', 'Voir la commande', 'Arrêter le son', 'Déjà encaissée.', 'à l\'instant', 'il y a :n min', 'il y a :n h', 'il y a :n j'];
+        foreach (['en', 'ht', 'es'] as $lang) {
+            $d = json_decode(file_get_contents(__DIR__.'/../../resources/lang/'.$lang.'.json'), true);
+            foreach ($labels as $k) {
+                $this->assertArrayHasKey($k, $d, "$lang : « $k » non traduit");
+                $this->assertNotSame('', trim($d[$k]));
+            }
+            $this->assertStringContainsString(':n', $d['il y a :n min'], 'Le nombre reste un paramètre.');
+        }
+    }
+
+    public function test_the_collect_first_note_never_applies_to_a_delivery_waiting_for_a_courier(): void
+    {
+        $this->assertFalse((new Order(['status' => 'ready', 'order_type' => 'delivery']))->awaitsPaymentToFinish(), 'Elle attend un livreur, pas un encaissement.');
+        $this->assertTrue((new Order(['status' => 'ready', 'order_type' => 'delivery']))->awaitsCourier());
+        $this->assertTrue((new Order(['status' => 'ready', 'order_type' => 'dine_in']))->awaitsPaymentToFinish());
+        $this->assertTrue((new Order(['status' => 'picked_up', 'order_type' => 'delivery']))->awaitsPaymentToFinish());
+        $this->assertFalse((new Order(['status' => 'ready', 'order_type' => 'dine_in', 'payment_status' => 'paid']))->awaitsPaymentToFinish());
+        $this->assertFalse((new Order(['status' => 'cancelled', 'order_type' => 'dine_in']))->awaitsPaymentToFinish());
+    }
+
+    public function test_the_stale_protection_really_expires(): void
+    {
+        $this->assertStringContainsString('if (Date.now() - touche > PROTEGE_MS) return false;', $this->page());
+    }
+
+    public function test_the_global_alert_banner_is_dark_too(): void
+    {
+        $this->assertStringContainsString('background:#14532d;color:#fff;border-radius:14px;padding:12px 14px', $this->page());
     }
 }

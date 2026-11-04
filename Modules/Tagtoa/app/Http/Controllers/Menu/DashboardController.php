@@ -691,7 +691,14 @@ class DashboardController extends Controller
     {
         $order = $this->ownOrder($orderId);
         $data = $request->validate(['status' => ['required', Rule::in(Order::STATUSES)]]);
-        $order->update(['status' => $data['status']]);
+
+        // Même règle que l'écran Livraison : une livraison ne part jamais « récupérée » sans livreur assigné.
+        if ($data['status'] === 'picked_up' && $order->order_type === 'delivery' && ! $order->courier_id) {
+            return back()->with('error', __('Un livreur doit d\'abord être assigné à cette livraison.'));
+        }
+
+        $order->update(['status' => $data['status']]
+            + ($data['status'] === 'picked_up' && ! $order->picked_up_at ? ['picked_up_at' => now()] : []));
 
         // Le module reste maître de l'état réel ; la colonne vertébrale suit,
         // pour que le rapport commun ne montre pas une commande déjà livrée
@@ -737,6 +744,14 @@ class DashboardController extends Controller
             'payment_method' => ['required', Rule::in(array_keys(Order::MANUAL_PAYMENT_METHODS))],
         ]);
 
+        if ($order->status === 'cancelled') {
+            return back()->with('error', __('Une commande annulée ne peut pas être encaissée.'));
+        }
+        // Deuxième clic (ou deux appareils) : on le dit, sans écrire une seconde ligne d'audit pour un moyen qui n'a pas été appliqué.
+        if ($order->isPaid()) {
+            return back()->with('success', __('Déjà encaissée.'));
+        }
+
         app(MenuOrderService::class)->markPaid($order, $data['payment_method'], $this->actorName());
         app(\Modules\Tagtoa\App\Services\Audit\AuditService::class)->log('order.paid', $order, $order->reference.' · '.$data['payment_method']);
 
@@ -763,6 +778,7 @@ class DashboardController extends Controller
             'unpaid'    => $menu->orders()->where('payment_status', '!=', 'paid')->where('status', '!=', 'cancelled')->count(),
             'signature' => $orders->concat($done)->map(fn ($o) => $o->id.':'.$o->status.':'.$o->payment_status)->implode('|'),
             'counts'    => $this->orderCounts($menu),
+            'now'       => now()->timestamp,   // l'horloge du serveur : l'âge « il y a N min » ne dépend pas de celle du téléphone
             'html'      => view('tagtoa::menu._orders-list', ['orders' => $orders, 'done' => $done])->render(),
         ]);
     }
@@ -811,9 +827,13 @@ class DashboardController extends Controller
             default    => null,
         };
         if (mb_strlen($recherche) >= 2) {
-            $like = '%'.addcslashes($recherche, '%_\\').'%';
+            // ESCAPE '!' : le caractère d'échappement par défaut diffère entre MySQL (\\) et SQLite (aucun) ; avec '!' les jokers
+            // tapés par l'utilisateur (% _) sont littéraux partout.
+            $like = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $recherche).'%';
             $query->where(function ($w) use ($like) {
-                $w->where('customer_name', 'like', $like)->orWhere('customer_phone', 'like', $like)->orWhere('reference', 'like', $like);
+                $w->whereRaw("customer_name LIKE ? ESCAPE '!'", [$like])
+                    ->orWhereRaw("customer_phone LIKE ? ESCAPE '!'", [$like])
+                    ->orWhereRaw("reference LIKE ? ESCAPE '!'", [$like]);
             });
         }
 
@@ -823,14 +843,14 @@ class DashboardController extends Controller
     /** Compteurs des pastilles de filtre (commandes encore à traiter). */
     private function orderCounts(Menu $menu): array
     {
-        $enCours = fn () => $menu->orders()->whereNotIn('status', Order::DONE_STATUSES);
+        // UNE requête (le fil l'appelle toutes les 8 s depuis chaque appareil) au lieu de quatre.
+        $r = $menu->orders()->reorder()->whereNotIn('status', Order::DONE_STATUSES)
+            ->selectRaw("COUNT(*) AS a, COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) AS n, "
+                ."COALESCE(SUM(CASE WHEN payment_status != 'paid' THEN 1 ELSE 0 END), 0) AS u, "
+                ."COALESCE(SUM(CASE WHEN order_type = 'delivery' THEN 1 ELSE 0 END), 0) AS d")
+            ->first();
 
-        return [
-            'all'      => $enCours()->count(),
-            'new'      => $enCours()->where('status', 'pending')->count(),
-            'unpaid'   => $enCours()->where('payment_status', '!=', 'paid')->count(),
-            'delivery' => $enCours()->where('order_type', 'delivery')->count(),
-        ];
+        return ['all' => (int) $r->a, 'new' => (int) $r->n, 'unpaid' => (int) $r->u, 'delivery' => (int) $r->d];
     }
 
     /**
