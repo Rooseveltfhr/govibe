@@ -12,6 +12,21 @@ set -uo pipefail
 APP="${1:?Usage: remote-deploy.sh <app_path>}"
 cd "$APP" || { echo "App path introuvable: $APP"; exit 1; }
 
+# >>> TAGTOA_DOTENV_OPTIONS
+# Les réglages de sauvegarde documentés « dans le .env » n'avaient AUCUN effet : ce script ne source jamais le .env et le workflow ne lui
+# passe aucune variable. On les relit donc ici (grep ciblé, jamais de `source` : un .env n'est pas du shell) ; une variable déjà
+# présente dans l'environnement du shell garde la priorité. Les valeurs ne sont jamais affichées.
+for _V in TAGTOA_BACKUP_SKIP TAGTOA_BACKUP_REQUIRED TAGTOA_BACKUP_IF_PENDING TAGTOA_BACKUP_KEEP TAGTOA_BACKUP_KEEP_DAILY TAGTOA_BACKUP_KEEP_WEEKLY \
+          TAGTOA_BACKUP_TIMEOUT TAGTOA_UPLOADS_BACKUP_SKIP TAGTOA_UPLOADS_KEEP TAGTOA_UPLOADS_KEEP_DAILY TAGTOA_UPLOADS_KEEP_WEEKLY \
+          TAGTOA_UPLOADS_MAX_MB TAGTOA_UPLOADS_TIMEOUT TAGTOA_OFFSITE_SKIP TAGTOA_OFFSITE_REQUIRED TAGTOA_OFFSITE_TIMEOUT; do
+  if [ -z "${!_V:-}" ]; then
+    _VAL="$(grep -m1 "^${_V}=" .env 2>/dev/null | cut -d= -f2- | tr -d "\"'\r")"
+    [ -n "$_VAL" ] && export "${_V}=${_VAL}"
+  fi
+done
+unset _V _VAL
+# <<< TAGTOA_DOTENV_OPTIONS
+
 echo "==> TAGTOA deploy @ $APP ($(date -u +%FT%TZ))"
 
 # 0) composer.phar dispo ?
@@ -79,6 +94,23 @@ if [ "${TAGTOA_BACKUP_SKIP:-0}" != "1" ]; then
       echo "!!!!!!!! WARN: SAUVEGARDE DES IMAGES IMPOSSIBLE (la base, elle, est sauvegardée) !!!!!!!!"
       if [ "${TAGTOA_BACKUP_REQUIRED:-0}" = "1" ]; then
         echo "TAGTOA_BACKUP_REQUIRED=1 : déploiement ANNULÉ avant la maintenance (site intact)."
+        exit 1
+      fi
+    fi
+  fi
+  # BK-1b : copie HORS SITE chiffrée (R2 / B2 / S3). Inactive tant que TAGTOA_OFFSITE_* n'est pas renseigné dans le .env.
+  # Échec = WARN bruyant (le déploiement continue : les sauvegardes locales existent) ; TAGTOA_OFFSITE_REQUIRED=1 l'annule avant la maintenance.
+  if [ "${TAGTOA_OFFSITE_SKIP:-0}" != "1" ]; then
+    echo "==> Copie hors site (chiffrée)"
+    # Délai global = 2 envois (base + images) + chiffrement : 2 × délai d'un envoi + marge ; -k : SIGKILL si PHP ignore le SIGTERM.
+    OFFSITE_T="${TAGTOA_OFFSITE_TIMEOUT:-600}"
+    OFFSITE_ARGS="--timeout=${OFFSITE_T}"
+    [ "${TAGTOA_BACKUP_IF_PENDING:-0}" != "1" ] && OFFSITE_ARGS="$OFFSITE_ARGS --max-age-db=30"
+    # shellcheck disable=SC2086
+    if ! timeout -k 30 $(( OFFSITE_T * 2 + 300 )) php artisan tagtoa:backup-offsite $OFFSITE_ARGS; then
+      echo "!!!!!!!! WARN: COPIE HORS SITE IMPOSSIBLE (les sauvegardes locales existent, mais restent sur ce serveur) !!!!!!!!"
+      if [ "${TAGTOA_OFFSITE_REQUIRED:-0}" = "1" ]; then
+        echo "TAGTOA_OFFSITE_REQUIRED=1 : déploiement ANNULÉ avant la maintenance (site intact)."
         exit 1
       fi
     fi

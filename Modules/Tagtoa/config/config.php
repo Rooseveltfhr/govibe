@@ -34,6 +34,21 @@ return [
     'expiry_grace_days' => (int) env('TAGTOA_EXPIRY_GRACE_DAYS', 7),
 
     /*
+    | Copie HORS SITE des sauvegardes (BK-1b) — compatible Cloudflare R2, Backblaze B2, AWS S3. INACTIVE tant que rien n'est fourni.
+    | Le serveur ne détient que la clé PUBLIQUE (chiffrement) ; la clé privée reste hors du serveur. Le jeton du bucket doit être limité à CE
+    | bucket ; l'effacement se prévient côté bucket (Bucket Lock / Object Lock + cycle de vie), voir DEPLOY.md.
+    */
+    'offsite' => [
+        'endpoint'   => env('TAGTOA_OFFSITE_ENDPOINT'),     // ex. https://<compte>.r2.cloudflarestorage.com
+        'bucket'     => env('TAGTOA_OFFSITE_BUCKET'),
+        'key_id'     => env('TAGTOA_OFFSITE_KEY_ID'),
+        'secret'     => env('TAGTOA_OFFSITE_SECRET'),
+        'region'     => env('TAGTOA_OFFSITE_REGION', 'auto'),  // R2 : auto ; B2 : ex. us-west-004
+        'public_key' => env('TAGTOA_OFFSITE_PUBLIC_KEY'),   // base64, produite par tagtoa:backup-keygen
+        'prefix'     => env('TAGTOA_OFFSITE_PREFIX', 'tagtoa/'),
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Sécurité NFC — NTAG424 DNA (SUN/SDM, anti-clone/anti-rejeu)
     |--------------------------------------------------------------------------

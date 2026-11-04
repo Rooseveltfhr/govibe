@@ -96,9 +96,55 @@ et aucune archive. Rétention par niveaux : 5 dernières + 1 par jour (≈8 j) +
 Un échec est un avertissement bruyant (la base, elle, reste sauvegardée) ; attention : des images au-dessus de `TAGTOA_UPLOADS_MAX_MB` sont un échec, donc avec `TAGTOA_BACKUP_REQUIRED=1` elles bloquent TOUS les déploiements tant que le plafond n'est pas relevé. « Rien n'a changé » se juge sur la liste (chemin, taille, date) des fichiers, pas sur la date de l'archive. Un fichier téléversé pendant l'archivage peut être tronqué dans cette archive (avertissement affiché) ; avec `TAGTOA_BACKUP_REQUIRED=1` il annule le déploiement avant la maintenance.
 **Restaurer les images** : `tar -xzf storage/app/backups/tagtoa-uploads-….tar.gz -C <racine du disque public>` (l'archive contient `tagtoa/…`).
 
-⚠️ Le dump contient TOUT, secrets des passerelles compris. Il reste sur le même
-serveur que la base : ce n'est pas une sauvegarde hors site (BK-1b : copie chiffrée
-ailleurs) — et les archives d'images restent sur le même serveur aussi. Copiez-les
+**Copie hors site chiffrée (BK-1b).** Sans elle, un serveur perdu emporte les sauvegardes avec lui. `php artisan tagtoa:backup-offsite`
+envoie la dernière sauvegarde de la base et la dernière archive d'images, **chiffrées**, vers un bucket S3-compatible (Cloudflare R2
+d'abord ; Backblaze B2 / AWS S3 avec le même code). INACTIVE tant que les variables ci-dessous ne sont pas dans le `.env`.
+
+*Principe de sécurité* : le serveur ne détient que la clé PUBLIQUE — il sait chiffrer, pas déchiffrer. La clé PRIVÉE reste chez vous.
+Quiconque prend le serveur, son `.env` ou le bucket ne peut rien lire. **Clé privée perdue = copies hors site définitivement illisibles.**
+
+*Mise en place (une fois)* :
+1. **Sur votre poste** (pas sur le serveur) : `php artisan tagtoa:backup-keygen`. Gardez la clé PRIVÉE dans un gestionnaire de mots de passe
+   + une copie papier. Copiez la clé PUBLIQUE.
+2. **Cloudflare R2** : créez un bucket **privé** (jamais d'accès public). Créez un jeton API R2 limité à CE bucket, permission « Object Read & Write »
+   (R2 n'offre pas de jeton « écriture seule »). Notez l'identifiant de compte, l'Access Key ID et le Secret.
+3. **Protection contre l'effacement** : un serveur piraté avec ce jeton pourrait supprimer les copies. Activez dans le bucket une règle de
+   **verrouillage (Bucket Lock / rétention)** de 30 jours, plus une règle de **cycle de vie** qui supprime les objets après 60 jours
+   (vérifiez dans le tableau de bord que ces deux options existent pour votre compte). Sur B2, préférez une clé d'application SANS la
+   capacité `deleteFiles`, avec Object Lock.
+4. Dans le `.env` du serveur :
+
+| Variable | Valeur |
+|---|---|
+| `TAGTOA_OFFSITE_ENDPOINT` | R2 : `https://<ID_COMPTE>.r2.cloudflarestorage.com` (https obligatoire, sans chemin) |
+| `TAGTOA_OFFSITE_BUCKET` | nom du bucket |
+| `TAGTOA_OFFSITE_KEY_ID` / `TAGTOA_OFFSITE_SECRET` | Access Key ID / Secret du jeton |
+| `TAGTOA_OFFSITE_REGION` | `auto` pour R2 (défaut) ; B2 : la région de l'endpoint (ex. `us-west-004`) |
+| `TAGTOA_OFFSITE_PUBLIC_KEY` | clé PUBLIQUE de l'étape 1 |
+| `TAGTOA_OFFSITE_PREFIX` | dossier dans le bucket (défaut `tagtoa/`) |
+| `TAGTOA_OFFSITE_SKIP=1` | ignore la copie hors site |
+| `TAGTOA_OFFSITE_REQUIRED=1` | un échec annule le déploiement avant la maintenance (par défaut : avertissement bruyant) |
+
+Au déploiement suivant, le journal affiche « Hors site OK : … ». Chaque fichier est relu : taille, et empreinte (ETag) quand le service renvoie
+un MD5 simple (R2 : oui ; sur B2 ou S3 avec chiffrement serveur, seule la taille est comparable). Un fichier est considéré « déjà hors site »
+seulement si le poids ET l'empreinte du contenu en clair (métadonnée `tagtoa-sha256` écrite à l'envoi) correspondent. La sauvegarde de la base
+doit dater de moins de 30 min (celle de ce déploiement) : sinon rien d'ancien n'est présenté comme frais. Les réglages `TAGTOA_BACKUP_*`,
+`TAGTOA_UPLOADS_*` et `TAGTOA_OFFSITE_*` sont relus dans le `.env` par le script de déploiement (une variable déjà présente dans le shell a priorité).
+
+*Limites assumées* : le chiffrement protège la CONFIDENTIALITÉ, pas l'authenticité face à quelqu'un qui détient le jeton d'écriture et la clé publique
+(il peut déposer un faux fichier ; sans clé privée il ne peut rien lire) — d'où le verrouillage du bucket. Les noms portent l'horodatage à la seconde ;
+un envoi n'écrase en pratique jamais une copie précédente (deux déploiements dans la même seconde sont exclus par un verrou). Un envoi simple est limité
+à 5 Go chez R2/B2 : bien au-delà du plafond `TAGTOA_UPLOADS_MAX_MB`. Ne lancez pas `tagtoa:backup-keygen` en CI (sa sortie contient la clé privée).
+
+*Restaurer depuis le hors site* (sur votre poste, ou un serveur de secours) : téléchargez l'objet `.enc` depuis le bucket, puis
+`TAGTOA_OFFSITE_PRIVATE_KEY='<clé privée>' php artisan tagtoa:backup-decrypt fichier.sql.gz.enc` (ou saisie masquée si la variable est absente ;
+jamais la clé en argument). Un fichier modifié ou tronqué est refusé ; rien n'est écrasé. Puis suivez « Restaurer » ci-dessous.
+
+⚠️ Non couvert : le premier envoi réel vers R2 se juge sur le journal du déploiement (le code est testé contre l'exemple officiel de signature AWS,
+un faux bucket et un vrai serveur HTTP local, mais pas contre le vrai service).
+
+⚠️ Le dump contient TOUT, secrets des passerelles compris. Sans la copie hors site ci-dessus, il reste sur le même
+serveur que la base — et les archives d'images restent sur le même serveur aussi. Copiez-les
 ailleurs en attendant.
 
 **Restaurer** (le site en maintenance : `php artisan down`) :
