@@ -104,13 +104,16 @@ class MenuOrderNumberTest extends TestCase
 
     public function test_a_menu_with_its_own_timezone_uses_it(): void
     {
-        $m = $this->menu();
-        $m->update(['timezone' => 'Europe/Paris']);   // 23 h 30 UTC = 0 h 30 à Paris (jour suivant), < 4 h : encore la veille
-        $this->travelTo(Carbon::parse('2026-11-10 23:30:00', 'UTC'));
+        // 05 h 00 UTC : à Paris il est 6 h (jour de service du 10) ; à Port-au-Prince il est 0 h (encore le service du 9).
+        $this->travelTo(Carbon::parse('2026-11-10 05:00:00', 'UTC'));
+        $paris = $this->menu('t-1', 'paris');
+        $paris->update(['timezone' => 'Europe/Paris']);
+        $haiti = $this->menu('t-2', 'haiti');
 
-        $this->assertSame('2026-11-10', $this->place($m->fresh())->order_day->toDateString());
+        $this->assertSame('2026-11-10', $this->place($paris->fresh())->order_day->toDateString(), 'Le fuseau du menu est celui du menu.');
+        $this->assertSame('2026-11-09', $this->place($haiti)->order_day->toDateString(), 'Sans fuseau : Port-au-Prince.');
         $this->assertSame('2026-11-10', Order::serviceDay('Europe/Paris'));
-        $this->assertSame('2026-11-10', Order::serviceDay('America/Port-au-Prince'));
+        $this->assertSame('2026-11-09', Order::serviceDay('America/Port-au-Prince'));
     }
 
     public function test_each_menu_has_its_own_sequence_and_never_sees_the_others(): void
@@ -375,14 +378,14 @@ class MenuOrderNumberTest extends TestCase
         $m = $this->menu();
         $un = $this->place($m);
         $this->place($m);
-        Order::create(['tenant_id' => 't-1', 'menu_id' => $m->id, 'reference' => 'CMD-ABCDE2FGH', 'status' => 'pending', 'payment_status' => 'unpaid',
+        Order::create(['tenant_id' => 't-1', 'menu_id' => $m->id, 'reference' => 'CMD-ABCDE1FGH', 'status' => 'pending', 'payment_status' => 'unpaid',
             'order_type' => 'dine_in', 'currency' => 'HTG', 'subtotal' => 1, 'total' => 1, 'placed_at' => now()]);
         $this->asMerchant();
 
         foreach (['1', '#1'] as $q) {
             $html = $this->get(route('tagtoa.menu.dashboard.orders', $m->id).'?q='.urlencode($q))->assertOk()->getContent();
             $this->assertStringContainsString($un->reference, $html);
-            $this->assertStringNotContainsString('CMD-ABCDE2FGH', $html, 'Un chiffre ne ratisse pas toutes les références.');
+            $this->assertStringNotContainsString('CMD-ABCDE1FGH', $html, 'Un chiffre ne ratisse pas toutes les références.');
         }
     }
 
@@ -401,5 +404,31 @@ class MenuOrderNumberTest extends TestCase
         $this->assertStringContainsString($auj->reference, $html);
         $this->assertStringContainsString($hier->reference, $html);
         $this->assertStringNotContainsString($vieille->reference, $html, 'Un « 1 » ne remonte pas le n° 1 de tous les jours de l\'histoire.');
+    }
+
+    public function test_a_non_number_database_error_is_not_retried(): void
+    {
+        $m = $this->menu();
+        $item = Item::where('menu_id', $m->id)->first();
+        $pdo = new \PDOException('SQLSTATE[HY000]: General error: 1205 Lock wait timeout exceeded');
+        $pdo->errorInfo = ['HY000', 1205, 'Lock wait timeout exceeded'];
+        $erreur = new \Illuminate\Database\QueryException('testbench', 'insert into tagtoa_menu_orders', [], $pdo);
+
+        $svc = new class($erreur) extends MenuOrderService {
+            public int $appels = 0;
+            public function __construct(private \Illuminate\Database\QueryException $e) {}
+            protected function insertOrder(Menu $menu, array $payload, ?string $uuid): Order
+            {
+                $this->appels++;
+                throw $this->e;
+            }
+        };
+
+        try {
+            $svc->placeOrder($m, ['items' => [['id' => $item->id, 'qty' => 1]]]);
+            $this->fail('L\'erreur doit remonter.');
+        } catch (\Illuminate\Database\QueryException) {
+            $this->assertSame(1, $svc->appels, 'Seul un doublon de numéro est réessayé : un autre incident n\'est pas masqué par des essais répétés.');
+        }
     }
 }
