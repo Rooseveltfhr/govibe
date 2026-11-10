@@ -289,6 +289,7 @@ class DashboardController extends Controller
     public function orders(int $id): View
     {
         $menu = $this->own($id);
+        $this->ordersTimezone = $menu->timezone;
         [$orders, $done] = $this->splitOrders($menu);
         $pending = $menu->orders()->where('status', 'pending')->count();
         [$filtre, $recherche] = $this->orderFilters();
@@ -771,6 +772,7 @@ class DashboardController extends Controller
     {
         $menu = $this->own($id);
         // Les liens de pagination pointent vers la page, pas vers ce fil.
+        $this->ordersTimezone = $menu->timezone;
         [$orders, $done] = $this->splitOrders($menu);
         $orders->withPath(route('tagtoa.menu.dashboard.orders', $menu->id));
         $done->withPath(route('tagtoa.menu.dashboard.orders', $menu->id));
@@ -829,28 +831,38 @@ class DashboardController extends Controller
             'delivery' => $query->where('order_type', 'delivery'),
             default    => null,
         };
-        // « 42 » ou « #042 » : le numéro court (les jours se distinguent par le regroupement Aujourd'hui / Hier).
-        if (preg_match('/^#?\s*(\d{1,4})$/', $recherche, $m) === 1) {
-            $no = (int) $m[1];
-            $query->where(function ($w) use ($no, $recherche) {
-                $w->where('order_no', $no);
-                if (mb_strlen($recherche) >= 2) {   // « 42 » est aussi un bout de téléphone : on garde la recherche texte
+        // « #2 » / « 2 » : un seul chiffre = le numéro court, rien d'autre (sinon « 2 » correspondrait à la moitié des références).
+        $texte = mb_strlen(ltrim($recherche, "# ")) >= 2;
+        $numero = preg_match('/^#?\s*(\d{1,4})$/', $recherche, $m) === 1 ? (int) $m[1] : null;
+        if ($texte || $numero !== null) {
+            $query->where(function ($w) use ($recherche, $texte, $numero) {
+                if ($texte) {
+                    // ESCAPE '!' : le caractère d'échappement par défaut diffère entre MySQL (\\) et SQLite (aucun) ; avec '!' les jokers
+                    // tapés par l'utilisateur (% _) sont littéraux partout. « #42 » cherche aussi « 42 » dans les téléphones.
                     $like = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], ltrim($recherche, "# ")).'%';
-                    $w->orWhereRaw("customer_phone LIKE ? ESCAPE '!'", [$like]);
+                    $w->whereRaw("customer_name LIKE ? ESCAPE '!'", [$like])
+                        ->orWhereRaw("customer_phone LIKE ? ESCAPE '!'", [$like])
+                        ->orWhereRaw("reference LIKE ? ESCAPE '!'", [$like]);
                 }
-            });
-        } elseif (mb_strlen($recherche) >= 2) {
-            // ESCAPE '!' : le caractère d'échappement par défaut diffère entre MySQL (\\) et SQLite (aucun) ; avec '!' les jokers
-            // tapés par l'utilisateur (% _) sont littéraux partout.
-            $like = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $recherche).'%';
-            $query->where(function ($w) use ($like) {
-                $w->whereRaw("customer_name LIKE ? ESCAPE '!'", [$like])
-                    ->orWhereRaw("customer_phone LIKE ? ESCAPE '!'", [$like])
-                    ->orWhereRaw("reference LIKE ? ESCAPE '!'", [$like]);
+                if ($numero !== null) {
+                    // « 42 » / « #042 » = le numéro court d'AUJOURD'HUI ou d'hier (les deux journées visibles sous les titres du regroupement) ;
+                    // une commande plus ancienne se retrouve par son nom ou son téléphone. Le nom/la référence restent cherchés comme avant.
+                    $w->orWhere(fn ($n) => $n->where('order_no', $numero)->whereIn('order_day', [
+                        Order::serviceDay($this->menuTimezone()), \Carbon\Carbon::parse(Order::serviceDay($this->menuTimezone()))->subDay()->toDateString(),
+                    ]));
+                }
             });
         }
 
         return $query;
+    }
+
+    /** Fuseau du menu dont on liste les commandes (posé par orders()/ordersFeed() avant la requête). */
+    private ?string $ordersTimezone = null;
+
+    private function menuTimezone(): ?string
+    {
+        return $this->ordersTimezone;
     }
 
     /** Compteurs des pastilles de filtre (commandes encore à traiter). */

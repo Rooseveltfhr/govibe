@@ -66,7 +66,7 @@ class MenuOrderService
         }
 
         try {
-            $order = $this->insertOrder($menu, $payload, $uuid);
+            $order = $this->insertOrderRetrying($menu, $payload, $uuid);
         } catch (QueryException $e) {
             // Double-tap réseau lent : deux requêtes ont pu passer la
             // vérification ci-dessus avant que l'une des deux ne pose la
@@ -82,7 +82,7 @@ class MenuOrderService
                 // Collision avec une commande d'un AUTRE menu (l'ancien index unique global n'est pas encore
                 // remplacé, ou identifiant rejoué d'ailleurs) : on ne rend JAMAIS la commande d'autrui ; on
                 // enregistre celle-ci sans clé d'idempotence plutôt que de la perdre ou de répondre 500.
-                $order = $this->insertOrder($menu, $payload, null);
+                $order = $this->insertOrderRetrying($menu, $payload, null);
                 $this->notifyMerchant($menu, $order);
                 $this->notifyCustomer($menu, $order);
 
@@ -97,6 +97,27 @@ class MenuOrderService
         $this->notifyCustomer($menu, $order);
 
         return $order;
+    }
+
+    /** Nombre maximal d'essais quand deux commandes prennent le même numéro court. */
+    public const NUMBER_ATTEMPTS = 4;
+
+    /**
+     * Filet de l'index unique (menu, jour, numéro) : si deux commandes d'un même menu ont malgré tout pris le même numéro, la perdante
+     * recommence dans une NOUVELLE transaction (nouveau instantané, nouveau numéro) au lieu de répondre 500 et de perdre la commande.
+     */
+    protected function insertOrderRetrying(Menu $menu, array $payload, ?string $uuid): Order
+    {
+        for ($essai = 1; ; $essai++) {
+            try {
+                return $this->insertOrder($menu, $payload, $uuid);
+            } catch (QueryException $e) {
+                if ($essai >= self::NUMBER_ATTEMPTS || ! \Modules\Tagtoa\App\Support\Order\UniqueViolation::onOrderNumber($e)) {
+                    throw $e;
+                }
+                usleep(random_int(10_000, 60_000));
+            }
+        }
     }
 
     protected function insertOrder(Menu $menu, array $payload, ?string $uuid): Order
@@ -270,7 +291,7 @@ class MenuOrderService
                 : round($recap['total'] + $tip + $deliveryFee, 2);
 
             // Numéro court du jour (#042), sous le verrou du menu — voir Order::nextNumber().
-            [$orderDay, $orderNo] = Order::nextNumber($menu->id);
+            [$orderDay, $orderNo] = Order::nextNumber($menu);
 
             $order = $menu->orders()->create([
                 'tenant_id'        => $menu->tenant_id,

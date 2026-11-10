@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Schema;
  * TAGTOA MENU (UX-2) — un numéro COURT de commande, dicible en cuisine (« numéro 42 »).
  *
  * `CMD-WKJJGOPL` (8 lettres au hasard) reste la référence : suivi client, liens, audit — rien ne change. Le numéro court s'y ajoute :
- *  - `order_day` : le jour de la commande (fuseau de l'application) ;
+ *  - `order_day` : le JOUR DE SERVICE, à l'heure locale du menu (colonne `timezone`, sinon Port-au-Prince) : il commence à 4 h, un service de
+ *                  nuit reste donc dans la journée de la veille (Order::serviceDay) ;
  *  - `order_no`  : 1, 2, 3… pour CE menu et CE jour (la numérotation repart à 1 chaque matin, comme un ticket de cuisine).
  * L'unicité (menu, jour, numéro) est garantie par la base ; le calcul se fait sous verrou (MenuOrderService).
  *

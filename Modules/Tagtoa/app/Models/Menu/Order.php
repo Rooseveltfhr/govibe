@@ -103,8 +103,14 @@ class Order extends Model
         'tax_breakdown' => 'array',
         'courier_assigned_at' => 'datetime',
         'picked_up_at'        => 'datetime',
-        'order_day'           => 'date',
+        'order_day'           => 'date:Y-m-d',
     ];
+
+    /** Toujours « Y-m-d » en base, quel que soit ce qu'on passe (Carbon, texte) : l'index unique compare ce texte sur SQLite comme sur MySQL. */
+    public function setOrderDayAttribute($value): void
+    {
+        $this->attributes['order_day'] = $value ? \Carbon\Carbon::parse($value)->toDateString() : null;
+    }
 
     /** Numéro court affiché : « #042 » (null pour une commande d'avant la numérotation : on retombe alors sur la référence). */
     public function getShortNoAttribute(): ?string
@@ -112,17 +118,33 @@ class Order extends Model
         return $this->order_no ? '#'.str_pad((string) $this->order_no, 3, '0', STR_PAD_LEFT) : null;
     }
 
+    /** Heure locale à partir de laquelle un « jour de service » commence : un service de nuit (jusqu'à 3 h) reste dans la journée de la veille. */
+    public const SERVICE_DAY_STARTS_AT = 4;
+
+    /** Le jour de service d'un menu, à l'heure LOCALE du menu (pas UTC : sinon la numérotation repartirait à 19 h en plein dîner). */
+    public static function serviceDay(?string $timezone = null): string
+    {
+        return now($timezone ?: 'America/Port-au-Prince')->subHours(self::SERVICE_DAY_STARTS_AT)->toDateString();
+    }
+
     /**
-     * Prochain numéro court de CE menu pour AUJOURD'HUI. À appeler DANS la transaction qui crée la commande : la ligne du menu est
-     * verrouillée, donc deux commandes qui arrivent ensemble ne prennent jamais le même numéro (et l'index unique le garantit aussi).
+     * Prochain numéro court de CE menu pour le jour de service en cours. À appeler DANS la transaction qui crée la commande.
+     *
+     * Sous MySQL (InnoDB, REPEATABLE READ) une simple lecture MAX() verrait l'instantané ouvert par les lectures précédentes de la
+     * transaction — pas la commande que l'autre transaction vient de valider — et les deux prendraient le même numéro. Donc :
+     * (1) on verrouille la ligne du menu (les commandes d'un menu passent une par une) ET (2) on lit le max en LECTURE VERROUILLANTE,
+     * qui voit la dernière version validée. L'index unique reste le dernier filet ; placeOrder réessaie si malgré tout il se déclenche.
      *
      * @return array{0:string,1:int}  [jour (Y-m-d), numéro]
      */
-    public static function nextNumber(int $menuId): array
+    public static function nextNumber(Menu|int $menu): array
     {
-        $jour = \Carbon\Carbon::today()->toDateString();
+        $menuId = $menu instanceof Menu ? $menu->id : $menu;
+        $tz = $menu instanceof Menu ? $menu->timezone : \Modules\Tagtoa\App\Models\Menu\Menu::whereKey($menuId)->value('timezone');
+        $jour = self::serviceDay($tz);
+
         \Modules\Tagtoa\App\Models\Menu\Menu::whereKey($menuId)->lockForUpdate()->value('id');
-        $dernier = (int) static::query()->where('menu_id', $menuId)->whereDate('order_day', $jour)->max('order_no');
+        $dernier = (int) static::query()->where('menu_id', $menuId)->where('order_day', $jour)->lockForUpdate()->max('order_no');
 
         return [$jour, $dernier + 1];
     }
