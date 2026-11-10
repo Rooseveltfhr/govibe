@@ -107,6 +107,8 @@ class MenuOrderNumberTest extends TestCase
 
         $this->assertNull($a->short_no);
         $this->assertNull($b->short_no);
+        $this->assertNull($a->fresh()->order_no, 'NULL, jamais 0 : une colonne nullable, sans valeur inventée.');
+        $this->assertNull($a->fresh()->order_day);
         $this->assertSame(1, $this->place($m)->order_no, 'Les anciennes commandes ne décalent pas la numérotation.');
     }
 
@@ -213,5 +215,24 @@ class MenuOrderNumberTest extends TestCase
         $this->assertStringContainsString('Order::nextNumber($menu->id)', $src);
         $this->assertMatchesRegularExpression("/'order_no'\s*=>\s*\\\$orderNo/", $src);
         $this->assertSame(1, substr_count($src, '$menu->orders()->create(['), 'Un seul endroit crée une commande de menu : il numérote.');
+    }
+
+    public function test_a_hash_search_also_finds_a_phone_number_ending_the_same_way(): void
+    {
+        $m = $this->menu();
+        $this->place($m);   // n° 1
+        $tel = Order::create(['tenant_id' => 't-1', 'menu_id' => $m->id, 'reference' => 'CMD-TELEPHONE', 'status' => 'pending', 'payment_status' => 'unpaid',
+            'order_type' => 'dine_in', 'currency' => 'HTG', 'subtotal' => 1, 'total' => 1, 'customer_phone' => '50937004242', 'placed_at' => now()]);
+        $this->asMerchant();
+
+        $html = $this->get(route('tagtoa.menu.dashboard.orders', $m->id).'?q='.urlencode('#42'))->assertOk()->getContent();
+        $this->assertStringContainsString('CMD-TELEPHONE', $html, '« #42 » cherche le n° 42 ET le téléphone (sans le « # »).');
+    }
+
+    public function test_the_number_is_taken_under_a_lock_on_the_menu_row(): void
+    {
+        // SQLite ignore FOR UPDATE : on ne peut pas l'observer ici ; le verrou réel se juge sur MySQL. On fige au moins qu'il est demandé.
+        $src = file_get_contents(__DIR__.'/../../app/Models/Menu/Order.php');
+        $this->assertMatchesRegularExpression('/Menu::whereKey\(\$menuId\)->lockForUpdate\(\)/', $src);
     }
 }
