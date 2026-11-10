@@ -42,7 +42,7 @@
 <style>
     .dv-carte{background:var(--surf,#fff);border:2px solid var(--bd,rgba(0,0,0,.08));border-radius:16px;padding:16px}
     .dv-tete{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
-    .dv-ref{font:700 17px var(--fh,sans-serif)}
+    .dv-ref{font:800 24px var(--fh,sans-serif)}
     .dv-total{font:700 17px var(--fh,sans-serif);color:var(--acc,#2cb809)}
     .dv-tag{font-size:12.5px;color:var(--muted,#888);margin-bottom:6px}
     .dv-adresse{font-size:13.5px;margin-bottom:10px}
@@ -90,7 +90,7 @@
 
     function carte(o, data){
         var html = '<div class="dv-carte">'
-            + '<div class="dv-tete"><span class="dv-ref">' + esc(o.reference) + '</span>'
+            + '<div class="dv-tete"><span class="dv-ref">' + esc(o.short_no || o.reference) + '</span>'
             + '<span class="dv-total">' + esc(o.total) + ' ' + esc(o.currency) + '</span></div>'
             + '<div class="dv-tag">' + esc(o.status_label)
             + (o.customer_name ? ' · ' + esc(o.customer_name) : '')

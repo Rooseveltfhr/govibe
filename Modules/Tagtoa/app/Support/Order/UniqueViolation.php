@@ -31,4 +31,15 @@ class UniqueViolation
         return str_contains($diagnostic, 'client_uuid')
             || (bool) preg_match("/for key '[^']*(client_uuid|uuid_unique)[^']*'/", $diagnostic);
     }
+
+    /** Doublon sur l'index (menu, jour, numéro court) : deux commandes ont pris le même numéro — on recalcule et on réessaie. */
+    public static function onOrderNumber(QueryException $e): bool
+    {
+        $diagnostic = preg_split('/\s\(Connection:/', $e->getMessage())[0] ?? '';
+        $isUnique = ($e->errorInfo[1] ?? null) === 1062
+            || str_contains($diagnostic, 'UNIQUE constraint failed')
+            || str_contains($diagnostic, 'Duplicate entry');
+
+        return $isUnique && (str_contains($diagnostic, 'tagtoa_mo_day_no_uq') || str_contains($diagnostic, 'order_no'));
+    }
 }

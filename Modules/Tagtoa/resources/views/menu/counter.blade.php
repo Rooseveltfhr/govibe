@@ -43,7 +43,7 @@
 <style>
     .ct-carte{background:var(--surf,#fff);border:2px solid var(--bd,rgba(0,0,0,.08));border-radius:16px;padding:16px}
     .ct-tete{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
-    .ct-ref{font:700 17px var(--fh,sans-serif)}
+    .ct-ref{font:800 24px var(--fh,sans-serif)}
     .ct-total{font:700 17px var(--fh,sans-serif);color:var(--acc,#2cb809)}
     .ct-tag{font-size:12.5px;color:var(--muted,#888);margin-bottom:10px}
     .ct-item{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:14px;color:var(--muted,#888)}
@@ -77,7 +77,7 @@
 
     function carte(o, peutEncaisser){
         var html = '<div class="ct-carte">'
-            + '<div class="ct-tete"><span class="ct-ref">' + esc(o.reference) + '</span>'
+            + '<div class="ct-tete"><span class="ct-ref">' + esc(o.short_no || o.reference) + '</span>'
             + '<span class="ct-total">' + esc(o.total) + ' ' + esc(o.currency) + '</span></div>'
             + '<div class="ct-tag">' + esc(o.order_type_label)
             + (o.table_label ? ' · ' + (o.is_room ? '' : '{{ __('Table') }} ') + esc(o.table_label) : '') + '</div>';
