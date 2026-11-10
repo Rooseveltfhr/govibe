@@ -24,7 +24,9 @@
         <div class="card ord-card" data-order="{{ $o->id }}">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
                 <div>
-                    <b style="font-family:var(--fh);font-size:15px">{{ $o->reference }}</b>
+                    {{-- Le numéro court (#042) se DIT en cuisine ; CMD-… reste en petit pour le suivi client. --}}
+                    @if($o->short_no)<b class="ord-no" style="font-family:var(--fh);font-size:22px;letter-spacing:.01em">{{ $o->short_no }}</b>@endif
+                    <span class="{{ $o->short_no ? 'ord-meta' : '' }}" style="font-family:var(--fh);{{ $o->short_no ? 'font-size:12px' : 'font-size:15px;font-weight:700' }}">{{ $o->reference }}</span>
                     <span class="pill {{ $sm['pill'] }}">{{ __($sm['label']) }}</span>
                     {{-- Mode de service : icône + couleur (la livraison appelle un coursier, ça se voit de loin). --}}
                     <span class="pill ord-type" style="background:{{ $style['bg'] }};color:{{ $style['color'] }}"><i class="fa-solid {{ $style['icon'] }}"></i> {{ __($o->order_type_label) }}</span>
@@ -168,7 +170,7 @@
                 <tbody>
                 @foreach($done as $o)
                     @php $sm = $o->status_meta; @endphp
-                    <tr title="{{ $o->reference }} · {{ $o->order_type_label }} — {{ $o->items->map(fn ($i) => $i->qty.'× '.$i->name)->implode(', ') }}" style="border-top:1px solid var(--bd,#eee)">
+                    <tr title="{{ $o->short_no ? $o->short_no.' · ' : '' }}{{ $o->reference }} · {{ $o->order_type_label }} — {{ $o->items->map(fn ($i) => $i->qty.'× '.$i->name)->implode(', ') }}" style="border-top:1px solid var(--bd,#eee)">
                         {{-- « Retour » en PREMIÈRE colonne : toujours visible, même sur un petit écran. --}}
                         <td style="padding:4px 6px 4px 10px">
                             <form method="POST" action="{{ route('tagtoa.menu.dashboard.orders.status',$o->id) }}" style="margin:0">
@@ -177,7 +179,7 @@
                                 <button class="btn btn-o btn-sm" style="flex:0;padding:5px 9px" title="{{ __('Retour') }} — {{ __('Remettre dans les commandes en cours') }}" aria-label="{{ __('Retour') }}"><i class="fa-solid fa-rotate-left"></i></button>
                             </form>
                         </td>
-                        <td style="padding:5px 8px;color:var(--muted)">{{ optional($o->placed_at)->format('d/m H:i') }}</td>
+                        <td style="padding:5px 8px;color:var(--muted)">@if($o->short_no)<b style="color:#111">{{ $o->short_no }}</b> · @endif{{ optional($o->placed_at)->format('d/m H:i') }}</td>
                         <td style="padding:5px 8px;font-weight:600">{{ $o->customer_name ?: '—' }}</td>
                         <td style="padding:5px 8px">{{ $o->customer_phone ?: '—' }}</td>
                         <td style="padding:5px 8px;text-align:right;font-weight:700">{{ Money::format($o->total, $o->currency) }}</td>

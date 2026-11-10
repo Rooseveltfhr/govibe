@@ -51,6 +51,7 @@
 <div class="wrap">
     <div class="card">
         <h1>{{ $menu->name ?? 'TAGTOA' }}</h1>
+        @if($order->short_no)<div class="ref" style="font-size:20px">{{ __('Votre numéro') }} : <b>{{ $order->short_no }}</b></div>@endif
         <div class="ref">{{ __('Référence') }} : <b>{{ $order->reference }}</b></div>
         <div class="badge" id="typeBadge">{{ $order->order_type_label }}</div>
     </div>

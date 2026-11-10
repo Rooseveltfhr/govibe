@@ -391,6 +391,7 @@ class DashboardController extends Controller
             'orders' => $orders->map(fn (Order $o) => [
                 'id'          => $o->id,
                 'reference'   => $o->reference,
+                'short_no'    => $o->short_no,
                 'status'      => $o->status,
                 'status_label' => __($o->status_meta['label']),
                 'next_status' => self::KITCHEN_NEXT[$o->status] ?? null,
@@ -512,6 +513,7 @@ class DashboardController extends Controller
             'orders' => $orders->map(fn (Order $o) => [
                 'id'          => $o->id,
                 'reference'   => $o->reference,
+                'short_no'    => $o->short_no,
                 'order_type'  => $o->order_type,
                 'order_type_label' => __($o->order_type_label),
                 'table_label' => $o->table_label,
@@ -597,6 +599,7 @@ class DashboardController extends Controller
             'orders' => $orders->map(fn (Order $o) => [
                 'id'                  => $o->id,
                 'reference'           => $o->reference,
+                'short_no'            => $o->short_no,
                 'status'              => $o->status,
                 'status_label'        => __($o->status_meta['label']),
                 'customer_name'       => $o->customer_name,
@@ -826,7 +829,17 @@ class DashboardController extends Controller
             'delivery' => $query->where('order_type', 'delivery'),
             default    => null,
         };
-        if (mb_strlen($recherche) >= 2) {
+        // « 42 » ou « #042 » : le numéro court (les jours se distinguent par le regroupement Aujourd'hui / Hier).
+        if (preg_match('/^#?\s*(\d{1,4})$/', $recherche, $m) === 1) {
+            $no = (int) $m[1];
+            $query->where(function ($w) use ($no, $recherche) {
+                $w->where('order_no', $no);
+                if (mb_strlen($recherche) >= 2) {   // « 42 » est aussi un bout de téléphone : on garde la recherche texte
+                    $like = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], ltrim($recherche, "# ")).'%';
+                    $w->orWhereRaw("customer_phone LIKE ? ESCAPE '!'", [$like]);
+                }
+            });
+        } elseif (mb_strlen($recherche) >= 2) {
             // ESCAPE '!' : le caractère d'échappement par défaut diffère entre MySQL (\\) et SQLite (aucun) ; avec '!' les jokers
             // tapés par l'utilisateur (% _) sont littéraux partout.
             $like = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $recherche).'%';

@@ -52,7 +52,7 @@
     .kw-carte{background:var(--surf,#fff);border:2px solid var(--bd,rgba(0,0,0,.08));border-radius:16px;padding:16px}
     .kw-carte.kw-urgent{border-color:var(--red,#e11)}
     .kw-tete{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
-    .kw-ref{font:700 17px var(--fh,sans-serif)}
+    .kw-ref{font:800 24px var(--fh,sans-serif)}
     .kw-age{font:700 13px var(--fh,sans-serif);color:var(--muted,#888)}
     .kw-tag{font-size:12.5px;color:var(--muted,#888);margin-bottom:10px}
     .kw-item{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed var(--bd,rgba(0,0,0,.08));font-size:15px}
@@ -101,7 +101,7 @@
         var age = minutesEcoulees(o.placed_at);
         var urgent = age >= 15;
         var html = '<div class="kw-carte' + (urgent ? ' kw-urgent' : '') + '">'
-            + '<div class="kw-tete"><span class="kw-ref">' + esc(o.reference) + '</span>'
+            + '<div class="kw-tete"><span class="kw-ref">' + esc(o.short_no || o.reference) + '</span>'
             + '<span class="kw-age">' + age + ' min</span></div>'
             + '<div class="kw-tag">' + esc(o.order_type_label)
             + (o.table_label ? ' · ' + (o.is_room ? '' : '{{ __('Table') }} ') + esc(o.table_label) : '') + '</div>';

@@ -269,9 +269,14 @@ class MenuOrderService
                 ? round($subtotal + $tip + $deliveryFee, 2)
                 : round($recap['total'] + $tip + $deliveryFee, 2);
 
+            // Numéro court du jour (#042), sous le verrou du menu — voir Order::nextNumber().
+            [$orderDay, $orderNo] = Order::nextNumber($menu->id);
+
             $order = $menu->orders()->create([
                 'tenant_id'        => $menu->tenant_id,
                 'reference'        => Order::generateReference(),
+                'order_day'        => $orderDay,
+                'order_no'         => $orderNo,
                 'subtotal'         => $subtotal,
                 'total'            => $total,
                 'tip'              => $tip,

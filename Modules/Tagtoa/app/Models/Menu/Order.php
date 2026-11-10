@@ -78,7 +78,7 @@ class Order extends Model
     }
 
     protected $fillable = [
-        'menu_id', 'tenant_id', 'reference', 'subtotal', 'total', 'tip', 'currency',
+        'menu_id', 'tenant_id', 'reference', 'order_no', 'order_day', 'subtotal', 'total', 'tip', 'currency',
         'status', 'payment_status', 'payment_method', 'paid_at', 'paid_by', 'channel', 'order_type', 'customer_name', 'customer_phone',
         'table_label', 'delivery_address', 'delivery_reference', 'delivery_zone_label', 'note', 'client_uuid', 'placed_at',
         'tax_total', 'tax_base', 'tax_inclusive', 'tax_label', 'tax_breakdown', 'delivery_fee',
@@ -103,7 +103,29 @@ class Order extends Model
         'tax_breakdown' => 'array',
         'courier_assigned_at' => 'datetime',
         'picked_up_at'        => 'datetime',
+        'order_day'           => 'date',
     ];
+
+    /** Numéro court affiché : « #042 » (null pour une commande d'avant la numérotation : on retombe alors sur la référence). */
+    public function getShortNoAttribute(): ?string
+    {
+        return $this->order_no ? '#'.str_pad((string) $this->order_no, 3, '0', STR_PAD_LEFT) : null;
+    }
+
+    /**
+     * Prochain numéro court de CE menu pour AUJOURD'HUI. À appeler DANS la transaction qui crée la commande : la ligne du menu est
+     * verrouillée, donc deux commandes qui arrivent ensemble ne prennent jamais le même numéro (et l'index unique le garantit aussi).
+     *
+     * @return array{0:string,1:int}  [jour (Y-m-d), numéro]
+     */
+    public static function nextNumber(int $menuId): array
+    {
+        $jour = \Carbon\Carbon::today()->toDateString();
+        \Modules\Tagtoa\App\Models\Menu\Menu::whereKey($menuId)->lockForUpdate()->value('id');
+        $dernier = (int) static::query()->where('menu_id', $menuId)->whereDate('order_day', $jour)->max('order_no');
+
+        return [$jour, $dernier + 1];
+    }
 
     public static function generateReference(): string
     {
