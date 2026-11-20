@@ -1,0 +1,7 @@
+# Données runtime (jamais versionnées)
+data/*
+!data/.htaccess
+!data/index.html
+uploads/*
+!uploads/.htaccess
+!uploads/index.html
