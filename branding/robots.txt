@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /recherche
+
+Sitemap: https://rooseveltforestal.com/sitemap.xml

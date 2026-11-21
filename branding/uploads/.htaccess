@@ -1,0 +1,9 @@
+# Aucun script exécutable dans les uploads
+<FilesMatch "\.(php|phtml|phar|pl|py|cgi|sh)$">
+  Require all denied
+</FilesMatch>
+Options -ExecCGI
+RemoveHandler .php .phtml
+<IfModule mod_php.c>
+  php_flag engine off
+</IfModule>
