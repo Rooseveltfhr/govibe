@@ -148,6 +148,7 @@ function page(array $o): void {
     $canon = site_url($o['path']);
     $fullTitle = $o['title'] === 'Roosevelt Forestal' ? $o['title'] : $o['title'] . ' | Roosevelt Forestal';
     $desc = trunc((string)$o['desc'], 200);
+    if (mb_strlen($desc) < 60) $desc = trim($desc . ' ' . (string)($o['desc_extra'] ?? 'Roosevelt Forestal — entrepreneur, ingénieur informatique et fondateur de GOVIBE Innovation Hub.'));
     $img = abs_asset($o['image']);
     $lang = lang();
     $loc = ['fr' => 'fr_FR', 'ht' => 'ht_HT', 'en' => 'en_US'][$lang];
@@ -185,7 +186,8 @@ function card(array $r, bool $big = false): string {
     $cat = ($r['kind'] !== 'video' && $r['cat_name']) ? cat_name(['name' => $r['cat_name'], 'name_ht' => $r['cat_ht'] ?? '', 'name_en' => $r['cat_en'] ?? ''], $lang) : '';
     $cls = 'post-card' . ($big ? ' big' : '') . ($r['kind'] === 'video' ? ' vid-card' : '');
     $draft = $r['status'] !== 'published' ? ' <span class="badge draft">draft</span>' : '';
-    return '<article class="' . $cls . '"><a href="' . e($href) . '" class="media-link" tabindex="-1" aria-hidden="true">' . media_box(cover_url($r), '', mb_strtoupper(mb_substr($r['title'], 0, 1))) . '</a><div class="body"><div class="chips"><span class="badge">' . e($label) . '</span>' . ($cat ? '<span class="chip">' . e($cat) . '</span>' : '') . $draft . '</div><h3><a href="' . e($href) . '">' . e($r['title']) . '</a></h3><p>' . e(trunc((string)$r['summary'], $big ? 220 : 130)) . '</p><div class="date">' . e(fmt_date($r['publish_at'] ?: $r['created_at'], $lang)) . '</div></div></article>';
+    $h = $GLOBALS['card_h'] ?? 'h3';
+    return '<article class="' . $cls . '"><a href="' . e($href) . '" class="media-link" tabindex="-1" aria-hidden="true">' . media_box(cover_url($r), '', mb_strtoupper(mb_substr($r['title'], 0, 1))) . '</a><div class="body"><div class="chips"><span class="badge">' . e($label) . '</span>' . ($cat ? '<span class="chip">' . e($cat) . '</span>' : '') . $draft . '</div><' . $h . '><a href="' . e($href) . '">' . e($r['title']) . '</a></' . $h . '><p>' . e(trunc((string)$r['summary'], $big ? 220 : 130)) . '</p><div class="date">' . e(fmt_date($r['publish_at'] ?: $r['created_at'], $lang)) . '</div></div></article>';
 }
 function share_bar(string $path, string $title, string $text, ?string $image, string $ref): string {
     return '<div class="share-wrap"><span class="share-label">' . e(t('share')) . '</span><div class="share-bar" data-url="' . e(site_url($path)) . '" data-title="' . e($title) . '" data-text="' . e(trunc($text, 140)) . '" data-image="' . e($image ? abs_asset($image) : '') . '" data-ref="' . e($ref) . '"></div></div>';

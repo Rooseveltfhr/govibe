@@ -253,3 +253,18 @@ a.chip:hover, .chip.on { background: var(--gold-grad); color: #000; border-color
 .cm-promo { background: radial-gradient(80% 120% at 100% 0%, rgba(210,16,52,.35), transparent 60%), radial-gradient(70% 100% at 0% 100%, rgba(0,32,159,.5), transparent 60%), #060f33; padding: clamp(60px, 8vw, 100px) 0; }
 .cm-promo .kicker { color: #ff8da0; }
 .cm-promo .kicker::before { background: var(--red); }
+
+/* ---------- Corrections de contraste (WCAG AA) ---------- */
+.on-light .kicker, .on-light .share-label, .on-light .note a { color: #7a5a0e; }
+.on-light .kicker::before { background: #7a5a0e; }
+.on-light cite, .on-light .quote-band cite, .quote-band.on-light cite { color: #7a5a0e; }
+.on-light .badge { color: #6b4f0a; background: rgba(201, 162, 39, .18); border-color: rgba(122, 90, 14, .45); }
+.on-light .note { color: rgba(18, 18, 20, .72); }
+.marquee span { color: rgba(255, 255, 255, .62); }
+.marquee.cm-marquee span, .marquee.cm-marquee span::after { color: #fff; }
+button.btn-ghost, .btn-ghost { background: transparent; }
+.foot-title { font-size: .75rem; font-weight: 700; letter-spacing: .3em; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
+.h-sm { font-size: clamp(1.25rem, 2.2vw, 1.7rem); letter-spacing: .03em; }
+.post-card h2 { font-size: 1.3rem; line-height: 1.15; letter-spacing: .03em; }
+.pdf-cta h2 { margin-bottom: 4px; }
+.toc-title { font-size: .72rem; letter-spacing: .26em; text-transform: uppercase; color: var(--gold); margin-bottom: 12px; font-weight: 700; }

@@ -53,3 +53,17 @@ Téléchargez régulièrement `data/` et `uploads/` (contenus, abonnés, message
 
 ## Sécurité (déjà en place)
 Mots de passe hachés, protection CSRF, limitation de débit (connexion, formulaires, statistiques), champs piège + délai anti-robot, validation et ré-encodage des images, échappement systématique, base SQLite au nom aléatoire dans un dossier interdit au web, aucun script exécutable dans `uploads/`.
+
+## Si le VPS / l'hébergement PHP n'est pas disponible (plan B)
+Le site est conçu en deux couches :
+
+| Couche | Contenu | Exige PHP ? |
+|---|---|---|
+| **Statique** | Accueil, À propos, Écosystème, Conférences, Contact, **campagne + générateur de flyer**, 404 | **Non** — fonctionne sur n'importe quel hébergement statique (Netlify, Cloudflare Pages, GitHub Pages, stockage S3/CDN, hébergement mutualisé sans PHP) |
+| **Dynamique** | Programme, propositions, actualités, vidéos, espace citoyen, newsletter, Presse & Media, PDF, admin, statistiques | **Oui** (PHP 7.4+ et SQLite) |
+
+**Mise en ligne rapide du statique** : publiez le contenu du ZIP **sans** les dossiers `app/`, `data/`, `uploads/` et sans `app.php`. Le générateur de flyer marche à 100 % (tout se passe dans le navigateur) ; les liens vers les modules dynamiques affichent la page `404.html` (« Cette section arrive très bientôt »). Les mesures d'audience échouent silencieusement et les blocs « À la une » restent masqués.
+
+**Retour à la version complète** : dès qu'un hébergement PHP est disponible (le VPS, ou un petit hébergement mutualisé à quelques dollars par mois), envoyez le ZIP complet — aucune modification de code n'est nécessaire.
+
+> Important : l'aperçu WhatsApp/Facebook de la campagne dépend de `assets/img/og-campaign.jpg` et des balises de la page : ils fonctionnent en statique.

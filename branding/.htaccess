@@ -2,6 +2,7 @@
 Options -Indexes
 DirectoryIndex index.html index.php
 AddDefaultCharset UTF-8
+ErrorDocument 404 /404.html
 
 <IfModule mod_rewrite.c>
 RewriteEngine On

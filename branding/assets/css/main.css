@@ -110,7 +110,7 @@ h3 { font-size: clamp(1.25rem, 2.2vw, 1.7rem); letter-spacing: 0.03em; }
 section { padding: clamp(84px, 11vw, 150px) 0; position: relative; }
 
 .on-light { background: var(--paper); color: var(--ink); }
-.on-light .kicker { color: #a8831c; }
+.on-light .kicker { color: #7a5a0e; }
 .on-ink { background: var(--ink); }
 
 .section-head { max-width: 760px; margin-bottom: clamp(44px, 6vw, 74px); }

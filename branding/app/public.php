@@ -44,14 +44,14 @@ function r_program(): void {
     $all = rows("SELECT c.id,c.title,c.summary,c.slug,c.type,c.category_id,cat.name,cat.name_ht,cat.name_en,cat.slug AS cslug,cat.sort FROM content c JOIN categories cat ON cat.id=c.category_id WHERE c.kind='proposal' AND " . visible_sql('c') . " ORDER BY cat.sort, c.featured DESC, COALESCE(c.publish_at,c.created_at)");
     $chapters = []; foreach ($all as $r) $chapters[$r['category_id']][] = $r;
     $pdfOk = true;
-    $cta = '<div class="pdf-cta"><div><h3>' . e(t('download_pdf')) . '</h3><p>' . e(t('pdf_note')) . '</p></div><a class="btn btn-gold" href="' . e(url('programme.pdf')) . '" data-track="program_pdf">' . e(t('download_pdf')) . '</a></div>';
+    $cta = '<div class="pdf-cta"><div><h2 class="h-sm">' . e(t('download_pdf')) . '</h2><p>' . e(t('pdf_note')) . '</p></div><a class="btn btn-gold" href="' . e(url('programme.pdf')) . '" data-track="program_pdf">' . e(t('download_pdf')) . '</a></div>';
     $body = hero(t('prog_kicker'), t('prog_title'), t('prog_lead'));
     $body .= '<section style="padding-top:20px"><div class="wrap">';
     if (!$chapters) {
         $body .= '<div class="empty"><h3>' . e(t('prog_empty_t')) . '</h3><p>' . e(t('prog_empty')) . '</p><p class="mt-2"><a class="btn btn-gold" href="' . e(url('espace-citoyen')) . '">' . e(t('citizen_title')) . '</a></p></div>';
     } else {
         $body .= $cta . '<div class="toolbar">' . search_box('propositions') . '<a class="btn btn-ghost" href="' . e(url('propositions')) . '">' . e(t('props_title')) . ' →</a></div>';
-        $toc = '<aside class="toc" aria-label="' . e(t('chapters')) . '"><h4>' . e(t('chapters')) . '</h4>';
+        $toc = '<aside class="toc" aria-label="' . e(t('chapters')) . '"><p class="toc-title">' . e(t('chapters')) . '</p>';
         $main = ''; $i = 0;
         foreach ($chapters as $items) {
             $i++; $c = $items[0]; $nm = cat_name(['name' => $c['name'], 'name_ht' => $c['name_ht'], 'name_en' => $c['name_en']], $lang);
@@ -70,6 +70,7 @@ function r_program(): void {
 
 /* ------------------------------------------------------------ PROPOSITIONS */
 function r_props(): void {
+    $GLOBALS['card_h'] = 'h2';
     $page = max(1, (int)($_GET['page'] ?? 1)); $qv = trim((string)($_GET['q'] ?? '')); $cat = (string)($_GET['cat'] ?? ''); $type = (string)($_GET['type'] ?? '');
     if (!in_array($type, PROPOSAL_TYPES, true)) $type = '';
     $more = false; $total = 0;
@@ -159,6 +160,7 @@ function r_article(string $slug): void {
 
 /* ------------------------------------------------------------ VIDÉOS */
 function r_videos(): void {
+    $GLOBALS['card_h'] = 'h2';
     $page = max(1, (int)($_GET['page'] ?? 1)); $qv = trim((string)($_GET['q'] ?? '')); $cat = (string)($_GET['cat'] ?? '');
     $more = false; $total = 0; $items = list_content('video', ['q' => $qv, 'cat' => $cat], 9, ($page - 1) * 9, 'recent', $more, $total);
     if ($qv !== '' && $page === 1) { log_search($qv); stat_add('search', 'videos'); }
@@ -308,7 +310,7 @@ function r_press(): void {
     $b = hero('Presse & Media', 'Presse & Media', 'Biographies, photos officielles, dossier de presse, communiqués et contact presse.');
     $b .= '<section style="padding-top:20px"><div class="wrap"><p class="kicker">Biographie courte</p><p class="bio-short">' . nl2br(e((string)setting('bio_short'))) . '</p>';
     $b .= '<div class="facts mt-3"><div class="fact"><small>Fonction</small>Fondateur &amp; CEO, GOVIBE Innovation Hub</div><div class="fact"><small>Profil</small>Entrepreneur · Ingénieur informatique</div><div class="fact"><small>Projets</small>GOVIBE · TAGTOA · Tchekela · Klasyo · HOSPIFY</div><div class="fact"><small>Langues</small>Français · Kreyòl · English</div></div>';
-    $b .= '<div class="pdf-cta" style="margin-top:40px"><div><h3>Dossier de presse</h3><p>Biographies, repères et contact au format PDF, prêt pour l\'impression et la diffusion.</p></div><a class="btn btn-gold" href="' . e(url('dossier-presse.pdf')) . '">Télécharger le dossier (PDF)</a></div></div></section>';
+    $b .= '<div class="pdf-cta" style="margin-top:40px"><div><h2 class="h-sm">Dossier de presse</h2><p>Biographies, repères et contact au format PDF, prêt pour l\'impression et la diffusion.</p></div><a class="btn btn-gold" href="' . e(url('dossier-presse.pdf')) . '">Télécharger le dossier (PDF)</a></div></div></section>';
     $b .= '<section class="on-light"><div class="wrap"><div class="section-head"><p class="kicker">Biographie complète</p><h2>Parcours</h2></div><div class="prose">' . md((string)setting('bio_long')) . '</div></div></section>';
     $b .= '<section><div class="wrap"><div class="section-head"><p class="kicker">Photos officielles</p><h2>Visuels pour la presse</h2><p class="lead mt-1">Libres d\'usage pour illustrer un article ou annoncer un événement, avec la mention « Roosevelt Forestal ».</p></div><div class="press-photos">';
     foreach ($photos as [$f, $l]) $b .= '<figure>' . media_box(url('assets/img/' . $f), $l, 'RF') . '<a class="dl" href="' . e(url('assets/img/' . $f)) . '" download>Télécharger</a></figure>';

@@ -15,7 +15,7 @@ const parts = {
 };
 // page → préfixe relatif vers la racine
 const pages = {
-  "index.html": "", "about.html": "", "ecosystem.html": "", "speaking.html": "", "contact.html": "",
+  "index.html": "", "about.html": "", "ecosystem.html": "", "speaking.html": "", "contact.html": "", "404.html": "/",
   "nou-pa-nan-bel-diskou-anko/index.html": "../",
 };
 const sub = (t, b) => t.replaceAll("{{b}}", b).replaceAll("{{v}}", v).trimEnd();
